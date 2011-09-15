@@ -48,13 +48,19 @@ def is_important(line):
 
 def timestamp(line):
     stamp = time.time()
-    return line + " TIMESTAMP: " + str(stamp)
+    return line + " TIMESTAMP: " + repr(stamp)
 
 def main():
-    for line in sys.stdin:
-        if is_important(line):
-            print timestamp(sanitize(line))
-
+    #for line in sys.stdin:
+        #if is_important(line):
+        #    print timestamp(sanitize(line))
+     #   print line,
+    line = sys.stdin.readline()
+    while line:
+        if is_important(line): #check it starts with query...
+            print timestamp(sanitize(line)) 
+        line = sys.stdin.readline()
+        
     return
         
 

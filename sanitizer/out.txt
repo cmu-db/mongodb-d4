@@ -1,0 +1,4 @@
+query: { create: "2d741ca9ea038c2eb4c4cc73da991890", capped: undefined, size: undefined, max: undefined } ntoreturn: -1 ntoskip: 0 TIMESTAMP: 1316125069.1049261
+query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0 TIMESTAMP: 1316125069.1050329
+query: { create: "2d741ca9ea038c2eb4c4cc73da991890", capped: undefined, size: undefined, max: undefined } ntoreturn: -1 ntoskip: 0 TIMESTAMP: 1316125074.1052611
+query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0 TIMESTAMP: 1316125074.105303
