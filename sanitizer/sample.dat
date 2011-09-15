@@ -1,0 +1,11 @@
+sniffing... 27017 
+127.0.0.1:50923  -->> 127.0.0.1:27017 test.$cmd  79 bytes  id:5514ea16	1427434006
+	query: { create: "aaaa", capped: undefined, size: undefined, max: undefined }  ntoreturn: -1 ntoskip: 0
+127.0.0.1:27017  <<--  127.0.0.1:50923   91 bytes  id:52acceff	1387056895 - 1427434006
+	reply n:1 cursorId: 0
+	{ errmsg: "collection already exists", ok: 0.0 }
+127.0.0.1:50923  -->> 127.0.0.1:27017 admin.$cmd  80 bytes  id:5514ea17	1427434007
+	query: { replSetGetStatus: 1, forShell: 1 }  ntoreturn: 1 ntoskip: 0
+127.0.0.1:27017  <<--  127.0.0.1:50923   92 bytes  id:52accf00	1387056896 - 1427434007
+	reply n:1 cursorId: 0
+	{ errmsg: "not running with --replSet", ok: 0.0 }
