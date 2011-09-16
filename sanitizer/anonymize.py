@@ -57,8 +57,8 @@ def main():
      #   print line,
     line = sys.stdin.readline()
     while line:
-        if is_important(line): #check it starts with query...
-            print timestamp(sanitize(line)) 
+        #if is_important(line): #check it starts with query...
+        print timestamp(sanitize(line)) 
         line = sys.stdin.readline()
         
     return
