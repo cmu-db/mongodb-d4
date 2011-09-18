@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import sys
 import fileinput
 import hashlib
 import time
-
+import re
+import argparse
 
 def is_string(w):
     try:
@@ -15,26 +17,26 @@ def is_string(w):
 def is_sensitive(w):
     return w.startswith("\"") and (w.endswith("\"") or w.endswith("\","))
 
-
-def hash_string(w):
+def hash_string(w, salt):
+    orig_len = len(w)
     has_comma = w.endswith(",")
     w = w[1:]
     if has_comma:
         w = w[:-2]
+        comma = ","
     else:
         w = w[:-1]
-    hashed = hashlib.md5(w).hexdigest()
-    hashed = "\""+ hashed + "\""
-    if has_comma:
-        hashed = hashed + ","
-    return hashed
+        comma = ""
+        
+    # hash/length <optional comma>
+    return "%s/%d%s" % (hashlib.md5(str(salt) + w).hexdigest(), orig_len, comma)
 
-def sanitize(line):
+def sanitize(line, salt):
     words = line.split()
     new_words = []
     for w in words:
         if is_sensitive(w):
-            new_words.append(hash_string(w))
+            new_words.append(hash_string(w, salt))
         else:
             new_words.append(w)
 
@@ -46,26 +48,33 @@ def is_important(line):
     l = line.lstrip("\t ") #tab and space
     return l.startswith("query")
 
-def timestamp(line):
-    stamp = time.time()
-    return line + " TIMESTAMP: " + repr(stamp)
-
-def main():
+if __name__ == '__main__':
+    aparser = argparse.ArgumentParser(description='MongoSniff Trace Anonymizer')
+    aparser.add_argument('salt', type=int,
+                         help='Random hash salt')
+    args = vars(aparser.parse_args())
+    
     #for line in sys.stdin:
         #if is_important(line):
         #    print timestamp(sanitize(line))
      #   print line,
+     
+    newCommand = re.compile("^(.*?) (\-\->>|<<\-\-) (.*?)")
     line = sys.stdin.readline()
     while line:
-        #if is_important(line): #check it starts with query...
-        print timestamp(sanitize(line)) 
-        line = sys.stdin.readline()
+        line = sanitize(line, args['salt'])
         
-    return
-        
+        # Check whether this is a new command
+        # If it is, then this is only line that should get a timestamp
+        if newCommand.match(line):
+            timestamp = repr(time.time()) + " -"
+        else:
+            timestamp = "  "
+        print "%-20s %s" % (timestamp, line)
 
-if __name__ == '__main__':
-	main()
+        line = sys.stdin.readline()
+## MAIN        
+
 
 
 

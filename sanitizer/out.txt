@@ -1,4 +1,11 @@
-query: { create: "2d741ca9ea038c2eb4c4cc73da991890", capped: undefined, size: undefined, max: undefined } ntoreturn: -1 ntoskip: 0 TIMESTAMP: 1316125069.1049261
-query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0 TIMESTAMP: 1316125069.1050329
-query: { create: "2d741ca9ea038c2eb4c4cc73da991890", capped: undefined, size: undefined, max: undefined } ntoreturn: -1 ntoskip: 0 TIMESTAMP: 1316125074.1052611
-query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0 TIMESTAMP: 1316125074.105303
+                     sniffing... 27017
+1316312038.809952 -  127.0.0.1:50923 -->> 127.0.0.1:27017 test.$cmd 79 bytes id:5514ea16 1427434006
+                     query: { create: 626df501270f676cbe6ca9967587ccdb/7, capped: undefined, size: undefined, max: undefined } ntoreturn: -1 ntoskip: 0
+1316312038.810056 -  127.0.0.1:27017 <<-- 127.0.0.1:50923 91 bytes id:52acceff 1387056895 - 1427434006
+                     reply n:1 cursorId: 0
+                     { errmsg: "collection already exists", ok: 0.0 }
+1316312038.8101029 - 127.0.0.1:50923 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:5514ea17 1427434007
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1316312038.8101411 - 127.0.0.1:27017 <<-- 127.0.0.1:50923 92 bytes id:52accf00 1387056896 - 1427434007
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
