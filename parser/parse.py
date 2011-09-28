@@ -7,8 +7,26 @@ import re
 
 
 INPUT_FILE = "sample.txt"
-#IP_REGEX = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{5,5}.*"
+
+
 TIME_MASK = "[0-9]+\.[0-9]+.*"
+ARROW_MASK = "(-->>|<<--)"
+IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{5,5}"
+COLLECTION_MASK = "\w+\.\$?\w+"
+SIZE_MASK = "\d+ bytes"
+MAGIC_ID_MASK = "id:\w+ \d+"
+REPLY_ID_MASK = "\d+"
+
+
+HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
+"(?P<IP1>" + IP_MASK + ") *" + \
+"(?P<arrow>" + ARROW_MASK + ") *" + \
+"(?P<IP2>" + IP_MASK + ") *" + \
+"(?P<collection>" + COLLECTION_MASK + ")? *" + \
+"(?P<size>" + SIZE_MASK + ") *" + \
+"(?P<magic_id>" + MAGIC_ID_MASK + ") *" + \
+"-? *(?P<reply_id>" + REPLY_ID_MASK + ")?"
+
 
 def main():
     #for line in sys.stdin:
@@ -21,9 +39,14 @@ def main():
         line = file.readline()
         if re.match(TIME_MASK, line):
             print("MATCH")
+            m = re.search(HEADER_MASK, line)
+            if (m):
+                print(m.groupdict())
+            else:
+                print(line)
+                exit()
         else:
             print("NO.")
-        print (line)
         
         
     return
