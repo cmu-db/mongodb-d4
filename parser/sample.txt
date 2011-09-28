@@ -1,0 +1,134 @@
+                     sniffing... 27017
+1317165308.8626921 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 64 bytes id:21c8ff41 566820673
+                     insert: { _id: ObjectId('4e8258fcbade9e3d48e42b75'), b: 1c13f2701648e0b0d46d8a2a5a131a53/6 }
+1317165308.8628271 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff42 566820674
+                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
+1317165308.8628881 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d1281b 550578203 - 566820674
+                     reply n:1 cursorId: 0
+                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
+1317165308.862968 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff43 566820675
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165308.8630271 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1281c 550578204 - 566820675
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165316.863651 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff44 566820676
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165316.863714 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1281d 550578205 - 566820676
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165316.8637569 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff45 566820677
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165316.86379 -   127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1281e 550578206 - 566820677
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165316.8638301 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff46 566820678
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165316.863863 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1281f 550578207 - 566820678
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165320.8641911 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 67 bytes id:21c8ff47 566820679
+                     insert: { _id: ObjectId('4e825908bade9e3d48e42b76'), b: 9d766cd039778e0267976a3f58abfe60/9 }
+1317165320.864327 -  127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff48 566820680
+                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
+1317165320.8643899 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12820 550578208 - 566820680
+                     reply n:1 cursorId: 0
+                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
+1317165320.864465 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff49 566820681
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165320.8645229 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12821 550578209 - 566820681
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165324.864774 -  127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 64 bytes id:21c8ff4a 566820682
+                     insert: { _id: ObjectId('4e82590bbade9e3d48e42b77'), b: d1df65ae7b66018edd44ea6a51ac550b/6 }
+1317165324.8648679 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff4b 566820683
+                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
+1317165324.8649199 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12822 550578210 - 566820683
+                     reply n:1 cursorId: 0
+                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
+1317165324.8649759 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff4c 566820684
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165324.8650191 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12823 550578211 - 566820684
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165326.8650501 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 65 bytes id:21c8ff4d 566820685
+                     insert: { _id: ObjectId('4e82590ebade9e3d48e42b78'), b: ae34311ece217b6e958d49eac19e2a92/7 }
+1317165326.8651631 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff4e 566820686
+                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
+1317165326.8652239 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12824 550578212 - 566820686
+                     reply n:1 cursorId: 0
+                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
+1317165326.865298 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff4f 566820687
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165326.8653641 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12825 550578213 - 566820687
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165335.8659561 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 63 bytes id:21c8ff50 566820688
+                     insert: { _id: ObjectId('4e825917bade9e3d48e42b79'), b: 12345678.0 }
+1317165335.86607 -   127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff51 566820689
+                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
+1317165335.866111 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12826 550578214 - 566820689
+                     reply n:1 cursorId: 0
+                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
+1317165335.8661611 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff52 566820690
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165335.8662131 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12827 550578215 - 566820690
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165340.8664539 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 63 bytes id:21c8ff53 566820691
+                     insert: { _id: ObjectId('4e82591cbade9e3d48e42b7a'), b: 22222222.0 }
+1317165340.866523 -  127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff54 566820692
+                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
+1317165340.866569 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12828 550578216 - 566820692
+                     reply n:1 cursorId: 0
+                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
+1317165340.8666251 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff55 566820693
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165340.8666689 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12829 550578217 - 566820693
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165345.8670449 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 63 bytes id:21c8ff56 566820694
+                     insert: { _id: ObjectId('4e825921bade9e3d48e42b7b'), 2: 22222222.0 }
+1317165345.8671589 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff57 566820695
+                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
+1317165345.8672321 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d1282a 550578218 - 566820695
+                     reply n:1 cursorId: 0
+                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
+1317165345.8673151 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff58 566820696
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165345.8673799 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1282b 550578219 - 566820696
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165353.8679259 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 63 bytes id:21c8ff59 566820697
+                     insert: { _id: ObjectId('4e825929bade9e3d48e42b7c'), 3: 33.0 }
+1317165353.8680251 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff5a 566820698
+                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
+1317165353.868073 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d1282c 550578220 - 566820698
+                     reply n:1 cursorId: 0
+                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
+1317165353.8681231 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff5b 566820699
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165353.8681619 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1282d 550578221 - 566820699
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165363.8688819 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 70 bytes id:21c8ff5c 566820700
+                     insert: { _id: ObjectId('4e825933bade9e3d48e42b7d'), q: "test query" }
+1317165363.8689549 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff5d 566820701
+                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
+1317165363.8690009 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d1282e 550578222 - 566820701
+                     reply n:1 cursorId: 0
+                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
+1317165363.869056 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff5e 566820702
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165363.8691001 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1282f 550578223 - 566820702
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
+1317165373.8700249 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 43 bytes id:21c8ff5f 566820703
+                     query: {} ntoreturn: 0 ntoskip: 0
+1317165373.870079 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 777 bytes id:20d12830 550578224 - 566820703
+                     reply n:22 cursorId: 0
+                     { _id: ObjectId('4e822a8dbade9e3d48e42b68'), a: 1.0 }
+1317165373.870126 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff60 566820704
+                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
+1317165373.870162 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12831 550578225 - 566820704
+                     reply n:1 cursorId: 0
+                     { errmsg: "not running with --replSet", ok: 0.0 }
