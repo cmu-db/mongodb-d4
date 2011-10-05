@@ -4,6 +4,7 @@ import fileinput
 import hashlib
 import time
 import re
+import argparse
 from pymongo import Connection
 
 ###GLOBAL VARS
@@ -12,8 +13,6 @@ mongo_comm = None
 
 INPUT_FILE = "sample.txt"
 
-
-###REGEX STUFF
 TIME_MASK = "[0-9]+\.[0-9]+.*"
 ARROW_MASK = "(-->>|<<--)"
 IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{5,5}"
@@ -30,6 +29,7 @@ HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
 "(?P<size>" + SIZE_MASK + ") *" + \
 "(?P<magic_id>" + MAGIC_ID_MASK + ") *" + \
 "-? *(?P<reply_id>" + REPLY_ID_MASK + ")?"
+headerRegex = re.compile(HEADER_MASK);
 
 CONTENT_REPLY_MASK = "\s*reply +.*"
 CONTENT_INSERT_MASK = "\s*insert: {.*"
@@ -87,10 +87,16 @@ def process_content_line(line):
 
 def main():
     global current_transaction
+    global headerRegex
+
+
+    aparser = argparse.ArgumentParser(description='MongoSniff Trace Anonymizer')
+    aparser.add_argument('salt', type=int,
+                         help='Random hash salt')
+    args = vars(aparser.parse_args())
 
     initDB()
 
-    header_regex = re.compile(HEADER_MASK);
 
     file = open(INPUT_FILE, 'r')
     line = file.readline()
