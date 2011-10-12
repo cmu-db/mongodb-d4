@@ -38,9 +38,9 @@ replyRegex = re.compile(CONTENT_REPLY_MASK)
 insertRegex = re.compile(CONTENT_INSERT_MASK)
 queryRegex = re.compile(CONTENT_QUERY_MASK)
 
-def initDB():
+def initDB(hostname, port):
     global mongo_comm
-    connection = Connection()
+    connection = Connection(hostname, port)
     db = connection.mongo_designer
     mongo_comm = db.mongo_comm
     return
@@ -91,18 +91,20 @@ def main():
 
 
     aparser = argparse.ArgumentParser(description='MongoSniff Trace Anonymizer')
-    aparser.add_argument('salt', type=int,
-                         help='Random hash salt')
+    aparser.add_argument('hostname',
+                         help='hostname of machine running mongo server')
+    aparser.add_argument('port', type=int,
+                         help='port to connect to')
     args = vars(aparser.parse_args())
 
-    initDB()
+    initDB(args['hostname'], args['port'])
 
 
     file = open(INPUT_FILE, 'r')
     line = file.readline()
     while line:
         line = file.readline()
-        result = header_regex.match(line)
+        result = headerRegex.match(line)
         if result:
             process_header_line(result.groupdict())
         else:
