@@ -6,6 +6,7 @@ import time
 import re
 import argparse
 import yaml
+import json
 from pymongo import Connection
 
 ###GLOBAL VARS
@@ -102,12 +103,15 @@ def process_content_line(line):
 	line = line[line.find('{'):line.rfind('}')+1]
 
     obj = yaml.load(line)
+    valid_json = json.dumps(obj)
+    obj = yaml.load(valid_json)
 
-    if ('whatismyuri' in obj):
-	current_session_map[current_transaction['IP1']] = session_uid
-	session_uid += 1        
+    if obj:
+        if ('whatismyuri' in obj):
+            current_session_map[current_transaction['IP1']] = session_uid
+	    session_uid += 1        
 
-    current_transaction['content'].append(obj)
+        current_transaction['content'].append(obj)
 
     return
 
