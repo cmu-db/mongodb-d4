@@ -5,6 +5,7 @@ import hashlib
 import time
 import re
 import argparse
+import yaml
 from pymongo import Connection
 
 ###GLOBAL VARS
@@ -80,7 +81,9 @@ def process_content_line(line):
         current_transaction['type'] = "query"
         print("query")
     else:
-        current_transaction['content'].append(line)
+	obj = yaml.load(line)
+	print(obj)
+        current_transaction['content'].append(obj)
         print("other")
 
     return
