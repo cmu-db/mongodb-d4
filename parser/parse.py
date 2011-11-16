@@ -12,6 +12,7 @@ from pymongo import Connection
 ###GLOBAL VARS
 current_transaction = None
 mongo_comm = None
+recreated_db = None
 
 current_session_map = {}
 session_uid = 100
@@ -40,16 +41,22 @@ CONTENT_REPLY_MASK = "\s*reply +.*"
 CONTENT_INSERT_MASK = "\s*insert: {.*"
 CONTENT_QUERY_MASK = "\s*query: {.*"
 
-
 replyRegex = re.compile(CONTENT_REPLY_MASK)
 insertRegex = re.compile(CONTENT_INSERT_MASK)
 queryRegex = re.compile(CONTENT_QUERY_MASK)
 
 def initDB(hostname, port):
+    global recreated_db
     global mongo_comm
+
+    # Initialize connection to db that stores raw transactions
     connection = Connection(hostname, port)
     db = connection.mongo_designer
     mongo_comm = db.mongo_comm
+
+    # Initialize db that stores recreated data set
+    recreated_db = connection.recreated
+
     return
 
 def store(transaction):
@@ -68,6 +75,16 @@ def store(transaction):
 
     current_transaction['uid'] = current_session_map[ip]
     mongo_comm.insert(transaction)
+    return
+
+def add_to_recreated(transaction):
+
+#    if (transaction['type'] == "reply"):
+
+#    elif (transaction['type'] == "insert"):
+
+#    elif (transaction['type'] == "query"):
+
     return
 
 def process_header_line(header):
@@ -109,7 +126,7 @@ def process_content_line(line):
     if obj:
         if ('whatismyuri' in obj):
             current_session_map[current_transaction['IP1']] = session_uid
-	    session_uid += 1        
+            session_uid += 1        
 
         current_transaction['content'].append(obj)
 
