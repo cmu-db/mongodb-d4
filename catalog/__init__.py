@@ -1,3 +1,3 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["collection", "key"]
+__all__ = [ "catalog", "collection", "key" ]

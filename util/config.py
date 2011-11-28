@@ -12,7 +12,9 @@ KEY = "designer"
 
 CONFIG = {
     "hostname": ("The hostname of the MongoDB server to use for retrieving workload information", "localhost"),
-    "workload_name": ("The name of the database that contains the same workload", "designer"),
+    "port":     ("The port number to the MongoDB", 27017 ),
+    "schema_db": ("The name of the database that contains the sample data set.", ""),
+    "workload_db": ("The name of the database that contains the sample workload", "designer"),
     "workload_collection": ("The name of the collection that contains the sample workload", "mongo_comm"),
 }
 
@@ -24,9 +26,17 @@ def makeDefaultConfig():
     
     max_len = max(map(lambda x: len(x), CONFIG.keys()))
     line_f = "\n\n# %s\n%-" + str(max_len) + "s = %s"
-    for name in CONFIG.keys():
+    for name in sorted(CONFIG.keys()):
         desc, default = CONFIG[name]
         if default == None: default = ""
         ret += line_f % (desc, name, default) 
     return (ret)
 ## DEF
+
+def setDefaultValues(config):
+    for key in CONFIG.keys():
+        if not key in config:
+            config[key] = CONFIG[key][-1]
+    return (config)
+## DEF
+    
