@@ -5,38 +5,10 @@ import logging
 import types
 from pprint import pformat
 from mongokit import Document, CustomType
+from datetime import datetime
 
 from util import *
 
-## ==============================================
-## Collection
-## ==============================================
-class Collection(Document):
-    __collection__ = constants.CATALOG_COLL
-    structure = {
-        'name': unicode,
-        'fields': dict,
-        'shard_keys': [ ],
-        'indexes': dict,
-    }
-    required_fields = ['name', 'fields', 'shard_keys', 'indexes']
-    
-    def getEmbeddedKeys(self):
-        """Return all the keys that contain embedded documents"""
-        ret = [ ]
-        for catalog_key in self["fields"].values():
-            if catalog_key.type in [list, dict]:
-                ret.append(catalog_key)
-        ## FOR
-        return (ret)
-    ## DEF
-
-    #def __str__(self):
-        #return self.__unicode__()
-    #def __unicode__(self):
-        #return pformat(self.__dict__)
-    #def __repr__(self):
-        #return pformat(self.__dict__)
 
 ## ==============================================
 ## FieldType
@@ -54,7 +26,7 @@ class FieldType(CustomType):
         """convert type to a python object"""
         if value is not None:
             # HACK
-            for t in [ str, bool ]:
+            for t in [ str, bool, datetime ]:
                 if value == t.__name__: return t
             return eval("types.%sType" % value.title())
 
@@ -71,13 +43,36 @@ class Field(Document):
     __collection__ = constants.CATALOG_FIELDS
     structure = {
         'name': unicode,
-        'type': FieldType,
+        'type': FieldType(),
         'min_size': int,
         'max_size': int
     }
     required_fields = ['name', 'type']
+    default_values = {
+        'min_size': None,
+        'max_size': None
+    }
         
-    def __str__(self):
-        return self.__unicode__()
-    def __unicode__(self):
-        return "%s[%s]" % (self.name, self.type.__name__)
+## ==============================================
+## Collection
+## ==============================================
+class Collection(Document):
+    __collection__ = constants.CATALOG_COLL
+    structure = {
+        'name': unicode,
+        'fields': dict,
+        'shard_keys': [ ],
+        'indexes': dict,
+    }
+    required_fields = ['name', 'fields', 'indexes']
+    use_autorefs = True
+    
+    def getEmbeddedKeys(self):
+        """Return all the keys that contain embedded documents"""
+        ret = [ ]
+        for catalog_key in self["fields"].values():
+            if catalog_key.type in [list, dict]:
+                ret.append(catalog_key)
+        ## FOR
+        return (ret)
+    ## DEF

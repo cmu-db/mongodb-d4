@@ -13,7 +13,7 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
     
     for coll_name in dataset_db.collection_names():
         if coll_name.startswith("system."): continue
-        if not coll_name.startswith("CUSTOMER"): continue # FIXME
+        LOG.info("Retrieving schema information from %s.%s" % (dataset_db.name, coll_name))
         
         # COLLECTION SCHEMA
         # HACK: Grab one document from the collection and pick it apart to see what keys it has
@@ -23,7 +23,8 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
             continue
         
         coll_catalog = schema_db.Collection()
-        coll_catalog["fields"] = parseDocument(schema_db, doc)
+        coll_catalog['name'] = coll_name
+        coll_catalog["fields"] = extractFields(schema_db, doc)
         
         # COLLECTION INDEXES
         coll_catalog["indexes"] = dataset_db[coll_name].index_information()
@@ -31,28 +32,33 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
         # SHARDING KEYS
         coll_catalog["shard_keys"] = [ ] # TODO
 
+        print coll_catalog
         coll_catalog.save()
     ## FOR
 ## DEF
 
-def parseDocument(schema_db, doc, data={}):
+def extractFields(schema_db, doc, fields={ }):
     """Parse a single document and extract out the keys"""
     for name,val in doc.items():
+        # TODO: Should we always skip '_id'?
+        if name == '_id': continue
+
         val_type = type(val)
         f = schema_db.Field()
         f['name'] = name
         f['type'] = val_type
         
-        if val_type == list:
-            data[name].inner = [ ]
-            for list_val in val:
-                data[name].inner.append({ })
-                parseDocument(list_val, data[name].inner[-1])
-            ## FOR
-        elif val_type == dict:
-            data[name].inner = { }
-            parseDocument(val, f.inner)
-        data[name] = f
+        #if val_type == list:
+            #data[name].inner = [ ]
+            #for list_val in val:
+                #data[name].inner.append({ })
+                #extractFields(list_val, data[name].inner[-1])
+            ### FOR
+        #elif val_type == dict:
+            #data[name].inner = { }
+            #extractFields(val, f.inner)
+        f.save()
+        fields[name] = f
     ## FOR
-    return (data)
+    return (fields)
 ## DEF

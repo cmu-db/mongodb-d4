@@ -56,11 +56,11 @@ if __name__ == '__main__':
         raise
     
     ## Register our objects with MongoKit
-    conn.register([ catalog.Collection ])
+    conn.register([ catalog.Collection, catalog.Field ])
 
     ## Make sure that the databases that we need are there
     db_names = conn.database_names()
-    for key in [ 'dataset_db', 'workload_db' ]:
+    for key in [ 'dataset_db', ]: # FIXME 'workload_db' ]:
         db_name = config[key]
         if not db_name in db_names:
             raise Exception("The %s database '%s' does not exist" % (key.upper(), db_name))
@@ -73,7 +73,8 @@ if __name__ == '__main__':
     ## STEP 1
     ## Precompute any summarizations and information that we can about the workload
     ## ----------------------------------------------
-    schema = catalog.generateCatalogFromDatabase(dataset_db, schema_db)
+    map(schema_db.drop_collection, [constants.CATALOG_COLL, constants.CATALOG_FIELDS])
+    catalog.generateCatalogFromDatabase(dataset_db, schema_db)
     
     ## ----------------------------------------------
     ## STEP 2
