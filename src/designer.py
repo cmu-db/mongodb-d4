@@ -56,7 +56,7 @@ if __name__ == '__main__':
         raise
     
     ## Register our objects with MongoKit
-    conn.register([ catalog.Collection, catalog.Field ])
+    conn.register([ catalog.Collection ])
 
     ## Make sure that the databases that we need are there
     db_names = conn.database_names()
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     ## STEP 1
     ## Precompute any summarizations and information that we can about the workload
     ## ----------------------------------------------
-    map(schema_db.drop_collection, [constants.CATALOG_COLL, constants.CATALOG_FIELDS])
+    map(schema_db.drop_collection, [constants.CATALOG_COLL])
     catalog.generateCatalogFromDatabase(dataset_db, schema_db)
     
     ## ----------------------------------------------

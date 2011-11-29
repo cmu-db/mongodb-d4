@@ -44,9 +44,11 @@ def extractFields(schema_db, doc, fields={ }):
         if name == '_id': continue
 
         val_type = type(val)
-        f = schema_db.Field()
-        f['name'] = name
+        f = { } # schema_db.Field()
+        #f['name'] = name
         f['type'] = val_type
+        f['min_size'] = None
+        f['max_size'] = None
         
         #if val_type == list:
             #data[name].inner = [ ]
@@ -57,7 +59,7 @@ def extractFields(schema_db, doc, fields={ }):
         #elif val_type == dict:
             #data[name].inner = { }
             #extractFields(val, f.inner)
-        f.save()
+        #f.save()
         fields[name] = f
     ## FOR
     return (fields)

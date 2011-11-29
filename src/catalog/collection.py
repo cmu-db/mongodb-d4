@@ -39,19 +39,19 @@ class FieldType(CustomType):
 ## ==============================================
 ## Field
 ## ==============================================
-class Field(Document):
-    __collection__ = constants.CATALOG_FIELDS
-    structure = {
-        'name': unicode,
-        'type': FieldType(),
-        'min_size': int,
-        'max_size': int
-    }
-    required_fields = ['name', 'type']
-    default_values = {
-        'min_size': None,
-        'max_size': None
-    }
+#class Field(Document):
+    #__collection__ = constants.CATALOG_FIELDS
+    #structure = {
+        #'name': unicode,
+        #'type': FieldType(),
+        #'min_size': int,
+        #'max_size': int
+    #}
+    #required_fields = ['name', 'type']
+    #default_values = {
+        #'min_size': None,
+        #'max_size': None
+    #}
         
 ## ==============================================
 ## Collection
@@ -60,12 +60,18 @@ class Collection(Document):
     __collection__ = constants.CATALOG_COLL
     structure = {
         'name': unicode,
-        'fields': dict,
+        'fields': {
+            unicode: {
+                'type': FieldType(),
+                'min_size': int,
+                'max_size': int
+            }
+        },
         'shard_keys': [ ],
         'indexes': dict,
     }
-    required_fields = ['name', 'fields', 'indexes']
-    use_autorefs = True
+    required_fields = [ 'name' ]
+    #use_autorefs = True
     
     def getEmbeddedKeys(self):
         """Return all the keys that contain embedded documents"""
