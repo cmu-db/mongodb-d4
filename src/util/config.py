@@ -13,9 +13,9 @@ KEY = "designer"
 CONFIG = {
     "hostname": ("The hostname of the MongoDB server to use for retrieving workload information", "localhost"),
     "port":     ("The port number to the MongoDB", 27017 ),
-    "schema_db": ("The name of the database that contains the sample data set.", ""),
-    "workload_db": ("The name of the database that contains the sample workload", "designer"),
-    "workload_collection": ("The name of the collection that contains the sample workload", "mongo_comm"),
+    "schema_db": ("The name of the database that the designer will use to store catalog information.", "catalog"),
+    "dataset_db": ("The name of the database that contains the sample data set", ""),
+    "workload_db": ("The name of the database that contains the sample workload", "workload"),
 }
 
 def makeDefaultConfig():

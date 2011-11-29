@@ -10,7 +10,7 @@ import mongokit
 from pprint import pprint
 from ConfigParser import SafeConfigParser
 
-from catalog import *
+import catalog
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -48,29 +48,32 @@ if __name__ == '__main__':
     assert config['hostname']
     assert config['port']
 
-    ## Connect to MongoDB and make sure that the databases that we need are there
+    ## Connect to MongoDB and 
     try:
-        conn = mongokit.Connection(host=config['hostname'], port=config['port'])
+        conn = mongokit.Connection(host=config['hostname'], port=int(config['port']))
     except:
-        LOG.error("Failed to connect to MongoDB at %s:%d" % (config['hostname'], config['port']))
+        LOG.error("Failed to connect to MongoDB at %s:%s" % (config['hostname'], config['port']))
         raise
-    db_names = conn.database_names()
-    print db_names
-    sys.exit(0)
     
-    for key in [ 'schema_db', 'workload_db' ]:
+    ## Register our objects with MongoKit
+    conn.register([ catalog.Collection ])
+
+    ## Make sure that the databases that we need are there
+    db_names = conn.database_names()
+    for key in [ 'dataset_db', 'workload_db' ]:
         db_name = config[key]
         if not db_name in db_names:
             raise Exception("The %s database '%s' does not exist" % (key.upper(), db_name))
     ## FOR
     schema_db = conn[config['schema_db']]
+    dataset_db = conn[config['dataset_db']]
     workload_db = conn[config['workload_db']]
-    
+
     ## ----------------------------------------------
     ## STEP 1
     ## Precompute any summarizations and information that we can about the workload
     ## ----------------------------------------------
-    schema = catalog.generateCatalogFromDatabase(schema_db)
+    schema = catalog.generateCatalogFromDatabase(dataset_db, schema_db)
     
     ## ----------------------------------------------
     ## STEP 2

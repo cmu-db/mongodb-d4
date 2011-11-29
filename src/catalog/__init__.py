@@ -1,3 +1,7 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [ "catalog", "collection", "key" ]
+from utilmethods import *
+from collection import Collection, Field, FieldType
+
+del utilmethods
+del collection
