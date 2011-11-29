@@ -2,3 +2,4 @@
 .#kate-*
 *.kate-swp
 *.config
+nosetests.xml
