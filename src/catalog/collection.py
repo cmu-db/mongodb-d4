@@ -3,13 +3,14 @@
 import sys
 import logging
 from pprint import pformat
+from mongokit import Document
 
 from util import *
 
 ## ==============================================
 ## Collection
 ## ==============================================
-class Collection(object):
+class Collection(Document):
     __collection__ = constants.CATALOG_COLL
     structure = {
         'name': unicode,
