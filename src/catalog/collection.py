@@ -4,13 +4,24 @@ import sys
 import logging
 from pprint import pformat
 
+from util import *
+
 ## ==============================================
 ## Collection
 ## ==============================================
 class Collection(object):
-    def __init__(self, name, data={}, shard_keys=[], indexes={}):
+    __collection__ = constants.CATALOG_COLL
+    structure = {
+        'name': unicode,
+        'fields': dict,
+        'shard_keys': [unicode],
+        'indexes': dict,
+    }
+    required_fields = ['name', 'fields', 'shard_keys', 'indexes']
+    
+    def __init__(self, name, fields={}, shard_keys=[], indexes={}):
         self.name = name
-        self.data = data
+        self.fields = fields
         self.shard_keys = shard_keys[:]
         self.indexes = indexes
     ## DEF
@@ -18,7 +29,7 @@ class Collection(object):
     def getEmbeddedKeys(self):
         """Return all the keys that contain embedded documents"""
         ret = [ ]
-        for catalog_key in self.data.values():
+        for catalog_key in self.fields.values():
             if catalog_key.type in [list, dict]:
                 ret.append(catalog_key)
         ## FOR

@@ -6,16 +6,14 @@ import sys
 import argparse
 import logging
 import pymongo
+import mongokit
 from pprint import pprint
 from ConfigParser import SafeConfigParser
 
 from catalog import *
 from util import *
 
-logging.basicConfig(level = logging.INFO,
-                    format="%(asctime)s [%(funcName)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-                    datefmt="%m-%d-%Y %H:%M:%S",
-                    stream = sys.stdout)
+LOG = logging.getLogger(__name__)
 
 ## ==============================================
 ## main
@@ -51,8 +49,14 @@ if __name__ == '__main__':
     assert config['port']
 
     ## Connect to MongoDB and make sure that the databases that we need are there
-    conn = pymongo.Connection(config['hostname'], config['port'])
+    try:
+        conn = mongokit.Connection(host=config['hostname'], port=config['port'])
+    except:
+        LOG.error("Failed to connect to MongoDB at %s:%d" % (config['hostname'], config['port']))
+        raise
     db_names = conn.database_names()
+    print db_names
+    sys.exit(0)
     
     for key in [ 'schema_db', 'workload_db' ]:
         db_name = config[key]
@@ -67,7 +71,6 @@ if __name__ == '__main__':
     ## Precompute any summarizations and information that we can about the workload
     ## ----------------------------------------------
     schema = catalog.generateCatalogFromDatabase(schema_db)
-    print repr(schema)
     
     ## ----------------------------------------------
     ## STEP 2

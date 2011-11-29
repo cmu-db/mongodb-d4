@@ -1,3 +1,4 @@
 *.pyc
 .#kate-*
+*.kate-swp
 *.config
