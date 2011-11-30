@@ -15,7 +15,6 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
     
     for coll_name in dataset_db.collection_names():
         if coll_name.startswith("system."): continue
-        if not coll_name == 'CUSTOMER': continue
         LOG.info("Retrieving schema information from %s.%s" % (dataset_db.name, coll_name))
         
         # COLLECTION SCHEMA
@@ -24,10 +23,17 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
         if not doc:
             LOG.warn("Failed to retrieve at least one record from %s.%s" % (dataset_db.name, coll_name))
             continue
+        elif type(doc) != dict:
+            print doc
+            raise Exception("Unexpected document from %s.%s" % (dataset_db.name, coll_name))
         
         coll_catalog = schema_db.Collection()
         coll_catalog['name'] = coll_name
-        coll_catalog["fields"] = extractFields(schema_db, doc)
+        try:
+            coll_catalog["fields"] = extractFields(schema_db, doc)
+        except:
+            LOG.error("Unexpected error when processing %s.%s" % (dataset_db.name, coll_name))
+            raise
         
         # COLLECTION INDEXES
         coll_catalog["indexes"] = dataset_db[coll_name].index_information()
@@ -35,11 +41,11 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
         # SHARDING KEYS
         coll_catalog["shard_keys"] = [ ] # TODO
 
-        print coll_catalog
         coll_catalog.save()
+        #print coll_catalog
     ## FOR
-    print "-"*100
-    print schema_db.catalog.find_one({'name': 'CUSTOMER'})
+    #print "-"*100
+    #print schema_db.catalog.find_one({'name': 'CUSTOMER'})
 ## DEF
 
 def extractFields(schema_db, doc, fields={ }):
@@ -65,7 +71,10 @@ def extractFields(schema_db, doc, fields={ }):
             ## TODO: Build a histogram based on how long the list is
             f['fields'] = { }
             for list_val in val:
+                #if isinstance(list_val, dict):
                 extractFields(schema_db, list_val, f['fields'])
+                #else:
+                    #print name, "->", list_val
             ## FOR
         elif val_type == dict:
             f['fields'] = { }

@@ -26,9 +26,7 @@ class FieldType(CustomType):
         """convert type to a python object"""
         if value is not None:
             # HACK
-            for t in [ str, bool, datetime ]:
-                if value == t.__name__: return t
-            return eval("types.%sType" % value.title())
+            
 
     def validate(self, value, path):
         """OPTIONAL : useful to add a validation layer"""
