@@ -2,6 +2,8 @@
 
 import sys
 import logging
+import types
+from datetime import datetime
 from pprint import pformat
 
 import collection
@@ -13,6 +15,7 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
     
     for coll_name in dataset_db.collection_names():
         if coll_name.startswith("system."): continue
+        if not coll_name == 'CUSTOMER': continue
         LOG.info("Retrieving schema information from %s.%s" % (dataset_db.name, coll_name))
         
         # COLLECTION SCHEMA
@@ -35,6 +38,8 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
         print coll_catalog
         coll_catalog.save()
     ## FOR
+    print "-"*100
+    print schema_db.catalog.find_one({'name': 'CUSTOMER'})
 ## DEF
 
 def extractFields(schema_db, doc, fields={ }):
@@ -44,23 +49,35 @@ def extractFields(schema_db, doc, fields={ }):
         if name == '_id': continue
 
         val_type = type(val)
-        f = { } # schema_db.Field()
-        #f['name'] = name
-        f['type'] = val_type
+        f = fields.get(name, { })
+        fields[name] = f
+        
+        ## TODO: What do we do if we get back an existing field 
+        ## that has a different type? Does it matter? Probably not...
+        f['type'] = fieldTypeToString(val_type)
+        
+        ## TODO: Build a histogram and keep track of the min/max sizes
+        ## for the values of this field
         f['min_size'] = None
         f['max_size'] = None
         
-        #if val_type == list:
-            #data[name].inner = [ ]
-            #for list_val in val:
-                #data[name].inner.append({ })
-                #extractFields(list_val, data[name].inner[-1])
-            ### FOR
-        #elif val_type == dict:
-            #data[name].inner = { }
-            #extractFields(val, f.inner)
-        #f.save()
-        fields[name] = f
+        if val_type == list:
+            ## TODO: Build a histogram based on how long the list is
+            f['fields'] = { }
+            for list_val in val:
+                extractFields(schema_db, list_val, f['fields'])
+            ## FOR
+        elif val_type == dict:
+            f['fields'] = { }
+            extractFields(schema_db, val, f['fields'])
     ## FOR
     return (fields)
 ## DEF
+
+def fieldTypeToString(pythonType):
+    return unicode(pythonType.__name__)
+
+def fieldTypeToPython(strType):
+    for t in [ str, bool, datetime ]:
+        if value == t.__name__: return t
+    return eval("types.%sType" % value.title())
