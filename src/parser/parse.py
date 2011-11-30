@@ -142,12 +142,14 @@ def main():
                          help='hostname of machine running mongo server')
     aparser.add_argument('port', type=int,
                          help='port to connect to')
+    aparser.add_argument('--file',
+                         help='file to read from', default=INPUT_FILE)
     args = vars(aparser.parse_args())
 
     initDB(args['hostname'], args['port'])
 
 
-    file = open(INPUT_FILE, 'r')
+    file = open(args['file'], 'r')
     line = file.readline()
     while line:
         line = file.readline()
