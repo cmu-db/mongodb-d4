@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from utilmethods import *
-from collection import Collection
+from traces import Session
 
 del utilmethods
-del collection
+del traces

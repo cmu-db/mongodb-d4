@@ -18,14 +18,12 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
         LOG.info("Retrieving schema information from %s.%s" % (dataset_db.name, coll_name))
         
         # COLLECTION SCHEMA
-        # HACK: Grab one document from the collection and pick it apart to see what keys it has
+        # Grab one document from the collection and pick it apart to see what keys it has
+        # TODO: We should probably sample more than one document per collection
         doc = dataset_db[coll_name].find_one()
         if not doc:
             LOG.warn("Failed to retrieve at least one record from %s.%s" % (dataset_db.name, coll_name))
             continue
-        elif type(doc) != dict:
-            print doc
-            raise Exception("Unexpected document from %s.%s" % (dataset_db.name, coll_name))
         
         coll_catalog = schema_db.Collection()
         coll_catalog['name'] = coll_name
@@ -54,31 +52,31 @@ def extractFields(schema_db, doc, fields={ }):
         # TODO: Should we always skip '_id'?
         if name == '_id': continue
 
+        fields[name] = fields.get(name, { })
+        
+        # TODO: What do we do if we get back an existing field 
+        # that has a different type? Does it matter? Probably not...
         val_type = type(val)
-        f = fields.get(name, { })
-        fields[name] = f
+        fields[name]['type'] = fieldTypeToString(val_type)
         
-        ## TODO: What do we do if we get back an existing field 
-        ## that has a different type? Does it matter? Probably not...
-        f['type'] = fieldTypeToString(val_type)
-        
-        ## TODO: Build a histogram and keep track of the min/max sizes
-        ## for the values of this field
-        f['min_size'] = None
-        f['max_size'] = None
+        # TODO: Build a histogram and keep track of the min/max sizes
+        # for the values of this field
+        fields[name]['min_size'] = None
+        fields[name]['max_size'] = None
         
         if val_type == list:
-            ## TODO: Build a histogram based on how long the list is
-            f['fields'] = { }
+            # TODO: Build a histogram based on how long the list is
+            fields[name]['fields'] = { }
             for list_val in val:
-                #if isinstance(list_val, dict):
-                extractFields(schema_db, list_val, f['fields'])
-                #else:
-                    #print name, "->", list_val
+                if isinstance(list_val, dict):
+                    extractFields(schema_db, list_val, fields[name]['fields'])
+                else:
+                    # TODO: Add support for single values embedded in lists
+                    assert(false)
             ## FOR
         elif val_type == dict:
-            f['fields'] = { }
-            extractFields(schema_db, val, f['fields'])
+            fields[name]['fields'] = { }
+            extractFields(schema_db, val, fields[name]['fields'])
     ## FOR
     return (fields)
 ## DEF

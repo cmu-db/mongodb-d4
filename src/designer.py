@@ -11,6 +11,7 @@ from pprint import pprint
 from ConfigParser import SafeConfigParser
 
 import catalog
+import workload
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ if __name__ == '__main__':
         raise
     
     ## Register our objects with MongoKit
-    conn.register([ catalog.Collection ])
+    conn.register([ catalog.Collection, workload.Session ])
 
     ## Make sure that the databases that we need are there
     db_names = conn.database_names()
@@ -73,8 +74,10 @@ if __name__ == '__main__':
     ## STEP 1
     ## Precompute any summarizations and information that we can about the workload
     ## ----------------------------------------------
-    map(schema_db.drop_collection, [constants.CATALOG_COLL])
+    map(schema_db.drop_collection, [constants.CATALOG_COLL, constants.WORKLOAD_SESSIONS])
     catalog.generateCatalogFromDatabase(dataset_db, schema_db)
+    
+    # TEST workload.convertWorkload(conn)
     
     ## ----------------------------------------------
     ## STEP 2
