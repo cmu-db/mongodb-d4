@@ -23,7 +23,7 @@ if __name__ == '__main__':
     aparser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                       description="%s\n%s" % (constants.PROJECT_NAME, constants.PROJECT_URL))
     aparser.add_argument('--config', type=file,
-                         help='Path to designer configuration file')
+                         help='Path to %s configuration file' % constants.PROJECT_NAME)
     aparser.add_argument('--host', type=str, default="localhost",
                          help='The hostname of the MongoDB instance containing the sample workload')
     aparser.add_argument('--print-config', action='store_true',
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     assert config['hostname']
     assert config['port']
 
-    ## Connect to MongoDB and 
+    ## Connect to MongoDB
     try:
         conn = mongokit.Connection(host=config['hostname'], port=int(config['port']))
     except:

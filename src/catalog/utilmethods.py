@@ -81,6 +81,19 @@ def extractFields( doc, fields={ }):
     return (fields)
 ## DEF
 
+def sqlTypeToPython(sqlType):
+    sqlType = sqlType.lower()
+    if sqlType.endswith('int'):
+        t = types.IntType
+    elif sqlType.endswith('text') or sqlType.endswith('char'):
+        t = types.StringType
+    elif sqlType.endswith('time'):
+        t = datetime.datetime
+    else:
+        raise Exception("Unexpected SQL type '%s'" % sqlType)
+    return (t)
+## DEF
+
 def fieldTypeToString(pythonType):
     return unicode(pythonType.__name__)
 
