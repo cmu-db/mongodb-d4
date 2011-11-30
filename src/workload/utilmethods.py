@@ -3,7 +3,6 @@
 import sys
 import logging
 import types
-from datetime import datetime
 from pprint import pformat
 
 import traces

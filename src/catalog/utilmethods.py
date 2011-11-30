@@ -28,7 +28,7 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
         coll_catalog = schema_db.Collection()
         coll_catalog['name'] = coll_name
         try:
-            coll_catalog["fields"] = extractFields(schema_db, doc)
+            coll_catalog["fields"] = extractFields(doc)
         except:
             LOG.error("Unexpected error when processing %s.%s" % (dataset_db.name, coll_name))
             raise
@@ -46,7 +46,7 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
     #print schema_db.catalog.find_one({'name': 'CUSTOMER'})
 ## DEF
 
-def extractFields(schema_db, doc, fields={ }):
+def extractFields( doc, fields={ }):
     """Parse a single document and extract out the keys"""
     for name,val in doc.items():
         # TODO: Should we always skip '_id'?
@@ -69,14 +69,14 @@ def extractFields(schema_db, doc, fields={ }):
             fields[name]['fields'] = { }
             for list_val in val:
                 if isinstance(list_val, dict):
-                    extractFields(schema_db, list_val, fields[name]['fields'])
+                    extractFields(list_val, fields[name]['fields'])
                 else:
                     # TODO: Add support for single values embedded in lists
-                    assert(false)
+                    assert(False)
             ## FOR
         elif val_type == dict:
             fields[name]['fields'] = { }
-            extractFields(schema_db, val, fields[name]['fields'])
+            extractFields(val, fields[name]['fields'])
     ## FOR
     return (fields)
 ## DEF
@@ -86,5 +86,5 @@ def fieldTypeToString(pythonType):
 
 def fieldTypeToPython(strType):
     for t in [ str, bool, datetime ]:
-        if value == t.__name__: return t
-    return eval("types.%sType" % value.title())
+        if strType == t.__name__: return t
+    return eval("types.%sType" % strType.title())
