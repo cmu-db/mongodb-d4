@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from mongokit import Document
-
+import sys
+sys.path.append("../")
 from util import *
 
 ## ==============================================
@@ -17,7 +18,7 @@ class Session(Document):
             {
                 'collection':   unicode,
                 'timestamp':    float,
-                'content':      dict,
+                'content':      list,
                 'type':         unicode,
                 'size':         int,
             }
