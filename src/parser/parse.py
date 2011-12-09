@@ -227,7 +227,6 @@ def main():
         workload_db[WORKLOAD_COLLECTION].remove()
     ## IF
     
-
     file = open(args['file'], 'r')
     line = file.readline()
     ctr = 0
