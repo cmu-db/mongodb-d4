@@ -12,7 +12,7 @@ class Collection(Document):
     structure = {
         'name': unicode,
         'fields': dict,
-        'shard_keys': [ ],
+        'shard_key': [ ],
         'indexes': dict,
     }
     required_fields = [ 'name' ]

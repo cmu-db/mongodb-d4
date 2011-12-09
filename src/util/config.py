@@ -9,6 +9,7 @@ import constants
 ## ==============================================
 
 SECT_MONGODB = "mongodb"
+SECT_CLUSTER = "cluster"
 SECT_DESIGNER = "designer"
 SECT_COSTMODEL = "costmodel"
 
@@ -20,6 +21,12 @@ DEFAULT_CONFIG = {
         "schema_db": ("The name of the database that the designer will use to store catalog information.", "catalog"),
         "dataset_db": ("The name of the database that contains the sample data set", ""),
         "workload_db": ("The name of the database that contains the sample workload", "designer"),
+    },
+    
+    # Target Cluster Configuration
+    SECT_CLUSTER: {
+        "nodes": ("The number of machines in the target MongoDB cluster.", 10),
+        "node_memory":  ("The amount of memory available for each MongoDB database nodes.", 15360),
     },
     
     # Designer Configuration
