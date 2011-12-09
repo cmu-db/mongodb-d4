@@ -75,6 +75,8 @@ def store(transaction):
 
     current_transaction['uid'] = current_session_map[ip]
     mongo_comm.insert(transaction)
+    print("inserting: ")
+    print(transaction)
     return
 
 def add_to_recreated(transaction):
@@ -126,8 +128,7 @@ def process_content_line(line):
     if obj:
         if ('whatismyuri' in obj):
             current_session_map[current_transaction['IP1']] = session_uid
-            session_uid += 1        
-
+            session_uid = session_uid + 1
         current_transaction['content'].append(obj)
 
     return
@@ -142,12 +143,14 @@ def main():
                          help='hostname of machine running mongo server')
     aparser.add_argument('port', type=int,
                          help='port to connect to')
+    aparser.add_argument('--file',
+                         help='file to read from', default=INPUT_FILE)
     args = vars(aparser.parse_args())
 
     initDB(args['hostname'], args['port'])
 
 
-    file = open(INPUT_FILE, 'r')
+    file = open(args['file'], 'r')
     line = file.readline()
     while line:
         line = file.readline()
