@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from utilmethods import *
-from collection import Collection
+from designer import *
 
-del utilmethods
-del collection
+del designer

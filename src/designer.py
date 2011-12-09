@@ -12,6 +12,7 @@ from ConfigParser import SafeConfigParser
 
 import catalog
 import workload
+import search
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -45,39 +46,52 @@ if __name__ == '__main__':
     logging.debug("Loading configuration file '%s'" % args['config'])
     cparser = SafeConfigParser()
     cparser.read(os.path.realpath(args['config'].name))
-    config = config.setDefaultValues(dict(cparser.items(config.KEY)))
-    assert config['hostname']
-    assert config['port']
-
-    ## Connect to MongoDB
-    try:
-        conn = mongokit.Connection(host=config['hostname'], port=int(config['port']))
-    except:
-        LOG.error("Failed to connect to MongoDB at %s:%s" % (config['hostname'], config['port']))
-        raise
+    config.setDefaultValues(cparser)
     
+    ## ----------------------------------------------
+    ## Connect to MongoDB
+    ## ----------------------------------------------
+    hostname = cparser.get(config.SECT_MONGODB, 'hostname')
+    port = cparser.getint(config.SECT_MONGODB, 'port')
+    assert hostname
+    assert port
+    try:
+        conn = mongokit.Connection(host=hostname, port=port)
+    except:
+        LOG.error("Failed to connect to MongoDB at %s:%s" % (hostname, port))
+        raise
     ## Register our objects with MongoKit
     conn.register([ catalog.Collection, workload.Session ])
 
     ## Make sure that the databases that we need are there
     db_names = conn.database_names()
     for key in [ 'dataset_db', ]: # FIXME 'workload_db' ]:
-        db_name = config[key]
+        if not cparser.has_option(config.SECT_MONGODB, key):
+            raise Exception("Missing the configuration option '%s.%s'" % (config.SECT_MONGODB, key))
+        elif not cparser.get(config.SECT_MONGODB, key):
+            raise Exception("Empty configuration option '%s.%s'" % (config.SECT_MONGODB, key))
+        db_name = cparser.get(config.SECT_MONGODB, key)
         if not db_name in db_names:
             raise Exception("The %s database '%s' does not exist" % (key.upper(), db_name))
     ## FOR
-    schema_db = conn[config['schema_db']]
-    dataset_db = conn[config['dataset_db']]
-    workload_db = conn[config['workload_db']]
+    schema_db = conn[cparser.get(config.SECT_MONGODB, 'schema_db')]
+    dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
+    workload_db = conn[cparser.get(config.SECT_MONGODB, 'workload_db')]
 
     ## ----------------------------------------------
     ## STEP 1
     ## Precompute any summarizations and information that we can about the workload
     ## ----------------------------------------------
+    
     map(schema_db.drop_collection, [constants.CATALOG_COLL, constants.WORKLOAD_SESSIONS])
     catalog.generateCatalogFromDatabase(dataset_db, schema_db)
     
     # TEST workload.convertWorkload(conn)
+    
+    d = search.Designer(cparser, workload_db, None)
+    for catalog_coll in schema_db.Collection.find({'name': 'CUSTOMER'}):
+        d.generateShardingCandidates(catalog_coll)
+    
     
     ## ----------------------------------------------
     ## STEP 2

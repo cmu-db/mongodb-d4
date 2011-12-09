@@ -27,3 +27,4 @@ class Collection(Document):
         ## FOR
         return (ret)
     ## DEF
+## CLASS

@@ -40,10 +40,11 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
         coll_catalog["shard_keys"] = [ ] # TODO
 
         coll_catalog.save()
-        #print coll_catalog
+        #print coll_catalog["name"], "=>", type(coll_catalog)
     ## FOR
     #print "-"*100
-    #print schema_db.catalog.find_one({'name': 'CUSTOMER'})
+    #coll_catalog = schema_db.Collection.find_one({'name': 'CUSTOMER'})
+    #print coll_catalog["name"], "=>", type(coll_catalog)
 ## DEF
 
 def extractFields( doc, fields={ }):

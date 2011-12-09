@@ -15,6 +15,7 @@ DEPENDENCIES:
 
 mongokit (+0.7)
 python-pymongo
+python-yaml
 
 ----------------------------------------------------
 
