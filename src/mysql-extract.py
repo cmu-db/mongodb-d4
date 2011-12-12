@@ -72,7 +72,8 @@ if __name__ == '__main__':
         coll_catalog['name'] = unicode(tbl_name)
         coll_catalog['shard_keys'] = [ ]
         coll_catalog['fields'] = { }
-        
+        coll_catalog['indexes'] = { }
+
         c2 = mysql_conn.cursor()
         c2.execute("""
             SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS
@@ -85,11 +86,17 @@ if __name__ == '__main__':
             coll_catalog["fields"][col_name] = {
                 'type': catalog.fieldTypeToString(col_type),
             }
-            #print "  ", col_row
-        #print
+        ## FOR
         
         # TODO: Get the index information from MySQL for this table
-        coll_catalog['indexes'] = [ ]
+        c3 = mysql_conn.cursor()
+        c3.execute("""
+            SELECT DISTINCT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+        """, (args['name'], tbl_name))
+        for ind_row in c3:
+            col_name = ind_row[0]
+            coll_catalog["indexes"][col_name] = { }
         
         # TODO: Perform some analysis on the table to figure out the information 
         # that we need for selecting the candidates and our cost model
