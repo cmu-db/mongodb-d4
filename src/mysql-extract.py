@@ -44,13 +44,15 @@ if __name__ == '__main__':
     logging.debug("Loading configuration file '%s'" % args['config'])
     cparser = SafeConfigParser()
     cparser.read(os.path.realpath(args['config'].name))
-    config = config.setDefaultValues(dict(cparser.items(config.KEY)))
+    config.setDefaultValues(cparser)
     
     ## ----------------------------------------------
     
     ## Connect to MongoDB
     try:
-        conn = mongokit.Connection(host=config['hostname'], port=int(config['port']))
+        hostname = cparser.get(config.SECT_MONGODB, 'hostname')
+        port = cparser.getint(config.SECT_MONGODB, 'port')        
+        conn = mongokit.Connection(host=hostname, port=port)
     except:
         LOG.error("Failed to connect to MongoDB at %s:%s" % (config['hostname'], config['port']))
         raise
