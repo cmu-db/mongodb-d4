@@ -59,7 +59,7 @@ if __name__ == '__main__':
     
     ## Register our objects with MongoKit
     conn.register([ catalog.Collection ])
-    schema_db = conn[config['schema_db']]
+    schema_db = conn[cparser.get(config.SECT_MONGODB, 'schema_db')]
     
     ## ----------------------------------------------
     
