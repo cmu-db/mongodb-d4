@@ -13,6 +13,7 @@ class Collection(Document):
         'name': unicode,
         'fields': dict,
         'shard_key': unicode,
+		'shard_keys': dict,
         'indexes': dict,
     }
     required_fields = [ 'name' ]

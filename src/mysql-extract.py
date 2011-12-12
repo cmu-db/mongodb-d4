@@ -69,7 +69,7 @@ if __name__ == '__main__':
     for row in c1:
         tbl_name = row[0]
         coll_catalog = schema_db.Collection()
-        coll_catalog['name'] = tbl_name
+        coll_catalog['name'] = unicode(tbl_name)
         coll_catalog['shard_keys'] = [ ]
         coll_catalog['fields'] = { }
         
