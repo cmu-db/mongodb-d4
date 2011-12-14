@@ -70,7 +70,7 @@ if __name__ == '__main__':
         tbl_name = row[0]
         coll_catalog = schema_db.Collection()
         coll_catalog['name'] = unicode(tbl_name)
-        coll_catalog['shard_keys'] = [ ]
+        coll_catalog['shard_keys'] = { }
         coll_catalog['fields'] = { }
         coll_catalog['indexes'] = { }
 
@@ -89,15 +89,17 @@ if __name__ == '__main__':
         ## FOR
         
         # TODO: Get the index information from MySQL for this table
+        sql = "SHOW INDEXES FROM " + args['name'] + "." + tbl_name
         c3 = mysql_conn.cursor()
-        c3.execute("""
-            SELECT DISTINCT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE
-            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
-        """, (args['name'], tbl_name))
+        c3.execute(sql)
+        index_name = None
         for ind_row in c3:
-            col_name = ind_row[0]
-            coll_catalog["indexes"][col_name] = { }
-        
+            if index_name <> ind_row[2]:
+                coll_catalog['indexes'][ind_row[2]] = []
+                index_name = ind_row[2]
+            coll_catalog['indexes'][ind_row[2]].append(ind_row[4])
+        ## FOR
+
         # TODO: Perform some analysis on the table to figure out the information 
         # that we need for selecting the candidates and our cost model
         
