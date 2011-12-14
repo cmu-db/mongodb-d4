@@ -36,7 +36,8 @@ current_session_map = {}
 session_uid = INITIAL_SESSION_UID
 
 
-### masks for regexp to parse
+### parsing regexp masks
+### parts of header
 TIME_MASK = "[0-9]+\.[0-9]+.*"
 ARROW_MASK = "(-->>|<<--)"
 IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{5,5}"
@@ -44,7 +45,7 @@ COLLECTION_MASK = "\w+\.\$?\w+"
 SIZE_MASK = "\d+ bytes"
 MAGIC_ID_MASK = "id:\w+ \d+"
 REPLY_ID_MASK = "\d+"
-
+### header
 HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
 "(?P<IP1>" + IP_MASK + ") *" + \
 "(?P<arrow>" + ARROW_MASK + ") *" + \
@@ -54,14 +55,15 @@ HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
 "(?P<magic_id>" + MAGIC_ID_MASK + ") *" + \
 "-? *(?P<reply_id>" + REPLY_ID_MASK + ")?"
 headerRegex = re.compile(HEADER_MASK);
-
+### content lines
 CONTENT_REPLY_MASK = "\s*reply +.*"
 CONTENT_INSERT_MASK = "\s*insert: {.*"
 CONTENT_QUERY_MASK = "\s*query: {.*"
-
+CONTENT_UPDATE_MASK = "\s*update .*"
 replyRegex = re.compile(CONTENT_REPLY_MASK)
 insertRegex = re.compile(CONTENT_INSERT_MASK)
 queryRegex = re.compile(CONTENT_QUERY_MASK)
+updateRegex = re.compile(CONTENT_UPDATE_MASK)
 
 
 #returns collection where the traces (Session objects) are stored
@@ -111,7 +113,6 @@ def store(transaction):
     global current_session_map
     global session_uid
     global workload_db
-
     if (current_transaction['arrow'] == '-->>'):
         ip1 = current_transaction['IP1']
         ip2 = current_transaction['IP2']
@@ -159,38 +160,69 @@ def process_header_line(header):
     current_transaction['content'] = []
     return
 
-def process_content_line(line):
-    global replyRegex
-    global insertRegex
-    global queryRegex
-    global current_transaction
-    global current_session_map
-    global session_uid
 
+# helper function for process_content_line 
+# takes yaml {...} as input
+# parses the input to JSON and adds that to current_transaction['content']
+def add_yaml_to_content(yaml_line):
+    global current_transaction
+    
+    #skip empty lines
+    if len(yaml_line.split()) is 0:
+        return
+    #yaml parser might fail :D
+    try:
+        obj = yaml.load(yaml_line)
+    except yaml.scanner.ScannerError as err:
+        LOG.error("Parsing yaml to JSON: " + str(yaml_line))
+        LOG.error("details: " + str(err))
+        return
+    valid_json = json.dumps(obj)
+    obj = yaml.load(valid_json)
+    if not obj:
+        LOG.error("Weird error. This line parsed to yaml, not to JSON: " + str(yaml_line))
+        return 
+    
+    #if this is the first time we see this session, add it
+    if ('whatismyuri' in obj):
+        addSession(current_transaction['IP1'], current_transaction['IP2'])
+    
+    #store the line
+    current_transaction['content'].append(obj)
+    return
+
+# takes any line which does not pass as header line
+# tries to figure out the transaction type & store the content
+def process_content_line(line):
+    global current_transaction
+    
+    # ignore content lines before the first transaction is started
     if (not current_transaction):
         return
 
+    # try to identify the transaction type
     if (replyRegex.match(line)):
         current_transaction['type'] = "reply"
-
     elif (insertRegex.match(line)):
         current_transaction['type'] = "insert"
         line = line[line.find('{'):line.rfind('}')+1]
-
+        add_yaml_to_content(line)
     elif (queryRegex.match(line)):
         current_transaction['type'] = "query"
         line = line[line.find('{'):line.rfind('}')+1]
-
-    obj = yaml.load(line)
-    valid_json = json.dumps(obj)
-    obj = yaml.load(valid_json)
-
-    if obj:
-        #if this is the first time we see this session, add it
-        if ('whatismyuri' in obj):
-            addSession(current_transaction['IP1'], current_transaction['IP2'])
-        current_transaction['content'].append(obj)
-
+        add_yaml_to_content(line)
+    elif (updateRegex.match(line)):
+        current_transaction['type'] = "update"
+        #this is hacky, but it's the all I have now
+        lines = line[line.find('{'):line.rfind('}')+1] .split(" o:")
+        if len(lines) > 2:
+            LOG.error("Fuck. This update query is tricky to parse: " + str(line))
+            LOG.error("Skipping it for now...")
+        add_yaml_to_content(lines[0])
+        add_yaml_to_content(lines[1])
+    else:
+        #default: probably just yaml content line...
+        add_yaml_to_content(line) 
     return
 
 def main():
@@ -218,7 +250,9 @@ def main():
     WORKLOAD_COLLECTION = args['workload_col']
 
     LOG.info("Starting the parser")
-    print "host: ", args['hostname'], " port: ", args['port'], " file: ", args['file'], " db: ", WORKLOAD_DB, " col: ", WORKLOAD_COLLECTION
+    settings = "host: ", args['hostname'], " port: ", args['port'], " file: ", args['file'], " db: ", WORKLOAD_DB, " col: ", WORKLOAD_COLLECTION
+    LOG.info(settings)
+    print settings
 
     initDB(args['hostname'], args['port'])
 
