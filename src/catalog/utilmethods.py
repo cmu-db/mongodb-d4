@@ -89,7 +89,9 @@ def sqlTypeToPython(sqlType):
     elif sqlType.endswith('text') or sqlType.endswith('char'):
         t = types.StringType
     elif sqlType.endswith('time'):
-        t = datetime.datetime
+        t = datetime
+    elif sqlType.endswith('stamp'):
+        t = datetime
     else:
         raise Exception("Unexpected SQL type '%s'" % sqlType)
     return (t)
