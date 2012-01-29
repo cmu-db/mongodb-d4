@@ -16,6 +16,8 @@ from ConfigParser import SafeConfigParser
 import catalog
 from util import *
 
+import sql2mongo
+
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
@@ -79,7 +81,7 @@ if __name__ == '__main__':
             SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = %s AND TABLE_NAME=%s
         """, (args['name'], tbl_name))
-        print tbl_name
+        
         for col_row in c2:
             col_name = col_row[0]
             col_type = catalog.sqlTypeToPython(col_row[1])
@@ -102,11 +104,22 @@ if __name__ == '__main__':
 
         # TODO: Perform some analysis on the table to figure out the information 
         # that we need for selecting the candidates and our cost model
-        
-        print pformat(coll_catalog)
+
+        #print pformat(coll_catalog)
         coll_catalog.save()
     ## FOR
-    
+
     # TODO: Ingest a MySQL query log and convert it into our workload.Sessions objects
+    c4 = mysql_conn.cursor()
+    c4.execute("""
+        SELECT * FROM general_log ORDER BY thread_id, event_time;	
+    """)
     
+    thread_id = None
+    for row in c4:
+        if row[2] <> thread_id :
+            thread_id = row[2]
+        mongo = sql2mongo.Sql2mongo(row[5])
+        print mongo.render()
+    ## FOR
 ## MAIN
