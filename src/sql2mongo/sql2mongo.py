@@ -5,6 +5,7 @@ import sqlparse
 '''
 @todo: JOIN processing
 @todo: Process basic OR criteria
+@todo: Handle nested queries?
 '''
 class Sql2mongo (object) :
     
@@ -66,7 +67,62 @@ class Sql2mongo (object) :
     Process a DELETE SQL query
     '''
     def do_delete(self) :
-        pass
+        i = 0
+        for token in self.stmt.tokens :
+            cls = token.__class__.__name__
+            if cls == 'Token' :
+                token_uni = token.to_unicode()
+                if token_uni == 'DELETE' :
+                    self.delete_loc = i
+                elif token_uni == 'FROM' :
+                    self.delete_loc = i
+                ## ENDIF
+            elif cls == 'Where' :
+                self.where_loc = i
+            i += 1
+            ## ENDIF
+        ## ENDFOR
+        
+        ''' Determine table name '''
+        tbl_token_loc = self.delete_loc + 2
+        cls = self.stmt.tokens[tbl_token_loc].__class__.__name__
+        if cls == 'Identifier' :
+            tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
+            self.tables['main'] = tbl_name
+            self.where_cols['main'] = []
+            self.select_cols['main'] = []
+            self.sort_cols['main'] = []
+            self.limit['main'] = None
+            self.skip['main'] = None
+        ## ENDIF
+        
+        ''' PROCESS WHERE clause '''
+        if self.where_loc <> None :
+            where = self.stmt.tokens[self.where_loc]
+            count = len(where.tokens)
+            i = 1
+            while i < count :
+                if where.tokens[i].ttype == sqlparse.tokens.Whitespace :
+                    pass 
+                else :
+                    cls = where.tokens[i].__class__.__name__
+                    if cls == 'Token' :
+                        pass
+                    elif cls == 'Identifier' :
+                        offset = 1;
+                        if where.tokens[i + 1].ttype == sqlparse.tokens.Whitespace :
+                            offset = 2;
+                        parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
+                        self.where_cols[parts[0]].append(parts[1])
+                        i += 4
+                    elif cls == 'Comparison' :
+                        parts = self.process_where_comparison(where.tokens[i])
+                        self.where_cols[parts[0]].append(parts[1])
+                    ## ENDIF
+                ## ENDIF
+                i += 1
+            ## ENDWHILE
+        ## ENDIF
     ## ENDDEF
     
     '''
@@ -129,6 +185,8 @@ class Sql2mongo (object) :
                     tok_cls = tok.__class__.__name__
                     if tok_cls == 'Identifier' :
                         column_values.append(self.process_where_comparison_value(tok))
+                    elif tok.ttype <> sqlparse.tokens.Whitespace and tok.ttype <> sqlparse.tokens.Punctuation :
+                        column_values.append(self.process_where_comparison_value(tok))
                     ## ENDIF
                 ## ENDFOR
             elif cls == 'Identifier' :
@@ -137,9 +195,8 @@ class Sql2mongo (object) :
                 column_values.append(self.process_where_comparison_value(token))
             ## ENDIF
         ## ENDFOR
-        
+        print column_values
         self.tables['main'] = tbl_name
-        self.where_cols['main'] = []
         self.select_cols['main'] = []
         self.where_cols['main'] = []
         self.sort_cols['main'] = []
@@ -430,7 +487,7 @@ class Sql2mongo (object) :
     Process a where comparison specified by individual Tokens
     '''
     def process_where_comparison_separate(self, ident, comp, value) :
-        parts = process_identifier(ident)
+        parts = self.process_identifier(ident)
         operator = self.process_where_comparison_operator(comp)
         str = self.process_where_clause(parts[1], operator, self.process_where_comparison_value(value))
         return (parts[0], str)
@@ -464,6 +521,12 @@ class Sql2mongo (object) :
             results = []
             for alias, table_name in self.tables.iteritems() :
                 results.append(self.compose_mongo(db, table_name, alias, 'insert'))
+            ## ENDFOR
+            return results
+        elif self.query_type == 'DELETE' :
+            results = []
+            for alias, table_name in self.tables.iteritems() :
+                results.append(self.compose_mongo(db, table_name, alias, 'remove'))
             ## ENDFOR
             return results
         else :
