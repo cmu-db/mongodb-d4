@@ -8,7 +8,7 @@ import sqlparse
 '''
 class Sql2mongo (object) :
     
-    def __init__(self, sql) : 
+    def __init__(self, sql, tbl_cols = {}) : 
         self.sql = sql
         self.stmt = None
         self.query_type = None
@@ -28,7 +28,9 @@ class Sql2mongo (object) :
         self.sort_loc = None
         self.limit_loc = None
         self.skip_loc = None
-        self.errors = []
+        self.values_loc = None
+        self.errors = [] 
+        self.tbl_cols = tbl_cols
         self.process()
     ## ENDDEF
     
@@ -71,7 +73,84 @@ class Sql2mongo (object) :
     Process an INSERT SQL query
     '''
     def do_insert(self) :
-        pass
+        i = 0
+        for token in self.stmt.tokens :
+            cls = token.__class__.__name__
+            if cls == 'Token' :
+                token_uni = token.to_unicode()
+                if token_uni == 'INSERT' :
+                    self.insert_loc = i
+                elif token_uni == 'INTO' :
+                    self.insert_loc = i
+                elif token_uni == 'VALUES' :
+                    self.values_loc = i
+                ## ENDIF
+            ## ENDIF
+            i += 1
+        ## ENDFOR
+        
+        ''' Determine table name and columns '''
+        tbl_token_loc = self.insert_loc + 2
+        cls = self.stmt.tokens[tbl_token_loc].__class__.__name__
+        if cls == 'Function' : 
+            cols_specified = True
+            cols = []
+            sub_tokens = self.stmt.tokens[tbl_token_loc].tokens
+            tbl_name = sub_tokens[0].to_unicode()
+            parens = sub_tokens[2]
+            for token in parens.tokens :
+                cls = token.__class__.__name__
+                if cls == 'IdentifierList' :
+                    for tok in token.tokens :
+                        tok_cls = tok.__class__.__name__
+                        if tok_cls == 'Identifier' :
+                            cols.append(tok.to_unicode())
+                        ## ENDIF
+                    ## ENDFOR
+                elif cls == 'Identifier' :
+                    cols.append(token.to_unicode())
+                elif cls == 'Token' and token.ttype == sqlparse.tokens.Token.Name.Builtin :
+                    cols.append(token.to_unicode())
+                ## ENDIF
+            ## ENDFOR
+        elif cls == 'Identifier' :
+            tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
+            cols_specified = False
+            cols = self.tbl_cols[tbl_name]
+        ## ENDIF
+        
+        ''' Determine column values '''
+        column_values = []
+        values_loc = self.values_loc + 2
+        for token in self.stmt.tokens[values_loc].tokens :
+            cls = token.__class__.__name__
+            if cls == 'IdentifierList' :
+                for tok in token.tokens :
+                    tok_cls = tok.__class__.__name__
+                    if tok_cls == 'Identifier' :
+                        column_values.append(self.process_where_comparison_value(tok))
+                    ## ENDIF
+                ## ENDFOR
+            elif cls == 'Identifier' :
+                column_values.append(self.process_where_comparison_value(tok))
+            elif cls == 'Token' and token.ttype <> sqlparse.tokens.Punctuation :
+                column_values.append(self.process_where_comparison_value(token))
+            ## ENDIF
+        ## ENDFOR
+        
+        self.tables['main'] = tbl_name
+        self.where_cols['main'] = []
+        self.select_cols['main'] = []
+        self.where_cols['main'] = []
+        self.sort_cols['main'] = []
+        self.limit['main'] = None
+        self.skip['main'] = None
+        
+        i = 0
+        for col in column_values :
+            self.where_cols['main'].append(cols[i] + ':' + col)
+            i += 1
+        ## ENDFOR
     ## ENDDEF
     
     '''
@@ -358,7 +437,7 @@ class Sql2mongo (object) :
     ## ENDDEF
     
     '''
-    Process a where comparison specified by a TokenList
+    Process a where comparison value
     '''
     def process_where_comparison_value(self, value) :
         cls = value.__class__.__name__
@@ -375,10 +454,21 @@ class Sql2mongo (object) :
     Produce a list of Mongo commands derived from this SQL statement
     '''
     def render(self, db='db') :
-        results = []
-        for alias, table_name in self.tables.iteritems() :
-            results.append(self.compose_mongo(db, table_name, alias, 'find'))
-        return results
+        if self.query_type == 'SELECT' :
+            results = []
+            for alias, table_name in self.tables.iteritems() :
+                results.append(self.compose_mongo(db, table_name, alias, 'find'))
+            ## ENDFOR
+            return results
+        elif self.query_type == 'INSERT' :
+            results = []
+            for alias, table_name in self.tables.iteritems() :
+                results.append(self.compose_mongo(db, table_name, alias, 'insert'))
+            ## ENDFOR
+            return results
+        else :
+            return None
+        ## ENDIF
     ## ENDDEF
     
     '''
