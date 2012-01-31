@@ -68,6 +68,7 @@ if __name__ == '__main__':
     mysql_conn = mdb.connect(host=args['host'], db=args['name'], user=args['user'], passwd=args['pass'])
     c1 = mysql_conn.cursor()
     c1.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s", args['name'])
+    quick_look = {}
     for row in c1:
         tbl_name = row[0]
         coll_catalog = schema_db.Collection()
@@ -75,7 +76,8 @@ if __name__ == '__main__':
         coll_catalog['shard_keys'] = { }
         coll_catalog['fields'] = { }
         coll_catalog['indexes'] = { }
-
+        quick_look[coll_catalog['name']] = []
+        
         c2 = mysql_conn.cursor()
         c2.execute("""
             SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS
@@ -84,6 +86,7 @@ if __name__ == '__main__':
         
         for col_row in c2:
             col_name = col_row[0]
+            quick_look[coll_catalog['name']].append(col_name)
             col_type = catalog.sqlTypeToPython(col_row[1])
             coll_catalog["fields"][col_name] = {
                 'type': catalog.fieldTypeToString(col_type),
@@ -105,7 +108,7 @@ if __name__ == '__main__':
         # TODO: Perform some analysis on the table to figure out the information 
         # that we need for selecting the candidates and our cost model
 
-        #print pformat(coll_catalog)
+        ##print pformat(coll_catalog)
         coll_catalog.save()
     ## FOR
 
@@ -116,10 +119,15 @@ if __name__ == '__main__':
     """)
     
     thread_id = None
+    
     for row in c4:
         if row[2] <> thread_id :
             thread_id = row[2]
-        mongo = sql2mongo.Sql2mongo(row[5])
-        print mongo.render()
-    ## FOR
+        ## ENDIF
+        mongo = sql2mongo.Sql2mongo(row[5], quick_look)
+        if mongo.query_type <> 'UNKNOWN' :
+            print row[5]
+            print mongo.render()
+        ## ENDIF
+    ## ENDFOR
 ## MAIN
