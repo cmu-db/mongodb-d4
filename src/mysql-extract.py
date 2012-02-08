@@ -125,6 +125,7 @@ if __name__ == '__main__':
             thread_id = row[2]
         ## ENDIF
         if row[5] <> '' :
+            print row[5]
             mongo = sql2mongo.Sql2mongo(row[5], quick_look)
             if mongo.query_type <> 'UNKNOWN' :
                 print row[5]

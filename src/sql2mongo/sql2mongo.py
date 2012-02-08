@@ -288,6 +288,9 @@ class Sql2mongo (object) :
         else :
             end = len(self.stmt.tokens)
         ## ENDIF
+        if self.from_loc == None :
+            self.query_type == 'UNKNOWN'
+            return None
         for i in range(self.from_loc + 1, end) :
             cls = self.stmt.tokens[i].__class__.__name__
             if cls <> 'Token' :
