@@ -18,6 +18,7 @@ from util import *
 
 import sql2mongo
 
+import workload
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
@@ -108,7 +109,7 @@ if __name__ == '__main__':
         # TODO: Perform some analysis on the table to figure out the information 
         # that we need for selecting the candidates and our cost model
 
-        ##print pformat(coll_catalog)
+        #print pformat(coll_catalog)
         coll_catalog.save()
     ## FOR
 
@@ -120,16 +121,25 @@ if __name__ == '__main__':
     
     thread_id = None
     
+    '''
+    [0] = event_time
+    [1] = user_host
+    [2] = thread_id
+    [3] = server_id
+    [4] = command_type
+    [5] = argument
+    '''
     for row in c4:
         if row[2] <> thread_id :
             thread_id = row[2]
         ## ENDIF
         if row[5] <> '' :
-            print row[5]
             mongo = sql2mongo.Sql2mongo(row[5], quick_look)
             if mongo.query_type <> 'UNKNOWN' :
-                print row[5]
-                print mongo.render()
+                #print row[5]
+                #print mongo.render()
+                pass
+            ## ENDIF
         ## ENDIF
     ## ENDFOR
 ## MAIN

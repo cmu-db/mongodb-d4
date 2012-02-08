@@ -223,7 +223,7 @@ class Sql2mongo (object) :
                 column_values.append(self.process_where_comparison_value(token))
             ## ENDIF
         ## ENDFOR
-        print column_values
+        
         self.tables['main'] = tbl_name
         self.select_cols['main'] = []
         self.where_cols['main'] = []
@@ -421,7 +421,6 @@ class Sql2mongo (object) :
     '''
     def do_update(self) :
         i = 0
-        print self.stmt.tokens
         for token in self.stmt.tokens :
             cls = token.__class__.__name__
             if cls == 'Token' :
@@ -495,9 +494,6 @@ class Sql2mongo (object) :
                 i += 1
             ## ENDWHILE
         ## ENDIF
-        
-        print self.where_cols
-        print self.select_cols
     ## ENDDEF
     
     '''
