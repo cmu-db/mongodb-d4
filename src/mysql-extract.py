@@ -63,7 +63,7 @@ if __name__ == '__main__':
     ## Register our objects with MongoKit
     conn.register([ catalog.Collection ])
     schema_db = conn[cparser.get(config.SECT_MONGODB, 'schema_db')]
-    
+    schema_db.drop_collection(constants.CATALOG_COLL)
     ## ----------------------------------------------
     
     mysql_conn = mdb.connect(host=args['host'], db=args['name'], user=args['user'], passwd=args['pass'])
@@ -109,7 +109,7 @@ if __name__ == '__main__':
         # TODO: Perform some analysis on the table to figure out the information 
         # that we need for selecting the candidates and our cost model
 
-        #print pformat(coll_catalog)
+        coll_catalog.validate()
         coll_catalog.save()
     ## FOR
 
@@ -118,9 +118,10 @@ if __name__ == '__main__':
     c4.execute("""
         SELECT * FROM general_log ORDER BY thread_id, event_time;	
     """)
-    
+    conn.register([workload.Session])
+    workload_db = conn[cparser.get(config.SECT_MONGODB, 'workload_db')]
+    workload_db.drop_collection(constants.WORKLOAD_SESSIONS)
     thread_id = None
-    
     '''
     [0] = event_time
     [1] = user_host
@@ -136,6 +137,11 @@ if __name__ == '__main__':
         if row[5] <> '' :
             mongo = sql2mongo.Sql2mongo(row[5], quick_look)
             if mongo.query_type <> 'UNKNOWN' :
+                session = workload_db.Session()
+                session['ip1'] = u'test-ip1'
+                session['ip2'] = u'test-ip2'
+                session['uid'] = int(thread_id)
+                session.save()
                 #print row[5]
                 #print mongo.render()
                 pass
