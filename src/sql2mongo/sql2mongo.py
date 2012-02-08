@@ -33,6 +33,7 @@ class Sql2mongo (object) :
         self.values_loc = None
         self.errors = [] 
         self.tbl_cols = tbl_cols
+        self.use_or = False
         self.process()
     ## ENDDEF
     
@@ -43,7 +44,19 @@ class Sql2mongo (object) :
     def compose_mongo(self, db, collection, alias, cmd) :
         mongo = db + '.' + collection + '.' + cmd + '(';
         if len(self.where_cols[alias]) > 0 :
-            mongo = mongo + '{' + ','.join(self.where_cols[alias]) + '}';
+            mongo += '{'
+            if self.use_or == True :
+                mongo += '$or:[{'
+            ## ENDIF
+            if self.use_or == True :
+                mongo += '},{'.join(self.where_cols[alias])
+            else :
+                mongo += ','.join(self.where_cols[alias])
+            ## ENDIF 
+            if self.use_or == True :
+                mongo += '}]}'
+            ## ENDIF
+            mongo += '}';
         ## ENDIF
         if len(self.select_cols[alias]) > 0 :
             if len(self.where_cols[alias]) > 0 :
@@ -53,7 +66,6 @@ class Sql2mongo (object) :
             if self.query_type == 'UPDATE' :
                 mongo += '$set:{'
             ## ENDIF
-            mongo += ','.join(self.select_cols[alias])
             if self.query_type == 'UPDATE' :
                 mongo +=  '}'
             ## ENDIF
@@ -116,6 +128,10 @@ class Sql2mongo (object) :
             while i < count :
                 if where.tokens[i].ttype == sqlparse.tokens.Whitespace :
                     pass 
+                elif where.tokens[i].ttype == sqlparse.tokens.Keyword :
+                    if where.tokens[i].to_unicode().lower() == u'or' :
+                        self.use_or = True
+                    ## ENDIF
                 else :
                     cls = where.tokens[i].__class__.__name__
                     if cls == 'Token' :
@@ -325,7 +341,11 @@ class Sql2mongo (object) :
             i = 1
             while i < count :
                 if where.tokens[i].ttype == sqlparse.tokens.Whitespace :
-                    pass 
+                    pass
+                elif where.tokens[i].ttype == sqlparse.tokens.Keyword :
+                    if where.tokens[i].to_unicode().lower() == u'or' :
+                        self.use_or = True
+                    ## ENDIF
                 else :
                     cls = where.tokens[i].__class__.__name__
                     if cls == 'Token' :
@@ -449,6 +469,10 @@ class Sql2mongo (object) :
             while i < count :
                 if where.tokens[i].ttype == sqlparse.tokens.Whitespace :
                     pass 
+                elif where.tokens[i].ttype == sqlparse.tokens.Keyword :
+                    if where.tokens[i].to_unicode().lower() == u'or' :
+                        self.use_or = True
+                    ## ENDIF
                 else :
                     cls = where.tokens[i].__class__.__name__
                     if cls == 'Token' :

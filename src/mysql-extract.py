@@ -134,7 +134,7 @@ if __name__ == '__main__':
     ## ENDFOR
     '''
     
-    sql = "UPDATE users SET a=1 WHERE b='q'"
+    sql = "SELECT * FROM users WHERE b = 'i' OR a = 3"
     mongo = sql2mongo.Sql2mongo(sql, quick_look)
     print mongo.render()
     
