@@ -19,6 +19,7 @@ class Session(Document):
                 'collection':   unicode,
                 'timestamp':    float,
                 'content':      list,
+                'output':       dict,
                 'type':         unicode,
                 'size':         int,
             }
