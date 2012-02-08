@@ -24,6 +24,7 @@ class Sql2mongo (object) :
         self.insert_loc = None
         self.update_loc = None
         self.delete_loc = None
+        self.set_loc = None
         self.join_loc = None
         self.where_loc = None
         self.sort_loc = None
@@ -48,7 +49,18 @@ class Sql2mongo (object) :
             if len(self.where_cols[alias]) > 0 :
                 mongo = mongo + ', '
             ## ENDIF
-            mongo = mongo + '{' + ','.join(self.select_cols[alias]) + '}'
+            mongo += '{'
+            if self.query_type == 'UPDATE' :
+                mongo += '$set:{'
+            ## ENDIF
+            mongo += ','.join(self.select_cols[alias])
+            if self.query_type == 'UPDATE' :
+                mongo +=  '}'
+            ## ENDIF
+            mongo += '}'
+        ## ENDIF
+        if self.query_type == 'UPDATE' :
+            mongo += ', false, true'
         ## ENDIF
         mongo = mongo + ')'
         if len(self.sort_cols[alias]) > 0 :
@@ -385,7 +397,80 @@ class Sql2mongo (object) :
     Process UPDATE SQL query
     '''
     def do_update(self) :
-        pass
+        i = 0
+        print self.stmt.tokens
+        for token in self.stmt.tokens :
+            cls = token.__class__.__name__
+            if cls == 'Token' :
+                token_uni = token.to_unicode()
+                if token_uni == 'UPDATE' :
+                    self.update_loc = i
+                elif token_uni == 'SET' :
+                    self.set_loc = i
+                ## ENDIF
+            elif cls == 'Where' :
+                self.where_loc = i
+            i += 1
+            ## ENDIF
+        ## ENDFOR
+        
+        ''' Determine table name '''
+        tbl_token_loc = self.update_loc + 2
+        cls = self.stmt.tokens[tbl_token_loc].__class__.__name__
+        if cls == 'Identifier' :
+            tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
+            self.tables['main'] = tbl_name
+            self.where_cols['main'] = []
+            self.select_cols['main'] = []
+            self.sort_cols['main'] = []
+            self.limit['main'] = None
+            self.skip['main'] = None
+        ## ENDIF
+        
+        ''' PROCESS SET clause '''
+        if self.set_loc <> None :
+            end = len(self.stmt.tokens) - 1
+            if self.where_loc <> None :
+                end = self.where_loc
+            ## ENDIF
+            for i in range(self.set_loc + 1, end) :
+                cls = self.stmt.tokens[i].__class__.__name__
+                if cls == 'Comparison' :
+                    parts = self.process_where_comparison(self.stmt.tokens[i])
+                    self.select_cols[parts[0]].append(parts[1])
+                ## ENDIF
+            ## ENDFOR
+            
+        ''' PROCESS WHERE clause '''
+        if self.where_loc <> None :
+            where = self.stmt.tokens[self.where_loc]
+            count = len(where.tokens)
+            i = 1
+            while i < count :
+                if where.tokens[i].ttype == sqlparse.tokens.Whitespace :
+                    pass 
+                else :
+                    cls = where.tokens[i].__class__.__name__
+                    if cls == 'Token' :
+                        pass
+                    elif cls == 'Identifier' :
+                        offset = 1;
+                        if where.tokens[i + 1].ttype == sqlparse.tokens.Whitespace :
+                            offset = 2;
+                        parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
+                        self.where_cols[parts[0]].append(parts[1])
+                        i += 4
+                    elif cls == 'Comparison' :
+                        parts = self.process_where_comparison(where.tokens[i])
+                        self.where_cols[parts[0]].append(parts[1])
+                    ## ENDIF
+                ## ENDIF
+                i += 1
+            ## ENDWHILE
+        ## ENDIF
+        
+        print self.where_cols
+        print self.select_cols
     ## ENDDEF
     
     '''
@@ -527,6 +612,12 @@ class Sql2mongo (object) :
             results = []
             for alias, table_name in self.tables.iteritems() :
                 results.append(self.compose_mongo(db, table_name, alias, 'remove'))
+            ## ENDFOR
+            return results
+        elif self.query_type == 'UPDATE' :
+            results = []
+            for alias, table_name in self.tables.iteritems() :
+                results.append(self.compose_mongo(db, table_name, alias, 'update'))
             ## ENDFOR
             return results
         else :

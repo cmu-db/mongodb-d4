@@ -120,14 +120,31 @@ if __name__ == '__main__':
     
     thread_id = None
     
+    '''
     for row in c4:
         if row[2] <> thread_id :
             thread_id = row[2]
         ## ENDIF
-        mongo = sql2mongo.Sql2mongo(row[5], quick_look)
-        if mongo.query_type <> 'UNKNOWN' :
-            print row[5]
-            print mongo.render()
+        if row[5] <> '' :
+            mongo = sql2mongo.Sql2mongo(row[5], quick_look)
+            if mongo.query_type <> 'UNKNOWN' :
+                print row[5]
+                print mongo.render()
         ## ENDIF
     ## ENDFOR
+    '''
+    
+    sql = "UPDATE users SET a=1 WHERE b='q'"
+    mongo = sql2mongo.Sql2mongo(sql, quick_look)
+    print mongo.render()
+    
+    '''
+    sql = "INSERT INTO added_tweets VALUES (null, 37040261, 'Blah blah new tweet...', '13:02:11')"
+    mongo = sql2mongo.Sql2mongo(sql, quick_look)
+    print mongo.render()
+    
+    sql = "INSERT INTO USERS (id1, id2) VALUES (1, 2)"
+    mongo = sql2mongo.Sql2mongo(sql, quick_look)
+    print mongo.render()
+    '''
 ## MAIN
