@@ -120,7 +120,6 @@ if __name__ == '__main__':
     
     thread_id = None
     
-    '''
     for row in c4:
         if row[2] <> thread_id :
             thread_id = row[2]
@@ -132,19 +131,4 @@ if __name__ == '__main__':
                 print mongo.render()
         ## ENDIF
     ## ENDFOR
-    '''
-    
-    sql = "SELECT * FROM users WHERE b = 'i' OR a = 3"
-    mongo = sql2mongo.Sql2mongo(sql, quick_look)
-    print mongo.render()
-    
-    '''
-    sql = "INSERT INTO added_tweets VALUES (null, 37040261, 'Blah blah new tweet...', '13:02:11')"
-    mongo = sql2mongo.Sql2mongo(sql, quick_look)
-    print mongo.render()
-    
-    sql = "INSERT INTO USERS (id1, id2) VALUES (1, 2)"
-    mongo = sql2mongo.Sql2mongo(sql, quick_look)
-    print mongo.render()
-    '''
 ## MAIN

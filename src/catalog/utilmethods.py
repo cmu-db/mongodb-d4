@@ -84,14 +84,20 @@ def extractFields( doc, fields={ }):
 
 def sqlTypeToPython(sqlType):
     sqlType = sqlType.lower()
-    if sqlType.endswith('int'):
+    if sqlType.endswith('int') :
         t = types.IntType
+    elif sqlType.endswith('double') :
+        t = float
     elif sqlType.endswith('text') or sqlType.endswith('char'):
         t = types.StringType
     elif sqlType.endswith('time'):
         t = datetime
     elif sqlType.endswith('stamp'):
         t = datetime
+    elif sqlType.endswith('binary') :
+        t = str
+    elif sqlType.endswith('blob') :
+        t = str
     else:
         raise Exception("Unexpected SQL type '%s'" % sqlType)
     return (t)
