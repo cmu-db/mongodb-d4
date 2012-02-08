@@ -122,6 +122,8 @@ if __name__ == '__main__':
     workload_db = conn[cparser.get(config.SECT_MONGODB, 'workload_db')]
     workload_db.drop_collection(constants.WORKLOAD_SESSIONS)
     thread_id = None
+    first = True
+    
     '''
     [0] = event_time
     [1] = user_host
@@ -133,19 +135,26 @@ if __name__ == '__main__':
     for row in c4:
         if row[2] <> thread_id :
             thread_id = row[2]
+            if first == False :
+                session.save()
+            else :
+                first = False
+            ## ENDIF
+            session = workload_db.Session()
+            session['ip1'] = u'test-ip1'
+            session['ip2'] = u'test-ip2'
+            session['uid'] = int(thread_id)
+            session['operations'] = []
         ## ENDIF
         if row[5] <> '' :
             mongo = sql2mongo.Sql2mongo(row[5], quick_look)
-            if mongo.query_type <> 'UNKNOWN' :
-                session = workload_db.Session()
-                session['ip1'] = u'test-ip1'
-                session['ip2'] = u'test-ip2'
-                session['uid'] = int(thread_id)
-                session.save()
+            if mongo.query_type <> 'UNKNOWN' : 
+                operation = {}
                 #print row[5]
                 #print mongo.render()
-                pass
+                #session['operations'].append(operation)
             ## ENDIF
         ## ENDIF
     ## ENDFOR
+    session.save()
 ## MAIN
