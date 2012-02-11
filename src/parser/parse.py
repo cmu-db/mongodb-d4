@@ -25,16 +25,20 @@ INPUT_FILE = "sample.txt"
 WORKLOAD_DB = "workload"
 WORKLOAD_COLLECTION = "traces"
 INITIAL_SESSION_UID = 100 #where to start the incremental session uid
+DEFAULT_HOST = "localhost"
+DEFAULT_PORT = "27017"
 
 ###GLOBAL VARS
 connection = None
 current_transaction = None
 workload_db = None
+workload_col = None
 recreated_db = None
 
 current_session_map = {}
 session_uid = INITIAL_SESSION_UID
 
+query_response_map = {}
 
 ### parsing regexp masks
 ### parts of header
@@ -43,7 +47,8 @@ ARROW_MASK = "(-->>|<<--)"
 IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{5,5}"
 COLLECTION_MASK = "\w+\.\$?\w+"
 SIZE_MASK = "\d+ bytes"
-MAGIC_ID_MASK = "id:\w+ \d+"
+MAGIC_ID_MASK = "id:\w+"
+TRANSACTION_ID_MASK = "\d+"
 REPLY_ID_MASK = "\d+"
 ### header
 HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
@@ -53,36 +58,40 @@ HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
 "(?P<collection>" + COLLECTION_MASK + ")? *" + \
 "(?P<size>" + SIZE_MASK + ") *" + \
 "(?P<magic_id>" + MAGIC_ID_MASK + ") *" + \
-"-? *(?P<reply_id>" + REPLY_ID_MASK + ")?"
+"(?P<transaction_id>" + TRANSACTION_ID_MASK + ") *" + \
+"-? *(?P<query_id>" + REPLY_ID_MASK + ")?"
 headerRegex = re.compile(HEADER_MASK);
 ### content lines
 CONTENT_REPLY_MASK = "\s*reply +.*"
 CONTENT_INSERT_MASK = "\s*insert: {.*"
 CONTENT_QUERY_MASK = "\s*query: {.*"
 CONTENT_UPDATE_MASK = "\s*update .*"
+CONTENT_DELETE_MASK = "\s*delete .*"
+
 replyRegex = re.compile(CONTENT_REPLY_MASK)
 insertRegex = re.compile(CONTENT_INSERT_MASK)
 queryRegex = re.compile(CONTENT_QUERY_MASK)
 updateRegex = re.compile(CONTENT_UPDATE_MASK)
-
+deleteRegex = re.compile(CONTENT_DELETE_MASK)
 
 #returns collection where the traces (Session objects) are stored
 def getTracesCollection():
-    return workload_db[WORKLOAD_COLLECTION]
+    return workload_db[workload_col]
 
-def initDB(hostname, port):
+def initDB(hostname, port, w_db, w_col):
     global connection
-    global recreated_db
     global workload_db
+    global workload_col
 
     # Initialize connection to db that stores raw transactions
     connection = Connection(hostname, port)
-    workload_db = connection[WORKLOAD_DB]
-
-    # Initialize db that stores recreated data set
-    recreated_db = connection['recreated']
+    workload_db = connection[w_db]
+    workload_col = w_col
 
     return
+
+def cleanWorkload():
+    getTracesCollection().remove()
 
 #
 # this function initializes a new Session() object (in workload/traces.py)
@@ -109,10 +118,7 @@ def addSession(ip1, ip2):
     getTracesCollection().save(session)
     return session
 
-def store(transaction):
-    global current_session_map
-    global session_uid
-    global workload_db
+def store(transaction):    
     if (current_transaction['arrow'] == '-->>'):
         ip1 = current_transaction['IP1']
         ip2 = current_transaction['IP2']
@@ -125,30 +131,36 @@ def store(transaction):
     else:
         session = current_session_map[ip1]
     # create the operation -- corresponds to current_transaction
-        op = {
-                'collection': unicode(current_transaction['collection']),
-                'content': current_transaction['content'],
-                'timestamp': float(current_transaction['timestamp']),
-                'type': unicode(current_transaction['type']),
-                'size': int(current_transaction['size'].replace("bytes", "")),
-        }
-    #add it to the correct session
+    op = {
+            'collection': unicode(current_transaction['collection']),
+            'content': current_transaction['content'],
+            'timestamp': float(current_transaction['timestamp']),
+            'type': unicode(current_transaction['type']),
+            'size': int(current_transaction['size'].replace("bytes", "")),
+    }
+    
+    # QUERY - add entry to the query-response map so we can add its response in the future
+    if current_transaction['type'] == "$query":
+        query_id = current_transaction['transaction_id'];
+        op['response'] = None # TO BE FILLED later
+        query_response_map[query_id] = op
+    
+    # RESPONSE - append it to the query
+    if current_transaction['type'] == "$reply":
+        query_id = current_transaction['query_id'];
+        query = query_response_map[query_id]
+        query['response'] = op
+    else:
+        # Append the operation to the current session
         session['operations'].append(op)
         LOG.debug("inserting operation: %s" % op)
+    
     #save the session
-        getTracesCollection().save(session)
+    getTracesCollection().save(session)
+    
     LOG.debug("session %d was updated" % session['uid'])
     return
 
-def add_to_recreated(transaction):
-
-#    if (transaction['type'] == "reply"):
-
-#    elif (transaction['type'] == "insert"):
-
-#    elif (transaction['type'] == "query"):
-
-    return
 
 def process_header_line(header):
     global current_transaction
@@ -158,6 +170,7 @@ def process_header_line(header):
 
     current_transaction = header
     current_transaction['content'] = []
+    
     return
 
 
@@ -200,19 +213,25 @@ def process_content_line(line):
     if (not current_transaction):
         return
 
-    # try to identify the transaction type
+    # REPLY
     if (replyRegex.match(line)):
-        current_transaction['type'] = "reply"
+        current_transaction['type'] = "$reply"
+    
+    #INSERT
     elif (insertRegex.match(line)):
-        current_transaction['type'] = "insert"
+        current_transaction['type'] = "$insert"
         line = line[line.find('{'):line.rfind('}')+1]
         add_yaml_to_content(line)
+    
+    # QUERY
     elif (queryRegex.match(line)):
-        current_transaction['type'] = "query"
+        current_transaction['type'] = "$query"
         line = line[line.find('{'):line.rfind('}')+1]
         add_yaml_to_content(line)
+        
+    # UPDATE
     elif (updateRegex.match(line)):
-        current_transaction['type'] = "update"
+        current_transaction['type'] = "$update"
         #this is hacky, but it's the all I have now
         lines = line[line.find('{'):line.rfind('}')+1] .split(" o:")
         if len(lines) > 2:
@@ -220,48 +239,22 @@ def process_content_line(line):
             LOG.error("Skipping it for now...")
         add_yaml_to_content(lines[0])
         add_yaml_to_content(lines[1])
+    
+    # DELETE
+    elif (deleteRegex.match(line)):
+        current_transaction['type'] = "$delete"
+        line = line[line.find('{'):line.rfind('}')+1] 
+        add_yaml_to_content(line) 
+    
+    # GENERIC CONTENT LINE
     else:
         #default: probably just yaml content line...
         add_yaml_to_content(line) 
     return
 
-def main():
-    global current_transaction
-    global headerRegex
-    global WORKLOAD_DB
-    global WORKLOAD_COLLECTION
-    global session_uid
-
-    aparser = argparse.ArgumentParser(description='MongoSniff Trace Anonymizer')
-    aparser.add_argument('hostname',
-                         help='hostname of machine running mongo server')
-    aparser.add_argument('port', type=int,
-                         help='port to connect to')
-    aparser.add_argument('--file',
-                         help='file to read from', default=INPUT_FILE)
-    aparser.add_argument('--workload_db', help='the database where you want to store the traces', default=WORKLOAD_DB)
-    aparser.add_argument('--workload_col', help='the collection where you want to store the traces', default=WORKLOAD_COLLECTION)
-    aparser.add_argument('--clean', action='store_true',
-                         help='Remove all documents in the workload collection before processing is started')
-    
-    args = vars(aparser.parse_args())
-
-    WORKLOAD_DB = args['workload_db']
-    WORKLOAD_COLLECTION = args['workload_col']
-
-    LOG.info("Starting the parser")
-    settings = "host: ", args['hostname'], " port: ", args['port'], " file: ", args['file'], " db: ", WORKLOAD_DB, " col: ", WORKLOAD_COLLECTION
-    LOG.info(settings)
-    print settings
-
-    initDB(args['hostname'], args['port'])
-
-    if args['clean']:
-        LOG.warn("Cleaning %s.%s" % (WORKLOAD_DB, WORKLOAD_COLLECTION))
-        workload_db[WORKLOAD_COLLECTION].remove()
-    ## IF
-    
-    file = open(args['file'], 'r')
+def parseFile(file):
+    LOG.info("Processing file %s...", file)
+    file = open(file, 'r')
     line = file.readline()
     ctr = 0
     while line:
@@ -277,8 +270,43 @@ def main():
     if (current_transaction):
         store(current_transaction)
 
-    LOG.info("Added %d workload sessions to %s.%s" % (ctr, WORKLOAD_DB, WORKLOAD_COLLECTION))
+    print ""
+    LOG.info("Done. Added %d workload sessions to '%s'" % (ctr, workload_col))
         
+
+def main():
+    global current_transaction
+    global headerRegex
+
+    aparser = argparse.ArgumentParser(description='MongoDesigner Trace Parser')
+    aparser.add_argument('--host',
+                         help='hostname of machine running mongo server', default=DEFAULT_HOST)
+    aparser.add_argument('--port', type=int,
+                         help='port to connect to', default=DEFAULT_PORT)
+    aparser.add_argument('--file',
+                         help='file to read from', default=INPUT_FILE)
+    aparser.add_argument('--workload_db', help='the database where you want to store the traces', default=WORKLOAD_DB)
+    aparser.add_argument('--workload_col', help='the collection where you want to store the traces', default=WORKLOAD_COLLECTION)
+    aparser.add_argument('--clean', action='store_true',
+                         help='Remove all documents in the workload collection before processing is started')    
+    args = vars(aparser.parse_args())
+
+    print ""
+    LOG.info("..:: MongoDesigner Trace Parser ::..")
+    print ""
+
+    #start connection and set global variables...
+    initDB(args['host'], args['port'], args['workload_db'], args['workload_col'])
+
+    settings = "host: ", args['host'], " port: ", args['port'], " file: ", args['file'], " db: ", args['workload_db'], " col: ", args['workload_col']
+    LOG.info("Settings: %s", settings)
+    
+    if args['clean']:
+        LOG.warn("Cleaning '%s' collection...", workload_col)
+        cleanWorkload()
+    
+    parseFile(args['file'])
+    
     return
 
 

@@ -1,134 +1,56 @@
                      sniffing... 27017
-1317165308.8626921 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 64 bytes id:21c8ff41 566820673
-                     insert: { _id: ObjectId('4e8258fcbade9e3d48e42b75'), b: 1c13f2701648e0b0d46d8a2a5a131a53/6 }
-1317165308.8628271 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff42 566820674
-                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
-1317165308.8628881 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d1281b 550578203 - 566820674
+1328735011.6858001 - 127.0.0.1:62255 -->> 127.0.0.1:27017 admin.$cmd 58 bytes id:41a7 16807
+                     query: { ismaster: 1 } ntoreturn: -1 ntoskip: 0
+1328735011.6859441 - 127.0.0.1:27017 <<-- 127.0.0.1:62255 87 bytes id:d3698631 3546908209 - 16807
                      reply n:1 cursorId: 0
-                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
-1317165308.862968 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff43 566820675
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165308.8630271 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1281c 550578204 - 566820675
+                     { ismaster: true, maxBsonObjectSize: 16777216, ok: 1.0 }
+1328735011.6860399 - 127.0.0.1:62255 -->> 127.0.0.1:27017 sample_db.users 45 bytes id:4f299340 1328124736
+                     delete flags: 0 q: {}
+1328735011.6861 -    127.0.0.1:62255 -->> 127.0.0.1:27017 sample_db.articles 48 bytes id:6102f73 101724019
+                     delete flags: 0 q: {}
+1328735011.6861489 - 127.0.0.1:62255 -->> 127.0.0.1:27017 sample_db.users 3155 bytes id:10d63af1 282475249
+                     insert: { _id: ObjectId('4f32e32277ed44154d000000'), address: { street: 53976189162da64dea77eccf5aacad4b/6, list: [ e99bb33727d338314912e86fbdec87af/4, 347017fd1e37a22faf91875981bc4fb3/4, 0fa2fc5954ab40ecfe658625c4adbea5/3 ] }, last: e7a689b31342baa4c3d6422980fd0edc/8, first: b7e7c12ae172cf6a2e0b216635f0c6a5/9 }
+                     { _id: ObjectId('4f32e32277ed44154d000001'), address: { street: 149fa39ae209845694e7c806a12d80d5/8, list: [ 96a3be3cf272e017046d1b2674a52bd3/4, a2ef406e2c2351e0b9e80029c909242d/4, e45ee7ce7e88149af8dd32b27f9512ce/3 ] }, last: 690d4207b0ac3d53c6da3eeef8583bae/8, first: 02428f06d609207f6dc39e3c26fb984f/6 }
+                     { _id: ObjectId('4f32e32277ed44154d000002'), address: { street: c57f60071abde555056cca6e4aae7b48/11, list: [ 96a3be3cf272e017046d1b2674a52bd3/4, a2ef406e2c2351e0b9e80029c909242d/4, e45ee7ce7e88149af8dd32b27f9512ce/3 ] }, last: c256bb6b52fa6f3212659d2a08175b0a/6, first: b24224df53dce7889b49b221269478e3/11 }
+                     { _id: ObjectId('4f32e32277ed44154d000003'), address: { street: 2ce08285481ae9379df4c4bffb8da2b4/11, list: [ 5b3dbba35d5b2d49c29140bb1e5bbcd5/5, 7a898098e8f3765cf83b80b4f6f89f8f/5, 39d2b6c96df6d432df2d0346bbe783a1/4 ] }, last: 19c9c4002ba7730c25469cd6c6aee4f5/11, first: b5a623b502f33b2927118bd1dbb15c58/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000004'), address: { street: 3173dc8291f152f1b5d2d3a2fc71d2da/11, list: [ b18c78e25c08aaaa9c77a81ef927191f/5, 9a96dd0a0914edb3d286602d4fd23959/5, d0cf91f2fb54a6fc9619387a0f7e253a/4 ] }, last: c90910ae6b0228566e9333effab83cbc/11, first: f494349ac4b2ffd9db9e40189b140032/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000005'), address: { street: ca445d4e753f484a8e96a6bff8d8a757/11, list: [ 6afb33608e6d4e58de2b8f156164f2af/5, 893c4a2c17c4bff53de2008c3ac3af32/5, 801ed319e7293bed0ac9c5c277ef92e7/4 ] }, last: a563a7fa8a86a8acc42fa620d4e10eea/11, first: f3724b1c1fcc57f07f4809edc6ae4731/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000006'), address: { street: ce6bbd050c6108cc4cb8b764e31f5c25/11, list: [ dd6bdbb6f27ead6cec6cb5d4cd64b713/5, e1f939168d96cd480c89ea285715523f/5, 8a1b182e70e5dbe7df1efb5697219dcc/4 ] }, last: 274b47df94fdaa102677b92c7c46e3cb/11, first: 2d84baaec9886ccdcaadb21bbc530e4e/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000007'), address: { street: fbd979794bb3670f219d47cbebe787f5/11, list: [ e303cccf060e555a71363d0c70d45d2e/5, 03bca135fcf8806a1e0a809fc3dc7877/5, ebc007a281a169eb37de0babc0dc7b38/4 ] }, last: 8ff7719d596a770f48adf566e940c8c3/11, first: fa8035d82c9f2ded87f25700b4c647a1/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000008'), address: { street: 46b8812a01eef13e8fbf7d24cf5330d6/11, list: [ 53e10205dc5b13f7ca22e3b11b6961e2/5, 9c49f839d8ce7daf23a70f507f89dba2/5, 79a833649ee7908c88b1523f22facec3/4 ] }, last: 25db939b7c4948733ae652ad2a1d06ae/11, first: 6f308ad1157fed3130f9c0c94c8cad73/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000009'), address: { street: 5a29eb04012cd8b5482ac3b708c4f98b/11, list: [ 1efc3d177570ec8200622456f88b28d6/5, d17318897d1fec7b5bdba2c43cdf1d23/5, 6b16020e9e0fd59fded22d9d50d58094/4 ] }, last: 422ab91a8161fdf46bd8a8ff73945ae5/11, first: 459d582eb939c747025368728996a18d/10 }
+                     { _id: ObjectId('4f32e32277ed44154d00000a'), address: { street: 73a87765ed4397b1fd94815859e2c177/11, list: [ 1189e0b6da769dc7d4a87043e1f6a9fe/5, e26db79bbadee32997251b8423a59f3d/5, 28a4b3e48e64d36e247a8ddd81255bea/4 ] }, last: 8611700bd8346a6c3d0353139a3801a3/11, first: b64f59a15a2c5b44bb21a5740196bda1/10 }
+                     { _id: ObjectId('4f32e32277ed44154d00000b'), address: { street: 2f4dd836d2f10c0874c8bd39f4da0db2/11, list: [ 89736352d4c37602e67560c128a2fa75/5, f08e75ac7ed99266c2f4b7a15e4262e0/5, 3522d54cf3e819b5d3e1cbf8aef6af5a/4 ] }, last: 9066d912f955a1850f72c17f938a42dc/11, first: cee0771f744e92c664a2ea9844e8dbb3/10 }
+                     { _id: ObjectId('4f32e32277ed44154d00000c'), address: { street: e75dae101bc7f6d6c562e363e11b3092/11, list: [ 8cf3d02eb7b41aa6c3af2f3add907c3d/5, f936201d1ef13d7c312e207a31164852/5, 868b9c2d92b1cdb5587d8d9776208a6f/4 ] }, last: 94cae8ef9aceab443542edcdc061e56a/11, first: 9fb93ae7244cc7a9742c26ad10dcc840/10 }
+                     { _id: ObjectId('4f32e32277ed44154d00000d'), address: { street: 84c383eec9c02ae5e5c5ff33d08c7f60/11, list: [ d043409cf62a855dbdb511279e55dc8d/5, 98c245cdc2ffee6b8871757120f30519/5, 3c020a07a87459535f7c2ff121ba3acc/4 ] }, last: 31b9a029a529270dddae26216a2fa210/11, first: 1da9a61205219e326ab5c51973b261f8/10 }
+                     { _id: ObjectId('4f32e32277ed44154d00000e'), address: { street: a8e0ce0204e4b35df874d2296372f5d3/11, list: [ 3fb62f870b75b8774d2ca3d8755b7478/5, 0789a51fbb02029a7aaa08c3b97124cd/5, 03cae15c3555103b600d117292504528/4 ] }, last: 89ba9395c80b29c885841d1f19a2350e/11, first: e820472b47b9bd55462dcafa79b1b7a3/10 }
+                     { _id: ObjectId('4f32e32277ed44154d00000f'), address: { street: 44c3cc1345814a1294b33bbc1cdee72f/11, list: [ 96bd1da2eb145ce4fdb2578bc6274b42/5, e3b27b8da903051e0a4a92eb34dc99a1/5, dd6bdbb6f27ead6cec6cb5d4cd64b713/4 ] }, last: 0af797084c885fd12c1f66334e5b711c/11, first: 7cfb0e72a99efe11c8b831a4aa1949d7/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000010'), address: { street: 40585319ba5f199e278ee9c32dcef1ae/11, list: [ 5ebbdb7c991b40b148567383bf52a22a/5, 2b510cc681bd476c21d189e5cadf28b9/5, c2428248fe87e50486817e399d4d45bc/4 ] }, last: 7d231321a241c23c33f86d8a43d69696/11, first: 7c47ae1a4d2d9ddfc11996c3ab78172e/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000011'), address: { street: 746d485e7901ccd7831e3a6354f1a6ce/11, list: [ d277845477ad1b576f6fadf97b8190dc/5, 69ca9437be0ba3616a5baeb328523973/5, 85694ccab616860a4f1a18a550cda795/4 ] }, last: d932b204c3838f2c7dc19cf4d325e6b7/11, first: ca9419f41bb53840629d071e3741e446/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000012'), address: { street: eb13273cf86b03b9f0850dec87cadc12/11, list: [ 6827745f1aafde0b6f9eefad04afe79d/5, fb527b9ca80369750b3d7ea672e8ac96/5, b44d323793965fff63648cc8c762f11f/4 ] }, last: 805b15d78417da3a8b5ce79ab23c68b0/11, first: d98fe5334221a623db046d056bf1bed0/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000013'), address: { street: 6e589ee7e2cdfbe808d4e054db08007a/11, list: [ c385387a37306ac79248b4758d6d7650/5, 5d0309d916afd9f0c5a17baf90c1e0f8/5, d87426a84f6f9120a823e8d9204111fc/4 ] }, last: 5a48c9a5f4991d8a3dd624f26461dea4/11, first: 559c33fa847d3dbff8633a78c55f2e98/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000014'), address: { street: 4a6c8afb5f1ad25b05b018fbd9957952/11, list: [ 9bc47d9617c07924fa15d3d7825187e1/5, dbe1e30efd8c97345e3cf50f226cf8d8/5, b49eaea4950990f6f0390fd5d31cacb1/4 ] }, last: caa2947839f8b86a694b066a0b3ffc8d/11, first: 49102963c2a1b0586ea5c585c8e4641e/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000015'), address: { street: 9a14dc6afd865ff7614d8bbf541cbbdc/11, list: [ 78cf2bd3bf998910af630d1a06849a9d/5, e8dc04abf438096b8b9d777804763d9a/5, 8c9e5850553dce9d35a102441a9edaa4/4 ] }, last: f645c4dc98731f8f4585ae781209ba79/11, first: 57e76ea8d46e76812353259d6a1288f4/10 }
+                     { _id: ObjectId('4f32e32277ed44154d000016'), address: { street: f9669864f1bec0bcb89e11583a54382f/11, list: [ ce2c9ee8b2112b44944d5140e0a5bdbd/5, 28e18c11a8f92c9fb6c0170a06ad79e0/5, f3259d517e8da672159ce7f3bb687ab9/4 ] }, last: 9a908c8b0169f3e8daf68038c1310369/11, first: 8e21f98dcaa55798a8254c81df71c97a/10 }
+1328735011.688776 -  127.0.0.1:62255 -->> 127.0.0.1:27017 sample_db.articles 855 bytes id:60b7acd9 1622650073
+                     insert: { _id: ObjectId('4f32e32277ed44154d000017'), text: "Read online on www.fuckreligion.org", author: e7a689b31342baa4c3d6422980fd0edc/8, Title: "Why We Should Ban Religion And Kill The Pope" }
+                     { _id: ObjectId('4f32e32277ed44154d000018'), text: "Database bullshit", author: 690d4207b0ac3d53c6da3eeef8583bae/8, Title: "Blah blah blah" }
+                     { _id: ObjectId('4f32e32277ed44154d000019'), text: 8ace1c2228d1c135bf415bb9c638042d/33, author: c6276ad3d552b15a369f04ce19cb8477/11, Title: 6df010a6824247d31503c44fab9b8dcc/22 }
+                     { _id: ObjectId('4f32e32277ed44154d00001a'), text: 12a710ba3a9b33ef3575a4957e4f555b/33, author: 3b92d74b0f64867ae532c90fe11e73cb/11, Title: bf74729311356a016eda41824caacfd5/22 }
+                     { _id: ObjectId('4f32e32277ed44154d00001b'), text: ce3caed64adf24807ff28550bd03af16/33, author: e5dc71d12803444791e1f9237f05b8b3/11, Title: 050078357cc6273aea6ada3f01f1685a/22 }
+                     { _id: ObjectId('4f32e32277ed44154d00001c'), text: e3e6cb4dbbea71839b2e0134fec8a688/33, author: f598b5d0b408431749b9d5d794a1b077/11, Title: 7915c21bf93e23fba804345de2122549/22 }
+                     { _id: ObjectId('4f32e32277ed44154d00001d'), text: d2dd3460ed6ee298db7a659bf65403db/33, author: 7b88b92cf7db76cae1e6628e6d941452/11, Title: e5e417eb26d2f9ceca5d3fb62c048103/22 }
+1328735011.6891651 - 127.0.0.1:62255 -->> 127.0.0.1:27017 sample_db.users 62 bytes id:3ab50c2a 984943658
+                     query: { $query: {} } ntoreturn: -1 ntoskip: 0
+1328735011.689209 -  127.0.0.1:27017 <<-- 127.0.0.1:62255 161 bytes id:d3698632 3546908210 - 984943658
                      reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165316.863651 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff44 566820676
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165316.863714 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1281d 550578205 - 566820676
+                     { _id: ObjectId('4f32e32277ed44154d000000'), address: { street: 53976189162da64dea77eccf5aacad4b/6, list: [ e99bb33727d338314912e86fbdec87af/4, 347017fd1e37a22faf91875981bc4fb3/4, 0fa2fc5954ab40ecfe658625c4adbea5/3 ] }, last: e7a689b31342baa4c3d6422980fd0edc/8, first: b7e7c12ae172cf6a2e0b216635f0c6a5/9 }
+1328735011.689338 -  127.0.0.1:62255 -->> 127.0.0.1:27017 sample_db.$cmd 88 bytes id:4431b782 1144108930
+                     query: { count: ea40865b083800965a77c52d93b4d7c3/11, query: {}, fields: null } ntoreturn: -1 ntoskip: 0
+1328735011.6893981 - 127.0.0.1:27017 <<-- 127.0.0.1:62255 64 bytes id:d3698633 3546908211 - 1144108930
                      reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165316.8637569 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff45 566820677
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165316.86379 -   127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1281e 550578206 - 566820677
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165316.8638301 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff46 566820678
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165316.863863 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1281f 550578207 - 566820678
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165320.8641911 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 67 bytes id:21c8ff47 566820679
-                     insert: { _id: ObjectId('4e825908bade9e3d48e42b76'), b: 9d766cd039778e0267976a3f58abfe60/9 }
-1317165320.864327 -  127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff48 566820680
-                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
-1317165320.8643899 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12820 550578208 - 566820680
-                     reply n:1 cursorId: 0
-                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
-1317165320.864465 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff49 566820681
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165320.8645229 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12821 550578209 - 566820681
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165324.864774 -  127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 64 bytes id:21c8ff4a 566820682
-                     insert: { _id: ObjectId('4e82590bbade9e3d48e42b77'), b: d1df65ae7b66018edd44ea6a51ac550b/6 }
-1317165324.8648679 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff4b 566820683
-                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
-1317165324.8649199 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12822 550578210 - 566820683
-                     reply n:1 cursorId: 0
-                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
-1317165324.8649759 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff4c 566820684
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165324.8650191 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12823 550578211 - 566820684
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165326.8650501 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 65 bytes id:21c8ff4d 566820685
-                     insert: { _id: ObjectId('4e82590ebade9e3d48e42b78'), b: ae34311ece217b6e958d49eac19e2a92/7 }
-1317165326.8651631 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff4e 566820686
-                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
-1317165326.8652239 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12824 550578212 - 566820686
-                     reply n:1 cursorId: 0
-                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
-1317165326.865298 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff4f 566820687
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165326.8653641 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12825 550578213 - 566820687
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165335.8659561 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 63 bytes id:21c8ff50 566820688
-                     insert: { _id: ObjectId('4e825917bade9e3d48e42b79'), b: 12345678.0 }
-1317165335.86607 -   127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff51 566820689
-                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
-1317165335.866111 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12826 550578214 - 566820689
-                     reply n:1 cursorId: 0
-                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
-1317165335.8661611 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff52 566820690
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165335.8662131 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12827 550578215 - 566820690
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165340.8664539 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 63 bytes id:21c8ff53 566820691
-                     insert: { _id: ObjectId('4e82591cbade9e3d48e42b7a'), b: 22222222.0 }
-1317165340.866523 -  127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff54 566820692
-                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
-1317165340.866569 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d12828 550578216 - 566820692
-                     reply n:1 cursorId: 0
-                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
-1317165340.8666251 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff55 566820693
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165340.8666689 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12829 550578217 - 566820693
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165345.8670449 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 63 bytes id:21c8ff56 566820694
-                     insert: { _id: ObjectId('4e825921bade9e3d48e42b7b'), 2: 22222222.0 }
-1317165345.8671589 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff57 566820695
-                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
-1317165345.8672321 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d1282a 550578218 - 566820695
-                     reply n:1 cursorId: 0
-                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
-1317165345.8673151 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff58 566820696
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165345.8673799 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1282b 550578219 - 566820696
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165353.8679259 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 63 bytes id:21c8ff59 566820697
-                     insert: { _id: ObjectId('4e825929bade9e3d48e42b7c'), 3: 33.0 }
-1317165353.8680251 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff5a 566820698
-                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
-1317165353.868073 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d1282c 550578220 - 566820698
-                     reply n:1 cursorId: 0
-                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
-1317165353.8681231 - 127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff5b 566820699
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165353.8681619 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1282d 550578221 - 566820699
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165363.8688819 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 70 bytes id:21c8ff5c 566820700
-                     insert: { _id: ObjectId('4e825933bade9e3d48e42b7d'), q: "test query" }
-1317165363.8689549 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.$cmd 76 bytes id:21c8ff5d 566820701
-                     query: { getlasterror: 1.0, w: 1.0 } ntoreturn: -1 ntoskip: 0
-1317165363.8690009 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 94 bytes id:20d1282e 550578222 - 566820701
-                     reply n:1 cursorId: 0
-                     { n: 0, connectionId: 1, wtime: 0, err: null, ok: 1.0 }
-1317165363.869056 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff5e 566820702
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165363.8691001 - 127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d1282f 550578223 - 566820702
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
-1317165373.8700249 - 127.0.0.1:59829 -->> 127.0.0.1:27017 test.food 43 bytes id:21c8ff5f 566820703
-                     query: {} ntoreturn: 0 ntoskip: 0
-1317165373.870079 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 777 bytes id:20d12830 550578224 - 566820703
-                     reply n:22 cursorId: 0
-                     { _id: ObjectId('4e822a8dbade9e3d48e42b68'), a: 1.0 }
-1317165373.870126 -  127.0.0.1:59829 -->> 127.0.0.1:27017 admin.$cmd 80 bytes id:21c8ff60 566820704
-                     query: { replSetGetStatus: 1, forShell: 1 } ntoreturn: 1 ntoskip: 0
-1317165373.870162 -  127.0.0.1:27017 <<-- 127.0.0.1:59829 92 bytes id:20d12831 550578225 - 566820704
-                     reply n:1 cursorId: 0
-                     { errmsg: "not running with --replSet", ok: 0.0 }
+                     { n: 7.0, ok: 1.0 }
+1328735011.6894469 - 127.0.0.1:62255 -->> 127.0.0.1:27017 sample_db.users 66 bytes id:e8aa6e65 3903483493
+                     delete flags: 0 q: { first: b24224df53dce7889b49b221269478e3/11 }
+1328735011.6894979 - 127.0.0.1:62255 -->> 127.0.0.1:27017 sample_db.users 98 bytes id:1c06dac8 470211272
+                     update flags:1 q:{ last: e7a689b31342baa4c3d6422980fd0edc/7 } o:{ _id: ObjectId('4f32e32277ed44154d00001e'), first: 351d45982c6a83fcb72b4df0f7407b4a/5 }

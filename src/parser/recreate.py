@@ -1,0 +1,159 @@
+#!/usr/bin/env python
+import sys
+import fileinput
+import hashlib
+import time
+import re
+import argparse
+import yaml
+import json
+import logging
+from pymongo import Connection
+
+sys.path.append("../workload")
+from traces import *
+
+logging.basicConfig(level = logging.INFO,
+                    format="%(asctime)s [%(funcName)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                    datefmt="%m-%d-%Y %H:%M:%S",
+                    stream = sys.stdout)
+LOG = logging.getLogger(__name__)
+
+### DEFAULT VALUES
+### you can specify these with args
+WORKLOAD_DB = "workload"
+WORKLOAD_COLLECTION = "traces"
+RECREATED_DB = "recreated"
+DEFAULT_HOST = "localhost"
+DEFAULT_PORT = "27017"
+
+###GLOBAL VARS
+connection = None
+current_transaction = None
+
+workload_db = None
+workload_col = None
+recreated_db = None
+recreated_col = None
+
+
+#returns collection where the traces (Session objects) are stored
+def getWorkloadCol():
+    return workload_db[workload_col]
+
+
+def initDB(hostname, port, w_db, w_col, r_db):
+    global connection
+    global workload_db
+    global recreated_db
+    global workload_col
+
+    # Initialize connection to db that stores raw transactions
+    connection = Connection(hostname, port)
+    workload_db = connection[w_db]
+    workload_col = str(w_col)
+    recreated_db = connection[r_db]
+    
+    return
+
+def cleanRecreated():
+    recreated_db.command("dropDatabase")
+
+#
+# Handling individual types of operations
+#
+def processInsert(op):
+    payload = op["content"]
+    col = op["collection"]
+    LOG.info("Inserting %d documents into collection %s", len(payload), col)
+    recreated_db[col].insert(payload)
+
+def processDelete(op):
+    payload = op["content"]
+    col = op["collection"]
+    #for doc in payload:
+    LOG.info("Deleting documents from collection %s..", col)
+    recreated_db[col].remove(payload)
+
+def processUpdate(op):
+    payload = op["content"]
+    col = op["collection"]
+    #for doc in payload:
+    LOG.info("Updating collection %s", col)
+    if len(payload) != 2:
+        LOG.warn("Update operation is expected to have two entries.")
+    else:
+        recreated_db[col].update(payload[0], payload[1])
+
+def processQuery(op):
+    if op["collection"].find("$cmd") > -1:
+        # This is probably AGGREGATE... disregard it
+        return
+    
+    # The query is irrelevant, we simply add the content of the reply...
+    payload = op["response"]["content"]
+    col = op["collection"]
+    LOG.info("Adding %d query results to collection %s", len(payload), col)
+    recreated_db[col].insert(payload)
+    
+
+#
+# Iterates through all operations of all sessions
+# and recreates the dataset...
+#
+def processTraces():
+    cnt = getWorkloadCol().find().count()
+    LOG.info("Found %d traces in the workload collection. Processing... ", cnt)
+    for trace in getWorkloadCol().find():
+        for op in trace["operations"]:
+            if (op["type"] == "$insert"):
+                processInsert(op)
+            elif (op["type"] == "$delete"):
+                processDelete(op)
+            elif (op["type"] == "$query"):
+                processQuery(op)
+            elif (op["type"] == "$update"):
+                processUpdate(op)
+            elif (op["type"] == "$isert"):
+                processInsert(op)
+            else:
+                LOG.warn("Unknow operation type: %s", op["type"])
+    LOG.info("Done.")
+
+def main():    
+    aparser = argparse.ArgumentParser(description='MongoDesigner Datase Recreator')
+    aparser.add_argument('--host',
+                         help='hostname of machine running mongo server', default=DEFAULT_HOST)
+    aparser.add_argument('--port', type=int,
+                         help='port to connect to', default=DEFAULT_PORT)
+    aparser.add_argument('--workload_db', help='the database where you want to store the traces', default=WORKLOAD_DB)
+    aparser.add_argument('--workload_col', help='the collection where you want to store the traces', default=WORKLOAD_COLLECTION)
+    
+    aparser.add_argument('--recreated_db', help='the database of the recreated dataset', default=RECREATED_DB)
+    
+    aparser.add_argument('--clean', action='store_true',
+                         help='Remove all documents in the recreated collection before processing is started')
+    args = vars(aparser.parse_args())
+    
+    LOG.info("\n..:: MongoDesigner Dataset Recreator ::..\n")
+    
+    #Start DB connection and initialize global vars...
+    initDB(args['host'], args['port'], args['workload_db'], args['workload_col'], args['recreated_db'])
+    
+    settings = "host: ", args['host'], " port: ", args['port'], " workload_db: ", args['workload_db'], " workload_col: ", args['workload_col'], " recreated_db: ", args['recreated_db'] 
+    LOG.info("Settings: %s", settings)
+
+    if args['clean']:
+        LOG.warn("Cleaning '%s' collection...", recreated_db)
+        cleanRecreated()
+   
+    processTraces()
+    
+    return
+    
+if __name__ == '__main__':
+    main()
+
+
+
+    
