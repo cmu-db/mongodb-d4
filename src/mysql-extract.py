@@ -164,21 +164,17 @@ if __name__ == '__main__':
             ## ENDIF
             session = workload_db.Session()
             session['ip1'] = u'test-ip1'
-            session['ip2'] = u'test-ip2'
+            session['ip2'] = u'127.0.0.1'
             session['uid'] = uid
             session['operations'] = []
         ## ENDIF
         if row[5] <> '' :
             mongo = sql2mongo.Sql2mongo(row[5], quick_look)
             if mongo.query_type <> 'UNKNOWN' : 
-                operation = {}
-                operation['collection'] = u'test'
-                operation['timestamp'] = 1.1
-                operation['content'] = mongo.render()
-                operation['type'] = u'test'
-                operation['size'] = 1
-                operation['output'] = {}
-                session['operations'].append(operation)
+                operations = mongo.operations()
+                for op in operations :
+                    session['operations'].append(op)
+                ## ENDFOR
             elif row[5].strip().lower() == 'commit' :
                 if len(session['operations']) > 0 :
                     session.save()
@@ -186,7 +182,7 @@ if __name__ == '__main__':
                 ## ENDIF
                 session = workload_db.Session()
                 session['ip1'] = u'test-ip1'
-                session['ip2'] = u'test-ip2'
+                session['ip2'] = u'127.0.0.1'
                 session['uid'] = uid
                 session['operations'] = []
             ## ENDIF
