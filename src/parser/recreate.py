@@ -94,7 +94,10 @@ def processQuery(op):
     payload = op["response"]["content"]
     col = op["collection"]
     LOG.info("Adding %d query results to collection %s", len(payload), col)
-    recreated_db[col].insert(payload)
+    #update(old_doc, new_doc, upsert=True, multi=False)
+    #this is an upsert operation: insert if not present
+    for doc in payload:
+        recreated_db[col].update(doc, doc, True, False)
     
 
 #
