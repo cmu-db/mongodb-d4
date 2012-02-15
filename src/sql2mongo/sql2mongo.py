@@ -9,7 +9,7 @@ import sqlparse
 '''
 class Sql2mongo (object) :
     
-    def __init__(self, sql, tbl_cols = {}) : 
+    def __init__(self, sql, stamp, tbl_cols = {}) : 
         self.sql = sql
         self.stmt = None
         self.query_type = None
@@ -34,6 +34,7 @@ class Sql2mongo (object) :
         self.errors = [] 
         self.tbl_cols = tbl_cols
         self.use_or = False
+        self.timestamp = stamp
         self.process()
     ## ENDDEF
     
@@ -93,7 +94,7 @@ class Sql2mongo (object) :
     def compose_sniff(self, db, collection, alias, cmd) :
         operation = {}
         operation['collection'] = collection
-        operation['timestamp'] = 1.1
+        operation['timestamp'] = self.timestamp
         operation['content'] = []
         operation['output'] = {}
         operation['type'] = unicode(cmd, 'utf-8')

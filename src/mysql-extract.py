@@ -152,6 +152,7 @@ if __name__ == '__main__':
     '''
     uid = 0
     for row in c4:
+        stamp = float(row[0].strftime("%s"))
         if row[2] <> thread_id :
             thread_id = row[2]
             if first == False :
@@ -169,7 +170,7 @@ if __name__ == '__main__':
             session['operations'] = []
         ## ENDIF
         if row[5] <> '' :
-            mongo = sql2mongo.Sql2mongo(row[5], quick_look)
+            mongo = sql2mongo.Sql2mongo(row[5], stamp, quick_look)
             if mongo.query_type <> 'UNKNOWN' : 
                 operations = mongo.operations()
                 for op in operations :
