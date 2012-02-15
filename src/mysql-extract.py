@@ -56,6 +56,8 @@ if __name__ == '__main__':
         hostname = cparser.get(config.SECT_MONGODB, 'hostname')
         port = cparser.getint(config.SECT_MONGODB, 'port')        
         conn = mongokit.Connection(host=hostname, port=port)
+        mongo_conn = pymongo.Connection(host=hostname, port=port)
+        db = mongo_conn['data']
     except:
         LOG.error("Failed to connect to MongoDB at %s:%s" % (config['hostname'], config['port']))
         raise
@@ -111,7 +113,23 @@ if __name__ == '__main__':
 
         coll_catalog.validate()
         coll_catalog.save()
-    ## FOR
+        
+        # TODO: Loop over table data and create a corresponding mongo collection
+        collection = db[tbl_name]
+        collection.remove()
+        sql = 'SELECT * FROM ' + args['name'] + '.' + tbl_name
+        c4 = mysql_conn.cursor()
+        c4.execute(sql)
+        for data_row in c4 :
+            mongo_record = {}
+            i = 0
+            for column in quick_look[tbl_name] :
+                mongo_record[column] = data_row[i]
+                i += 1
+            ## ENDFOR
+            collection.insert(mongo_record)
+        ## ENDFOR
+    ## ENDFOR
 
     # TODO: Ingest a MySQL query log and convert it into our workload.Sessions objects
     c4 = mysql_conn.cursor()
