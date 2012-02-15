@@ -150,27 +150,45 @@ if __name__ == '__main__':
     [4] = command_type
     [5] = argument
     '''
+    uid = 0
     for row in c4:
         if row[2] <> thread_id :
             thread_id = row[2]
             if first == False :
-                session.save()
+                if len(session['operations']) > 0 :
+                    session.save()
+                    uid += 1
+                ## ENDIF
             else :
                 first = False
             ## ENDIF
             session = workload_db.Session()
             session['ip1'] = u'test-ip1'
             session['ip2'] = u'test-ip2'
-            session['uid'] = int(thread_id)
+            session['uid'] = uid
             session['operations'] = []
         ## ENDIF
         if row[5] <> '' :
             mongo = sql2mongo.Sql2mongo(row[5], quick_look)
             if mongo.query_type <> 'UNKNOWN' : 
                 operation = {}
-                #print row[5]
-                #print mongo.render()
-                #session['operations'].append(operation)
+                operation['collection'] = u'test'
+                operation['timestamp'] = 1.1
+                operation['content'] = mongo.render()
+                operation['type'] = u'test'
+                operation['size'] = 1
+                operation['output'] = {}
+                session['operations'].append(operation)
+            elif row[5].strip().lower() == 'commit' :
+                if len(session['operations']) > 0 :
+                    session.save()
+                    uid += 1
+                ## ENDIF
+                session = workload_db.Session()
+                session['ip1'] = u'test-ip1'
+                session['ip2'] = u'test-ip2'
+                session['uid'] = uid
+                session['operations'] = []
             ## ENDIF
         ## ENDIF
     ## ENDFOR
