@@ -39,6 +39,20 @@ class Sql2mongo (object) :
     ## ENDDEF
     
     '''
+    Translate command into Session Document structure
+    '''
+    def build_operation(self, db, collection, alias, cmd) :
+        operation = {}
+        operation['collection'] = collection
+        operation['timestamp'] = self.timestamp
+        operation['content'] = []
+        operation['output'] = {}
+        operation['type'] = unicode(cmd)
+        operation['size'] = 0
+        return operation
+    ## ENDDEF
+    
+    '''
     Helper function to translate the various components parsed from the SQL statement
     to a useable MongoDB command.
     '''
@@ -518,19 +532,19 @@ class Sql2mongo (object) :
         output = []
         if self.query_type == 'SELECT' :
             for alias, table_name in self.tables.iteritems() :
-                output.append(self.compose_sniff(db, table_name, alias, '$query'))
+                output.append(self.build_operation(db, table_name, alias, '$query'))
             ## ENDFOR
         elif self.query_type == 'INSERT' :
             for alias, table_name in self.tables.iteritems() :
-                output.append(self.compose_sniff(db, table_name, alias, '$insert'))
+                output.append(self.build_operation(db, table_name, alias, '$insert'))
             ## ENDFOR
         elif self.query_type == 'DELETE' :
             for alias, table_name in self.tables.iteritems() :
-                output.append(self.compose_sniff(db, table_name, alias, '$remove'))
+                output.append(self.build_operation(db, table_name, alias, '$remove'))
             ## ENDFOR
         elif self.query_type == 'UPDATE' :
             for alias, table_name in self.tables.iteritems() :
-                output.append(self.compose_sniff(db, table_name, alias, '$update'))
+                output.append(self.build_operation(db, table_name, alias, '$update'))
             ## ENDFOR
         ## ENDIF
         return output
