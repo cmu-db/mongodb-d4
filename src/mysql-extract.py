@@ -183,13 +183,12 @@ if __name__ == '__main__':
                     uid += 1
                 ## ENDIF
                 session = workload_db.Session()
-                session['ip1'] = u'test-ip1'
-                session['ip2'] = u'127.0.0.1'
+                session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
+                session['ip2'] = hostIP
                 session['uid'] = uid
                 session['operations'] = []
             ## ENDIF
         ## ENDIF
     ## ENDFOR
     session.save()
-    
 ## MAIN

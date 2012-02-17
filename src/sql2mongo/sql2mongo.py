@@ -97,7 +97,7 @@ class Sql2mongo (object) :
         operation['timestamp'] = self.timestamp
         operation['content'] = []
         operation['output'] = {}
-        operation['type'] = unicode(cmd, 'utf-8')
+        operation['type'] = unicode(cmd)
         operation['size'] = 0
         return operation
     ## ENDDEF
@@ -518,19 +518,19 @@ class Sql2mongo (object) :
         output = []
         if self.query_type == 'SELECT' :
             for alias, table_name in self.tables.iteritems() :
-                output.append(self.compose_sniff(db, table_name, alias, 'find'))
+                output.append(self.compose_sniff(db, table_name, alias, '$query'))
             ## ENDFOR
         elif self.query_type == 'INSERT' :
             for alias, table_name in self.tables.iteritems() :
-                output.append(self.compose_sniff(db, table_name, alias, 'insert'))
+                output.append(self.compose_sniff(db, table_name, alias, '$insert'))
             ## ENDFOR
         elif self.query_type == 'DELETE' :
             for alias, table_name in self.tables.iteritems() :
-                output.append(self.compose_sniff(db, table_name, alias, 'remove'))
+                output.append(self.compose_sniff(db, table_name, alias, '$remove'))
             ## ENDFOR
         elif self.query_type == 'UPDATE' :
             for alias, table_name in self.tables.iteritems() :
-                output.append(self.compose_sniff(db, table_name, alias, 'update'))
+                output.append(self.compose_sniff(db, table_name, alias, '$update'))
             ## ENDFOR
         ## ENDIF
         return output
