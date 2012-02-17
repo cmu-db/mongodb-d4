@@ -151,6 +151,7 @@ if __name__ == '__main__':
     [5] = argument
     '''
     uid = 0
+    hostIP = sql2mongo.detectHostIP()
     for row in c4:
         stamp = float(row[0].strftime("%s"))
         if row[2] <> thread_id :
@@ -164,8 +165,8 @@ if __name__ == '__main__':
                 first = False
             ## ENDIF
             session = workload_db.Session()
-            session['ip1'] = u'test-ip1'
-            session['ip2'] = u'127.0.0.1'
+            session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
+            session['ip2'] = hostIP
             session['uid'] = uid
             session['operations'] = []
         ## ENDIF
@@ -190,4 +191,5 @@ if __name__ == '__main__':
         ## ENDIF
     ## ENDFOR
     session.save()
+    
 ## MAIN
