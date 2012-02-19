@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import sqlparse
+import json
 
 '''
 @todo: JOIN processing
@@ -45,7 +46,7 @@ class Sql2mongo (object) :
         operation = {}
         operation['collection'] = collection
         operation['timestamp'] = self.timestamp
-        operation['content'] = []
+        operation['content'] = [self.compose_sniff(db, collection, alias, cmd)]
         operation['output'] = {}
         operation['type'] = unicode(cmd)
         operation['size'] = 0
@@ -106,14 +107,30 @@ class Sql2mongo (object) :
     Translate command into Session Document structure
     '''
     def compose_sniff(self, db, collection, alias, cmd) :
-        operation = {}
-        operation['collection'] = collection
-        operation['timestamp'] = self.timestamp
-        operation['content'] = []
-        operation['output'] = {}
-        operation['type'] = unicode(cmd)
-        operation['size'] = 0
-        return operation
+        output = {}
+        mongo = None
+        if cmd == '$query' :
+            mongo = '{'
+            if self.use_or == True :
+                mongo += '$or:[{'
+            ## ENDIF
+            if self.use_or == True :
+                mongo += '},{'.join(self.where_cols[alias])
+            else :
+                mongo += ','.join(self.where_cols[alias])
+            ## ENDIF 
+            if self.use_or == True :
+                mongo += '}]}'
+            ## ENDIF
+            mongo += '}';
+            output['query'] = {}
+        elif cmd == '$insert' :
+            pass
+        elif cmd == '$remove' :
+            pass
+        elif cmd == '$update' :
+            pass
+        return output
     ## ENDDEF
 
     '''

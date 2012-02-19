@@ -139,17 +139,9 @@ if __name__ == '__main__':
     conn.register([workload.Session])
     workload_db = conn[cparser.get(config.SECT_MONGODB, 'workload_db')]
     workload_db.drop_collection(constants.WORKLOAD_SESSIONS)
+    
     thread_id = None
     first = True
-    
-    '''
-    [0] = event_time
-    [1] = user_host
-    [2] = thread_id
-    [3] = server_id
-    [4] = command_type
-    [5] = argument
-    '''
     uid = 0
     hostIP = sql2mongo.detectHostIP()
     for row in c4:
