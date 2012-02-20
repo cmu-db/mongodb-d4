@@ -63,7 +63,31 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find({}, {a:1,b:1})", result[0])
-
+    
+    def testSelectQuery03(self) :
+        sql = 'SELECT * FROM users WHERE age=33'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find({age:33})", result[0])
+    
+    def testSelectQuery04(self) :
+        sql = 'SELECT a,b FROM users WHERE age=33'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find({age:33}, {a:1,b:1})", result[0])
+    
+    def testSelectQuery05(self) :
+        sql = 'SELECT * FROM users WHERE age=33 ORDER BY name'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find({age:33}).sort({name:1})", result[0])
+    
+    def testSelectQuery06(self) :
+        sql = 'SELECT * FROM users WHERE age>33'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find({age:{$gt:33}})", result[0])
+    
     def testUpdateQuery01(self) :
         sql = "UPDATE users SET a=1 WHERE b='q'"
         self.mongo.process_sql(sql)

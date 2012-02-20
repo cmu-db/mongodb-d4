@@ -636,7 +636,11 @@ class Sql2mongo (object) :
             parts = []
             for col, ops in self.where_cols[tbl_name].iteritems() :
                 if len(self.where_cols[tbl_name][col]) == 1 :
-                    parts.append(col + self.where_cols[tbl_name][col][0][0] + self.where_cols[tbl_name][col][0][1])
+                    if self.where_cols[tbl_name][col][0][0] == ':' :
+                        cmd = col + self.where_cols[tbl_name][col][0][0] + self.where_cols[tbl_name][col][0][1]
+                    else :
+                        cmd = col + ':{' + self.where_cols[tbl_name][col][0][0] + ':' + self.where_cols[tbl_name][col][0][1] + '}'
+                    parts.append(cmd)
                 else :
                     inner_parts = []
                     for tups in self.where_cols[tbl_name][col] :
