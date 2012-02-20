@@ -10,23 +10,47 @@ class TestConversions (unittest.TestCase) :
         self.schema = {'users': ['a', 'b']}
         self.mongo = sql2mongo.Sql2mongo(self.schema)
     
-    def test_delete01(self) :
+    def testDelete01(self) :
         sql = 'DELETE FROM users WHERE z="abc"'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.remove({z:'abc'})", result[0])
         
-    def test_insert01(self) :
+    def testInsert01(self) :
         sql = 'INSERT INTO users VALUES (3,5)'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u'db.users.insert({a:3,b:5})', result[0])
         
-    def test_queryTypeSelect(self) :
+    def testQueryTypeCommit(self) :
+        sql = 'COMMIT'
+        self.mongo.process_sql(sql)
+        result = self.mongo.query_type
+        self.assertEqual('UNKNOWN', result)
+    
+    def testQueryTypeDelete(self) :
+        sql = 'DELETE FROM users'
+        self.mongo.process_sql(sql)
+        result = self.mongo.query_type
+        self.assertEqual('DELETE', result)
+    
+    def testQueryTypeInsert(self) :
+        sql = 'INSERT INTO users VALUES (1, 2)'
+        self.mongo.process_sql(sql)
+        result = self.mongo.query_type
+        self.assertEqual('INSERT', result)
+    
+    def testQueryTypeSelect(self) :
         sql = 'SELECT a,b FROM users'
         self.mongo.process_sql(sql)
         result = self.mongo.query_type
         self.assertEqual('SELECT', result)
+    
+    def testQueryTypeUpdate(self) :
+        sql = 'UPDATE users SET a = 1 WHERE b = 2'
+        self.mongo.process_sql(sql)
+        result = self.mongo.query_type
+        self.assertEqual('UPDATE', result)
         
     def test_select01(self) :
         sql = 'SELECT * FROM users'
