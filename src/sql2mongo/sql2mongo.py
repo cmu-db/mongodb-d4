@@ -8,167 +8,116 @@ import json
 @todo: Process basic OR criteria
 @todo: Handle nested queries?
 '''
+
 class Sql2mongo (object) :
-    
-    def __init__(self, sql, stamp, tbl_cols = {}) : 
-        self.sql = sql
-        self.stmt = None
-        self.query_type = None
-        self.tables = {}
-        self.select_cols = {}
-        self.where_cols = {}
-        self.sort_cols = {}
-        self.limit = {}
-        self.skip = {}
-        self.from_loc = None
-        self.select_loc = None
-        self.insert_loc = None
-        self.update_loc = None
-        self.delete_loc = None
-        self.set_loc = None
-        self.join_loc = None
-        self.where_loc = None
-        self.sort_loc = None
-        self.limit_loc = None
-        self.skip_loc = None
-        self.values_loc = None
-        self.errors = [] 
-        self.tbl_cols = tbl_cols
-        self.use_or = False
-        self.timestamp = stamp
-        self.process()
-    ## ENDDEF
-    
-    '''
-    Translate command into Session Document structure
-    '''
-    def build_operation(self, db, collection, alias, cmd) :
-        operation = {}
-        operation['collection'] = collection
-        operation['timestamp'] = self.timestamp
-        operation['content'] = [self.compose_sniff(db, collection, alias, cmd)]
-        operation['output'] = {}
-        operation['type'] = unicode(cmd)
-        operation['size'] = 0
-        return operation
-    ## ENDDEF
-    
-    '''
-    Helper function to translate the various components parsed from the SQL statement
-    to a useable MongoDB command.
-    '''
-    def compose_mongo(self, db, collection, alias, cmd) :
-        mongo = db + '.' + collection + '.' + cmd + '(';
-        if len(self.where_cols[alias]) > 0 :
-            mongo += '{'
-            if self.use_or == True :
-                mongo += '$or:[{'
-            ## ENDIF
-            if self.use_or == True :
-                mongo += '},{'.join(self.where_cols[alias])
-            else :
-                mongo += ','.join(self.where_cols[alias])
-            ## ENDIF 
-            if self.use_or == True :
-                mongo += '}]}'
-            ## ENDIF
-            mongo += '}';
-        ## ENDIF
-        if len(self.select_cols[alias]) > 0 :
-            if len(self.where_cols[alias]) > 0 :
-                mongo = mongo + ', '
-            ## ENDIF
-            mongo += '{'
-            if self.query_type == 'UPDATE' :
-                mongo += '$set:{'
-            ## ENDIF
-            if self.query_type == 'UPDATE' :
-                mongo +=  '}'
-            ## ENDIF
-            mongo += '}'
-        ## ENDIF
-        if self.query_type == 'UPDATE' :
-            mongo += ', false, true'
-        ## ENDIF
-        mongo = mongo + ')'
-        if len(self.sort_cols[alias]) > 0 :
-            mongo += '.sort(' + ','.join(self.sort_cols[alias]) + ')'
-        ## ENDIF
-        if self.limit[alias] <> None :
-            mongo += '.limit(' + self.limit[alias] + ')'
-        ## ENDIF
-        if self.skip[alias] <> None :
-            mongo += '.skip(' + self.skip[alias] + ')'
-        ## ENDIF
-        return mongo
-    ## ENDDEF
 
     '''
-    Translate command into Session Document structure
+    Class constructor
     '''
-    def compose_sniff(self, db, collection, alias, cmd) :
-        output = {}
-        mongo = None
-        if cmd == '$query' :
-            mongo = '{'
-            if self.use_or == True :
-                mongo += '$or:[{'
-            ## ENDIF
-            if self.use_or == True :
-                mongo += '},{'.join(self.where_cols[alias])
-            else :
-                mongo += ','.join(self.where_cols[alias])
-            ## ENDIF 
-            if self.use_or == True :
-                mongo += '}]}'
-            ## ENDIF
-            mongo += '}';
-            output['query'] = {}
-        elif cmd == '$insert' :
+    def __init__(self, schema = {}) :
+        self.schema = schema
+        self.reset()
+    ## End __init__()
+    
+    '''
+    Take a tuple specifying the attribute, operator, and value and add to the structure
+    defining the Where clause
+    '''
+    def add_where_comparison(self, table_alias, tuple) :
+        tbl_name = self.table_aliases[table_alias]
+        columns = list(self.where_cols[tbl_name])
+        if tuple[0] in columns :
             pass
-        elif cmd == '$remove' :
-            pass
-        elif cmd == '$update' :
-            pass
-        return output
-    ## ENDDEF
+        else :
+            self.where_cols[tbl_name][tuple[0]] = []
+        self.where_cols[tbl_name][tuple[0]].append((tuple[1], tuple[2]))
+    ## End add_where_comparison()
+    
+    def generate_content_insert(self, table) :
+        return ''
+    ## End generate_content_insert()
+    
+    def generate_content_query(self, table) :
+        return ''
+    ## End generate_content_query()
+    
+    def generate_content_remove(self, table) :
+        return ''
+    ## End generate_content_remove()
+    
+    def generate_content_update(self, table) :
+        return ''
+    ## End generate_content_update()
+    
+    def generate_operations(self, timestamp) :
+        operations = []
+        for alias, table in self.table_aliases.iteritems() :
+            op = {}
+            op['collection'] = table
+            op['timestamp'] = timestamp
+            op['content'] = []
+            op['type'] = self.mongo_type()
+            op['size'] = 0
+            if self.query_type == 'DELETE' :
+                op['content'].append(self.generate_content_remove(table))
+            elif self.query_type == 'INSERT' :
+                op['content'].append(self.generate_content_insert(table))
+            elif self.query_type == 'SELECT' :
+                op['content'].append(self.generate_content_query(table))
+            elif self.query_type == 'UPDATE' :
+                op['content'].append(self.generate_content_update(table))
+        return operations
+    ## End generate_operations()
+        
+    def mongo_type(self) :
+        if self.query_type == 'DELETE' :
+            return u'$remove'
+        elif self.query_type == 'INSERT' :
+            return u'$insert'
+        elif self.query_type == 'SELECT' :
+            return u'$query'
+        elif self.query_type == 'UPDATE' :
+            return u'$update'
+        else :
+            return None
+    ## End mongo_type()
+    
+    '''
+    Process an identifier to determine if an alias has been used
+    '''
+    def process_identifier(self, token) :
+        parts = token.to_unicode().split('.')
+        if len(parts) == 1 :
+            return ('main', parts[0])
+        else :
+            return (parts[0], parts[1])
+    ## End process_identifier()
 
-    '''
-    Process a DELETE SQL query
-    '''
-    def do_delete(self) :
+    def process_query_delete(self) :
+        delete_loc, where_loc = None, None
         i = 0
         for token in self.stmt.tokens :
             cls = token.__class__.__name__
             if cls == 'Token' :
                 token_uni = token.to_unicode()
                 if token_uni == 'DELETE' :
-                    self.delete_loc = i
+                    delete_loc = i
                 elif token_uni == 'FROM' :
-                    self.delete_loc = i
-                ## ENDIF
+                    delete_loc = i
             elif cls == 'Where' :
-                self.where_loc = i
+                where_loc = i
             i += 1
-            ## ENDIF
-        ## ENDFOR
         
         ''' Determine table name '''
-        tbl_token_loc = self.delete_loc + 2
+        tbl_token_loc = delete_loc + 2
         cls = self.stmt.tokens[tbl_token_loc].__class__.__name__
         if cls == 'Identifier' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
-            self.tables['main'] = tbl_name
-            self.where_cols['main'] = []
-            self.select_cols['main'] = []
-            self.sort_cols['main'] = []
-            self.limit['main'] = None
-            self.skip['main'] = None
-        ## ENDIF
+            self.table_aliases['main'] = tbl_name
         
         ''' PROCESS WHERE clause '''
-        if self.where_loc <> None :
-            where = self.stmt.tokens[self.where_loc]
+        if where_loc <> None :
+            where = self.stmt.tokens[where_loc]
             count = len(where.tokens)
             i = 1
             while i < count :
@@ -177,7 +126,6 @@ class Sql2mongo (object) :
                 elif where.tokens[i].ttype == sqlparse.tokens.Keyword :
                     if where.tokens[i].to_unicode().lower() == u'or' :
                         self.use_or = True
-                    ## ENDIF
                 else :
                     cls = where.tokens[i].__class__.__name__
                     if cls == 'Token' :
@@ -187,40 +135,31 @@ class Sql2mongo (object) :
                         if where.tokens[i + 1].ttype == sqlparse.tokens.Whitespace :
                             offset = 2;
                         parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
-                        self.where_cols[parts[0]].append(parts[1])
+                        self.add_where_comparison(parts[0], parts[1])
                         i += 4
                     elif cls == 'Comparison' :
                         parts = self.process_where_comparison(where.tokens[i])
-                        self.where_cols[parts[0]].append(parts[1])
-                    ## ENDIF
-                ## ENDIF
+                        self.add_where_comparison(parts[0], parts[1])
                 i += 1
-            ## ENDWHILE
-        ## ENDIF
-    ## ENDDEF
-    
-    '''
-    Process an INSERT SQL query
-    '''
-    def do_insert(self) :
+    ## End process_query_delete()
+
+    def process_query_insert(self) :
+        insert_loc, values_loc = None, None
         i = 0
         for token in self.stmt.tokens :
             cls = token.__class__.__name__
             if cls == 'Token' :
                 token_uni = token.to_unicode()
                 if token_uni == 'INSERT' :
-                    self.insert_loc = i
+                    insert_loc = i
                 elif token_uni == 'INTO' :
-                    self.insert_loc = i
+                    insert_loc = i
                 elif token_uni == 'VALUES' :
-                    self.values_loc = i
-                ## ENDIF
-            ## ENDIF
+                    values_loc = i
             i += 1
-        ## ENDFOR
         
         ''' Determine table name and columns '''
-        tbl_token_loc = self.insert_loc + 2
+        tbl_token_loc = insert_loc + 2
         cls = self.stmt.tokens[tbl_token_loc].__class__.__name__
         if cls == 'Function' : 
             cols_specified = True
@@ -235,23 +174,18 @@ class Sql2mongo (object) :
                         tok_cls = tok.__class__.__name__
                         if tok_cls == 'Identifier' :
                             cols.append(tok.to_unicode())
-                        ## ENDIF
-                    ## ENDFOR
                 elif cls == 'Identifier' :
                     cols.append(token.to_unicode())
                 elif cls == 'Token' and token.ttype == sqlparse.tokens.Token.Name.Builtin :
                     cols.append(token.to_unicode())
-                ## ENDIF
-            ## ENDFOR
         elif cls == 'Identifier' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
             cols_specified = False
-            cols = self.tbl_cols[tbl_name]
-        ## ENDIF
+            cols = self.schema[tbl_name]
         
         ''' Determine column values '''
         column_values = []
-        values_loc = self.values_loc + 2
+        values_loc = values_loc + 2
         for token in self.stmt.tokens[values_loc].tokens :
             cls = token.__class__.__name__
             if cls == 'IdentifierList' :
@@ -270,74 +204,67 @@ class Sql2mongo (object) :
             ## ENDIF
         ## ENDFOR
         
-        self.tables['main'] = tbl_name
-        self.select_cols['main'] = []
-        self.where_cols['main'] = []
-        self.sort_cols['main'] = []
-        self.limit['main'] = None
-        self.skip['main'] = None
+        self.table_aliases['main'] = tbl_name
         
         i = 0
         for col in column_values :
-            self.where_cols['main'].append(cols[i] + ':' + col)
+            self.add_where_comparison('main', (cols[i], ':', col))
             i += 1
-        ## ENDFOR
-    ## ENDDEF
-    
-    '''
-    Process a SELECT SQL query
-    '''
-    def do_select(self) :
+    ## End process_query_insert()
+
+    def process_query_select(self) :
+        ''' Find the location of various clauses'''
+        select_loc, from_loc, where_loc, sort_loc, limit_loc, skip_loc,  = None, None, None, None, None, None
         i = 0
         for token in self.stmt.tokens :
             cls = token.__class__.__name__
             if cls == 'Token' :
                 token_uni = token.to_unicode()
                 if token_uni == 'SELECT' :
-                    self.select_loc = i
+                    select_loc = i
                 elif token_uni == 'FROM' :
-                    self.from_loc = i
+                    from_loc = i
                 elif token_uni == 'LIMIT' :
-                    self.limit_loc = i
+                    limit_loc = i
                 elif token_uni == 'ORDER' :
-                    self.sort_loc = i
+                    sort_loc = i
                 elif token_uni == 'BY' :
-                    self.sort_loc = i
+                    sort_loc = i
                 elif token_uni == 'SKIP' :
-                    self.skip_loc = i
+                    skip_loc = i
                 else :
-                    self.errors.append('Unknown Token Type: ' + token_uni)
-                ## ENDIF
+                    pass
             elif cls == 'Identifier' :
                 if token.to_unicode() == 'SKIP' :
-                    self.skip_loc = i
-                pass
+                    skip_loc = i
+                ## End if
             elif cls == 'IdentifierList' :
                 pass
             elif cls == 'Where' :
-                self.where_loc = i
+                where_loc = i
             else :
-                self.errors.append('Unknown Token Class: ' + cls)
-            ## ENDIF
+                pass
             i += 1
-        ## ENDFOR
         
         ''' Process FROM clause '''
-        if self.where_loc <> None :
-            end = self.where_loc
-        elif self.sort_loc <> None :
-            end = self.sort_loc
-        elif self.limit_loc <> None :
-            end = self.limit_loc
-        elif self.skip_loc <> None :
-            end = self.skip_loc
+        if where_loc <> None :
+            end = where_loc
+        elif sort_loc <> None :
+            end = sort_loc
+        elif limit_loc <> None :
+            end = limit_loc
+        elif skip_loc <> None :
+            end = skip_loc
         else :
             end = len(self.stmt.tokens)
-        ## ENDIF
-        if self.from_loc == None :
+        ## End if
+        
+        if from_loc == None :
             self.query_type == 'UNKNOWN'
             return None
-        for i in range(self.from_loc + 1, end) :
+        ## End if
+        
+        for i in range(from_loc + 1, end) :
             cls = self.stmt.tokens[i].__class__.__name__
             if cls <> 'Token' :
                 parts = self.stmt.tokens[i].to_unicode().split(' ')
@@ -347,20 +274,15 @@ class Sql2mongo (object) :
                     index = parts[1]
                 else :
                     index = parts[2]
-                ## ENDIF
-                self.tables[index] = parts[0]
-                self.select_cols[index] = []
-                self.where_cols[index] = []
-                self.sort_cols[index] = []
-                self.limit[index] = None
-                self.skip[index] = None
-            ## ENDIF
-        ## ENDFOR
+                ## End if
+                self.table_aliases[index] = parts[0]
+            ## End if
+        ## End for
         
-        ''' Process JOINS '''
+        ''' Process Joins '''
         
-        ''' Process SELECT clause '''
-        for i in range(self.select_loc + 1, self.from_loc) :
+        ''' Process SELECT Clause '''
+        for i in range(select_loc + 1, from_loc) :
             cls = self.stmt.tokens[i].__class__.__name__
             if cls == 'Token' :
                 pass
@@ -369,23 +291,19 @@ class Sql2mongo (object) :
                 for il in ilist :
                     parts = il.to_unicode().split('.')
                     if len(parts) == 1 :
-                        self.select_cols['main'].append(parts[0] + ':1')
+                        self.project_cols[self.table_aliases['main']].append(parts[0])
                     else :
-                        self.select_cols[parts[0]].append(parts[1] + ':1')
-                    ## ENDIF
-                ## ENDFOR
+                        self.project_cols[self.table_aliases[parts[0]]].append(parts[1])
             else :
                 parts = self.stmt.tokens[i].to_unicode().split('.')
                 if len(parts) == 1 :
-                    self.select_cols['main'].append(parts[0] + ':1')
+                    self.project_cols[self.table_aliases['main']].append(parts[0])
                 else :
-                    self.select_cols[parts[0]].append(parts[1] + ':1')
-            ## ENDIF
-        ## ENDFOR
+                    self.project_cols[self.table_aliases[parts[0]]].append(parts[1])
         
-        ''' PROCESS WHERE clause '''
-        if self.where_loc <> None :
-            where = self.stmt.tokens[self.where_loc] 
+        ''' Process WHERE Clause '''
+        if where_loc <> None :
+            where = self.stmt.tokens[where_loc] 
             count = len(where.tokens)
             i = 1
             while i < count :
@@ -394,18 +312,18 @@ class Sql2mongo (object) :
                 elif where.tokens[i].ttype == sqlparse.tokens.Keyword :
                     if where.tokens[i].to_unicode().lower() == u'or' :
                         self.use_or = True
-                    ## ENDIF
+                    ## End if
                 else :
                     cls = where.tokens[i].__class__.__name__
                     if cls == 'Token' :
                         pass
                     elif cls == 'Identifier' :
                         parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+2], where.tokens[i+4])
-                        self.where_cols[parts[0]].append(parts[1])
+                        self.add_where_comparison(parts[0], parts[1])
                         i += 4
                     elif cls == 'Comparison' :
                         parts = self.process_where_comparison(where.tokens[i])
-                        self.where_cols[parts[0]].append(parts[1])
+                        self.add_where_comparison(parts[0], parts[1])
                     ## ENDIF
                 ## ENDIF
                 i += 1
@@ -413,24 +331,25 @@ class Sql2mongo (object) :
         ## ENDIF
         
         ''' Process ORDER BY '''
-        if self.sort_loc <> None :
-            if self.limit_loc <> None :
-                end = self.limit_loc
-            elif self.skip_loc <> None :
-                end = self.skip_loc
+        if sort_loc <> None :
+            if limit_loc <> None :
+                end = limit_loc
+            elif skip_loc <> None :
+                end = skip_loc
             else :
                 end = len(self.stmt.tokens)
-            ## ENDIF
-        
-            i = self.sort_loc + 1
+            
+            i = sort_loc + 1
             while i < end :
                 if self.stmt.tokens[i].ttype == sqlparse.tokens.Whitespace :
                     pass
                 else :
                     cls = self.stmt.tokens[i].__class__.__name__
                     if cls == 'Identifier' :
-                        parts = self.process_identifier(stmt.tokens[i])
-                        if self.stmt.tokens[i + 2].ttype == sqlparse.tokens.Token.Punctuation :
+                        parts = self.process_identifier(self.stmt.tokens[i])
+                        if i + 2 > end :
+                            sort = '1'
+                        elif self.stmt.tokens[i + 2].ttype == sqlparse.tokens.Token.Punctuation :
                             sort = '1'
                         else :
                             if self.stmt.tokens[i + 2].value == 'ASC' :
@@ -438,80 +357,57 @@ class Sql2mongo (object) :
                             else :
                                 sort = '-1'
                             ## ENDIF
-                        self.sort_cols[parts[0]].append('{' + parts[1] + ':' + sort + '}')
+                        self.sort_cols[self.table_aliases[parts[0]]].append('{' + parts[1] + ':' + sort + '}')
                         i += 2
-                        ## ENDIF
-                    ## ENDIF
-                ## ENDIF
                 i += 1
-            ## ENDWHILE
-        ## ENDIF
         
         ''' PROCESS LIMIT '''
-        if self.limit_loc <> None :
-            for alias, table_name in self.tables.iteritems() :
-                self.limit[alias] = self.stmt.tokens[self.limit_loc + 2].to_unicode()
-            ## ENDFOR
-        ## ENDIF
+        if limit_loc <> None :
+            for alias, table_name in self.table_aliases.iteritems() :
+                self.limit[table_name] = self.stmt.tokens[limit_loc + 2].to_unicode()
         
         ''' PROCESS SKIP '''
-        if self.skip_loc <> None :
-            for alias, table_name in self.tables.iteritems() :
-                self.skip[alias] = self.stmt.tokens[self.skip_loc + 2].to_unicode()
-            ## ENDFOR
-        ## ENDIF
-    ## ENDDEF
-    
-    '''
-    Process UPDATE SQL query
-    '''
-    def do_update(self) :
+        if skip_loc <> None :
+            for alias, table_name in self.table_aliases.iteritems() :
+                self.skip[table_name] = self.stmt.tokens[skip_loc + 2].to_unicode()
+    ## End process_query_select()
+
+    def process_query_update(self) :
+        update_loc, set_loc, where_loc = None, None, None
         i = 0
         for token in self.stmt.tokens :
             cls = token.__class__.__name__
             if cls == 'Token' :
                 token_uni = token.to_unicode()
                 if token_uni == 'UPDATE' :
-                    self.update_loc = i
+                    update_loc = i
                 elif token_uni == 'SET' :
-                    self.set_loc = i
-                ## ENDIF
+                    set_loc = i
             elif cls == 'Where' :
-                self.where_loc = i
+                where_loc = i
             i += 1
-            ## ENDIF
-        ## ENDFOR
         
         ''' Determine table name '''
-        tbl_token_loc = self.update_loc + 2
+        tbl_token_loc = update_loc + 2
         cls = self.stmt.tokens[tbl_token_loc].__class__.__name__
         if cls == 'Identifier' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
-            self.tables['main'] = tbl_name
-            self.where_cols['main'] = []
-            self.select_cols['main'] = []
-            self.sort_cols['main'] = []
-            self.limit['main'] = None
-            self.skip['main'] = None
-        ## ENDIF
+            self.table_aliases['main'] = tbl_name
         
         ''' PROCESS SET clause '''
-        if self.set_loc <> None :
+        if set_loc <> None :
             end = len(self.stmt.tokens) - 1
-            if self.where_loc <> None :
-                end = self.where_loc
-            ## ENDIF
-            for i in range(self.set_loc + 1, end) :
+            if where_loc <> None :
+                end = where_loc
+            for i in range(set_loc + 1, end) :
                 cls = self.stmt.tokens[i].__class__.__name__
                 if cls == 'Comparison' :
                     parts = self.process_where_comparison(self.stmt.tokens[i])
-                    self.select_cols[parts[0]].append(parts[1])
-                ## ENDIF
-            ## ENDFOR
+                    self.set_cols[self.table_aliases[parts[0]]].append(parts[1])
             
         ''' PROCESS WHERE clause '''
-        if self.where_loc <> None :
-            where = self.stmt.tokens[self.where_loc]
+        if where_loc <> None :
+            where = self.stmt.tokens[where_loc]
             count = len(where.tokens)
             i = 1
             while i < count :
@@ -530,83 +426,38 @@ class Sql2mongo (object) :
                         if where.tokens[i + 1].ttype == sqlparse.tokens.Whitespace :
                             offset = 2;
                         parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
-                        self.where_cols[parts[0]].append(parts[1])
+                        self.add_where_comparison(parts[0], parts[1])
                         i += 4
                     elif cls == 'Comparison' :
                         parts = self.process_where_comparison(where.tokens[i])
-                        self.where_cols[parts[0]].append(parts[1])
-                    ## ENDIF
-                ## ENDIF
+                        self.add_where_comparison(parts[0], parts[1])
                 i += 1
-            ## ENDWHILE
-        ## ENDIF
-    ## ENDDEF
+    ## End process_query_update()
     
-    '''
-    Build the operations for exporting into Mongo
-    '''
-    def operations(self, db='db') :
-        output = []
-        if self.query_type == 'SELECT' :
-            for alias, table_name in self.tables.iteritems() :
-                output.append(self.build_operation(db, table_name, alias, '$query'))
-            ## ENDFOR
-        elif self.query_type == 'INSERT' :
-            for alias, table_name in self.tables.iteritems() :
-                output.append(self.build_operation(db, table_name, alias, '$insert'))
-            ## ENDFOR
-        elif self.query_type == 'DELETE' :
-            for alias, table_name in self.tables.iteritems() :
-                output.append(self.build_operation(db, table_name, alias, '$remove'))
-            ## ENDFOR
-        elif self.query_type == 'UPDATE' :
-            for alias, table_name in self.tables.iteritems() :
-                output.append(self.build_operation(db, table_name, alias, '$update'))
-            ## ENDFOR
-        ## ENDIF
-        return output
-    ## ENDDEF
-    
-    '''
-    Process the SQL Statment
-    '''
-    def process(self) : 
-        parsed = sqlparse.parse(self.sql)
-        if len(parsed) == 0 :
-            self.errors.append('Conversion error')
-        else :
+    def process_sql(self, sql, reset=True) :
+        if reset == True :
+            self.reset()
+        parsed = sqlparse.parse(sql)
+        if len(parsed) > 0 :
             self.stmt = parsed[0]
             self.query_type = self.stmt.get_type()
             if self.query_type == 'SELECT' :
-                self.do_select()
+                self.process_query_select()
             elif self.query_type == 'INSERT' :
-                self.do_insert()
+                self.process_query_insert()
             elif self.query_type == 'DELETE' :
-                self.do_delete()
+                self.process_query_delete()
             elif self.query_type == 'UPDATE' :
-                self.do_update()
+                self.process_query_update()
             else :
-                self.errors.append('Invalid query type')
-            ## ENDIF
-        ## ENDIF
-    ## ENDDEF
-
-    '''
-    Process an identifier to determine if an alias has been used
-    '''
-    def process_identifier(self, token) :
-        parts = token.to_unicode().split('.')
-        if len(parts) == 1 :
-            return ('main', parts[0])
-        else :
-            return (parts[0], parts[1])
-        ## ENDIF
-    ### ENDDEF
-
-    '''
-    Convert the WHERE clause to the appropriate formatting for one condition
-    '''
+                self.query_type = 'UNKNOWN'
+    ## End process_sql()
+    
     def process_where_clause(self, attr, op, value) :
+        if op == 'LIKE' :
+            value = value
+        return (attr, op, value)
+        '''
         if op == ':' :
             return attr + op + value
         elif op == 'LIKE' :
@@ -614,25 +465,24 @@ class Sql2mongo (object) :
             result = attr + ':/'
             if value[0] <> '%' :
                 result += '^'
-            ## ENDIF
+            ## End if
             result += value.strip('%')
             if value[len(value) - 1] <> '%' :
                 result += '^'
-            ## ENDIF
+            ## End if
             return result + '/}'
         else :
             return attr + ':' + '{' + op + ':' + value + '}'
-        ## ENDIF
-    ## ENDDEF
+        ## End if
+        '''
+    ## End process_where_clause()
     
-    '''
-    '''
     def process_where_comparison(self, comp) :
         tokens = self.strip_whitespace(comp)
         parts = self.process_identifier(tokens[0])
         clause = self.process_where_clause(parts[1], self.process_where_comparison_operator(tokens[1]), self.process_where_comparison_value(tokens[2]))
         return (parts[0], clause)
-    ## ENDDEF
+    ## End process_where_comparison()
     
     '''
     Convert SQL comparison operators to MongoDB comparison operators
@@ -656,11 +506,9 @@ class Sql2mongo (object) :
                 return 'LIKE'
             else :
                 return '?'
-            ## ENDIF
         else :
             return '?'
-        ## ENDIF
-    ## ENDDEF
+    ## End process_where_comparison_operator()
     
     '''
     Process a where comparison specified by individual Tokens
@@ -670,11 +518,8 @@ class Sql2mongo (object) :
         operator = self.process_where_comparison_operator(comp)
         str = self.process_where_clause(parts[1], operator, self.process_where_comparison_value(value))
         return (parts[0], str)
-    ## ENDDEF
+    ## End process_where_comparison_separate()
     
-    '''
-    Process a where comparison value
-    '''
     def process_where_comparison_value(self, value) :
         cls = value.__class__.__name__
         if cls == 'Identifier' :
@@ -683,41 +528,126 @@ class Sql2mongo (object) :
             return "'" + value.to_unicode().strip('"\'') + "'"
         else :
             return value.to_unicode()
-        ## ENDIF
-    ## ENDDEF
-
+    ## End process_where_comparison_value()
+    
     '''
-    Produce a list of Mongo commands derived from this SQL statement
+    Reset internal data to initial state
     '''
-    def render(self, db='db') :
-        if self.query_type == 'SELECT' :
-            results = []
-            for alias, table_name in self.tables.iteritems() :
-                results.append(self.compose_mongo(db, table_name, alias, 'find'))
-            ## ENDFOR
-            return results
-        elif self.query_type == 'INSERT' :
-            results = []
-            for alias, table_name in self.tables.iteritems() :
-                results.append(self.compose_mongo(db, table_name, alias, 'insert'))
-            ## ENDFOR
-            return results
-        elif self.query_type == 'DELETE' :
-            results = []
-            for alias, table_name in self.tables.iteritems() :
-                results.append(self.compose_mongo(db, table_name, alias, 'remove'))
-            ## ENDFOR
-            return results
-        elif self.query_type == 'UPDATE' :
-            results = []
-            for alias, table_name in self.tables.iteritems() :
-                results.append(self.compose_mongo(db, table_name, alias, 'update'))
-            ## ENDFOR
-            return results
+    def reset(self) :
+        self.query_type = None
+        self.stmt = None
+        self.use_or = False
+        self.limit = {}
+        self.project_cols = {}
+        self.skip = {}
+        self.set_cols = {}
+        self.sort_cols = {}
+        self.table_aliases = {}
+        self.where_cols = {}
+        for table, columns in self.schema.iteritems() :
+            self.where_cols[table] = {}
+            self.project_cols[table] = []
+            self.set_cols[table] = []
+            self.sort_cols[table] = []
+            self.limit[table] = None
+            self.skip[table] = None
+    ## End reset()
+    
+    '''
+    Output data as a standard mongo command
+    '''
+    def render_mongo_command(self) :
+        if self.query_type == 'DELETE' :
+            return self.render_mongo_remove()
+        elif self.query_type == "INSERT" :
+            return self.render_mongo_insert()
+        elif self.query_type == "SELECT" :
+            return self.render_mongo_query()
+        elif self.query_type == "UPDATE" :
+            return self.render_mongo_update()
         else :
             return None
-        ## ENDIF
-    ## ENDDEF
+    ## End render_mongo_command()
+    
+    def render_mongo_insert(self) :
+        output = []
+        for alias, table in self.table_aliases.iteritems() :
+            mongo = 'db.' + table + '.insert('
+            mongo += self.render_mongo_where_clause(table)
+            mongo += ')'
+            output.append(unicode(mongo))
+        return output
+    
+    def render_mongo_project_clause(self, tbl_name) :
+        temp = []
+        for col in self.project_cols[tbl_name] :
+            temp.append(col + ':1')
+        return '{' + ','.join(temp) + '}'
+
+    def render_mongo_query(self) :
+        output = []
+        for alias, table in self.table_aliases.iteritems() :
+            mongo = 'db.' + table + '.find('
+            mongo += self.render_mongo_where_clause(table)
+            if len(self.project_cols[table]) > 0 :
+                mongo += ', ' + self.render_mongo_project_clause(table)
+            mongo += ')'
+            if len(self.sort_cols[table]) > 0 :
+                mongo += '.sort(' + ','.join(self.sort_cols[table]) + ')'
+            if self.limit[table]  <> None :
+                mongo += '.limit(' + self.limit[table] + ')'
+            if self.skip[table] <> None :
+                mongo += '.skip(' + self.skip[table] + ')'
+            output.append(unicode(mongo))
+        return output
+        
+    def render_mongo_set_clause(self, tbl_name) :
+        parts = []
+        for tuple in self.set_cols[tbl_name] :
+            parts.append('$set:{' + tuple[0] + ':' + tuple[2] + '}')
+        return '{' + ','.join(parts) + '}'
+    ## End render_mongo_set_clause()
+    
+    def render_mongo_remove(self) :
+        output = []
+        for alias, table in self.table_aliases.iteritems() :
+            mongo = 'db.' + table + '.remove('
+            mongo += self.render_mongo_where_clause(table)
+            mongo += ')'
+            output.append(unicode(mongo))
+        return output
+    
+    def render_mongo_update(self) :
+        output = []
+        for alias, table in self.table_aliases.iteritems() :
+            mongo = 'db.' + table + '.update('
+            mongo += self.render_mongo_where_clause(table)
+            mongo += ', '
+            mongo += self.render_mongo_set_clause(table)
+            mongo += ', false, true)'
+            output.append(unicode(mongo))
+        return output
+    
+    '''
+    Translate the elements of the where clause to the appropriate Mongo DB sub-command
+    '''
+    def render_mongo_where_clause(self, tbl_name) :
+        if len(self.where_cols[tbl_name]) > 0 :
+            parts = []
+            for col, ops in self.where_cols[tbl_name].iteritems() :
+                if len(self.where_cols[tbl_name][col]) == 1 :
+                    parts.append(col + self.where_cols[tbl_name][col][0][0] + self.where_cols[tbl_name][col][0][1])
+                else :
+                    inner_parts = []
+                    for tups in self.where_cols[tbl_name][col] :
+                        inner_parts.append(tups[0] + ':' + tups[1])
+                    parts.append('\'' + col + '\':{' + ','.join(inner_parts) + '}')
+            return '{' + ','.join(parts) + '}'
+        elif len(self.project_cols[tbl_name]) > 0 :
+            return '{}'
+        else :
+            return ''
+    ## End render_mongo_where_clause()
     
     '''
     Remove white space tokens from a TokenList
@@ -729,8 +659,6 @@ class Sql2mongo (object) :
                 pass
             else :
                 newlist.append(token)
-            ## ENDIF
-        ## ENDFOR
         return newlist
-    ## ENDDEF
-## ENDCLASS
+    ## End strip_whitespace()
+## End Sql2mongo class definition

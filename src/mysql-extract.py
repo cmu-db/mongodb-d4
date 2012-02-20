@@ -144,6 +144,7 @@ if __name__ == '__main__':
     first = True
     uid = 0
     hostIP = sql2mongo.detectHostIP()
+    mongo = sql2mongo.Sql2mongo(quick_look)
     for row in c4:
         stamp = float(row[0].strftime("%s"))
         if row[2] <> thread_id :
@@ -163,9 +164,9 @@ if __name__ == '__main__':
             session['operations'] = []
         ## ENDIF
         if row[5] <> '' :
-            mongo = sql2mongo.Sql2mongo(row[5], stamp, quick_look)
+            query = mongo.process_sql(row[5])
             if mongo.query_type <> 'UNKNOWN' : 
-                operations = mongo.operations()
+                operations = mongo.generate_operations(stamp)
                 for op in operations :
                     session['operations'].append(op)
                 ## ENDFOR
