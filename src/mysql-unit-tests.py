@@ -80,6 +80,13 @@ class TestConversions (unittest.TestCase) :
     def testSelectQuery03(self) :
         sql = 'SELECT * FROM users WHERE age=33'
         self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        output = {u'query':{'age':'33'}}
+        self.assertEqual(u'db.users.find({age:33})', result[0])
+        
+    def testSelectQuery03Trace(self) :
+        sql = 'SELECT * FROM users WHERE age=33'
+        self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
         output = {u'query':{'age':'33'}}
         self.assertEqual(output, result[0])
