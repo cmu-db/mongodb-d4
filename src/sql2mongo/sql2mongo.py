@@ -623,12 +623,12 @@ class Sql2mongo (object) :
     Translate the elements of the where clause to the appropriate Mongo DB sub-command
     '''
     def render_mongo_where_clause(self, tbl_name) :
-        if len(self.where_cols[tbl_name]) > 0 :
+        if (self.use_or == True) :
             parts = []
             for col, ops in self.where_cols[tbl_name].iteritems() :
                 if len(self.where_cols[tbl_name][col]) == 1 :
                     if self.where_cols[tbl_name][col][0][0] == ':' :
-                        cmd = col + self.where_cols[tbl_name][col][0][0] + self.where_cols[tbl_name][col][0][1]
+                            cmd = col + self.where_cols[tbl_name][col][0][0] + self.where_cols[tbl_name][col][0][1]
                     else :
                         cmd = col + ':{' + self.where_cols[tbl_name][col][0][0] + ':' + self.where_cols[tbl_name][col][0][1] + '}'
                     parts.append(cmd)
@@ -637,11 +637,27 @@ class Sql2mongo (object) :
                     for tups in self.where_cols[tbl_name][col] :
                         inner_parts.append(tups[0] + ':' + tups[1])
                     parts.append('\'' + col + '\':{' + ','.join(inner_parts) + '}')
-            return '{' + ','.join(parts) + '}'
-        elif len(self.project_cols[tbl_name]) > 0 :
-            return '{}'
+            return '{$or:[{' + '},{'.join(parts) + '}]}'
         else :
-            return ''
+            if len(self.where_cols[tbl_name]) > 0 :
+                parts = []
+                for col, ops in self.where_cols[tbl_name].iteritems() :
+                    if len(self.where_cols[tbl_name][col]) == 1 :
+                        if self.where_cols[tbl_name][col][0][0] == ':' :
+                            cmd = col + self.where_cols[tbl_name][col][0][0] + self.where_cols[tbl_name][col][0][1]
+                        else :
+                            cmd = col + ':{' + self.where_cols[tbl_name][col][0][0] + ':' + self.where_cols[tbl_name][col][0][1] + '}'
+                        parts.append(cmd)
+                    else :
+                        inner_parts = []
+                        for tups in self.where_cols[tbl_name][col] :
+                            inner_parts.append(tups[0] + ':' + tups[1])
+                        parts.append('\'' + col + '\':{' + ','.join(inner_parts) + '}')
+                return '{' + ','.join(parts) + '}'
+            elif len(self.project_cols[tbl_name]) > 0 :
+                return '{}'
+            else :
+                return ''
     ## End render_mongo_where_clause()
     
     '''

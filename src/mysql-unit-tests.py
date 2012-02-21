@@ -118,6 +118,24 @@ class TestConversions (unittest.TestCase) :
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find().sort({name:-1})", result[0])
         
+    def testSelectQuery10(self) :
+        sql = 'SELECT * FROM users WHERE a=1 and b="q"'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find({a:1,b:'q'})", result[0])
+        
+    def testSelectQuery11(self) :
+        sql = 'SELECT * FROM users LIMIT 10 SKIP 20'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find().limit(10).skip(20)", result[0])
+        
+    def testSelectQuery12(self) :
+        sql = 'SELECT * FROM users WHERE a=1 or b=2'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find({$or:[{a:1},{b:2}]})", result[0])
+        
 
     def testUpdateQuery01(self) :
         sql = "UPDATE users SET a=1 WHERE b='q'"
