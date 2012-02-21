@@ -455,26 +455,17 @@ class Sql2mongo (object) :
     
     def process_where_clause(self, attr, op, value) :
         if op == 'LIKE' :
-            value = value
-        return (attr, op, value)
-        '''
-        if op == ':' :
-            return attr + op + value
-        elif op == 'LIKE' :
+            op = ':'
             value = value.strip('"\'')
-            result = attr + ':/'
-            if value[0] <> '%' :
-                result += '^'
-            ## End if
-            result += value.strip('%')
-            if value[len(value) - 1] <> '%' :
-                result += '^'
-            ## End if
-            return result + '/}'
-        else :
-            return attr + ':' + '{' + op + ':' + value + '}'
-        ## End if
-        '''
+            if value[0] == '%' :
+                value = '/' + value.lstrip('%') 
+            else :
+                value = '^' + value
+            if value[len(value) - 1] == '%' :
+                value = value.rstrip('%') + '/'
+            else :
+                value += '^'
+        return (attr, op, value)
     ## End process_where_clause()
     
     def process_where_comparison(self, comp) :
