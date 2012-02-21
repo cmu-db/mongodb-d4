@@ -100,6 +100,19 @@ class TestConversions (unittest.TestCase) :
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find({name:/Joe/})", result[0])
         
+    def testSelectQuery09(self) :
+        sql = 'SELECT * FROM users WHERE name LIKE "Joe%"'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find({name:^Joe/})", result[0])
+        
+    def testSelectQuery08(self) :
+        sql = 'SELECT * FROM users WHERE name LIKE "%Joe"'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find({name:/Joe^})", result[0])
+        
+
     def testUpdateQuery01(self) :
         sql = "UPDATE users SET a=1 WHERE b='q'"
         self.mongo.process_sql(sql)
