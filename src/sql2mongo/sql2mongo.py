@@ -624,52 +624,6 @@ class Sql2mongo (object) :
         return output
     ## End render_mongo_update()
     
-    def render_trace(self) :
-        if self.query_type == 'DELETE' :
-            return self.render_trace_remove()
-        elif self.query_type == "INSERT" :
-            return self.render_trace_insert()
-        elif self.query_type == "SELECT" :
-            return self.render_trace_query()
-        elif self.query_type == "UPDATE" :
-            return self.render_trace_update()
-        else :
-            return None
-    ## End render_trace()
-       
-    def render_trace_insert(self) :
-        return None
-    ## End render_trace_insert()
-    
-    def render_trace_query(self) :
-        output = []
-        for alias, table in self.table_aliases.iteritems() :
-            dict = {u'query':{}}
-            '''
-            mongo = 'db.' + table + '.find('
-            mongo += self.render_mongo_where_clause(table)
-            if len(self.project_cols[table]) > 0 :
-                mongo += ', ' + self.render_mongo_project_clause(table)
-            mongo += ')'
-            if len(self.sort_cols[table]) > 0 :
-                mongo += '.sort(' + ','.join(self.sort_cols[table]) + ')'
-            if self.limit[table]  <> None :
-                mongo += '.limit(' + self.limit[table] + ')'
-            if self.skip[table] <> None :
-                mongo += '.skip(' + self.skip[table] + ')'
-            '''
-            output.append(dict)
-        return output
-    ## End render_trace_query()
-    
-    def render_trace_remove(self) :
-        return None
-    ## End render_trace_remove()
-    
-    def render_trace_update(self) :
-        return None
-    ## End render_trace_update()
-    
     '''
     Translate the elements of the where clause to the appropriate Mongo DB sub-command
     '''
@@ -710,6 +664,66 @@ class Sql2mongo (object) :
             else :
                 return ''
     ## End render_mongo_where_clause()
+    
+    def render_trace(self) :
+        if self.query_type == 'DELETE' :
+            return self.render_trace_remove()
+        elif self.query_type == "INSERT" :
+            return self.render_trace_insert()
+        elif self.query_type == "SELECT" :
+            return self.render_trace_query()
+        elif self.query_type == "UPDATE" :
+            return self.render_trace_update()
+        else :
+            return None
+    ## End render_trace()
+       
+    def render_trace_insert(self) :
+        return None
+    ## End render_trace_insert()
+    
+    def render_trace_query(self) :
+        output = []
+        for alias, table in self.table_aliases.iteritems() :
+            query_dict = self.render_trace_where_clause(table)
+            dict = {u'query': query_dict}
+            '''
+            mongo = 'db.' + table + '.find('
+            mongo += self.render_mongo_where_clause(table)
+            if len(self.project_cols[table]) > 0 :
+                mongo += ', ' + self.render_mongo_project_clause(table)
+            mongo += ')'
+            if len(self.sort_cols[table]) > 0 :
+                mongo += '.sort(' + ','.join(self.sort_cols[table]) + ')'
+            if self.limit[table]  <> None :
+                mongo += '.limit(' + self.limit[table] + ')'
+            if self.skip[table] <> None :
+                mongo += '.skip(' + self.skip[table] + ')'
+            '''
+            output.append(dict)
+        return output
+    ## End render_trace_query()
+    
+    def render_trace_remove(self) :
+        return None
+    ## End render_trace_remove()
+    
+    def render_trace_update(self) :
+        return None
+    ## End render_trace_update()
+    
+    def render_trace_where_clause(self, tbl_name) :
+        output = {}
+        if self.use_or == True :
+            pass
+        else :
+            for col, ops in self.where_cols[tbl_name].iteritems() : 
+                if len(ops) == 1 :
+                    output[unicode(col)] = ops[0][1]
+                else :
+                    pass
+        return output
+    ## End render_trace_where_clause()
     
     '''
     Remove white space tokens from a TokenList
