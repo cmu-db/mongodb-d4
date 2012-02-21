@@ -568,13 +568,15 @@ class Sql2mongo (object) :
             mongo += ')'
             output.append(unicode(mongo))
         return output
+    ## End render_mongo_insert()
     
     def render_mongo_project_clause(self, tbl_name) :
         temp = []
         for col in self.project_cols[tbl_name] :
             temp.append(col + ':1')
         return '{' + ','.join(temp) + '}'
-
+    ## End render_mongo_project_clause
+    
     def render_mongo_query(self) :
         output = []
         for alias, table in self.table_aliases.iteritems() :
@@ -591,6 +593,7 @@ class Sql2mongo (object) :
                 mongo += '.skip(' + self.skip[table] + ')'
             output.append(unicode(mongo))
         return output
+    ## End render_mongo_query()
         
     def render_mongo_set_clause(self, tbl_name) :
         parts = []
@@ -607,6 +610,7 @@ class Sql2mongo (object) :
             mongo += ')'
             output.append(unicode(mongo))
         return output
+    ## End render_mongo_remove()
     
     def render_mongo_update(self) :
         output = []
@@ -618,6 +622,53 @@ class Sql2mongo (object) :
             mongo += ', false, true)'
             output.append(unicode(mongo))
         return output
+    ## End render_mongo_update()
+    
+    def render_trace(self) :
+        if self.query_type == 'DELETE' :
+            return self.render_trace_remove()
+        elif self.query_type == "INSERT" :
+            return self.render_trace_insert()
+        elif self.query_type == "SELECT" :
+            return self.render_trace_query()
+        elif self.query_type == "UPDATE" :
+            return self.render_trace_update()
+        else :
+            return None
+    ## End render_trace()
+       
+    def render_trace_insert(self) :
+        return None
+    ## End render_trace_insert()
+    
+    def render_trace_query(self) :
+        output = []
+        for alias, table in self.table_aliases.iteritems() :
+            dict = {u'query':{}}
+            '''
+            mongo = 'db.' + table + '.find('
+            mongo += self.render_mongo_where_clause(table)
+            if len(self.project_cols[table]) > 0 :
+                mongo += ', ' + self.render_mongo_project_clause(table)
+            mongo += ')'
+            if len(self.sort_cols[table]) > 0 :
+                mongo += '.sort(' + ','.join(self.sort_cols[table]) + ')'
+            if self.limit[table]  <> None :
+                mongo += '.limit(' + self.limit[table] + ')'
+            if self.skip[table] <> None :
+                mongo += '.skip(' + self.skip[table] + ')'
+            '''
+            output.append(dict)
+        return output
+    ## End render_trace_query()
+    
+    def render_trace_remove(self) :
+        return None
+    ## End render_trace_remove()
+    
+    def render_trace_update(self) :
+        return None
+    ## End render_trace_update()
     
     '''
     Translate the elements of the where clause to the appropriate Mongo DB sub-command
