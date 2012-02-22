@@ -166,7 +166,6 @@ if __name__ == '__main__':
         if row[5] <> '' :
             query = mongo.process_sql(row[5])
             if mongo.query_type <> 'UNKNOWN' : 
-                print row[5]
                 operations = mongo.generate_operations(stamp)
                 for op in operations :
                     session['operations'].append(op)
