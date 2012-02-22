@@ -34,6 +34,25 @@ class Sql2mongo (object) :
         self.where_cols[tbl_name][tuple[0]].append((tuple[1], tuple[2]))
     ## End add_where_comparison()
     
+    def generate_content_insert(self, table) :
+        return self.render_trace_where_clause(table)
+    ## End generate_content_insert()
+
+    def generate_content_query(self, table) :
+        query_dict = self.render_trace_where_clause(table)
+        return {u'query': query_dict}
+    ## End generate_content_query()
+
+    def generate_content_remove(self, table) :
+        return self.render_trace_where_clause(table)
+    ## End generate_content_remove()
+
+    def generate_content_update(self, table) :
+        query_dict = self.render_trace_where_clause(table)
+        set_dict = self.render_trace_set_clause(table)
+        return [query_dict, set_dict]
+    ## End generate_content_update()
+
     def generate_operations(self, timestamp) :
         operations = []
         for alias, table in self.table_aliases.iteritems() :
@@ -50,7 +69,9 @@ class Sql2mongo (object) :
             elif self.query_type == 'SELECT' :
                 op['content'].append(self.generate_content_query(table))
             elif self.query_type == 'UPDATE' :
-                op['content'].append(self.generate_content_update(table))
+                content = self.generate_content_update(table)
+                for i in content :
+                    op['content'].append(i)
         return operations
     ## End generate_operations()
         
