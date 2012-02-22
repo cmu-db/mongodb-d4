@@ -34,22 +34,6 @@ class Sql2mongo (object) :
         self.where_cols[tbl_name][tuple[0]].append((tuple[1], tuple[2]))
     ## End add_where_comparison()
     
-    def generate_content_insert(self, table) :
-        return ''
-    ## End generate_content_insert()
-    
-    def generate_content_query(self, table) :
-        return ''
-    ## End generate_content_query()
-    
-    def generate_content_remove(self, table) :
-        return ''
-    ## End generate_content_remove()
-    
-    def generate_content_update(self, table) :
-        return ''
-    ## End generate_content_update()
-    
     def generate_operations(self, timestamp) :
         operations = []
         for alias, table in self.table_aliases.iteritems() :
