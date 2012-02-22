@@ -60,6 +60,7 @@ class Sql2mongo (object) :
             op['collection'] = table
             op['timestamp'] = timestamp
             op['content'] = []
+            op['output'] = []
             op['type'] = self.mongo_type()
             op['size'] = 0
             if self.query_type == 'DELETE' :
@@ -72,6 +73,7 @@ class Sql2mongo (object) :
                 content = self.generate_content_update(table)
                 for i in content :
                     op['content'].append(i)
+            operations.append(op)
         return operations
     ## End generate_operations()
         
