@@ -28,6 +28,13 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u'db.users.insert({a:3,b:5})', result[0])
+    
+    def testInsertQuery01Trace(self) :
+        sql = 'INSERT INTO users VALUES (3,5)'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {'a' : 3, 'b' : 5}
+        self.assertEqual(output, result[0])
         
     def testQueryTypeCommit(self) :
         sql = 'COMMIT'

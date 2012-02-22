@@ -664,7 +664,11 @@ class Sql2mongo (object) :
     ## End render_trace()
        
     def render_trace_insert(self) :
-        return None
+        output = []
+        for alias, table in self.table_aliases.iteritems() :
+            insert_dict = self.render_trace_where_clause(table)
+            output.append(insert_dict)
+        return output
     ## End render_trace_insert()
     
     def render_trace_query(self) :
