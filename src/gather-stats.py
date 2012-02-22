@@ -67,13 +67,31 @@ if __name__ == '__main__':
     schema_db = conn[cparser.get(config.SECT_MONGODB, 'schema_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
     workload_db = conn[cparser.get(config.SECT_MONGODB, 'workload_db')]
-    traces_db = conn['ckeith']
     
-    for rec in traces_db['traces'].find() :
+    for rec in workload_db['sessions'].find() :
+        print '----------------------------------------'
         for op in rec['operations'] :
-            print '----------------------------------------'
-            print op['type']
-            for content in op['content'] :
-                print content
-            
+            if op['type'] == '$delete' :
+                for content in op['content'] :
+                    if content <> {} :
+                        for k,v in content.iteritems() :
+                            print k, v
+            elif op['type'] == '$insert' :
+                for content in op['content'] :
+                    if content <> {} :
+                        print 'Insert {',
+                        for k,v in content.iteritems() :
+                            print k, '-', v, '|',
+                        print '}'
+            elif op['type'] == '$query' :
+                '''
+                todo - extract query structure from string
+                '''
+                pass
+            elif op['type'] == '$update' :
+                length = len(op['content'])
+                i = 0
+                while i < length :
+                    print i
+                    i += 1
 ## END MAIN
