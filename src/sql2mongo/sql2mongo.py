@@ -727,7 +727,9 @@ class Sql2mongo (object) :
     ## End render_trace_update()
     
     def render_trace_value(self, val) :
-        if val[0] in ['"', "'"] :
+        if val == 'null' :
+            val = 'null'
+        elif val[0] in ['"', "'"] :
             val = val.strip('"\'')
         else :
             val = float(val)
