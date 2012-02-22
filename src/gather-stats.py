@@ -71,6 +71,7 @@ if __name__ == '__main__':
     for rec in workload_db['sessions'].find() :
         print '----------------------------------------'
         for op in rec['operations'] :
+            print op['collection']
             if op['type'] == '$delete' :
                 for content in op['content'] :
                     for k,v in content.iteritems() :
