@@ -688,19 +688,6 @@ class Sql2mongo (object) :
         for alias, table in self.table_aliases.iteritems() :
             query_dict = self.render_trace_where_clause(table)
             dict = {u'query': query_dict}
-            '''
-            mongo = 'db.' + table + '.find('
-            mongo += self.render_mongo_where_clause(table)
-            if len(self.project_cols[table]) > 0 :
-                mongo += ', ' + self.render_mongo_project_clause(table)
-            mongo += ')'
-            if len(self.sort_cols[table]) > 0 :
-                mongo += '.sort(' + ','.join(self.sort_cols[table]) + ')'
-            if self.limit[table]  <> None :
-                mongo += '.limit(' + self.limit[table] + ')'
-            if self.skip[table] <> None :
-                mongo += '.skip(' + self.skip[table] + ')'
-            '''
             output.append(dict)
         return output
     ## End render_trace_query()
@@ -709,8 +696,21 @@ class Sql2mongo (object) :
         return None
     ## End render_trace_remove()
     
+    def render_trace_set_clause(self, table) :
+        output = {}
+        for col in self.set_cols[table] :
+            output[col[0]] = self.render_trace_value(col[2])
+        return output
+    ## End render_trace_set_clause()
+    
     def render_trace_update(self) :
-        return None
+        output = []
+        for alias, table in self.table_aliases.iteritems() :
+            query_dict = self.render_trace_where_clause(table)
+            output.append(query_dict)
+            set_dict = self.render_trace_set_clause(table)
+            output.append(set_dict)
+        return output
     ## End render_trace_update()
     
     def render_trace_value(self, val) :

@@ -201,6 +201,16 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.update({b:'q'}, {$set:{a:1}}, false, true)", result[0])
+    
+    def testUpdateQuery01Trace(self) :
+        sql = "UPDATE users SET a=1 WHERE b='q'"
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        query = {'b' : 'q'}
+        set = {'a' : 1.0}
+        self.assertEqual(query, result[0])
+        self.assertEqual(set, result[1])
+
 ## END CLASS
 
 if __name__ == '__main__':
