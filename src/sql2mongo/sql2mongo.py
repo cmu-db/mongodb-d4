@@ -693,7 +693,11 @@ class Sql2mongo (object) :
     ## End render_trace_query()
     
     def render_trace_remove(self) :
-        return None
+        output = []
+        for alias, table in self.table_aliases.iteritems() :
+            query_dict = self.render_trace_where_clause(table)
+            output.append(query_dict)
+        return output
     ## End render_trace_remove()
     
     def render_trace_set_clause(self, table) :

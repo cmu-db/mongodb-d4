@@ -16,6 +16,13 @@ class TestConversions (unittest.TestCase) :
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.remove({z:'abc'})", result[0])
         
+    def testDeleteQuery01Trace(self) :
+        sql = 'DELETE FROM users WHERE z="abc"'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {'z':'abc'}
+        self.assertEqual(output, result[0])
+    
     def testInsertQuery01(self) :
         sql = 'INSERT INTO users VALUES (3,5)'
         self.mongo.process_sql(sql)
