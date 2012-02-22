@@ -40,7 +40,7 @@ class Sql2mongo (object) :
 
     def generate_content_query(self, table) :
         query_dict = self.render_trace_where_clause(table)
-        return {u'query': query_dict}
+        return {'query': query_dict}
     ## End generate_content_query()
 
     def generate_content_remove(self, table) :

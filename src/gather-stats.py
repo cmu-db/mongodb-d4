@@ -73,21 +73,17 @@ if __name__ == '__main__':
         for op in rec['operations'] :
             if op['type'] == '$delete' :
                 for content in op['content'] :
-                    if content <> {} :
-                        for k,v in content.iteritems() :
-                            print k, v
+                    for k,v in content.iteritems() :
+                        print k, v
             elif op['type'] == '$insert' :
                 for content in op['content'] :
-                    if content <> {} :
-                        print 'Insert {',
-                        for k,v in content.iteritems() :
-                            print k, '-', v, '|',
-                        print '}'
+                    for k,v in content.iteritems() :
+                        print k, '-', v, '|',
+                    print '}'
             elif op['type'] == '$query' :
-                '''
-                todo - extract query structure from string
-                '''
-                pass
+                for content in op['content'] :
+                    for k, v in content['query'].iteritems() :
+                       print k, '-', v
             elif op['type'] == '$update' :
                 length = len(op['content'])
                 i = 0
