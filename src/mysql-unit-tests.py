@@ -7,8 +7,8 @@ import sql2mongo
 class TestConversions (unittest.TestCase) :
     
     def setUp(self) :
-        self.schema = {'users': ['a', 'b']}
-        self.mongo = sql2mongo.Sql2mongo(self.schema)
+        schema = {'users': ['a', 'b']}
+        self.mongo = sql2mongo.Sql2mongo(schema)
     
     def testDeleteQuery01(self) :
         sql = 'DELETE FROM users WHERE z="abc"'
@@ -81,14 +81,13 @@ class TestConversions (unittest.TestCase) :
         sql = 'SELECT * FROM users WHERE age=33'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
-        output = {u'query':{'age':'33'}}
         self.assertEqual(u'db.users.find({age:33})', result[0])
         
     def testSelectQuery03Trace(self) :
         sql = 'SELECT * FROM users WHERE age=33'
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
-        output = {u'query':{'age':'33'}}
+        output = {u'query':{'age':33.0}}
         self.assertEqual(output, result[0])
     
     def testSelectQuery04(self) :
@@ -97,6 +96,13 @@ class TestConversions (unittest.TestCase) :
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find({age:33}, {a:1,b:1})", result[0])
     
+    def testSelectQuery04Trace(self) :
+        sql = 'SELECT a,b FROM users WHERE age=33'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {u'query':{'age':33.0}}
+        self.assertEqual(output, result[0])
+        
     def testSelectQuery05(self) :
         sql = 'SELECT * FROM users WHERE age=33 ORDER BY name'
         self.mongo.process_sql(sql)
@@ -109,6 +115,13 @@ class TestConversions (unittest.TestCase) :
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find({age:{$gt:33}})", result[0])
     
+    def testSelectQuery06Trace(self) :
+        sql = 'SELECT * FROM users WHERE age>33'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {'query' : {'age' : { '$gt' : 33.0}}}
+        self.assertEqual(output, result[0])
+        
     def testSelectQuery07(self) :
         sql = 'SELECT * FROM users WHERE age!=33'
         self.mongo.process_sql(sql)
@@ -145,6 +158,13 @@ class TestConversions (unittest.TestCase) :
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find({a:1,b:'q'})", result[0])
         
+    def testSelectQuery10Trace(self) :
+        sql = 'SELECT * FROM users WHERE a=1 and b="q"'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {u'query': {'a':1.0,'b':'q'}}
+        self.assertEqual(output, result[0])
+    
     def testSelectQuery11(self) :
         sql = 'SELECT * FROM users LIMIT 10 SKIP 20'
         self.mongo.process_sql(sql)
@@ -162,7 +182,20 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find().limit(1)", result[0])
-
+    
+    def testSelectQuery14(self) :
+        sql = 'SELECT * FROM users WHERE a > 10 AND a < 20'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.users.find({'a':{$gt:10,$lt:20}})", result[0])
+        
+    def testSelectQuery14Trace(self) :
+        sql = 'SELECT * FROM users WHERE a > 10 AND a < 20'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {u'query' : { 'a' : { '$gt':10.0, '$lt':20.0}}}
+        self.assertEqual(output, result[0])
+        
     def testUpdateQuery01(self) :
         sql = "UPDATE users SET a=1 WHERE b='q'"
         self.mongo.process_sql(sql)

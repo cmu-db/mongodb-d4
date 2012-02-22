@@ -2,6 +2,7 @@
 
 import sqlparse
 import json
+import yaml
 
 '''
 @todo: JOIN processing
@@ -514,9 +515,9 @@ class Sql2mongo (object) :
     def process_where_comparison_value(self, value) :
         cls = value.__class__.__name__
         if cls == 'Identifier' :
-            return "'" + value.to_unicode().strip('"\'') + "'"
+            return "'" + str(value.to_unicode()).strip('"\'') + "'"
         elif value.ttype == sqlparse.tokens.String :
-            return "'" + value.to_unicode().strip('"\'') + "'"
+            return "'" + str(value.to_unicode()).strip('"\'') + "'"
         else :
             return value.to_unicode()
     ## End process_where_comparison_value()
@@ -631,15 +632,15 @@ class Sql2mongo (object) :
         if (self.use_or == True) :
             parts = []
             for col, ops in self.where_cols[tbl_name].iteritems() :
-                if len(self.where_cols[tbl_name][col]) == 1 :
-                    if self.where_cols[tbl_name][col][0][0] == ':' :
-                            cmd = col + self.where_cols[tbl_name][col][0][0] + self.where_cols[tbl_name][col][0][1]
+                if len(ops) == 1 :
+                    if ops[0][0] == ':' :
+                            cmd = col + ops[0][0] + ops[0][1]
                     else :
-                        cmd = col + ':{' + self.where_cols[tbl_name][col][0][0] + ':' + self.where_cols[tbl_name][col][0][1] + '}'
+                        cmd = col + ':{' + ops[0][0] + ':' + ops[0][1] + '}'
                     parts.append(cmd)
                 else :
                     inner_parts = []
-                    for tups in self.where_cols[tbl_name][col] :
+                    for tups in ops :
                         inner_parts.append(tups[0] + ':' + tups[1])
                     parts.append('\'' + col + '\':{' + ','.join(inner_parts) + '}')
             return '{$or:[{' + '},{'.join(parts) + '}]}'
@@ -647,11 +648,11 @@ class Sql2mongo (object) :
             if len(self.where_cols[tbl_name]) > 0 :
                 parts = []
                 for col, ops in self.where_cols[tbl_name].iteritems() :
-                    if len(self.where_cols[tbl_name][col]) == 1 :
-                        if self.where_cols[tbl_name][col][0][0] == ':' :
-                            cmd = col + self.where_cols[tbl_name][col][0][0] + self.where_cols[tbl_name][col][0][1]
+                    if len(ops) == 1 :
+                        if ops[0][0] == ':' :
+                            cmd = col + ops[0][0] + ops[0][1]
                         else :
-                            cmd = col + ':{' + self.where_cols[tbl_name][col][0][0] + ':' + self.where_cols[tbl_name][col][0][1] + '}'
+                            cmd = col + ':{' + ops[0][0] + ':' + ops[0][1] + '}'
                         parts.append(cmd)
                     else :
                         inner_parts = []
@@ -712,17 +713,54 @@ class Sql2mongo (object) :
         return None
     ## End render_trace_update()
     
+    def render_trace_value(self, val) :
+        if val[0] in ['"', "'"] :
+            val = val.strip('"\'')
+        else :
+            val = float(val)
+        return val
+    ## End render_trace_value()
+    
     def render_trace_where_clause(self, tbl_name) :
         output = {}
-        if self.use_or == True :
-            pass
-        else :
-            for col, ops in self.where_cols[tbl_name].iteritems() : 
+        if (self.use_or == True) :
+            clauses = []
+            for col, ops in self.where_cols[tbl_name].iteritems() :
+                part = {}
                 if len(ops) == 1 :
-                    output[unicode(col)] = ops[0][1]
+                    if ops[0][0] == ':' :
+                        part[col] = self.render_trace_value(ops[0][1])
+                    else :
+                        dict = {}
+                        dict[ops[0][0]] = self.render_trace_value(ops[0][1])
+                        part[col] = dict
                 else :
-                    pass
-        return output
+                    inner_parts = {}
+                    for tups in ops :
+                        inner_parts[tups[0]] = self.render_trace_value(tups[1])
+                    part[col] = inner_parts
+                clauses.append(part)
+            return {'$or' : clauses }
+        else :
+            if len(self.where_cols[tbl_name]) > 0 :
+                for col, ops in self.where_cols[tbl_name].iteritems() :
+                    if len(ops) == 1 :
+                        if ops[0][0] == ':' :
+                            output[col] = self.render_trace_value(ops[0][1])
+                        else :
+                            dict = {}
+                            dict[ops[0][0]] = self.render_trace_value(ops[0][1])
+                            output[col] = dict
+                    else :
+                        inner_parts = {}
+                        for tups in self.where_cols[tbl_name][col] :
+                            inner_parts[tups[0]] = self.render_trace_value(tups[1])
+                        output[col] = inner_parts
+                return output
+            elif len(self.project_cols[tbl_name]) > 0 :
+                return {}
+            else :
+                return None
     ## End render_trace_where_clause()
     
     '''
