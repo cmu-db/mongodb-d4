@@ -67,27 +67,47 @@ if __name__ == '__main__':
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
     
+    ## ----------------------------------------------
+    ## Step 1: Process Workload Trace
+    ## ----------------------------------------------
     for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
-        print '----------------------------------------'
+        '''
+        Dictionary for fields
+        {
+            'type': catalog.fieldTypeToString(col_type),
+            'distinct_values' : {},
+            'distinct_count' : 0,
+            'hist_query_values' : {value : count},
+            'hist_data_values' : {value : count},
+            'max' : Maximum Value,
+            'min' : Minimum Value,
+        }
+        '''
         for op in rec['operations'] :
-            print op['collection']
+            tuples = []
+            col_info = metadata_db.Collection.one({'name':op['collection']})
             if op['type'] == '$delete' :
                 for content in op['content'] :
                     for k,v in content.iteritems() :
-                        print k, v
+                        tuples.append((k, v))
             elif op['type'] == '$insert' :
                 for content in op['content'] :
                     for k,v in content.iteritems() :
-                        print k, '-', v, '|',
-                    print '}'
+                        tuples.append((k, v))
             elif op['type'] == '$query' :
                 for content in op['content'] :
                     for k, v in content['query'].iteritems() :
-                       print k, '-', v
+                       tuples.append((k, v))
             elif op['type'] == '$update' :
                 length = len(op['content'])
                 i = 0
                 while i < length :
                     print i
                     i += 1
+            for t in tuples :
+                print t
+    ## ----------------------------------------------
+    ## Step 2: Process Dataset
+    ## ----------------------------------------------
+    
 ## END MAIN
