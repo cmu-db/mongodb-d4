@@ -18,9 +18,8 @@ DEFAULT_CONFIG = {
     SECT_MONGODB: {
         "hostname": ("The hostname of the MongoDB server to use for retrieving workload information", "localhost"),
         "port":     ("The port number to the MongoDB", 27017 ),
-        "schema_db": ("The name of the database that the designer will use to store catalog information.", "catalog"),
-        "dataset_db": ("The name of the database that contains the sample data set", ""),
-        "workload_db": ("The name of the database that contains the sample workload", "designer"),
+        "metadata_db": ("The name of the database that the designer will use to store catalog information.", "metadata"),
+        "dataset_db": ("The name of the database that contains the sample data set", "dataset"),
     },
     
     # Target Cluster Configuration
