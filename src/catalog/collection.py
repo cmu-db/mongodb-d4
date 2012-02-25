@@ -8,12 +8,12 @@ from util import *
 ## Collection
 ## ==============================================
 class Collection(Document):
-    __collection__ = constants.CATALOG_COLL
+    __collection__ = constants.COLLECTION_SCHEMA
     structure = {
         'name': unicode,
         'fields': dict,
         'shard_key': unicode,
-		'shard_keys': dict,
+        'shard_keys': dict,
         'indexes': dict,
     }
     required_fields = [ 'name' ]
