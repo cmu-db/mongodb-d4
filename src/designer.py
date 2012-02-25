@@ -74,17 +74,16 @@ if __name__ == '__main__':
         if not db_name in db_names:
             raise Exception("The %s database '%s' does not exist" % (key.upper(), db_name))
     ## FOR
-    schema_db = conn[cparser.get(config.SECT_MONGODB, 'schema_db')]
+    metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
-    workload_db = conn[cparser.get(config.SECT_MONGODB, 'workload_db')]
 
     ## ----------------------------------------------
     ## STEP 1
     ## Precompute any summarizations and information that we can about the workload
     ## ----------------------------------------------
     
-    map(schema_db.drop_collection, [constants.CATALOG_COLL, constants.WORKLOAD_SESSIONS])
-    catalog.generateCatalogFromDatabase(dataset_db, schema_db)
+    map(metadata_db.drop_collection, [constants.CATALOG_COLL, constants.WORKLOAD_SESSIONS])
+    catalog.generateCatalogFromDatabase(dataset_db, metadata_db)
     
     # TEST workload.convertWorkload(conn)
     
