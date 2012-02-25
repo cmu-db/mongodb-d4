@@ -107,12 +107,13 @@ if __name__ == '__main__':
                     print i
                     i += 1
             for t in tuples :
-                val = unicode(t[1])
-                if val in list(col_info['fields'][t[0]]['hist_query_values']) :
-                    col_info['fields'][t[0]]['hist_query_values'][val] += 1
+                if t[1] not in col_info['fields'][t[0]]['hist_query_keys'] :
+                    col_info['fields'][t[0]]['hist_query_keys'].append(t[1])
+                    col_info['fields'][t[0]]['hist_query_values'].append(1)
                 else :
-                    col_info['fields'][t[0]]['hist_query_values'][val] = 1
-                print t, col_info['fields'][t[0]]['hist_query_values']
+                    index = col_info['fields'][t[0]]['hist_query_keys'].index(t[1])
+                    col_info['fields'][t[0]]['hist_query_values'][index] += 1
+                print t
             col_info.save()
     
     ## ----------------------------------------------
