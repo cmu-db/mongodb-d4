@@ -22,8 +22,8 @@ LOG = logging.getLogger(__name__)
 ### DEFAULT VALUES
 ### you can specify these with args
 INPUT_FILE = "sample.txt"
-WORKLOAD_DB = "workload"
-WORKLOAD_COLLECTION = "traces"
+WORKLOAD_DB = "metadata"
+WORKLOAD_COLLECTION = "sessions"
 INITIAL_SESSION_UID = 100 #where to start the incremental session uid
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = "27017"
