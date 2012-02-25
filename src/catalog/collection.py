@@ -29,3 +29,16 @@ class Collection(Document):
         return (ret)
     ## DEF
 ## CLASS
+
+'''
+Dictionary for fields
+{
+    'type': catalog.fieldTypeToString(col_type),
+    'distinct_values' : {},
+    'distinct_count' : 0,
+    'hist_query_values' : {value : count},
+    'hist_data_values' : {value : count},
+    'max' : Maximum Value,
+    'min' : Minimum Value,
+}
+'''

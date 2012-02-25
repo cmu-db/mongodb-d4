@@ -93,6 +93,12 @@ if __name__ == '__main__':
             col_type = catalog.sqlTypeToPython(col_row[1])
             coll_catalog["fields"][col_name] = {
                 'type': catalog.fieldTypeToString(col_type),
+                'distinct_values' : {},
+                'distinct_count' : 0,
+                'hist_query_values' : {value : count},
+                'hist_data_values' : {value : count},
+                'max' : Maximum Value,
+                'min' : Minimum Value,
             }
         ## FOR
         
