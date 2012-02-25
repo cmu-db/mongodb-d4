@@ -57,15 +57,15 @@ if __name__ == '__main__':
         port = cparser.getint(config.SECT_MONGODB, 'port')        
         conn = mongokit.Connection(host=hostname, port=port)
         mongo_conn = pymongo.Connection(host=hostname, port=port)
-        db = mongo_conn['data']
+        db = mongo_conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
     except:
         LOG.error("Failed to connect to MongoDB at %s:%s" % (config['hostname'], config['port']))
         raise
     
     ## Register our objects with MongoKit
     conn.register([ catalog.Collection ])
-    schema_db = conn[cparser.get(config.SECT_MONGODB, 'schema_db')]
-    schema_db.drop_collection(constants.CATALOG_COLL)
+    metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
+    metadata_db.drop_collection(constants.COLLECTION_SCHEMA)
     ## ----------------------------------------------
     
     mysql_conn = mdb.connect(host=args['host'], db=args['name'], user=args['user'], passwd=args['pass'])
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     quick_look = {}
     for row in c1:
         tbl_name = row[0]
-        coll_catalog = schema_db.Collection()
+        coll_catalog = metadata_db.Collection()
         coll_catalog['name'] = unicode(tbl_name)
         coll_catalog['shard_keys'] = { }
         coll_catalog['fields'] = { }
@@ -95,10 +95,10 @@ if __name__ == '__main__':
                 'type': catalog.fieldTypeToString(col_type),
                 'distinct_values' : {},
                 'distinct_count' : 0,
-                'hist_query_values' : {value : count},
-                'hist_data_values' : {value : count},
-                'max' : Maximum Value,
-                'min' : Minimum Value,
+                'hist_query_values' : {},
+                'hist_data_values' : {},
+                'max' : None,
+                'min' : None,
             }
         ## FOR
         
@@ -120,7 +120,6 @@ if __name__ == '__main__':
         coll_catalog.validate()
         coll_catalog.save()
         
-        # TODO: Loop over table data and create a corresponding mongo collection
         collection = db[tbl_name]
         collection.remove()
         sql = 'SELECT * FROM ' + args['name'] + '.' + tbl_name
@@ -143,8 +142,7 @@ if __name__ == '__main__':
         SELECT * FROM general_log ORDER BY thread_id, event_time;	
     """)
     conn.register([workload.Session])
-    workload_db = conn[cparser.get(config.SECT_MONGODB, 'workload_db')]
-    workload_db.drop_collection(constants.WORKLOAD_SESSIONS)
+    metadata_db.drop_collection(constants.COLLECTION_WORKLOAD)
     
     thread_id = None
     first = True
@@ -163,7 +161,7 @@ if __name__ == '__main__':
             else :
                 first = False
             ## ENDIF
-            session = workload_db.Session()
+            session = metadata_db.Session()
             session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
             session['ip2'] = hostIP
             session['uid'] = uid
@@ -181,7 +179,7 @@ if __name__ == '__main__':
                     session.save()
                     uid += 1
                 ## ENDIF
-                session = workload_db.Session()
+                session = metadata_db.Session()
                 session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
                 session['ip2'] = hostIP
                 session['uid'] = uid
