@@ -77,8 +77,10 @@ if __name__ == '__main__':
             'type': catalog.fieldTypeToString(col_type),
             'distinct_values' : {},
             'distinct_count' : 0,
-            'hist_query_values' : {value : count},
-            'hist_data_values' : {value : count},
+            'hist_query_keys' : [],
+            'hist_query_values' : [],
+            'hist_data_keys' : [],
+            'hist_data_values' : [],
             'max' : Maximum Value,
             'min' : Minimum Value,
         }
@@ -105,7 +107,14 @@ if __name__ == '__main__':
                     print i
                     i += 1
             for t in tuples :
-                print t
+                val = unicode(t[1])
+                if val in list(col_info['fields'][t[0]]['hist_query_values']) :
+                    col_info['fields'][t[0]]['hist_query_values'][val] += 1
+                else :
+                    col_info['fields'][t[0]]['hist_query_values'][val] = 1
+                print t, col_info['fields'][t[0]]['hist_query_values']
+            col_info.save()
+    
     ## ----------------------------------------------
     ## Step 2: Process Dataset
     ## ----------------------------------------------
