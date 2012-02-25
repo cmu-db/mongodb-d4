@@ -67,7 +67,7 @@ if __name__ == '__main__':
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
     
-    for rec in metadata_db['sessions'].find() :
+    for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
         print '----------------------------------------'
         for op in rec['operations'] :
             print op['collection']
