@@ -13,6 +13,7 @@ from ConfigParser import SafeConfigParser
 import catalog
 import workload
 import search
+import random
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -21,6 +22,16 @@ LOG = logging.getLogger(__name__)
 ## main
 ## ==============================================
 if __name__ == '__main__':
+    '''
+    Stats:
+    1. # of distinct values
+    2. # sample histogram of how often values are used in queries
+    3. # sample histogram of values that appear in dataset
+    4. min/max value
+    5. Histogram of how often the field in referenced in a query.
+    
+    Distinct values and number of distinct values are accesible by the 'hist_data_keys' list
+    '''
     aparser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                       description="%s\n%s" % (constants.PROJECT_NAME, constants.PROJECT_URL))
     aparser.add_argument('--config', type=file,
@@ -68,15 +79,19 @@ if __name__ == '__main__':
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
     
-    ## ----------------------------------------------
-    ## Step 1: Zero statistics if required
-    ## ----------------------------------------------
+    ## -----------------------------------------------------
+    ## Step 1: Preprocessing & Zero statistics if required
+    ## -----------------------------------------------------
+    sample_rate = cparser.getint(config.SECT_DESIGNER, 'sample_rate')
+    first = {}
+    collections = metadata_db.Collection.find()
+    for col in collections :
+        first[col['name']] = {}
+        for k, v in col['fields'].iteritems() :
+            first[col['name']][k] = True
     if args['reset'] :
-        collections = metadata_db.Collection.find()
         for col in collections :
             for k, v in col['fields'].iteritems() :
-                v['distinct_values'] = {}
-                v['distinct_count'] = 0
                 v['query_use_count'] = 0
                 v['hist_query_keys'] = []
                 v['hist_query_values'] = []
@@ -106,12 +121,14 @@ if __name__ == '__main__':
                     for k, v in content['query'].iteritems() :
                        tuples.append((k, v))
             elif op['type'] == '$update' :
-                length = len(op['content'])
-                i = 0
-                while i < length :
-                    print i
-                    i += 1
+                for content in op['content'] :
+                    for k,v in content.iteritems() :
+                        tuples.append((k, v))
             for t in tuples :
+                ## Update times the column is referenced in a query
+                col_info['fields'][t[0]]['query_use_count'] += 1
+                
+                ## Process Histogram for column values in a query
                 if t[1] not in col_info['fields'][t[0]]['hist_query_keys'] :
                     col_info['fields'][t[0]]['hist_query_keys'].append(t[1])
                     col_info['fields'][t[0]]['hist_query_values'].append(1)
@@ -123,48 +140,31 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     ## Step 3: Process Dataset
     ## ----------------------------------------------
-    '''
-    Stats:
-    1. # of distinct values
-    2. # sample histogram of how often values are used in queries
-    3. # sample histogram of values that appear in dataset
-    4. min/max value
-    5. Histogram of how often the field in referenced in a query.
-    Dictionary for fields
-    {
-        'type': catalog.fieldTypeToString(col_type),
-        'distinct_values' : {},
-        'distinct_count' : 0,
-        'query_use_count' : 0,
-        'hist_query_keys' : [],
-        'hist_query_values' : [],
-        'hist_data_keys' : [],
-        'hist_data_values' : [],
-        'max' : Maximum Value,
-        'min' : Minimum Value,
-    }
-    '''
     collections = metadata_db.Collection.find()
     for col in collections :
         rows = dataset_db[col['name']].find()
-        first = True
         for row in rows :
-            for k, v in row.iteritems() :
-                if k <> '_id' :
-                    if v not in col['fields'][k]['hist_data_keys'] :
-                        col['fields'][k]['hist_data_keys'].append(v)
-                        col['fields'][k]['hist_data_values'].append(1)
-                    else :
-                        index = col['fields'][k]['hist_data_keys'].index(v)
-                        col['fields'][k]['hist_data_values'][index] += 1
-                    
-                    if first == True :
-                        col['fields'][k]['max'] = v
-                        col['fields'][k]['min'] = v
-                    else :
-                        if v > col['fields'][k]['max'] :
+            to_use = random.randrange(1, 100, 1)
+            if to_use <= sample_rate : 
+                for k, v in row.iteritems() :
+                    if k <> '_id' :
+                        ## Process Histogram for column values in the dataset
+                        if v not in col['fields'][k]['hist_data_keys'] :
+                            col['fields'][k]['hist_data_keys'].append(v)
+                            col['fields'][k]['hist_data_values'].append(1)
+                        else :
+                            index = col['fields'][k]['hist_data_keys'].index(v)
+                            col['fields'][k]['hist_data_values'][index] += 1
+                        
+                        ## Process Min and Max Statistics
+                        if first[col['name']][k] == True :
                             col['fields'][k]['max'] = v
-                        if v < col['fields'][k]['min'] :
                             col['fields'][k]['min'] = v
+                            first[col['name']][k] = False
+                        else :
+                            if v > col['fields'][k]['max'] :
+                                 col['fields'][k]['max'] = v
+                            if v < col['fields'][k]['min'] :
+                                col['fields'][k]['min'] = v
         col.save()
 ## END MAIN

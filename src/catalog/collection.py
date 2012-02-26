@@ -34,10 +34,11 @@ class Collection(Document):
 Dictionary for fields
 {
     'type': catalog.fieldTypeToString(col_type),
-    'distinct_values' : {},
-    'distinct_count' : 0,
-    'hist_query_values' : {value : count},
-    'hist_data_values' : {value : count},
+    'query_use_count' : 0,
+    'hist_query_keys' : [],
+    'hist_query_values' : [],
+    'hist_data_keys' : [],
+    'hist_data_values' : [],
     'max' : Maximum Value,
     'min' : Minimum Value,
 }
