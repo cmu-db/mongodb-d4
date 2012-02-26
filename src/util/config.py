@@ -30,10 +30,10 @@ DEFAULT_CONFIG = {
     
     # Designer Configuration
     SECT_DESIGNER: {
+        "dataset_sampling_rate": ("Percentage of dataset values to sample while gathering statistics.", 1.0),
         "enable_sharding": ("Enable the designer to look for sharding keys.", True),
         "enable_indexes":  ("Enable the designer to look for indexing keys.", False),
         "enable_denormalization":  ("Enable the designer to look for denormalization candidates.", False),
-        
         "enable_local_search_increase": ("Enable increasing local search parameters after a restart", True),
     },
     
