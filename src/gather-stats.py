@@ -105,6 +105,12 @@ if __name__ == '__main__':
     ## Step 2: Process Dataset
     ## ----------------------------------------------
     '''
+    Stats:
+    1. # of distinct values
+    2. # sample histogram of how often values are used in queries
+    3. # sample histogram of values that appear in dataset
+    4. min/max value
+    5. Histogram of how often the field in referenced in a query.
     Dictionary for fields
     {
         'type': catalog.fieldTypeToString(col_type),
@@ -120,8 +126,8 @@ if __name__ == '__main__':
     '''
     collections = metadata_db.Collection.find()
     for col in collections :
-        print col['name']
         rows = dataset_db[col['name']].find()
+        first = True
         for row in rows :
             for k, v in row.iteritems() :
                 if k <> '_id' :
@@ -131,5 +137,14 @@ if __name__ == '__main__':
                     else :
                         index = col['fields'][k]['hist_data_keys'].index(v)
                         col['fields'][k]['hist_data_values'][index] += 1
+                    
+                    if first == True :
+                        col['fields'][k]['max'] = v
+                        col['fields'][k]['min'] = v
+                    else :
+                        if v > col['fields'][k]['max'] :
+                            col['fields'][k]['max'] = v
+                        if v < col['fields'][k]['min'] :
+                            col['fields'][k]['min'] = v
         col.save()
 ## END MAIN
