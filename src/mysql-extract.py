@@ -95,6 +95,7 @@ if __name__ == '__main__':
                 'type': catalog.fieldTypeToString(col_type),
                 'distinct_values' : {},
                 'distinct_count' : 0,
+                'query_use_count' : 0,
                 'hist_query_keys' : [],
                 'hist_query_values' : [],
                 'hist_data_keys' : [],
