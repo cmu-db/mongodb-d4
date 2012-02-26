@@ -71,20 +71,6 @@ if __name__ == '__main__':
     ## Step 1: Process Workload Trace
     ## ----------------------------------------------
     for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
-        '''
-        Dictionary for fields
-        {
-            'type': catalog.fieldTypeToString(col_type),
-            'distinct_values' : {},
-            'distinct_count' : 0,
-            'hist_query_keys' : [],
-            'hist_query_values' : [],
-            'hist_data_keys' : [],
-            'hist_data_values' : [],
-            'max' : Maximum Value,
-            'min' : Minimum Value,
-        }
-        '''
         for op in rec['operations'] :
             tuples = []
             col_info = metadata_db.Collection.one({'name':op['collection']})
@@ -113,11 +99,37 @@ if __name__ == '__main__':
                 else :
                     index = col_info['fields'][t[0]]['hist_query_keys'].index(t[1])
                     col_info['fields'][t[0]]['hist_query_values'][index] += 1
-                print t
             col_info.save()
     
     ## ----------------------------------------------
     ## Step 2: Process Dataset
     ## ----------------------------------------------
-    
+    '''
+    Dictionary for fields
+    {
+        'type': catalog.fieldTypeToString(col_type),
+        'distinct_values' : {},
+        'distinct_count' : 0,
+        'hist_query_keys' : [],
+        'hist_query_values' : [],
+        'hist_data_keys' : [],
+        'hist_data_values' : [],
+        'max' : Maximum Value,
+        'min' : Minimum Value,
+    }
+    '''
+    collections = metadata_db.Collection.find()
+    for col in collections :
+        print col['name']
+        rows = dataset_db[col['name']].find()
+        for row in rows :
+            for k, v in row.iteritems() :
+                if k <> '_id' :
+                    if v not in col['fields'][k]['hist_data_keys'] :
+                        col['fields'][k]['hist_data_keys'].append(v)
+                        col['fields'][k]['hist_data_values'].append(1)
+                    else :
+                        index = col['fields'][k]['hist_data_keys'].index(v)
+                        col['fields'][k]['hist_data_values'][index] += 1
+        col.save()
 ## END MAIN
