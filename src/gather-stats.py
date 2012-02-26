@@ -29,6 +29,7 @@ if __name__ == '__main__':
                          help='The hostname of the MongoDB instance containing the sample workload')
     aparser.add_argument('--print-config', action='store_true',
                          help='Print out the default configuration file used by %s' % constants.PROJECT_NAME)
+    aparser.add_argument('--reset', action='store_true', help='Reset collection statistics')
     aparser.add_argument('--debug', action='store_true',
                          help='Enable debug log messages')
     args = vars(aparser.parse_args())
@@ -68,7 +69,25 @@ if __name__ == '__main__':
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
     
     ## ----------------------------------------------
-    ## Step 1: Process Workload Trace
+    ## Step 1: Zero statistics if required
+    ## ----------------------------------------------
+    if args['reset'] :
+        collections = metadata_db.Collection.find()
+        for col in collections :
+            for k, v in col['fields'].iteritems() :
+                v['distinct_values'] = {}
+                v['distinct_count'] = 0
+                v['query_use_count'] = 0
+                v['hist_query_keys'] = []
+                v['hist_query_values'] = []
+                v['hist_data_keys'] = []
+                v['hist_data_values'] = []
+                v['max'] = None
+                v['min'] = None
+            col.save()
+    
+    ## ----------------------------------------------
+    ## Step 2: Process Workload Trace
     ## ----------------------------------------------
     for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
         for op in rec['operations'] :
@@ -102,7 +121,7 @@ if __name__ == '__main__':
             col_info.save()
     
     ## ----------------------------------------------
-    ## Step 2: Process Dataset
+    ## Step 3: Process Dataset
     ## ----------------------------------------------
     '''
     Stats:
