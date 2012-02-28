@@ -56,6 +56,12 @@ def initDB(hostname, port, r_db, s_db, s_col):
 def cleanSchema():
     schema_db.command("dropDatabase")
 
+#nested is True/False flag
+def addKeys(fields, doc, nested):
+    for k in doc.keys():
+        fields[k]={}
+        if type(doc[k]) is type({}):
+            addKeys(fields, doc[k], True)
 
 #
 # Iterates through all documents and infers the schema...
@@ -70,13 +76,12 @@ def processTraces():
         c['name'] = col
         fields = {}
         for doc in recreated_db[col].find():
-            for k in doc.keys():
-                fields[k]={}
+            addKeys(fields, doc, False)
         c['fields'] = fields
         schema_db[schema_col].insert(c)
         
-        
-    
+def cleanSchema():
+    schema_db.command("dropDatabase")
 
 def main():    
     aparser = argparse.ArgumentParser(description='MongoDesigner Datase Recreator')
@@ -102,8 +107,8 @@ def main():
     LOG.info("Settings: %s", settings)
 
     if args['clean']:
-        LOG.warn("Cleaning '%s' collection...", recreated_db)
-        cleanRecreated()
+        LOG.warn("Cleaning '%s' db...", schema_db)
+        cleanSchema()
    
     processTraces()
     
