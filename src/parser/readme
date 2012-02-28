@@ -1,0 +1,11 @@
+parse.py
+----------------
+parses mongo sniff trace and stores 'workload' (list of sessions with their operations) in a mongo db
+
+recreate.py
+----------------
+recreates the sample database from the 'workload' and stores it in mongo
+
+schema.py
+----------------
+inferes the schmea catalog from the 'recreated' and stores it in mongo
