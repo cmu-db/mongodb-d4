@@ -20,16 +20,13 @@ from util import *
 
 LOG = logging.getLogger(__name__)
 
-def string_generator(size=6, chars=string.ascii_uppercase + string.digits):
-    return ''.join(random.choice(chars) for x in range(size))
-
-def int_generator(min=0, max=1000000000):
-    return random.randint(min, max)
     
 def show_results(start, stop, num) :
     print num, 'queries executed'
-    print 'time elapsed'
-    print ' time per query'
+    elapsed = stop - start
+    print elapsed, 'time elapsed'
+    avg = elapsed / num
+    print avg, 'time per query'
     return None
     
 ## ==============================================
@@ -83,49 +80,46 @@ if __name__ == '__main__':
     columns = ['key1', 'key2']
     generate_db = conn['synthetic']
     limit = 100000
+    data_col = 'data'
+    value_col = 'values'
     
+    ## -----------------------------------------------------
+    ## Read in set of values from which to query
+    ## -----------------------------------------------------
+    values = generate_db[value_col].find()
+    key1_values = []
+    key2_values = []
+    for row in values :
+        key1_values.append(row['key1'])
+        key2_values.append(row['key2'])
+    num_values = len(key1_values)
+        
     ## -----------------------------------------------------
     ## Execute Micro-Benchmarks for MongoDB Indexes
     ## -----------------------------------------------------
     print 'Micro-Benchmarking MongoDB Indexes'
-    #generate_db['test'].drop_indexes()
+    generate_db[data_col].drop_indexes()
     print 'Executing queries with no indexes'
     
-    print 'For integer data:'
     start = time.time()
     for i in range(limit) :
-        value = int_generator()
-        generate_db['test'].find({'key1': value})
-    end = time.time()
-    show_results(start, end, limit)
-    
-    print 'For string data:'
-    start = time.time()
-    for i in range(limit) :
-        value = string_generator(50)
-        generate_db['test'].find({'key2':value})
+        key = random.randint(0, num_values - 1)
+        generate_db[data_col].find({'key1': key1_values[key]})
+        generate_db[data_col].find({'key2': key2_values[key]})
     end = time.time()
     show_results(start, end, limit)
     
     print 'Executing benchmarks on covering indexes'
-    #generate_db['test'].ensure_index('key1')
-    #generate_db['test'].ensure_index('key2')
+    generate_db[data_col].ensure_index('key1')
+    generate_db[data_col].ensure_index('key2')
     
-    print 'For integer data:'
     start = time.time()
     for i in range(limit) :
-        value = int_generator()
-        generate_db['test'].find({'key1': value})
+        key = random.randint(0, num_values - 1)
+        generate_db[data_col].find({'key1': key1_values[key]})
+        generate_db[data_col].find({'key2': key2_values[key]})
     end = time.time()
     show_results(start, end, limit)
         
-    print 'For string data:'
-    start = time.time()
-    for i in range(limit) :
-        value = string_generator(50)
-        generate_db['test'].find({'key2':value})
-    end = time.time()
-    show_results(start, end, limit)
-    
-    #generate_db['test'].drop_indexes()
+    generate_db[data_col].drop_indexes()
 ## END MAIN
