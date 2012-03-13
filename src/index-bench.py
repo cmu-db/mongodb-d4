@@ -14,10 +14,24 @@ import catalog
 import workload
 import search
 import random
+import string
+import time
 from util import *
 
 LOG = logging.getLogger(__name__)
 
+def string_generator(size=6, chars=string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(chars) for x in range(size))
+
+def int_generator(min=0, max=1000000000):
+    return random.randint(min, max)
+    
+def show_results(start, stop, num) :
+    print num, 'queries executed'
+    print 'time elapsed'
+    print ' time per query'
+    return None
+    
 ## ==============================================
 ## main
 ## ==============================================
@@ -66,11 +80,52 @@ if __name__ == '__main__':
     ## Register our objects with MongoKit
     conn.register([ catalog.Collection, workload.Session ])
 
-    ## FOR
+    columns = ['key1', 'key2']
     generate_db = conn['synthetic']
+    limit = 100000
     
     ## -----------------------------------------------------
     ## Execute Micro-Benchmarks for MongoDB Indexes
     ## -----------------------------------------------------
     print 'Micro-Benchmarking MongoDB Indexes'
+    #generate_db['test'].drop_indexes()
+    print 'Executing queries with no indexes'
+    
+    print 'For integer data:'
+    start = time.time()
+    for i in range(limit) :
+        value = int_generator()
+        generate_db['test'].find({'key1': value})
+    end = time.time()
+    show_results(start, end, limit)
+    
+    print 'For string data:'
+    start = time.time()
+    for i in range(limit) :
+        value = string_generator(50)
+        generate_db['test'].find({'key2':value})
+    end = time.time()
+    show_results(start, end, limit)
+    
+    print 'Executing benchmarks on covering indexes'
+    #generate_db['test'].ensure_index('key1')
+    #generate_db['test'].ensure_index('key2')
+    
+    print 'For integer data:'
+    start = time.time()
+    for i in range(limit) :
+        value = int_generator()
+        generate_db['test'].find({'key1': value})
+    end = time.time()
+    show_results(start, end, limit)
+        
+    print 'For string data:'
+    start = time.time()
+    for i in range(limit) :
+        value = string_generator(50)
+        generate_db['test'].find({'key2':value})
+    end = time.time()
+    show_results(start, end, limit)
+    
+    #generate_db['test'].drop_indexes()
 ## END MAIN
