@@ -80,11 +80,15 @@ if __name__ == '__main__':
     ## Generate Synthetic Data for Micro-Benchmarking
     ## -----------------------------------------------------
     print 'Begin generating synthetic data'
-    
-    generate_db['test'].remove()
+    data_col = 'data'
+    value_col = 'values'
+    generate_db[data_col].remove()
+    generate_db[value_col].remove()
     for i in range(1000000) :
         doc = {}
         doc['key1']  = int_generator()
         doc['key2'] = string_generator(50)
-        generate_db['test'].insert(doc)
+        generate_db[data_col].insert(doc)
+        if random.randint(1,25) == 1 :
+            generate_db[value_col].insert(doc)
 ## END MAIN
