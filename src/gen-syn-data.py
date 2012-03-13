@@ -14,9 +14,13 @@ import catalog
 import workload
 import search
 import random
+import string
 from util import *
 
 LOG = logging.getLogger(__name__)
+
+def string_generator(size=6, chars=string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(chars) for x in range(size))
 
 ## ==============================================
 ## main
@@ -75,10 +79,10 @@ if __name__ == '__main__':
     print 'Begin generating synthetic data'
     
     generate_db['test'].remove()
-    for i in range(100) :
+    for i in range(1000000) :
         doc = {}
-        doc['key1']  = i
-        doc['key2'] = i * i
-        doc['key3'] = 'help'
-    	generate_db['test'].insert(doc)
+        doc['key1']  = random.randint(0, 10000000000)
+        doc['key2'] = string_generator(50)
+        generate_db['test'].insert(doc)
+        print i
 ## END MAIN
