@@ -22,6 +22,9 @@ LOG = logging.getLogger(__name__)
 def string_generator(size=6, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for x in range(size))
 
+def int_generator(min=0, max=1000000000):
+    return random.randint(min, max)
+
 ## ==============================================
 ## main
 ## ==============================================
@@ -81,8 +84,7 @@ if __name__ == '__main__':
     generate_db['test'].remove()
     for i in range(1000000) :
         doc = {}
-        doc['key1']  = random.randint(0, 10000000000)
+        doc['key1']  = int_generator()
         doc['key2'] = string_generator(50)
         generate_db['test'].insert(doc)
-        print i
 ## END MAIN
