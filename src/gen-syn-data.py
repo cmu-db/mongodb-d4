@@ -74,6 +74,7 @@ if __name__ == '__main__':
     ## -----------------------------------------------------
     print 'Begin generating synthetic data'
     
+    generate_db['test'].remove()
     for i in range(100) :
         doc = {}
         doc['key1']  = i
