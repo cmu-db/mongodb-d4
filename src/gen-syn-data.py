@@ -87,18 +87,23 @@ if __name__ == '__main__':
     conn.drop_database('synthetic')
     
     print 'Begin generating synthetic data'
-    for i in range(args['records']) :
+    i = 0
+    while i < args['records'] :
         doc = {}
         doc['key1'] = random.randint(1, 100) #int_generator()
         doc['key2'] = random.randint(1, 10000) #string_generator(50)
         doc['key3'] = long_string
         doc['key4'] = long_string
-        generate_db[data_col].insert(doc)
         if random.randint(1,100) == 1 :
             val_doc = {}
             val_doc['key1'] = doc['key1']
             val_doc['key2'] = doc['key2']
             generate_db[value_col].insert(val_doc)
-        if i % 1000 == 0 :
-            print i
+        num_to_insert = random.randint(1, 10000)
+        for j in range(num_to_insert) :
+            generate_db[data_col].insert(doc)
+            i += 1
+            if i % 1000 == 0 :
+                print i
+        
 ## END MAIN

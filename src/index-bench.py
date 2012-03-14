@@ -111,8 +111,8 @@ if __name__ == '__main__':
     show_results(start, end, limit)
     
     print 'Generating indexes'
-    generate_db[data_col].ensure_index('key1')
-    generate_db[data_col].ensure_index('key2')
+    generate_db[data_col].create_index('key1')
+    generate_db[data_col].create_index('key2')
     
     print 'Executing benchmarks on covering indexes'
     start = time.time()
@@ -122,6 +122,4 @@ if __name__ == '__main__':
         generate_db[data_col].find({'key2': key2_values[key]})
     end = time.time()
     show_results(start, end, limit)
-        
-    generate_db[data_col].drop_indexes()
 ## END MAIN
