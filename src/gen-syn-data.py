@@ -89,8 +89,8 @@ if __name__ == '__main__':
     print 'Begin generating synthetic data'
     for i in range(args['records']) :
         doc = {}
-        doc['key1']  = int_generator()
-        doc['key2'] = string_generator(50)
+        doc['key1'] = random.randint(1, 100) #int_generator()
+        doc['key2'] = random.randint(1, 10000) #string_generator(50)
         doc['key3'] = long_string
         doc['key4'] = long_string
         generate_db[data_col].insert(doc)
