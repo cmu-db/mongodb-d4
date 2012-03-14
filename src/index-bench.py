@@ -38,6 +38,7 @@ if __name__ == '__main__':
                                       description="%s\n%s" % (constants.PROJECT_NAME, constants.PROJECT_URL))
     aparser.add_argument('--config', type=file,
                          help='Path to %s configuration file' % constants.PROJECT_NAME)
+    aparser.add_argument('--queries', type=int, default=1000)
     aparser.add_argument('--host', type=str, default="localhost",
                          help='The hostname of the MongoDB instance containing the sample workload')
     aparser.add_argument('--print-config', action='store_true',
@@ -79,7 +80,7 @@ if __name__ == '__main__':
 
     columns = ['key1', 'key2']
     generate_db = conn['synthetic']
-    limit = 100000
+    limit = args['queries']
     data_col = 'data'
     value_col = 'values'
     
@@ -109,10 +110,11 @@ if __name__ == '__main__':
     end = time.time()
     show_results(start, end, limit)
     
-    print 'Executing benchmarks on covering indexes'
+    print 'Generating indexes'
     generate_db[data_col].ensure_index('key1')
     generate_db[data_col].ensure_index('key2')
     
+    print 'Executing benchmarks on covering indexes'
     start = time.time()
     for i in range(limit) :
         key = random.randint(0, num_values - 1)
