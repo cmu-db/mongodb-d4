@@ -142,8 +142,10 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     collections = metadata_db.Collection.find()
     for col in collections :
+        col['tuple_count'] = 0
         rows = dataset_db[col['name']].find()
         for row in rows :
+            col['tuple_count'] += 1
             to_use = random.randrange(1, 100, 1)
             if to_use <= sample_rate : 
                 for k, v in row.iteritems() :

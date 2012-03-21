@@ -15,6 +15,7 @@ class Collection(Document):
         'shard_key': unicode,
         'shard_keys': dict,
         'indexes': dict,
+        'tuple_count' : int,
     }
     required_fields = [ 'name' ]
     #use_autorefs = True
