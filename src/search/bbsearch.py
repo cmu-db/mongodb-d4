@@ -14,8 +14,9 @@ class bbsearch(Object):
         self.optimial_solution = None
         # set initial bound to infinity
         self.bound = float("inf")
-        return self.rootNode.solve()
-    
+        rootNode.solve()
+        return optimal_solution
+        
     
     # input: initial bbdesign
     # bounding function bf
@@ -79,7 +80,7 @@ class bbdesign(Object):
 ## ==============================================
 class bbnode(Object):
 
-   
+   # this is depth first search for now
     def solve():
         populateChildren()    
         for child in children:
