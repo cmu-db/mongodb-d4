@@ -2,6 +2,7 @@
 
 from util import *
 import time
+import sys
 
 ## ==============================================
 ## Branch and Bound search
@@ -15,6 +16,8 @@ class BBSearch ():
     '''
     
     def solve(self):
+        print("===BBSearch Solve===")
+        print " timeout: ", self.timeout
         self.optimal_solution = None
         self.startTime = time.time()
         # set initial bound to infinity
@@ -55,6 +58,9 @@ class BBSearch ():
     # this event gets called when the search backtracks
     def onBacktrack(self):
         self.totalBacktracks+=1
+        self.checkTimeout()
+    
+    def checkTimeout(self):
         if time.time() - self.startTime > self.timeout:
             self.terminate()
         
@@ -62,18 +68,19 @@ class BBSearch ():
     def onTerminate(self):
         self.endTime = time.time()
         self.restoreKeys() # change keys to collection names
-        print "\nSearch ended.\n"
+        print "\n===Search ended==="
         print "best solution: ", self.bound
         print "total backtracks: ", self.totalBacktracks
         print "time elapsed: ", self.endTime - self.startTime
         print "\nbest solution:\n", self.optimal_solution
+        print "\n"
     
     '''
     class constructor
     input: 
     initial design (type bbdesign)
     bounding function bf: f(bbdesign) --> float(0..1)
-    timeout (float in sec)
+    timeout (in sec)
     '''
     def __init__(self, design, bf, to):
         # all nodes have a pointer to the bbsearch object
@@ -214,17 +221,22 @@ class BBNode():
 
    # this is depth first search for now
     def solve(self):
+        self.bbsearch.checkTimeout()
+        if self.bbsearch.terminated:
+            return
         self.populateChildren()    
         for child in self.children:
             child.solve()
-            if self.bbsearch.terminated:
-                return
+            
             ## IF
             
             #child returned --> we backtracked
             self.bbsearch.onBacktrack()
+            if self.bbsearch.terminated:
+                return
         
         ## FOR
+        
             
         
     def populateChildren(self):
@@ -244,6 +256,8 @@ class BBNode():
     # if the cost is < current bound, it updates the optimal solution
     # returns False if the cost is more than the bound --> don't include this node
     def evaluate(self):
+        print ".",
+        sys.stdout.flush()
         # add child only when the solution is admissible
         self.cost = self.bbsearch.bounding_function(self.design)
         if self.cost < self.bbsearch.bound:
