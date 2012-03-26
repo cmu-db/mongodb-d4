@@ -19,8 +19,22 @@ def testBBSearch1():
     timeout = 1000000000
     
     bb = bbsearch.BBSearch(init_design, dummy_bounding_f, timeout)
-    
     bb.solve()
+    nodeList = bb.listAllNodes()
+    
+    for n in nodeList:
+        print n
+        
+
+def testBBSearch2():
+    
+    '''
+    more complicated example:
+    '''
+    
+    def cost_function(design):
+        
+        return 
     
     
 

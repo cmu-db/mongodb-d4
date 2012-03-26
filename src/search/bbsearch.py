@@ -22,7 +22,16 @@ class BBSearch ():
         self.rootNode.solve()
         self.onTerminate()
         return self.optimal_solution
-        
+       
+       
+    # traverses the entire tree and returns nodes as list
+    # mostly for testing
+    # must solve first. Returns only childNodes visited while solving
+    def listAllNodes(self):
+        result = [self.rootNode]
+        self.rootNode.addChildrenToList(result)
+        return result
+       
     # this would stop the search
     def terminate(self):
         self.terminated = True
@@ -64,14 +73,14 @@ class BBSearch ():
     input: 
     initial design (type bbdesign)
     bounding function bf: f(bbdesign) --> float(0..1)
-    timeout (in ms)
+    timeout (float in sec)
     '''
     def __init__(self, design, bf, to):
         # all nodes have a pointer to the bbsearch object
         # in order to access bounding function, optimial solution and current bound
         self.terminated = False
         self.keys_dict = design.transformKeys() #change keys from collection names to ints
-        self.rootNode = BBNode(design, self, True) #rootNode: True
+        self.rootNode = BBNode(design, self, True, 0) #rootNode: True
         self.bounding_function = bf
         self.totalBacktracks = 0
         self.timeout = to
@@ -156,7 +165,9 @@ class BBDesign():
         # make the child
         child = BBDesign(self.collections)
         # inherit the parent assignment
-        child.assignment = self.assignment
+        child.assignment = {} #must copy it
+        for k in self.assignment.keys():
+            child.assignment[k] = self.assignment[k]
         # set the unassigned field to the one possible value
         shardKey = None
         if len(self.collections[self.currentCol]) > 0:
@@ -166,7 +177,7 @@ class BBDesign():
             denorm = self.currentDenorm
         child.assignment[self.currentCol] = (shardKey, denorm)
         
-        print "created child: ", child.assignment
+        #print "created child: ", child.assignment
         
         return child
         
@@ -220,7 +231,7 @@ class BBNode():
         # branches the current design and populates the child node list
         d = self.design.getNextChild()
         while d is not None:
-            childNode = BBNode(d, self.bbsearch, False) # root: False
+            childNode = BBNode(d, self.bbsearch, False, self.depth+1) # root: False
             
             if childNode.evaluate():
                 self.children.append(childNode)
@@ -241,14 +252,34 @@ class BBNode():
         
         return self.cost <= self.bbsearch.bound
 
+    # mostly for testing. Recursive.
+    def addChildrenToList(self, result):
+        for c in self.children:
+            result.append(c)
+            c.addChildrenToList(result)
+
+    def __str__(self):
+        tab="\n"
+        for i in range(self.depth):
+            tab+="\t"
+        s = tab+"--node--"\
+        +tab+" cost: " + str(self.cost)\
+        +tab+" assigment: " + str(self.design)\
+        +tab+" children: " + str(len(self.children))\
+        +tab+" depth: " + str(self.depth)
+        return s
+
     '''
     class constructor
      input:
      design d
      bbsearch object bb
      isroot - True/False
+     depth 
     '''
-    def __init__(self, d, bb, isroot):
+    def __init__(self, d, bb, isroot, depth):
+        self.cost = None
+        self.depth = depth
         self.design = d
         self.bbsearch = bb
         self.children = []
