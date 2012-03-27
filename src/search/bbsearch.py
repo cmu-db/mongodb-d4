@@ -9,13 +9,29 @@ import sys
 ## ==============================================
 
 
+'''
+Usage:
+1) Instantiate BBSearch object. The constructor takes these args:
+* collections:  dictionary mapping collection names to possible shard keys
+                example: collections = {"col1": ["shardkey1", "shardkey2"], "col2": ["id"], "col3": ["id"]}
+* bounding function: takes BBDesign object, and returns float 0..1
+* timeout (in sec)
+
+2) call solve()
+That's it.
+'''
+
 class BBSearch ():
+    
+    # bbsearch object has self.status field, which can have following values:
+    # initialized, solving, solved, timed_out, user_terminated
     
     '''
     public methods
     '''
-    
+    # main public method. Simply call to get the optimal solution
     def solve(self):
+        self.status = "solving"
         print("===BBSearch Solve===")
         print " timeout: ", self.timeout
         self.optimal_solution = None
@@ -23,6 +39,8 @@ class BBSearch ():
         # set initial bound to infinity
         self.bound = float("inf")
         self.rootNode.solve()
+        if self.status is "solving":
+            self.status = "solved"
         self.onTerminate()
         return self.optimal_solution
        
@@ -35,62 +53,60 @@ class BBSearch ():
         self.rootNode.addChildrenToList(result)
         return result
        
-    # this would stop the search
+    # only called externally. This stops the search.
     def terminate(self):
+        self.status = "user_terminated"
         self.terminated = True
         
     '''
     private methods
     '''
-    # changes keys back from ints to original collection names
-    def restoreKeys(self):
-        if self.optimal_solution == None:
-            return
-        oprime = {}
-        for k in self.optimal_solution.keys():
-            oprime[self.keys_dict[k]] = self.optimal_solution[k]
-        self.optimal_solution = oprime
-        
+    
+    def checkTimeout(self):
+        if time.time() - self.startTime > self.timeout:
+            self.status = "timed_out"
+            self.terminated = True
+    
     '''
     Events
     '''
     
     # this event gets called when the search backtracks
     def onBacktrack(self):
-        self.totalBacktracks+=1
+        self.totalBacktracks += 1
         self.checkTimeout()
-    
-    def checkTimeout(self):
-        if time.time() - self.startTime > self.timeout:
-            self.terminate()
         
     # this event gets called when the algorithm terminates
     def onTerminate(self):
         self.endTime = time.time()
-        self.restoreKeys() # change keys to collection names
+        #self.restoreKeys() # change keys to collection names
         print "\n===Search ended==="
+        print "status: ", self.status
         print "best solution: ", self.bound
         print "total backtracks: ", self.totalBacktracks
         print "time elapsed: ", self.endTime - self.startTime
-        print "\nbest solution:\n", self.optimal_solution
-        print "\n"
+        print "best solution:\n", self.optimal_solution
+        print "\n------------------"
     
     '''
     class constructor
     input: 
-    initial design (type bbdesign)
+    collections: dict mapping collection names to possible sharding keys
     bounding function bf: f(bbdesign) --> float(0..1)
     timeout (in sec)
     '''
-    def __init__(self, design, bf, to):
+    def __init__(self, collections, bf, to):
         # all nodes have a pointer to the bbsearch object
         # in order to access bounding function, optimial solution and current bound
         self.terminated = False
-        self.keys_dict = design.transformKeys() #change keys from collection names to ints
+        # store keys list... used only to translate integer iterators back to real key values...
+        design = BBDesign(collections)
+        self.keys_list = design.collections.keys()
         self.rootNode = BBNode(design, self, True, 0) #rootNode: True
         self.bounding_function = bf
         self.totalBacktracks = 0
         self.timeout = to
+        self.status = "initialized"
         return
     
 ## CLASS
@@ -100,6 +116,19 @@ class BBSearch ():
 ## ==============================================
 ## design - representation of a subsearch space or a possible assignment
 ## ==============================================
+'''
+NOTE: BBDesign is the input for our COST FUNCTION.
+All we care about is BBDesign.assignment, which is just a dictionary
+mapping collections to tuples (shardKey, denorm),
+where shardKey is obviously the field we'd shard on (or None)
+and denorm is either None (no embedding) or the name of the enclosing collection 
+
+A collection in BBDesign.assignment may map to None, which means
+this assignment/solution is incomplete, i.e. this collection has not been assigned yet.
+
+Example of BBDesign.assignment:
+assigment: {'col2': ('id', 'col3'), 'col3': ('id', None), 'col1': None}
+'''
 class BBDesign():
     
     # call this ONLY on the root node
@@ -109,47 +138,11 @@ class BBDesign():
         for k in self.collections.keys():
             self.assignment[k] = None
     
-    '''
-    LEGACY CODE
-    def getChildren(self):
-        # find an unassigned field (i.e. None)
-        for k in self.assignment.keys():
-            if self.assignment[k] is None:
-                # genereate possible designs according to the range in fields 
-                result = []
-                for v in self.collections[k]:
-                    child = self.bbdesign(fields)
-                    # inherit the parent assignment
-                    child.assignment = self.assignment
-                    # set the unassigned field to the one possible value
-                    child.assignment[k] = v
-                    result.append(child)
-                ### for
-                
-                # return list of children
-                return result
-                
-            ### if
-        ### for
-    '''
-    
-    # changes keys from colletion names to integeres
-    # call only once (on root node)
-    def transformKeys(self):
-        cprime = {}
-        keys_dict = {}
-        i = 0
-        for k in self.collections.keys():
-            cprime[i] = self.collections[k]
-            i+=1
-        self.collections = cprime
-        return keys_dict
-    
     def __str__(self):
-        return str(self.collections)
+        return str(self.assignment)
     
     # returns None if all children have been enumerated
-    def getNextChild(self):
+    def getNextChild(self, keys_list):
         #print self.assignment
         # determine which collections is to be assigned. Lazily, as everything else.
         if self.currentCol == None:
@@ -168,7 +161,48 @@ class BBDesign():
         if self.currentShardKey == len(self.collections[self.currentCol]):
             return None # all possible combinations have been tried
         
-         
+        # determine the value for this collection
+        shardKey = None
+        if len(self.collections[self.currentCol]) > 0:
+            shardKey = self.collections[self.currentCol][self.currentShardKey]
+        denorm = None #not denormalized
+        if (self.currentDenorm) > -1:
+            denorm = keys_list[self.currentDenorm]
+        
+        ### --- Solution Feasibility Check ---
+        
+        # IMPORTANT
+        # This might be a stupid way of doing it, but let's go with it for now
+        # --> check feasibility of this partial solution:
+        #   * embedded collections should not have a sharding key
+        #       -note: actually, the sharding key could be picked from the embedded collection,
+        #       but in that case we must ensure the sharding key is not assigned on the enclosing collection...
+        #   * NO CIRCULAR EMBEDDING
+        
+        feasible = True
+        # no circular embedding
+        if denorm is not None:
+            embedded_in = denorm
+            if self.assignment[embedded_in] is not None:
+                if self.assignment[embedded_in][1] == self.currentCol:
+                    feasible = False # 'current_col' would be embedded in 'denorm' and vice versa...
+        # enforce sharding keys...
+        if denorm is not None:
+            # if denormalized, make sure the embedding collection has no sharding key
+            embedded_in = denorm
+            if self.assignment[embedded_in] is not None:
+                if self.assignment[embedded_in][0] is not None:
+                    feasible = False
+        
+        # well, this is a very lazy way of doing it :D
+        # it OK so long there are not too many consecutive infeasible nodes,
+        # then it could hit the max recursion limit...
+        if not feasible:
+            return self.getNextChild(keys_list)
+        
+        ### --- end of Solution Feasibility Check ---
+        
+        
         # make the child
         child = BBDesign(self.collections)
         # inherit the parent assignment
@@ -176,12 +210,7 @@ class BBDesign():
         for k in self.assignment.keys():
             child.assignment[k] = self.assignment[k]
         # set the unassigned field to the one possible value
-        shardKey = None
-        if len(self.collections[self.currentCol]) > 0:
-            shardKey = self.collections[self.currentCol][self.currentShardKey]
-        denorm = None #not denormalized
-        if (self.currentDenorm) > -1:
-            denorm = self.currentDenorm
+        
         child.assignment[self.currentCol] = (shardKey, denorm)
         
         #print "created child: ", child.assignment
@@ -241,14 +270,14 @@ class BBNode():
         
     def populateChildren(self):
         # branches the current design and populates the child node list
-        d = self.design.getNextChild()
+        d = self.design.getNextChild(self.bbsearch.keys_list)
         while d is not None:
             childNode = BBNode(d, self.bbsearch, False, self.depth+1) # root: False
             
             if childNode.evaluate():
                 self.children.append(childNode)
             
-            d = self.design.getNextChild()
+            d = self.design.getNextChild(self.bbsearch.keys_list)
         
         ## WHILE
             
