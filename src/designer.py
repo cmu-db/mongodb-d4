@@ -79,26 +79,11 @@ if __name__ == '__main__':
 
     ## ----------------------------------------------
     ## STEP 1
-    ## Precompute any summarizations and information that we can about the workload
-    ## ----------------------------------------------
-    
-    map(metadata_db.drop_collection, [constants.CATALOG_COLL, constants.WORKLOAD_SESSIONS])
-    catalog.generateCatalogFromDatabase(dataset_db, metadata_db)
-    
-    # TEST workload.convertWorkload(conn)
-    
-    d = search.Designer(cparser, workload_db, None)
-    for catalog_coll in schema_db.Collection.find({'name': 'CUSTOMER'}):
-        d.generateShardingCandidates(catalog_coll)
-    
-    
-    ## ----------------------------------------------
-    ## STEP 2
     ## Generate an initial solution
     ## ----------------------------------------------
     
     ## ----------------------------------------------
-    ## STEP 3
+    ## STEP 2
     ## Execute the LNS design algorithm
     ## ----------------------------------------------
     
