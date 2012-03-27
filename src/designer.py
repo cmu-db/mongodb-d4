@@ -104,7 +104,8 @@ if __name__ == '__main__':
             else :
                 print field, data['query_use_count'] , total_queries
                 statistics[col['name']][field]['num_queries'] = data['query_use_count'] / total_queries
-            
+            statistics[col['name']][field]['num_query_keys'] = len(data['hist_query_keys'])
+            statistics[col['name']][field]['num_data_keys'] = len(data['hist_data_keys'])
         
         print statistics[col['name']]
         
