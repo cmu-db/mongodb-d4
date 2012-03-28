@@ -17,6 +17,13 @@ from util import *
 
 LOG = logging.getLogger(__name__)
 
+def calc_stats(params, stats) :
+    output = 0.0
+    for k,v in params.iteritems() :
+        print v, stats[k]
+        output += v * stats[k]
+    return output
+    
 ## ==============================================
 ## main
 ## ==============================================
@@ -91,12 +98,14 @@ if __name__ == '__main__':
     }
     collections = metadata_db.Collection.find()
     statistics = {}
-    
+    results = {}
     for col in collections :
         statistics[col['name']] = {}
+        results[col['name']] = {}
         total_queries = 0
         for field, data in col['fields'].iteritems() :
             statistics[col['name']][field] = {}
+            results[col['name']][field] = 0
             total_queries += data['query_use_count']
         for field, data in col['fields'].iteritems() :
             if total_queries == 0 :
@@ -106,8 +115,12 @@ if __name__ == '__main__':
                 statistics[col['name']][field]['num_queries'] = data['query_use_count'] / total_queries
             statistics[col['name']][field]['num_query_keys'] = len(data['hist_query_keys'])
             statistics[col['name']][field]['num_data_keys'] = len(data['hist_data_keys'])
-        
-        print statistics[col['name']]
+            statistics[col['name']][field]['dist_query_keys'] = 1
+            statistics[col['name']][field]['dist_data_keys'] = 1
+        for field, data in col['fields'].iteritems() :
+            results[col['name']][field] = calc_stats(params, statistics[col['name']][field])
+                    
+    print results
         
     ## ----------------------------------------------
     ## STEP 2
