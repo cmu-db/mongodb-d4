@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+from __future__ import division
 import os
 import sys
 import argparse
@@ -79,26 +79,38 @@ if __name__ == '__main__':
 
     ## ----------------------------------------------
     ## STEP 1
-    ## Precompute any summarizations and information that we can about the workload
-    ## ----------------------------------------------
-    
-    map(metadata_db.drop_collection, [constants.CATALOG_COLL, constants.WORKLOAD_SESSIONS])
-    catalog.generateCatalogFromDatabase(dataset_db, metadata_db)
-    
-    # TEST workload.convertWorkload(conn)
-    
-    d = search.Designer(cparser, workload_db, None)
-    for catalog_coll in schema_db.Collection.find({'name': 'CUSTOMER'}):
-        d.generateShardingCandidates(catalog_coll)
-    
-    
-    ## ----------------------------------------------
-    ## STEP 2
     ## Generate an initial solution
     ## ----------------------------------------------
     
+    params = {
+        'num_queries' : 0.2,
+        'num_query_keys' : 0.2,
+        'dist_query_keys' : 0.2,
+        'num_data_keys' : 0.2,
+        'dist_data_keys' : 0.2
+    }
+    collections = metadata_db.Collection.find()
+    statistics = {}
+    
+    for col in collections :
+        statistics[col['name']] = {}
+        total_queries = 0
+        for field, data in col['fields'].iteritems() :
+            statistics[col['name']][field] = {}
+            total_queries += data['query_use_count']
+        for field, data in col['fields'].iteritems() :
+            if total_queries == 0 :
+                statistics[col['name']][field]['num_queries'] = 0
+            else :
+                print field, data['query_use_count'] , total_queries
+                statistics[col['name']][field]['num_queries'] = data['query_use_count'] / total_queries
+            statistics[col['name']][field]['num_query_keys'] = len(data['hist_query_keys'])
+            statistics[col['name']][field]['num_data_keys'] = len(data['hist_data_keys'])
+        
+        print statistics[col['name']]
+        
     ## ----------------------------------------------
-    ## STEP 3
+    ## STEP 2
     ## Execute the LNS design algorithm
     ## ----------------------------------------------
     
