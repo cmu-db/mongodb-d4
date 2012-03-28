@@ -37,7 +37,8 @@ class BBSearch ():
         self.optimal_solution = None
         self.startTime = time.time()
         # set initial bound to infinity
-        self.bound = float("inf")
+        self.upper_bound = float("inf")
+        self.lower_bound = float("inf")
         self.rootNode.solve()
         if self.status is "solving":
             self.status = "solved"
@@ -82,7 +83,8 @@ class BBSearch ():
         #self.restoreKeys() # change keys to collection names
         print "\n===Search ended==="
         print "status: ", self.status
-        print "best solution: ", self.bound
+        print "upper bound: ", self.upper_bound
+        print "lower bound: ", self.lower_bound
         print "total backtracks: ", self.totalBacktracks
         print "time elapsed: ", self.endTime - self.startTime
         print "best solution:\n", self.optimal_solution
@@ -114,7 +116,7 @@ class BBSearch ():
 
 
 ## ==============================================
-## design - representation of a subsearch space or a possible assignment
+## BBDesign - representation of an (incomplete) solution. Embedded in BBNode
 ## ==============================================
 '''
 NOTE: BBDesign is the input for our COST FUNCTION.
@@ -155,7 +157,7 @@ class BBDesign():
                
         # increment iterators
         self.currentDenorm += 1
-        if self.currentDenorm == len(self.collections) - 1:
+        if self.currentDenorm == len(self.collections):
             self.currentDenorm = -1
             self.currentShardKey += 1
         if self.currentShardKey == len(self.collections[self.currentCol]):
@@ -163,7 +165,7 @@ class BBDesign():
         
         # determine the value for this collection
         shardKey = None
-        if len(self.collections[self.currentCol]) > 0:
+        if (self.currentShardKey >= 0) and (len(self.collections[self.currentCol]) > 0):
             shardKey = self.collections[self.currentCol][self.currentShardKey]
         denorm = None #not denormalized
         if (self.currentDenorm) > -1:
@@ -180,6 +182,10 @@ class BBDesign():
         #   * NO CIRCULAR EMBEDDING
         
         feasible = True
+        # no embedding in itself
+        if denorm is not None:
+            if denorm == self.currentCol:
+                feasible = False
         # no circular embedding
         if denorm is not None:
             embedded_in = denorm
@@ -187,8 +193,8 @@ class BBDesign():
                 if self.assignment[embedded_in][1] == self.currentCol:
                     feasible = False # 'current_col' would be embedded in 'denorm' and vice versa...
         # enforce sharding keys...
-        if denorm is not None:
-            # if denormalized, make sure the embedding collection has no sharding key
+        if (denorm is not None) and (shardKey is not None):
+            # if denormalized and with a sharding key, make sure the embedding collection has no sharding key
             embedded_in = denorm
             if self.assignment[embedded_in] is not None:
                 if self.assignment[embedded_in][0] is not None:
@@ -235,7 +241,7 @@ class BBDesign():
         
         # iterators to generate children
         self.currentCol = None
-        self.currentShardKey = 0
+        self.currentShardKey = -1
         self.currentDenorm = -2 #first value will be -1, which is 'not denormalized'
         return
 
@@ -244,7 +250,7 @@ class BBDesign():
 
 
 ## ==============================================
-## bbnode: main building block of the BB search tree
+## BBNode: main building block of the BBSearch tree
 ## ==============================================
 class BBNode():
 
@@ -286,14 +292,22 @@ class BBNode():
     # returns False if the cost is more than the bound --> don't include this node
     def evaluate(self):
         print ".",
+        #print self
         sys.stdout.flush()
         # add child only when the solution is admissible
-        self.cost = self.bbsearch.bounding_function(self.design)
-        if self.cost < self.bbsearch.bound:
-            self.bbsearch.bound = self.cost
+        cost = self.bbsearch.bounding_function(self.design)
+        self.lower_bound = cost[0]
+        self.upper_bound = cost[1]
+        #print "EVAL NODE: ", self.design, " bound_lower: ", self.lower_bound, "bound_upper: ", self.upper_bound, "BOUND: ", self.bbsearch.lower_bound
+        if self.upper_bound < self.bbsearch.lower_bound:
+            self.bbsearch.lower_bound = self.upper_bound
             self.bbsearch.optimal_solution = self.design.assignment
         
-        return self.cost <= self.bbsearch.bound
+        if self.upper_bound <= self.bbsearch.upper_bound:
+            self.bbsearch.upper_bound = self.upper_bound
+        
+        return self.lower_bound <= self.bbsearch.upper_bound
+        #return True
 
     # mostly for testing. Recursive.
     def addChildrenToList(self, result):
@@ -306,7 +320,8 @@ class BBNode():
         for i in range(self.depth):
             tab+="\t"
         s = tab+"--node--"\
-        +tab+" cost: " + str(self.cost)\
+        +tab+" lower bound: " + str(self.lower_bound)\
+        +tab+" upper bound: " + str(self.upper_bound)\
         +tab+" assigment: " + str(self.design)\
         +tab+" children: " + str(len(self.children))\
         +tab+" depth: " + str(self.depth)
@@ -321,7 +336,8 @@ class BBNode():
      depth 
     '''
     def __init__(self, d, bb, isroot, depth):
-        self.cost = None
+        self.lower_bound = None
+        self.upper_bound = None
         self.depth = depth
         self.design = d
         self.bbsearch = bb

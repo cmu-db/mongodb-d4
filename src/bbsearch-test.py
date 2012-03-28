@@ -14,7 +14,7 @@ def testBBSearch1():
     --> this test verifies that bbsearch does not omit any nodes
     '''
     def dummy_bounding_f(design):
-        return float('inf')
+        return (0, float('inf'))
         
     collections = {"col1": ["shardkey1", "shardkey2"], "col2": ["id"], "col3": ["id"]}
     
@@ -38,7 +38,7 @@ def testBBSearch_timeoutTest():
     # cost function takes 1 sec... therefore, there should be about 10 nodes after 10 sec
     def dummy_bounding_f(design):
         time.sleep(1)
-        return float('inf')
+        return (0, float('inf'))
         
     collections = {"col1": ["shardkey1", "shardkey2"], "col2": ["id"], "col3": ["id"]}
     
@@ -77,13 +77,16 @@ def testBBSearch2():
     def bounding_f(design):
         totalq = 0.0
         query_subcost = 0.0
+        query_subcost_low = 0.0
         totalj = 0.0
         join_subcost = 0.0
+        join_subcost_low = 0.0
         for o in operations:
             if o[0]=="query":
                 totalq += 1
                 col = o[1]
                 key = o[2]
+                query_subcost_low += 0.5
                 if design.assignment[col] == None:
                     query_subcost += 1.0
                 else:
@@ -96,6 +99,7 @@ def testBBSearch2():
                 totalj += 1
                 col1=o[1]
                 col2=o[2]
+                join_subcost_low += 0.5
                 if (design.assignment[col2] == None) and (design.assignment[col1] == None):
                     join_subcost += 1.0
                 else:  
@@ -110,7 +114,8 @@ def testBBSearch2():
                 
                         
         cost = float(join_subcost) / totalj + float(query_subcost) / totalq
-        return cost
+        cost_low = float(join_subcost_low) / totalj + float(query_subcost_low) / totalq
+        return (cost_low, cost)
         
     collections = {"col1": ["shardkey1", "shardkey2"], "col2": ["id"], "col3": ["id"]}
       
@@ -123,13 +128,100 @@ def testBBSearch2():
     
     print "Total nodes: ", len(nodeList)
     
-    for n in nodeList:
-        print n
+    #for n in nodeList:
+    #    print n
 
 ### END Test 2
 
 
+
+# test to prevent circular embedding
+def testBBSearch3():
+    print("\n\n === BBSerch Test 3 - circular embedding ===\n")
+    
+    '''
+    without special checking, the following workload will
+    lead to something like col1-->col2-->col3-->col1
+    '''
+    
+    operations = []
+    operations.append(("query", "col1", "id"));
+    operations.append(("join", "col2", "col3"));
+    operations.append(("join", "col1", "col2"));
+    operations.append(("join", "col3", "col1"));
+    
+
+    
+    def bounding_f(design):
+        totalq = 0.0
+        query_subcost = 0.0
+        query_subcost_low = 0.0
+        totalj = 0.0
+        join_subcost = 0.0
+        join_subcost_low = 0.0
+        for o in operations:
+            if o[0]=="query":
+                totalq += 1
+                col = o[1]
+                key = o[2]
+                query_subcost_low += 0.5
+                if design.assignment[col] == None:
+                    query_subcost += 1.0
+                else:
+                    if key==design.assignment[col][0]:
+                        query_subcost+=0.5
+                    else:
+                        query_subcost+=1.0
+                        query_subcost_low += 0.5
+                
+            if o[0]=="join":
+                totalj += 1
+                col1=o[1]
+                col2=o[2]
+                join_subcost_low += 0.5
+                if ((design.assignment[col2] == None) and (design.assignment[col1] == None)):
+                    join_subcost += 1.0
+                else:
+                    if design.assignment[col2] != None:
+                        if col1==design.assignment[col2][1]:
+                            join_subcost += 0.5
+                        else:
+                            join_subcost += 0.8
+                            join_subcost_low += 0.3
+                    else:
+                        if col2==design.assignment[col1][1]:
+                            join_subcost += 0.5
+                        else:
+                            join_subcost += 0.8
+                            join_subcost_low += 0.3
+
+                
+                        
+        cost = float(join_subcost) / totalj + float(query_subcost) / totalq
+        cost = cost / 2
+        cost_low = float(join_subcost_low) / totalj + float(query_subcost_low) / totalq
+        cost_low = cost_low / 2
+        return (cost_low, cost)
+        
+    collections = {"col1": ["id"], "col2": ["id"], "col3": ["id"]}
+      
+    # TIMEOUT = 10sec
+    timeout = 10
+    
+    bb = bbsearch.BBSearch(collections, bounding_f, timeout)
+    bb.solve()
+    nodeList = bb.listAllNodes()
+    
+    print "Total nodes: ", len(nodeList)
+    
+    #for n in nodeList:
+    #    print n
+
+### END Test 3
+
+
 if __name__ == '__main__':
     testBBSearch1()
-    testBBSearch_timeoutTest()
-    testBBSearch2()
+    #testBBSearch_timeoutTest()
+    #testBBSearch2()
+    testBBSearch3()
