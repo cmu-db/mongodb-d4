@@ -102,19 +102,31 @@ if __name__ == '__main__':
     for col in collections :
         statistics[col['name']] = {}
         results[col['name']] = {}
-        total_queries = 0
+        norm_queries = 0
+        norm_hqk = 0
+        norm_hdk = 0
         for field, data in col['fields'].iteritems() :
             statistics[col['name']][field] = {}
             results[col['name']][field] = 0
-            total_queries += data['query_use_count']
+            if data['query_use_count'] > norm_queries :
+                norm_queries = data['query_use_count']
+            if len(data['hist_query_keys']) > norm_hqk :
+               norm_hqk = len(data['hist_query_keys'])
+            if len(data['hist_data_keys']) > norm_hdk :
+               norm_hkd = len(data['hist_data_keys'])
         for field, data in col['fields'].iteritems() :
-            if total_queries == 0 :
+            if norm_queries == 0 :
                 statistics[col['name']][field]['num_queries'] = 0
             else :
-                print field, data['query_use_count'] , total_queries
-                statistics[col['name']][field]['num_queries'] = data['query_use_count'] / total_queries
-            statistics[col['name']][field]['num_query_keys'] = len(data['hist_query_keys'])
-            statistics[col['name']][field]['num_data_keys'] = len(data['hist_data_keys'])
+                statistics[col['name']][field]['num_queries'] = data['query_use_count'] / norm_queries
+            if norm_hqk == 0 :
+                statistics[col['name']][field]['num_query_keys'] = 0
+            else :
+                statistics[col['name']][field]['num_query_keys'] = len(data['hist_query_keys']) / norm_hqk
+            if norm_hdk == 0:
+                statistics[col['name']][field]['num_data_keys'] = 0
+            else : 
+                statistics[col['name']][field]['num_data_keys'] = len(data['hist_data_keys']) / norm_hdk
             statistics[col['name']][field]['dist_query_keys'] = 1
             statistics[col['name']][field]['dist_data_keys'] = 1
         for field, data in col['fields'].iteritems() :
