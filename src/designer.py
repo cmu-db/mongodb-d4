@@ -9,7 +9,8 @@ import pymongo
 import mongokit
 from pprint import pprint
 from ConfigParser import SafeConfigParser
-
+import math
+    
 import catalog
 import workload
 import search
@@ -20,9 +21,21 @@ LOG = logging.getLogger(__name__)
 def calc_stats(params, stats) :
     output = 0.0
     for k,v in params.iteritems() :
-        print v, stats[k]
         output += v * stats[k]
     return output
+    
+def variance_factor(list, norm):
+    n, mean, std = len(list), 0, 0
+    if n <= 1 or norm == 0 :
+        return 0
+    else :
+        for a in list:
+            mean = mean + a
+        mean = mean / float(n)
+        for a in list:
+            std = std + (a - mean)**2
+        std = math.sqrt(std / float(n-1))
+        return abs(1 - (std / norm))
     
 ## ==============================================
 ## main
@@ -105,6 +118,8 @@ if __name__ == '__main__':
         norm_queries = 0
         norm_hqk = 0
         norm_hdk = 0
+        norm_dqk = 0
+        norm_ddk = 0
         for field, data in col['fields'].iteritems() :
             statistics[col['name']][field] = {}
             results[col['name']][field] = 0
@@ -114,6 +129,14 @@ if __name__ == '__main__':
                norm_hqk = len(data['hist_query_keys'])
             if len(data['hist_data_keys']) > norm_hdk :
                norm_hkd = len(data['hist_data_keys'])
+            if len(data['hist_query_values']) == 0 :
+                norm_dqk = 0
+            else :
+                norm_dqk = max(data['hist_query_values'])
+            if len(data['hist_data_values']) == 0 :
+                norm_ddk = 0
+            else :
+                norm_ddk = max(data['hist_data_values'])
         for field, data in col['fields'].iteritems() :
             if norm_queries == 0 :
                 statistics[col['name']][field]['num_queries'] = 0
@@ -127,13 +150,17 @@ if __name__ == '__main__':
                 statistics[col['name']][field]['num_data_keys'] = 0
             else : 
                 statistics[col['name']][field]['num_data_keys'] = len(data['hist_data_keys']) / norm_hdk
-            statistics[col['name']][field]['dist_query_keys'] = 1
-            statistics[col['name']][field]['dist_data_keys'] = 1
+            statistics[col['name']][field]['dist_query_keys'] = variance_factor(data['hist_query_values'], norm_dqk)
+            statistics[col['name']][field]['dist_data_keys'] = variance_factor(data['hist_data_values'], norm_ddk)
         for field, data in col['fields'].iteritems() :
             results[col['name']][field] = calc_stats(params, statistics[col['name']][field])
-                    
-    print results
-        
+        attr = None
+        value = 0
+        for field, data in results[col['name']].iteritems() :
+            if data >= value :
+                value = data
+                attr = field
+        print col['name'], ' - ', field
     ## ----------------------------------------------
     ## STEP 2
     ## Execute the LNS design algorithm
