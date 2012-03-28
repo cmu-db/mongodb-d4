@@ -16,7 +16,7 @@ def testBBSearch1():
     def dummy_bounding_f(design):
         return (0, float('inf'))
         
-    collections = {"col1": ["shardkey1", "shardkey2"], "col2": ["id"], "col3": ["id"]}
+    collections = {"col1": [], "col2": []}
     
     
     timeout = 1000000000
@@ -224,4 +224,4 @@ if __name__ == '__main__':
     testBBSearch1()
     #testBBSearch_timeoutTest()
     #testBBSearch2()
-    testBBSearch3()
+    #testBBSearch3()

@@ -14,7 +14,7 @@ Usage:
 1) Instantiate BBSearch object. The constructor takes these args:
 * collections:  dictionary mapping collection names to possible shard keys
                 example: collections = {"col1": ["shardkey1", "shardkey2"], "col2": ["id"], "col3": ["id"]}
-* bounding function: takes BBDesign object, and returns float 0..1
+* bounding function: f(BBDesign) --> (lower_bound, upper_bound), both float(0..1)
 * timeout (in sec)
 
 2) call solve()
@@ -31,6 +31,9 @@ class BBSearch ():
     '''
     # main public method. Simply call to get the optimal solution
     def solve(self):
+        # set up
+        self.leafNodes = 0 # for testing
+        self.totalNodes = 0 # for testing
         self.status = "solving"
         print("===BBSearch Solve===")
         print " timeout: ", self.timeout
@@ -53,7 +56,7 @@ class BBSearch ():
         result = [self.rootNode]
         self.rootNode.addChildrenToList(result)
         return result
-       
+        
     # only called externally. This stops the search.
     def terminate(self):
         self.status = "user_terminated"
@@ -82,19 +85,22 @@ class BBSearch ():
         self.endTime = time.time()
         #self.restoreKeys() # change keys to collection names
         print "\n===Search ended==="
-        print "status: ", self.status
-        print "upper bound: ", self.upper_bound
-        print "lower bound: ", self.lower_bound
-        print "total backtracks: ", self.totalBacktracks
-        print "time elapsed: ", self.endTime - self.startTime
-        print "best solution:\n", self.optimal_solution
-        print "\n------------------"
+        print "  status: ", self.status
+        print "STATISTICS:"
+        print "  time elapsed: ", self.endTime - self.startTime, "s"
+        print "  upper bound: ", self.upper_bound
+        print "  lower bound: ", self.lower_bound
+        print "  total backtracks: ", self.totalBacktracks
+        print "  total nodes: ", self.totalNodes
+        print "  leaf nodes: ", self.leafNodes
+        print "BEST SOLUTION:\n", self.optimal_solution
+        print "------------------\n"
     
     '''
     class constructor
     input: 
     collections: dict mapping collection names to possible sharding keys
-    bounding function bf: f(bbdesign) --> float(0..1)
+    bounding function bf: f(BBDesign) --> (lower_bound, upper_bound), both float(0..1)
     timeout (in sec)
     '''
     def __init__(self, collections, bf, to):
@@ -171,6 +177,7 @@ class BBDesign():
         if (self.currentDenorm) > -1:
             denorm = keys_list[self.currentDenorm]
         
+        ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
         
         # IMPORTANT
@@ -182,16 +189,18 @@ class BBDesign():
         #   * NO CIRCULAR EMBEDDING
         
         feasible = True
-        # no embedding in itself
-        if denorm is not None:
-            if denorm == self.currentCol:
+        # NO CIRCULAR EMBEDDING - this checks against "embedding in itself" as well
+        embedded_in = denorm
+        # traverse the embedding chain to the end and detect cycles:
+        while embedded_in is not None:
+            # if the end of the "embedded_in" chain is currentCol, it is a CYCLE
+            if embedded_in == self.currentCol:
                 feasible = False
-        # no circular embedding
-        if denorm is not None:
-            embedded_in = denorm
+                break
             if self.assignment[embedded_in] is not None:
-                if self.assignment[embedded_in][1] == self.currentCol:
-                    feasible = False # 'current_col' would be embedded in 'denorm' and vice versa...
+                embedded_in = self.assignment[embedded_in][1]
+            else:
+                embedded_in = None
         # enforce sharding keys...
         if (denorm is not None) and (shardKey is not None):
             # if denormalized and with a sharding key, make sure the embedding collection has no sharding key
@@ -201,14 +210,13 @@ class BBDesign():
                     feasible = False
         
         # well, this is a very lazy way of doing it :D
-        # it OK so long there are not too many consecutive infeasible nodes,
+        # it's OK so long there are not too many consecutive infeasible nodes,
         # then it could hit the max recursion limit...
         if not feasible:
             return self.getNextChild(keys_list)
         
-        ### --- end of Solution Feasibility Check ---
-        
-        
+        ### --- end of CONSTRAINTS ---
+                
         # make the child
         child = BBDesign(self.collections)
         # inherit the parent assignment
@@ -272,6 +280,11 @@ class BBNode():
         
         ## FOR
         
+        # some stats... for testing
+        if self.isLeaf():
+            self.bbsearch.leafNodes += 1
+        self.bbsearch.totalNodes += 1
+        
             
         
     def populateChildren(self):
@@ -287,9 +300,9 @@ class BBNode():
         
         ## WHILE
             
-    # computes the cost of this design
-    # if the cost is < current bound, it updates the optimal solution
-    # returns False if the cost is more than the bound --> don't include this node
+    # This function determines the lower and upper bound of this node
+    # It updates the global lower/upper bound accordingly
+    # retrun: True if the node should be explored, False if the node can be discarded
     def evaluate(self):
         print ".",
         #print self
@@ -299,21 +312,31 @@ class BBNode():
         self.lower_bound = cost[0]
         self.upper_bound = cost[1]
         #print "EVAL NODE: ", self.design, " bound_lower: ", self.lower_bound, "bound_upper: ", self.upper_bound, "BOUND: ", self.bbsearch.lower_bound
+        
+        # Check against the best value we have seen so far
+        # If this node is better, update the optimal solution
         if self.upper_bound < self.bbsearch.lower_bound:
             self.bbsearch.lower_bound = self.upper_bound
             self.bbsearch.optimal_solution = self.design.assignment
         
+        # Update the global minimum upper bound
         if self.upper_bound <= self.bbsearch.upper_bound:
             self.bbsearch.upper_bound = self.upper_bound
         
+        # A node can be pruned when its lower bound is greater
+        # than the global minimum upper bound.
+        # So when this function returns False, the node is discarded
         return self.lower_bound <= self.bbsearch.upper_bound
-        #return True
+        
 
     # mostly for testing. Recursive.
     def addChildrenToList(self, result):
         for c in self.children:
             result.append(c)
             c.addChildrenToList(result)
+
+    def isLeaf(self):
+        return len(self.children) == 0
 
     def __str__(self):
         tab="\n"
