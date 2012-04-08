@@ -70,7 +70,10 @@ class TestDesign (unittest.TestCase) :
         design.addCollection(collection)
         design.addIndexes({collection : indexes})
         self.assertEqual(design.indexes, {collection : indexes})
-        
+    
+    def testDesignFactory(self) :
+        design = search.Design.testDesignFactory()
+        self.assertEqual(isinstance(design, search.Design), True)
 ## End Class
 
 if __name__ == '__main__':
