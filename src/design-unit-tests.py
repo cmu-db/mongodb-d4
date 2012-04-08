@@ -72,7 +72,7 @@ class TestDesign (unittest.TestCase) :
         self.assertEqual(design.indexes, {collection : indexes})
     
     def testDesignFactory(self) :
-        design = search.Design.testDesignFactory()
+        design = search.Design.testFactory()
         self.assertEqual(isinstance(design, search.Design), True)
 ## End Class
 

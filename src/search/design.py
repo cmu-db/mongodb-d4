@@ -49,7 +49,7 @@ class Design(object):
                 self.addIndex(k, i)
     
     @staticmethod
-    def testDesignFactory() :
+    def testFactory() :
         design = Design()
         collections = ['col 1', 'col 2']
         design.addCollections(collections)
