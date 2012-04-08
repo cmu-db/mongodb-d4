@@ -9,10 +9,6 @@ import logging
 ## ==============================================
 class CostModel(object):
     
-    alpha = None
-    beta = None
-    gamma = None
-    
     def __init__(self, constants) :
         self.alpha = constants['alpha']
         self.beta = constants['beta']
