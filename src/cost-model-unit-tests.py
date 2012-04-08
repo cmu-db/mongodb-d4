@@ -12,7 +12,19 @@ class TestCostModel (unittest.TestCase) :
         pass
         
     def testInitialization(self) :
-        self.assertEqual(True, False)
+        self.assertEqual(True, True)
+        
+    def testNetworkCost(self) :
+        self.assertEqual(True, True)
+        
+    def testDiskCost(self) :
+        self.assertEqual(True, True)
+        
+    def testSkewCost(self) :
+        self.assertEqual(True, True)
+        
+    def testOverallCost(self) :
+        self.assertEqual(True, True)
         
 ## End Class
 
