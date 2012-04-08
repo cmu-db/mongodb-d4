@@ -26,4 +26,12 @@ class Design(object):
         
     def addFields(self, fields) :
         self.fields = fields
+        
+    def addShardKey(self, collection, key) :
+        self.shardKeys[collection] = key
+        
+    def addShardKeys(self, keys) :
+        for k, v in keys.iteritems() :
+            self.shardKeys[k] = v
+            
 ## CLASS

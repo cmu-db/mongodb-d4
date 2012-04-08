@@ -38,6 +38,23 @@ class TestDesign (unittest.TestCase) :
         design.addCollections(collections)
         design.addFields(fields)
         self.assertEqual(design.fields, fields)
+        
+    def testAddShardKey(self) :
+        design = search.Design()
+        collection = 'test'
+        key = 'field 1'
+        design.addShardKey(collection, key)
+        self.assertEqual(design.shardKeys, {collection : key})
+        
+    def testAddShardKeys(self) :
+        design = search.Design()
+        collections = ['test 1', 'test 2']
+        keys = {}
+        for col in collections :
+            keys[col] = 'field 1'
+        design.addShardKeys(keys)
+        self.assertEqual(design.shardKeys, keys)
+        
 ## End Class
 
 if __name__ == '__main__':
