@@ -20,5 +20,10 @@ class Design(object):
     def addCollections(self, collections) :
         for collection in collections :
             self.addCollection(collection)
-
+    
+    def addFieldsOneCollection(self, collection, fields) :
+        self.fields[collection] = fields
+        
+    def addFields(self, fields) :
+        self.fields = fields
 ## CLASS
