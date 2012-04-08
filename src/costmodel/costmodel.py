@@ -15,18 +15,19 @@ class CostModel(object):
         self.gamma = constants['gamma']
         
     def overallCost(self, design, workload, config):
-        assert self != None
-        # TODO
-    
+        cost = 0
+        cost += self.alpha * self.networkCost(design, workload)
+        cost += self.beta * self.diskCost(design, workload)
+        cost += self.gamma * self.skewCost(design, workload)
+        return cost
+        
     def networkCost(self, design, workload):
-        assert self != None
+        return 1.0
         
     def diskCost(self, design, workload):
-        assert self != None
+        return 1.0
         
     def skewCost(self, design, workload):
-        assert self != None
-        # TODO
-        
+        return 1.0
 ## CLASS
     
