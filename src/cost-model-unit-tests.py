@@ -18,7 +18,8 @@ class TestCostModel (unittest.TestCase) :
         pass
         
     def testNetworkCost(self) :
-        cost = self.cm.networkCost(True, True, 4)
+        d = search.Design.testDesignFactory()
+        cost = self.cm.networkCost(d, True, 4)
         self.assertEqual(cost, 1.0)
         
     def testDiskCost(self) :
