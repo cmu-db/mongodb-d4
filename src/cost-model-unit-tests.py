@@ -15,23 +15,26 @@ class TestCostModel (unittest.TestCase) :
            'gamma' : 0.0
         }
         self.cm = costmodel.CostModel(constants)
-        pass
-        
+        self.d = search.Design.testFactory()
+        self.w = workload.Workload.testFactory()
+    
     def testNetworkCost(self) :
-        d = search.Design.testFactory()
-        w = workload.Workload.testFactory()
-        cost = self.cm.networkCost(d, w, 4)
+        cost = self.cm.networkCost(self.d, self.w, 4)
         self.assertEqual(cost, 1.0)
         
     def testDiskCost(self) :
-        self.assertEqual(True, True)
-        
+        cost = self.cm.diskCost(self.d, self.w)
+        self.assertEqual(cost, 1.0)
+    
     def testSkewCost(self) :
-        self.assertEqual(True, True)
-        
+        cost = self.cm.skewCost(self.d, self.w)
+        self.assertEqual(cost, 1.0)
+    
     def testOverallCost(self) :
-        self.assertEqual(True, True)
-        
+        config = {'nodes' : 4}
+        cost = self.cm.overallCost(self.d, self.w, config)
+        self.assertEqual(cost, 0.0)
+    
 ## End Class
 
 if __name__ == '__main__':
