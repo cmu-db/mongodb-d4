@@ -55,6 +55,22 @@ class TestDesign (unittest.TestCase) :
         design.addShardKeys(keys)
         self.assertEqual(design.shardKeys, keys)
         
+    def testAddIndex(self) :
+        design = search.Design()
+        collection = 'test 1'
+        index = ['field 1', 'field 2']
+        design.addCollection(collection)
+        design.addIndex(collection, index)
+        self.assertEqual(design.indexes, {collection : [index]})
+        
+    def testAddIndexes(self) :
+        design = search.Design()
+        collection = 'test 1'
+        indexes = [['field 1'], ['field 2']]
+        design.addCollection(collection)
+        design.addIndexes({collection : indexes})
+        self.assertEqual(design.indexes, {collection : indexes})
+        
 ## End Class
 
 if __name__ == '__main__':

@@ -16,6 +16,7 @@ class Design(object):
     def addCollection(self, collection) :
         if collection not in self.collections :
             self.collections.append(collection)
+            self.indexes[collection] = []
         
     def addCollections(self, collections) :
         for collection in collections :
@@ -34,4 +35,17 @@ class Design(object):
         for k, v in keys.iteritems() :
             self.shardKeys[k] = v
             
+    def addIndex(self, collection, index) :
+        add = True
+        for i in self.indexes[collection] :
+            if i == index :
+                add = False
+        if add == True :
+            self.indexes[collection].append(index)
+        
+    def addIndexes(self, indexes) :
+        for k, v in indexes.iteritems() :
+            for i in v :
+                self.addIndex(k, i)
+        
 ## CLASS
