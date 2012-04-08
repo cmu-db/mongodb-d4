@@ -14,14 +14,14 @@ class CostModel(object):
         self.beta = constants['beta']
         self.gamma = constants['gamma']
         
-    def overallCost(self, design, workload, config):
+    def overallCost(self, design, workload, config) :
         cost = 0
-        cost += self.alpha * self.networkCost(design, workload)
+        cost += self.alpha * self.networkCost(design, workload, config['nodes'])
         cost += self.beta * self.diskCost(design, workload)
         cost += self.gamma * self.skewCost(design, workload)
         return cost
         
-    def networkCost(self, design, workload):
+    def networkCost(self, design, workload, nodes):
         return 1.0
         
     def diskCost(self, design, workload):
