@@ -2,7 +2,7 @@
 
 from utilmethods import *
 from traces import Session
-from workload import workload
+from workload import Workload
 
 del utilmethods
 del traces
