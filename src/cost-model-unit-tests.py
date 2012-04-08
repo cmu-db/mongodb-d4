@@ -9,10 +9,13 @@ import workload
 class TestCostModel (unittest.TestCase) :
     
     def setUp(self) :
+        constants = {
+           'alpha' : 0.0,
+           'beta' : 0.0,
+           'gamma' : 0.0
+        }
+        self.cm = costmodel.CostModel(constants)
         pass
-        
-    def testInitialization(self) :
-        self.assertEqual(True, True)
         
     def testNetworkCost(self) :
         self.assertEqual(True, True)
