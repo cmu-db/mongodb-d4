@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-class Session(object) :
+class Sess(object) :
 
     def __init__(self) :
         self.queries = []
