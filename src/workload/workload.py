@@ -15,5 +15,5 @@ class Workload(object) :
     @staticmethod
     def testFactory() :
         return Workload()
-        
+
 # END CLASS
