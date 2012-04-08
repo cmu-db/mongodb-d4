@@ -8,6 +8,18 @@ class TestDesign (unittest.TestCase) :
     
     def setUp(self) :
         pass
+        
+    def testAddCollection(self) :
+        design = search.Design()
+        collection = 'Test'
+        design.addCollection(collection)
+        self.assertEqual(design.collections, [collection])
+    
+    def testAddCollections(self) :
+        design = search.Design()
+        collections = ['Test 1', 'Test 2']
+        design.addCollections(collections)
+        self.assertEqual(design.collections, collections)
                 
 ## End Class
 

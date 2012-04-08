@@ -7,19 +7,18 @@ from util import *
 ## ==============================================
 class Design(object):
 
-    collections = []
-    fields = {}
-    shardKeys = {}
-    indexes = {}
-
     def __init__(self):
-        pass
-        
+        self.collections = []
+        self.fields = {}
+        self.shardKeys = {}
+        self.indexes = {}
+
     def addCollection(self, collection) :
-        pass
+        if collection not in self.collections :
+            self.collections.append(collection)
         
-    def addCollections(self, collection) :
-        pass
-        
+    def addCollections(self, collections) :
+        for collection in collections :
+            self.addCollection(collection)
 
 ## CLASS
