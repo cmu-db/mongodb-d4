@@ -103,16 +103,18 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     
     params = {
-        'num_queries' : 0.2,
-        'num_query_keys' : 0.2,
-        'dist_query_keys' : 0.2,
-        'num_data_keys' : 0.2,
-        'dist_data_keys' : 0.2
+        'num_queries' : 1.0,
+        'num_query_keys' : 0.0,
+        'dist_query_keys' : 0.0,
+        'num_data_keys' : 0.0,
+        'dist_data_keys' : 0.0
     }
     collections = metadata_db.Collection.find()
     statistics = {}
     results = {}
+    starting_design = search.Design()
     for col in collections :
+        starting_design.addCollection(col)
         statistics[col['name']] = {}
         results[col['name']] = {}
         norm_queries = 0
@@ -120,7 +122,9 @@ if __name__ == '__main__':
         norm_hdk = 0
         norm_dqk = 0
         norm_ddk = 0
+        col_fields = []
         for field, data in col['fields'].iteritems() :
+            col_fields.append(field)
             statistics[col['name']][field] = {}
             results[col['name']][field] = 0
             if data['query_use_count'] > norm_queries :
@@ -137,6 +141,7 @@ if __name__ == '__main__':
                 norm_ddk = 0
             else :
                 norm_ddk = max(data['hist_data_values'])
+        starting_design.addFieldsOneCollection(col, col_fields)
         for field, data in col['fields'].iteritems() :
             if norm_queries == 0 :
                 statistics[col['name']][field]['num_queries'] = 0
@@ -160,7 +165,8 @@ if __name__ == '__main__':
             if data >= value :
                 value = data
                 attr = field
-        print col['name'], ' - ', field
+        starting_design.addShardKey(col['name'], attr)
+
     ## ----------------------------------------------
     ## STEP 2
     ## Execute the LNS design algorithm
