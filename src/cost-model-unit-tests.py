@@ -19,6 +19,11 @@ class TestCostModel (unittest.TestCase) :
         self.w = workload.Workload.testFactory()
     
     def testNetworkCost(self) :
+        query = workload.Query()
+        query.collection = 'test'
+        session = workload.Sess()
+        session.queries.append(query)
+        self.w.addSession(session)
         cost = self.cm.networkCost(self.d, self.w, 4)
         self.assertEqual(cost, 1.0)
         

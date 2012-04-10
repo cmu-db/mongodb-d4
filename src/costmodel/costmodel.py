@@ -9,10 +9,11 @@ import logging
 ## ==============================================
 class CostModel(object):
     
-    def __init__(self, constants) :
+    def __init__(self, constants, statistics = {}) :
         self.alpha = constants['alpha']
         self.beta = constants['beta']
         self.gamma = constants['gamma']
+        self.stats = statistics
         
     def overallCost(self, design, workload, config) :
         cost = 0
@@ -23,10 +24,14 @@ class CostModel(object):
         
     def networkCost(self, design, workload, nodes) :
         result = 0
+        stat_collections = list(self.stats)
         for s in workload.sessions :
             for q in s.queries :
-                # Determine nodes touched by query
-        return 1.0
+                if q.collection in stat_collections :
+                    pass
+                else :
+                    result += 1
+        return result
         
     def diskCost(self, design, workload):
         return 1.0
