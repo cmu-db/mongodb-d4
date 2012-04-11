@@ -166,9 +166,21 @@ if __name__ == '__main__':
                 value = data
                 attr = field
         starting_design.addShardKey(col['name'], attr)
-
     ## ----------------------------------------------
     ## STEP 2
+    ## Create Workload for passing into cost function
+    ## ----------------------------------------------
+    wrkld = workload.Workload()
+    for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
+        sessn = workload.Sess()
+        for op in rec['operations'] :
+            qry = workload.Query()
+            qry.collection = op['collection']
+            sessn.queries.append(qry)
+        wrkld.addSession(sessn)
+    
+    ## ----------------------------------------------
+    ## STEP 3
     ## Execute the LNS design algorithm
     ## ----------------------------------------------
     
