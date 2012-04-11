@@ -6,6 +6,6 @@ class Query(object) :
         self.collection = None
         self.type = None
         self.predicates = {}
-        pass
+        self.timestamp = None
 
 # END CLASS
