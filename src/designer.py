@@ -14,6 +14,7 @@ import math
 import catalog
 import workload
 import search
+import costmodel
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -192,6 +193,8 @@ if __name__ == '__main__':
             sessn.queries.append(qry)
         wrkld.addSession(sessn)
     
+    cm = costmodel.CostModel({'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0}, statistics)
+    print cm.networkCost(starting_design, wrkld, 1)
     ## ----------------------------------------------
     ## STEP 3
     ## Execute the LNS design algorithm

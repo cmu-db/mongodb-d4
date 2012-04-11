@@ -27,10 +27,23 @@ class CostModel(object):
         stat_collections = list(self.stats)
         for s in workload.sessions :
             for q in s.queries :
-                if q.collection in stat_collections :
-                    pass
-                else :
+                if q.type == 'insert' :
                     result += 1
+                elif q.type == 'select' :
+                    if len(q.predicates) > 0 :
+                        scan = True
+                        for k,v in q.predicates.iteritems() :
+                            if design.shardKeys[q.collection] == k :
+                                scan = False
+                        if scan == False : 
+                            result += 1
+                        else :
+                            reslut += 10
+                elif q.type == 'update' :
+                    pass
+                elif q.type == 'delete' :
+                    pass
+                
         return result
         
     def diskCost(self, design, workload):
