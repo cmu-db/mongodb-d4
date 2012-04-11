@@ -176,6 +176,19 @@ if __name__ == '__main__':
         for op in rec['operations'] :
             qry = workload.Query()
             qry.collection = op['collection']
+            if op['type'] == '$insert' :
+                qry.type = 'insert'
+                # No predicate for insert operations
+            elif op['type'] == '$query' :
+                qry.type = 'select'
+                for k,v in op['content'][0]['query'].iteritems() :
+                    qry.predicates[k] = v
+            elif op['type'] == '$update' :
+                qry.type = 'update'
+            elif op['type'] == '$remove' :
+                qry.type = 'delete'
+            else :
+                qry.type = None
             sessn.queries.append(qry)
         wrkld.addSession(sessn)
     
