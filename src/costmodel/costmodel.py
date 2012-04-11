@@ -50,11 +50,10 @@ class CostModel(object):
         return 1.0
         
     def skewCost(self, design, workload):
-        '''
-        Temporal skew costs
-        Break workload up into segments.  Measure distribution of queries across nodes
-        during each segment to determine overall temporal skew
-        '''
-        return 1.0
+        result = 0
+        for s in workload.sessions :
+            for q in s.queries :
+                pass
+        return result
 ## CLASS
     

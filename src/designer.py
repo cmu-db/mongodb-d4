@@ -198,7 +198,9 @@ if __name__ == '__main__':
         wrkld.addSession(sessn)
     
     cm = costmodel.CostModel({'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0}, statistics)
-    print cm.networkCost(starting_design, wrkld, 1)
+    print 'Network Cost: ', cm.networkCost(starting_design, wrkld, 1)
+    print 'Disk Cost: ', cm.diskCost(starting_design, wrkld)
+    print 'Skew Cost: ', cm.skewCost(starting_design, wrkld)
     ## ----------------------------------------------
     ## STEP 3
     ## Execute the LNS design algorithm
