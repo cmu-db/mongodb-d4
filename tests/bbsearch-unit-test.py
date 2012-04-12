@@ -85,8 +85,8 @@ class TestSearchSpace (unittest.TestCase) :
         bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
         bb.solve()
         nodeList = bb.listAllNodes()
-        for n in nodeList:
-            print n
+        #for n in nodeList:
+        #    print n
         self.assertEqual(bb.totalNodes, len(nodeList))
         self.assertEqual(bb.totalNodes, 9)
         self.assertEqual(bb.leafNodes, 4)
@@ -109,8 +109,8 @@ class TestSearchSpace (unittest.TestCase) :
         bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
         bb.solve()
         nodeList = bb.listAllNodes()
-        for n in nodeList:
-            print n
+        #for n in nodeList:
+        #    print n
         self.assertEqual(bb.totalNodes, len(nodeList))
         self.assertEqual(bb.totalNodes, 17)
         self.assertEqual(bb.leafNodes, 8)
@@ -182,8 +182,8 @@ class TestSearchSpace (unittest.TestCase) :
         bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
         bb.solve()
         nodeList = bb.listAllNodes()
-        for n in nodeList:
-            print n
+        #for n in nodeList:
+        #    print n
         self.assertEqual(bb.totalNodes, len(nodeList))
         self.assertEqual(bb.totalNodes, 6)
         self.assertEqual(bb.leafNodes, 3)

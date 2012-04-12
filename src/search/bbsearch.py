@@ -323,7 +323,7 @@ class BBNode():
                     # == all children enumerated
                     return None
         
-        print "APPLYING: ", self.currentCol, "shardKey: ", shardKey, " denorm: ", denorm, " indexes: ", indexes
+        #print "APPLYING: ", self.currentCol, "shardKey: ", shardKey, " denorm: ", denorm, " indexes: ", indexes
         
         ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
