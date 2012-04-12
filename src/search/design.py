@@ -8,19 +8,52 @@ from util import *
 class Design(object):
 
     def __init__(self):
+        # set of collection names
         self.collections = []
-        self.fields = {}
-        self.shardKeys = {}
+        self.fields = {} # I think thid does not need to be here
+        self.shardKeys = {} 
         self.indexes = {}
+        self.denorm = {}
+    '''
+    public methods
+    '''
+    # returns True when all collections are assigned
+    def isComplete(self, totalNumberOfCollection):
+        return len(collections) == totalNumberOfCollections
+        
     
     def addCollection(self, collection) :
         if collection not in self.collections :
             self.collections.append(collection)
-            self.indexes[collection] = []
+            self.indexes[collection] = [] # no indexes
+            self.denorm[collection] = None # not denormalized
+            self.shardKeys[collection] = None # no sharding
     
     def addCollections(self, collections) :
         for collection in collections :
             self.addCollection(collection)
+    
+    def removeCollection(self, collection):
+        if collection not in self.collections:
+            raise LookupError("Collection not found: " + collection)
+        self.collections.remove(collection)
+        self.shardKeys.pop(collection)
+        self.indexes.pop(collection)
+        self.denorm.pop(collection)
+    
+    
+    def copy(self):
+        d = Design()
+        for c in self.collections:
+            d.collections.append(c)
+        for k in self.indexes.keys():
+            d.indexes[k] = self.indexes[k]
+        for k in self.shardKeys.keys():
+            d.shardKeys[k] = self.shardKeys[k]
+        for k in self.denorm.keys():
+            d.denorm[k] = self.denorm[k]
+            
+    
     
     def addFieldsOneCollection(self, collection, fields) :
         self.fields[collection] = fields
