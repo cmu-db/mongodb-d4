@@ -12,10 +12,12 @@ import sys
 '''
 Usage:
 1) Instantiate BBSearch object. The constructor takes these args:
-* collections:  dictionary mapping collection names to possible shard keys
-                example: collections = {"col1": ["shardkey1", "shardkey2"], "col2": ["id"], "col3": ["id"]}
-* bounding function: f(BBDesign) --> (lower_bound, upper_bound), both float(0..1)
+* instance of DesignCandidate: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
+* instance of CostModel
+* initialDesign (instance of Design)
+* upperBound (float; cost of initialDesign)
 * timeout (in sec)
+
 
 2) call solve()
 That's it.
@@ -37,11 +39,8 @@ class BBSearch ():
         self.status = "solving"
         print("===BBSearch Solve===")
         print " timeout: ", self.timeout
-        self.optimal_solution = None
         self.startTime = time.time()
         # set initial bound to infinity
-        self.upper_bound = float("inf")
-        self.lower_bound = float("inf")
         self.rootNode.solve()
         if self.status is "solving":
             self.status = "solved"
@@ -98,84 +97,196 @@ class BBSearch ():
     
     '''
     class constructor
-    input: 
-    collections: dict mapping collection names to possible sharding keys
-    bounding function bf: f(BBDesign) --> (lower_bound, upper_bound), both float(0..1)
-    timeout (in sec)
+    args:
+    * instance of DesignCandidate: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
+    * instance of CostModel
+    * best_Design (instance of Design)
+    * best_cost (float; cost of initialDesign)
+    * timeout (in sec)
     '''
-    def __init__(self, collections, bf, to):
+    def __init__(self, designCandidate, costModel, best_design, best_cost, timeout):
         # all nodes have a pointer to the bbsearch object
         # in order to access bounding function, optimial solution and current bound
         self.terminated = False
         # store keys list... used only to translate integer iterators back to real key values...
-        design = BBDesign(collections)
         self.keys_list = design.collections.keys()
         self.rootNode = BBNode(design, self, True, 0) #rootNode: True
         self.bounding_function = bf
+        self.best_design = best_design
+        self.best_cost = best_cost
         self.totalBacktracks = 0
         self.timeout = to
         self.status = "initialized"
+        
+        
         return
     
 ## CLASS
 
 
+'''
+helper Classes
+'''
+
+'''
+Iterators
+These iterators help enumerate all possible solutions
+used in BBNode getNextChild()
+'''
+class SimpleKeyIterator:
+    def next(self):
+        if self.current == len(self.keys):
+            raise StopIteration
+        else:
+            if self.current < 0:
+                self.current += 1
+                self.lastValue = ""
+            else:
+                self.current += 1
+                self.lastValue = self.keys[self.current - 1]
+            return self.lastValue
+    
+    def rewind(self):
+        self.lastValue = None
+        self.current = -1
+    
+    def getLastValue(self):
+        # when self.lastValue is None, the iterator has never been called
+        # therefore, we must call next() for the first time to pop the first value
+        if self.lastValue == None:
+            return self.next()
+        else:
+            return self.lastValue
+    
+    def __iter__(self):
+        return self
+    
+    def __init__(self, keys):
+        self.keys = keys
+        self.current = -1 # no shard key
+       
+# this one is a bit more complicated:
+# we have to enumerate all combinations of all sizes from the list of index keys
+class IndexKeysIterator: 
+    def next(self):
+        if self.currentSize > len(self.indexKeys):
+            raise StopIteration
+        else:
+            result = None
+            if self.currentSize == 0:
+                self.currentSize += 1
+                self.currentIterator = itertools.combinations(self.indexKeys, 1)
+                result = []
+            else:
+                try:
+                    result = currentIterator.next()
+                except:
+                    currentSize += 1
+                    self.currentIterator = itertools.combinations(self.indexKeys, self.currentSize)
+                    result = self.next()
+            self.lastValue = result
+            return result
+    
+    def rewind(self):
+        self.lastValue = None
+        self.currentSize = 0
+        self.currentIterator = None
+    
+    def getLastValue(self):
+        # when self.lastValue is None, the iterator has never been called
+        # therefore, we must call next() for the first time to pop the first value
+        if self.lastValue == None:
+            return self.next()
+        else:
+            return self.lastValue
+    
+    def __iter__(self):
+        return self
+    
+    def __init__(self, indexKeys):
+        # blow up all possible combinations of index keys
+        self.currentSize = 0
+        self.indexKeys = indexKeys
+        self.currentIterator = None
+
+
+
+
+
+
 
 ## ==============================================
-## BBDesign - representation of an (incomplete) solution. Embedded in BBNode
+## BBNode: main building block of the BBSearch tree
 ## ==============================================
 '''
-NOTE: BBDesign is the input for our COST FUNCTION.
-All we care about is BBDesign.assignment, which is just a dictionary
-mapping collections to tuples (shardKey, denorm),
-where shardKey is obviously the field we'd shard on (or None)
-and denorm is either None (no embedding) or the name of the enclosing collection 
-
-A collection in BBDesign.assignment may map to None, which means
-this assignment/solution is incomplete, i.e. this collection has not been assigned yet.
-
-Example of BBDesign.assignment:
-assigment: {'col2': ('id', 'col3'), 'col3': ('id', None), 'col1': None}
+BBNode - basic building block of the BBSearch tree
+This class is basically a wrapper around Design
 '''
-class BBDesign():
-    
-    # call this ONLY on the root node
-    # to set all fields (collections) to None
-    def initializeAssignment(self):
-        self.assignment = {}
-        for k in self.collections.keys():
-            self.assignment[k] = None
-    
-    def __str__(self):
-        return str(self.assignment)
+class BBNode():
+
+   # this is depth first search for now
+    def solve(self):
+        self.bbsearch.checkTimeout()
+        if self.bbsearch.terminated:
+            return
+            
+        
+        # do not branch if the solution is complete
+        if not self.isLeaf():
+        
+            self.prepareChildren()
+            child = self.getNextChild()
+            while child is not None:
+                child.solve()
+            
+                #child returned --> we backtracked
+                self.bbsearch.onBacktrack()
+                if self.bbsearch.terminated:
+                    return
+        
+                child = self.getNextChild()
+            ## WHILE
+        
+        # some stats... for testing
+        if self.isLeaf():
+            self.bbsearch.leafNodes += 1
+        self.bbsearch.totalNodes += 1
+        
+        return
+        
     
     # returns None if all children have been enumerated
-    def getNextChild(self, keys_list):
-        #print self.assignment
-        # determine which collections is to be assigned. Lazily, as everything else.
-        if self.currentCol == None:
-            for k in self.assignment.keys():
-                if self.assignment[k] == None:
-                    self.currentCol = k
-                    break
-            if self.currentCol == None:
-                return None # all collections already assigned, no children needed
-               
-        # increment iterators
-        self.currentDenorm += 1
-        if self.currentDenorm == len(self.collections):
-            self.currentDenorm = -1
-            self.currentShardKey += 1
-        if self.currentShardKey == len(self.collections[self.currentCol]):
-            return None # all possible combinations have been tried
+    def getNextChild(self):
         
-        # determine the value for this collection
-        shardKey = None
-        if (self.currentShardKey >= 0) and (len(self.collections[self.currentCol]) > 0):
-            shardKey = self.collections[self.currentCol][self.currentShardKey]
-        denorm = None #not denormalized
-        if (self.currentDenorm) > -1:
-            denorm = keys_list[self.currentDenorm]
+        # use iterators to determine the next assignment for the current collection
+        
+        # initialize to previous values
+        shardKey = self.shardIter.getLastValue()
+        indexes = self.indexIter.getLastValue()
+        denorm = self.denormIter.getLastValue()
+        
+        # SHARD KEY ITERATION
+        try:
+            shardKey = self.shardIter.next()
+        except:
+            self.shardIter.rewind()
+            shardKey = self.shardIter.next()
+            
+            # DENORM ITERATION
+            try:
+                denorm = self.denormIter.next()
+            except:
+                self.denormIter.rewind()
+                denorm = self.denormIter.next()
+                
+                # INDEX KEYS ITERATION
+                try:
+                    indexes = self.indexIter.next()
+                except:
+                    # all combinations exhausted
+                    # == all children enumerated
+                    return None
+        
         
         ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
@@ -197,108 +308,55 @@ class BBDesign():
             if embedded_in == self.currentCol:
                 feasible = False
                 break
-            if self.assignment[embedded_in] is not None:
-                embedded_in = self.assignment[embedded_in][1]
-            else:
-                embedded_in = None
-        # enforce sharding keys...
+            embedded_in = self.design.denorm[embedded_in]
+            
+        # enforce mutual exclustion of sharding keys...
+        # when col1 gets denormalized into col2, they cannot have
+        # both assigned a sharding key
+        # again, denormalization can be chained... so we have to consider the whole chain
         if (denorm is not None) and (shardKey is not None):
-            # if denormalized and with a sharding key, make sure the embedding collection has no sharding key
             embedded_in = denorm
-            if self.assignment[embedded_in] is not None:
-                if self.assignment[embedded_in][0] is not None:
+            # check all the way to the end of the embedding chain:
+            while embedded_in is not None:
+                # if the encapsulating collection has a shard key, it's a conflict
+                if self.design.shardKey[embedded_in] is not None:
                     feasible = False
-        
+                    break
+                embedded_in = self.design.denorm[embedded_in]
+                
         # well, this is a very lazy way of doing it :D
         # it's OK so long there are not too many consecutive infeasible nodes,
         # then it could hit the max recursion limit...
         if not feasible:
-            return self.getNextChild(keys_list)
+            return self.getNextChild()
         
         ### --- end of CONSTRAINTS ---
                 
         # make the child
-        child = BBDesign(self.collections)
-        # inherit the parent assignment
-        child.assignment = {} #must copy it
-        for k in self.assignment.keys():
-            child.assignment[k] = self.assignment[k]
-        # set the unassigned field to the one possible value
+        # inherit the parent assignment plus the new assignment
+        child_design = self.design.copy()
+        child_desing.addCollection(self.currentCol)
+        child_desing.indexes[self.currentCol] = indexes
+        child_desing.shardKeys[self.currentCol] = shardKey
+        child_desing.denorm[self.currentCol] = denorm
         
-        child.assignment[self.currentCol] = (shardKey, denorm)
-        
-        #print "created child: ", child.assignment
+        child = BBNode(child_design, self.bbsearch, False, self.depth + 1)
         
         return child
+    
         
-    '''
-    class constructor
-     input: collections c - collections are basically fields we want to assign values to in the bb search
-     each collection maps to a list of [possible_sharding_keys]
-     example of input c: 
-          {'col1': ['id', 'timestamp', 'author'], 'col2': [], 'col3': ['title', 'date']}
-     assignment: a (possibly incomplete) solution
-     assignment example:
-       {'col1': ('id', None), 'col2': (None, None), 'col3': (None, 2), 'col4': None}
-     (col1, col2 are assigend possible values, col3 got denormalized to col2, col4 still unassigned)
-    '''
-    def __init__(self, c):
-        self.collections = c
-        # self.assignment gets initialized either in initializeAssignment (for ROOT node only)
-        # or when enumerating children
-        
-        # iterators to generate children
-        self.currentCol = None
-        self.currentShardKey = -1
-        self.currentDenorm = -2 #first value will be -1, which is 'not denormalized'
-        return
-
-### CLASS
-
-
-
-## ==============================================
-## BBNode: main building block of the BBSearch tree
-## ==============================================
-class BBNode():
-
-   # this is depth first search for now
-    def solve(self):
-        self.bbsearch.checkTimeout()
-        if self.bbsearch.terminated:
-            return
-        self.populateChildren()    
-        for child in self.children:
-            child.solve()
-            
-            ## IF
-            
-            #child returned --> we backtracked
-            self.bbsearch.onBacktrack()
-            if self.bbsearch.terminated:
-                return
-        
-        ## FOR
-        
-        # some stats... for testing
-        if self.isLeaf():
-            self.bbsearch.leafNodes += 1
-        self.bbsearch.totalNodes += 1
-        
-            
-        
-    def populateChildren(self):
-        # branches the current design and populates the child node list
-        d = self.design.getNextChild(self.bbsearch.keys_list)
-        while d is not None:
-            childNode = BBNode(d, self.bbsearch, False, self.depth+1) # root: False
-            
-            if childNode.evaluate():
-                self.children.append(childNode)
-            
-            d = self.design.getNextChild(self.bbsearch.keys_list)
-        
-        ## WHILE
+    def prepareChildren(self):
+        # initialize iterators 
+        # --> determine which collection is yet to be assigned
+        for col in self.bbsearch.designCandidate.collections:
+            if col not in self.design.collections:
+                self.currentCol = col
+                    break
+        # create the iterators
+        self.shardIter = SimpleKeyIterator(self.bbsearch.designCandidate.shardKeys[self.currentCol])
+        self.denormIter = SimpleKeyIterator(self.bbsearch.designCandidate.denorm[self.currentCol])
+        self.indexIter = IndexKeyIterator(self.bbsearch.designCandidate.indexKeys[self.currentCol])
+    
             
     # This function determines the lower and upper bound of this node
     # It updates the global lower/upper bound accordingly
@@ -308,25 +366,20 @@ class BBNode():
         #print self
         sys.stdout.flush()
         # add child only when the solution is admissible
-        cost = self.bbsearch.bounding_function(self.design)
-        self.lower_bound = cost[0]
-        self.upper_bound = cost[1]
+        self.cost = self.bbsearch.costModel.overallCost(self.design)
         #print "EVAL NODE: ", self.design, " bound_lower: ", self.lower_bound, "bound_upper: ", self.upper_bound, "BOUND: ", self.bbsearch.lower_bound
         
+        # for leaf nodes (complete solutions):
         # Check against the best value we have seen so far
         # If this node is better, update the optimal solution
-        if self.upper_bound < self.bbsearch.lower_bound:
-            self.bbsearch.lower_bound = self.upper_bound
-            self.bbsearch.optimal_solution = self.design.assignment
+        if self.isLeaf():
+        if self.cost < self.bbsearch.lower_bound:
+            self.bbsearch.best_cost = self.cost
+            self.bbsearch.best_design = self.best_design
         
-        # Update the global minimum upper bound
-        if self.upper_bound <= self.bbsearch.upper_bound:
-            self.bbsearch.upper_bound = self.upper_bound
-        
-        # A node can be pruned when its lower bound is greater
-        # than the global minimum upper bound.
+        # A node can be pruned when its cost is greater than the global best_cost
         # So when this function returns False, the node is discarded
-        return self.lower_bound <= self.bbsearch.upper_bound
+        return self.cost <= self.bbsearch.best_cost
         
 
     # mostly for testing. Recursive.
@@ -343,9 +396,8 @@ class BBNode():
         for i in range(self.depth):
             tab+="\t"
         s = tab+"--node--"\
-        +tab+" lower bound: " + str(self.lower_bound)\
-        +tab+" upper bound: " + str(self.upper_bound)\
-        +tab+" assigment: " + str(self.design)\
+        +tab+" cost: " + str(self.cost)\
+        +tab+" design: " + str(self.design)\
         +tab+" children: " + str(len(self.children))\
         +tab+" depth: " + str(self.depth)
         return s
@@ -353,20 +405,19 @@ class BBNode():
     '''
     class constructor
      input:
-     design d
-     bbsearch object bb
+     d - instance of Design
+     bb - instance of BBSearch
      isroot - True/False
      depth 
     '''
     def __init__(self, d, bb, isroot, depth):
-        self.lower_bound = None
-        self.upper_bound = None
+        self.cost = None
         self.depth = depth
         self.design = d
         self.bbsearch = bb
-        self.children = []
-        if isroot:
-            self.design.initializeAssignment()
+        self.children = [] # list of BBNode
+        
+        
         return
         
 
