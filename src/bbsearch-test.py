@@ -2,35 +2,80 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+from search import design
 from search import bbsearch
+from search import designcandidate
+
 import time
+
+
+'''
+BBSearch Unit Tests
+Args of BBSearch:
+* instance of DesignCandidate: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
+* instance of CostModel
+* initialDesign (instance of Design)
+* upperBound (float; cost of initialDesign)
+* timeout (in sec)
+'''
+
+
+
+class DummyCostModel:
+    
+    def overallCost(self, design):
+        return self.function(design)
+    
+    def __init__(self, function):
+        self.function = function
+        
+        
 
 # simple test enumerating all nodes of the search space
 def testBBSearch1():
-    print("\n\n === BBSearch Dummy Test === \n")
+    print("\n\n === BBSearch Simple Test === \n")
     '''
     dummy example: since the bounding function returns always float('inf'),
     this should basically traverse the entire tree
     --> this test verifies that bbsearch does not omit any nodes
     '''
     def dummy_bounding_f(design):
-        return (0, float('inf'))
+        return (0)
         
-    collections = {"col1": [], "col2": []}
-    
-    
+    costmodel = DummyCostModel(dummy_bounding_f)
+    dc = designcandidate.DesignCandidate()
+    dc.addCollection("col1", [], [], [])
+    dc.addCollection("col2", [], [], [])
+    initialDesign = design.Design()
+    upper_bound = 1
     timeout = 1000000000
     
-    bb = bbsearch.BBSearch(collections, dummy_bounding_f, timeout)
+    bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
     bb.solve()
     nodeList = bb.listAllNodes()
     
-    for n in nodeList:
-        print n
+    
+    
+    # 6 nodes
+    print nodeList
+    
+    '''
+    now the same with shard keys...
+    '''
+    designCandidate = designcandidate.DesignCandidate()
+    designCandidate.addCollection("col1", [], ["key1", "key2", "key3"], [])
+    designCandidate.addCollection("col2", [], [], [])
+    #same as above, just 4 time more leaf nodes, since c1 can be sharded on k1..4,None
+    bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
+    bb.solve()
+    nodeList = bb.listAllNodes()
+    
+    # 12 leaf nodes
+    print bb.leafNodes, 12
 
 ### END Test 1
         
-
+'''
 # Timout test
 def testBBSearch_timeoutTest():
     print("\n\n === BBSerch Timeout Test === \n")
@@ -139,10 +184,10 @@ def testBBSearch2():
 def testBBSearch3():
     print("\n\n === BBSerch Test 3 - circular embedding ===\n")
     
-    '''
+    
     without special checking, the following workload will
     lead to something like col1-->col2-->col3-->col1
-    '''
+    
     
     operations = []
     operations.append(("query", "col1", "id"));
@@ -218,7 +263,7 @@ def testBBSearch3():
     #    print n
 
 ### END Test 3
-
+'''
 
 if __name__ == '__main__':
     testBBSearch1()

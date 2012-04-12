@@ -81,17 +81,6 @@ class Design(object):
             for i in v :
                 self.addIndex(k, i)
     
-    
-    def __str__(self):
-        s=""
-        for col in self.collections:
-            s += "\n COLLECTION: " + col
-            s += " indexes: " + self.indexes[col]
-            s += " shardKey: " + self.shardKeys[col]
-            s += " denorm: " + self.denorm[col]
-        return s
-            
-    
     @staticmethod
     def testFactory() :
         design = Design()

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from util import *
+
 import time
 import sys
+import design
 
 ## ==============================================
 ## Branch and Bound search
@@ -45,7 +46,7 @@ class BBSearch ():
         if self.status is "solving":
             self.status = "solved"
         self.onTerminate()
-        return self.optimal_solution
+        return self.bestDesign
        
        
     # traverses the entire tree and returns nodes as list
@@ -87,12 +88,11 @@ class BBSearch ():
         print "  status: ", self.status
         print "STATISTICS:"
         print "  time elapsed: ", self.endTime - self.startTime, "s"
-        print "  upper bound: ", self.upper_bound
-        print "  lower bound: ", self.lower_bound
+        print "  best cost: ", self.bestCost
         print "  total backtracks: ", self.totalBacktracks
         print "  total nodes: ", self.totalNodes
         print "  leaf nodes: ", self.leafNodes
-        print "BEST SOLUTION:\n", self.optimal_solution
+        print "BEST SOLUTION:\n", self.bestDesign
         print "------------------\n"
     
     '''
@@ -100,22 +100,21 @@ class BBSearch ():
     args:
     * instance of DesignCandidate: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
     * instance of CostModel
-    * best_Design (instance of Design)
-    * best_cost (float; cost of initialDesign)
+    * initialDesign (instance of Design)
+    * bestCost (float; cost of initialDesign, upper bound)
     * timeout (in sec)
     '''
-    def __init__(self, designCandidate, costModel, best_design, best_cost, timeout):
+    def __init__(self, designCandidate, costModel, initialDesign, bestCost, timeout):
         # all nodes have a pointer to the bbsearch object
         # in order to access bounding function, optimial solution and current bound
         self.terminated = False
         # store keys list... used only to translate integer iterators back to real key values...
-        self.keys_list = design.collections.keys()
-        self.rootNode = BBNode(design, self, True, 0) #rootNode: True
-        self.bounding_function = bf
-        self.best_design = best_design
-        self.best_cost = best_cost
+        self.rootNode = BBNode(design.Design(), self, True, 0) #rootNode: True
+        self.costModel = costModel
+        self.bestDesign = initialDesign
+        self.bestCost = bestCost
         self.totalBacktracks = 0
-        self.timeout = to
+        self.timeout = timeout
         self.status = "initialized"
         
         
@@ -351,7 +350,7 @@ class BBNode():
         for col in self.bbsearch.designCandidate.collections:
             if col not in self.design.collections:
                 self.currentCol = col
-                    break
+                break
         # create the iterators
         self.shardIter = SimpleKeyIterator(self.bbsearch.designCandidate.shardKeys[self.currentCol])
         self.denormIter = SimpleKeyIterator(self.bbsearch.designCandidate.denorm[self.currentCol])
@@ -373,9 +372,9 @@ class BBNode():
         # Check against the best value we have seen so far
         # If this node is better, update the optimal solution
         if self.isLeaf():
-        if self.cost < self.bbsearch.lower_bound:
-            self.bbsearch.best_cost = self.cost
-            self.bbsearch.best_design = self.best_design
+            if self.cost < self.bbsearch.best_cost:
+                self.bbsearch.best_cost = self.cost
+                self.bbsearch.best_design = self.best_design
         
         # A node can be pruned when its cost is greater than the global best_cost
         # So when this function returns False, the node is discarded
