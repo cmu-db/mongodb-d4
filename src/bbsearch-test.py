@@ -33,74 +33,104 @@ class DummyCostModel:
 
 # simple test enumerating all nodes of the search space
 def testBBSearch1():
-    print("\n\n === BBSearch Simple Test === \n")
+    def dummy_bounding_f(design):
+        return (0)
+    initialDesign = design.Design()
+    upper_bound = 1
+    timeout = 1000000000    
+    costmodel = DummyCostModel(dummy_bounding_f)
+    
     '''
     dummy example: since the bounding function returns always float('inf'),
     this should basically traverse the entire tree
     --> this test verifies that bbsearch does not omit any nodes
     '''
-    def dummy_bounding_f(design):
-        return (0)
-        
-    costmodel = DummyCostModel(dummy_bounding_f)
+    print("\n\n === BBSearch Simple Test - empty === \n")
     dc = designcandidate.DesignCandidate()
     dc.addCollection("col1", [], [], [])
     dc.addCollection("col2", [], [], [])
-    initialDesign = design.Design()
-    upper_bound = 1
-    timeout = 1000000000
-    
     bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
     bb.solve()
     nodeList = bb.listAllNodes()
     
     
     
-    # 6 nodes
-    print nodeList
-    
     '''
-    now the same with shard keys...
+    now the some with shard keys...
     '''
-    designCandidate = designcandidate.DesignCandidate()
-    designCandidate.addCollection("col1", [], ["key1", "key2", "key3"], [])
-    designCandidate.addCollection("col2", [], [], [])
-    #same as above, just 4 time more leaf nodes, since c1 can be sharded on k1..4,None
+    print("\n\n === BBSearch Simple Test - shard keys === \n")
+    dc = designcandidate.DesignCandidate()
+    dc.addCollection("col1", [], [], [])
+    dc.addCollection("col2", [], ["key1", "key2"], [])
+    #same as above, just 4 time more leaf nodes, since c1 can be sharded on k1..3,None
     bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
     bb.solve()
     nodeList = bb.listAllNodes()
     
-    # 12 leaf nodes
-    print bb.leafNodes, 12
+    
+    print("\n\n === BBSearch Simple Test -  more shard keys === \n")
+    dc = designcandidate.DesignCandidate()
+    dc.addCollection("col1", [], ["f1", "f2"], [])
+    dc.addCollection("col2", [], ["key2", "key3"], [])
+    #same as above, just 4 time more leaf nodes, since c1 can be sharded on k1..3,None
+    bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
+    bb.solve()
+    nodeList = bb.listAllNodes()
+    
+    
+    '''
+    now with some indexes...
+    '''
+    print("\n\n === BBSearch Simple Test - indexes === \n")
+    dc = designcandidate.DesignCandidate()
+    dc.addCollection("col1", [], [], [])
+    dc.addCollection("col2", [("key1"), ("key1", "key2"), ("key1", "key3")], [], [])
+    #same as above, just 4 time more leaf nodes, since c1 can be sharded on k1..3,None
+    bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
+    bb.solve()
+    nodeList = bb.listAllNodes()
+    
+    '''
+    now with some denorm...
+    '''
+    print("\n\n === BBSearch Simple Test - denorm === \n")
+    dc = designcandidate.DesignCandidate()
+    dc.addCollection("col1", [], [], ["col2"])
+    dc.addCollection("col2", [], [], ["col1"])
+    #same as above, just 4 time more leaf nodes, since c1 can be sharded on k1..3,None
+    bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
+    bb.solve()
+    nodeList = bb.listAllNodes()
+    
 
 ### END Test 1
         
-'''
+
 # Timout test
 def testBBSearch_timeoutTest():
     print("\n\n === BBSerch Timeout Test === \n")
     
     # cost function takes 1 sec... therefore, there should be about 10 nodes after 10 sec
-    def dummy_bounding_f(design):
+    def slow_bounding_f(design):
         time.sleep(1)
-        return (0, float('inf'))
+        return 0
         
-    collections = {"col1": ["shardkey1", "shardkey2"], "col2": ["id"], "col3": ["id"]}
+    initialDesign = design.Design()
+    upper_bound = 1
+    timeout = 5
+    costmodel = DummyCostModel(slow_bounding_f)
     
-    
-    # TIMEOUT = 10sec
-    timeout = 10
-    
-    bb = bbsearch.BBSearch(collections, dummy_bounding_f, timeout)
+    dc = designcandidate.DesignCandidate()
+    dc.addCollection("col1", [], ["key1", "key2", "key3"], [])
+    dc.addCollection("col2", [], ["field1", "field2"], [])
+    bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
     bb.solve()
     nodeList = bb.listAllNodes()
-    
-    print "Total nodes: ", len(nodeList)
 
 
 ### END Timeout Test   
     
-    
+'''
 # "real" test - finding a solution using some heuristic function...
 def testBBSearch2():
     print("\n\n === BBSerch Test 2 ===\n")
@@ -267,6 +297,6 @@ def testBBSearch3():
 
 if __name__ == '__main__':
     testBBSearch1()
-    #testBBSearch_timeoutTest()
+    testBBSearch_timeoutTest()
     #testBBSearch2()
     #testBBSearch3()

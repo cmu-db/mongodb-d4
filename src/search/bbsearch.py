@@ -5,6 +5,15 @@ import time
 import sys
 import design
 import itertools
+import signal
+
+'''
+CONSTANTS & CONFIG
+'''
+INDEX_KEY_MAX_COMPOUND_COUNT = -1 # index key may consist of any combination of possible indexes
+SHARD_KEY_MAX_COMPOUND_COUNT = 3 # composite shard keys may consist at most of 3 keys
+
+
 
 ## ==============================================
 ## Branch and Bound search
@@ -42,6 +51,7 @@ class BBSearch ():
         print("===BBSearch Solve===")
         print " timeout: ", self.timeout
         self.startTime = time.time()
+        signal.signal(signal.SIGINT, self.onSigint)
         # set initial bound to infinity
         self.rootNode.solve()
         if self.status is "solving":
@@ -75,6 +85,10 @@ class BBSearch ():
     '''
     Events
     '''
+    #SIGINT signal handler
+    def onSigint(self, signal, frame):
+        print ">> CTRL+C >> Search Aborted by User..."
+        self.terminate()
     
     # this event gets called when the search backtracks
     def onBacktrack(self):
@@ -169,9 +183,9 @@ class SimpleKeyIterator:
        
 # this one is a bit more complicated:
 # we have to enumerate all combinations of all sizes from the list of index keys
-class IndexKeyIterator: 
+class CompoundKeyIterator: 
     def next(self):
-        if self.currentSize > len(self.indexKeys):
+        if self.currentSize > self.maxCompoundCount:
             raise StopIteration
         else:
             result = None
@@ -180,7 +194,7 @@ class IndexKeyIterator:
                 result = []
             else:
                 if self.currentIterator is None:
-                    self.currentIterator = itertools.combinations(self.indexKeys, self.currentSize)
+                    self.currentIterator = itertools.combinations(self.keys, self.currentSize)
                 try:
                     result = self.currentIterator.next()
                 except:
@@ -193,7 +207,6 @@ class IndexKeyIterator:
     def rewind(self):
         self.lastValue = None
         self.currentSize = 0
-        self.indexKeys = indexKeys
         self.currentIterator = None
     
     def getLastValue(self):
@@ -207,12 +220,20 @@ class IndexKeyIterator:
     def __iter__(self):
         return self
     
-    def __init__(self, indexKeys):
+    '''
+    maxCompoundCount - maximum number of elements in the compound key.
+    anything < 0 means "unlimited"
+    '''
+    def __init__(self, keys, maxCompoundCount):
         # blow up all possible combinations of index keys
         self.lastValue = None
         self.currentSize = 0
-        self.indexKeys = indexKeys
+        self.keys = keys
         self.currentIterator = None
+        if maxCompoundCount < 0:
+            self.maxCompoundCount = len(keys)
+        else:
+            self.maxCompoundCount = maxCompoundCount
 
 
 
@@ -232,7 +253,7 @@ class BBNode():
    # this is depth first search for now
     def solve(self):
     
-        print ("\n ==Node Solve== ")
+        #print ("\n ==Node Solve== ")
     
         self.bbsearch.checkTimeout()
         if self.bbsearch.terminated:
@@ -246,8 +267,8 @@ class BBNode():
             child = self.getNextChild()
             while child is not None:
                 
-                print "\nDEPTH: ", child.depth
-                print child.design
+                #print "\nDEPTH: ", child.depth
+                #print child.design
                 
                 if child.evaluate():
                     self.children.append(child)
@@ -302,7 +323,7 @@ class BBNode():
                     # == all children enumerated
                     return None
         
-        #print "APPLYING: ", self.currentCol, "shardKey: ", shardKey, " denorm: ", denorm, " indexes: ", indexes
+        print "APPLYING: ", self.currentCol, "shardKey: ", shardKey, " denorm: ", denorm, " indexes: ", indexes
         
         ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
@@ -319,7 +340,7 @@ class BBNode():
         # NO CIRCULAR EMBEDDING - this checks against "embedding in itself" as well
         embedded_in = denorm
         # traverse the embedding chain to the end and detect cycles:
-        while embedded_in is not None:
+        while embedded_in != "":
             # if the end of the "embedded_in" chain is currentCol, it is a CYCLE
             if embedded_in == self.currentCol:
                 feasible = False
@@ -327,31 +348,31 @@ class BBNode():
             if embedded_in in self.design.denorm:
                 embedded_in = self.design.denorm[embedded_in]
             else:
-                embedded_in = None
+                embedded_in = ""
             
         # enforce mutual exclustion of sharding keys...
         # when col1 gets denormalized into col2, they cannot have
         # both assigned a sharding key
         # again, denormalization can be chained... so we have to consider the whole chain
-        if (denorm is not None) and (shardKey is not ""):
+        if (denorm is not "") and (shardKey is not []):
             embedded_in = denorm
             # check all the way to the end of the embedding chain:
-            while embedded_in is not None:
+            while embedded_in != "":
                 # if the encapsulating collection has a shard key, it's a conflict
                 if embedded_in in self.design.shardKeys:
-                    if self.design.shardKeys[embedded_in] is not "":
+                    if self.design.shardKeys[embedded_in] != []:
                         feasible = False
                         break
                 if embedded_in in self.design.denorm:
                     embedded_in = self.design.denorm[embedded_in]
                 else:
-                    embedded_in = None
+                    embedded_in = ""
                 
         # well, this is a very lazy way of doing it :D
         # it's OK so long there are not too many consecutive infeasible nodes,
         # then it could hit the max recursion limit...
         if not feasible:
-            #print "FAIL"
+            print "FAIL"
             return self.getNextChild()
         
         ### --- end of CONSTRAINTS ---
@@ -377,9 +398,9 @@ class BBNode():
                 self.currentCol = col
                 break
         # create the iterators
-        self.shardIter = SimpleKeyIterator(self.bbsearch.designCandidate.shardKeys[self.currentCol])
+        self.shardIter = CompoundKeyIterator(self.bbsearch.designCandidate.shardKeys[self.currentCol], SHARD_KEY_MAX_COMPOUND_COUNT)
         self.denormIter = SimpleKeyIterator(self.bbsearch.designCandidate.denorm[self.currentCol])
-        self.indexIter = IndexKeyIterator(self.bbsearch.designCandidate.indexKeys[self.currentCol])
+        self.indexIter = CompoundKeyIterator(self.bbsearch.designCandidate.indexKeys[self.currentCol], INDEX_KEY_MAX_COMPOUND_COUNT)
         
         #print "COL: ", col, "denorm: ", self.bbsearch.designCandidate.denorm[self.currentCol]
         #for f in self.denormIter:

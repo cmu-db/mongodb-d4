@@ -88,8 +88,8 @@ class Design(object):
         for col in self.collections:
             s += " COLLECTION: " + col
             s += " indexes: " + str(self.indexes[col])
-            s += " shardKey: " + self.shardKeys[col]
-            s += " denorm: " + self.denorm[col] + "\n"
+            s += " shardKey: " + str(self.shardKeys[col])
+            s += " denorm: " + str(self.denorm[col]) + "\n"
         return s
             
     
