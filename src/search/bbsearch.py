@@ -4,6 +4,7 @@
 import time
 import sys
 import design
+import itertools
 
 ## ==============================================
 ## Branch and Bound search
@@ -110,6 +111,7 @@ class BBSearch ():
         self.terminated = False
         # store keys list... used only to translate integer iterators back to real key values...
         self.rootNode = BBNode(design.Design(), self, True, 0) #rootNode: True
+        self.designCandidate = designCandidate
         self.costModel = costModel
         self.bestDesign = initialDesign
         self.bestCost = bestCost
@@ -161,27 +163,29 @@ class SimpleKeyIterator:
         return self
     
     def __init__(self, keys):
+        self.lastValue = None
         self.keys = keys
         self.current = -1 # no shard key
        
 # this one is a bit more complicated:
 # we have to enumerate all combinations of all sizes from the list of index keys
-class IndexKeysIterator: 
+class IndexKeyIterator: 
     def next(self):
         if self.currentSize > len(self.indexKeys):
             raise StopIteration
         else:
             result = None
             if self.currentSize == 0:
-                self.currentSize += 1
-                self.currentIterator = itertools.combinations(self.indexKeys, 1)
+                self.currentSize = 1    
                 result = []
             else:
-                try:
-                    result = currentIterator.next()
-                except:
-                    currentSize += 1
+                if self.currentIterator is None:
                     self.currentIterator = itertools.combinations(self.indexKeys, self.currentSize)
+                try:
+                    result = self.currentIterator.next()
+                except:
+                    self.currentSize += 1
+                    self.currentIterator = None
                     result = self.next()
             self.lastValue = result
             return result
@@ -189,6 +193,7 @@ class IndexKeysIterator:
     def rewind(self):
         self.lastValue = None
         self.currentSize = 0
+        self.indexKeys = indexKeys
         self.currentIterator = None
     
     def getLastValue(self):
@@ -204,6 +209,7 @@ class IndexKeysIterator:
     
     def __init__(self, indexKeys):
         # blow up all possible combinations of index keys
+        self.lastValue = None
         self.currentSize = 0
         self.indexKeys = indexKeys
         self.currentIterator = None
@@ -225,6 +231,9 @@ class BBNode():
 
    # this is depth first search for now
     def solve(self):
+    
+        print ("\n ==Node Solve== ")
+    
         self.bbsearch.checkTimeout()
         if self.bbsearch.terminated:
             return
@@ -236,7 +245,13 @@ class BBNode():
             self.prepareChildren()
             child = self.getNextChild()
             while child is not None:
-                child.solve()
+                
+                print "\nDEPTH: ", child.depth
+                print child.design
+                
+                if child.evaluate():
+                    self.children.append(child)
+                    child.solve()
             
                 #child returned --> we backtracked
                 self.bbsearch.onBacktrack()
@@ -257,10 +272,11 @@ class BBNode():
     # returns None if all children have been enumerated
     def getNextChild(self):
         
+        #print ("GET NEXT CHILD")
+        
         # use iterators to determine the next assignment for the current collection
         
         # initialize to previous values
-        shardKey = self.shardIter.getLastValue()
         indexes = self.indexIter.getLastValue()
         denorm = self.denormIter.getLastValue()
         
@@ -286,6 +302,7 @@ class BBNode():
                     # == all children enumerated
                     return None
         
+        #print "APPLYING: ", self.currentCol, "shardKey: ", shardKey, " denorm: ", denorm, " indexes: ", indexes
         
         ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
@@ -307,26 +324,34 @@ class BBNode():
             if embedded_in == self.currentCol:
                 feasible = False
                 break
-            embedded_in = self.design.denorm[embedded_in]
+            if embedded_in in self.design.denorm:
+                embedded_in = self.design.denorm[embedded_in]
+            else:
+                embedded_in = None
             
         # enforce mutual exclustion of sharding keys...
         # when col1 gets denormalized into col2, they cannot have
         # both assigned a sharding key
         # again, denormalization can be chained... so we have to consider the whole chain
-        if (denorm is not None) and (shardKey is not None):
+        if (denorm is not None) and (shardKey is not ""):
             embedded_in = denorm
             # check all the way to the end of the embedding chain:
             while embedded_in is not None:
                 # if the encapsulating collection has a shard key, it's a conflict
-                if self.design.shardKey[embedded_in] is not None:
-                    feasible = False
-                    break
-                embedded_in = self.design.denorm[embedded_in]
+                if embedded_in in self.design.shardKeys:
+                    if self.design.shardKeys[embedded_in] is not "":
+                        feasible = False
+                        break
+                if embedded_in in self.design.denorm:
+                    embedded_in = self.design.denorm[embedded_in]
+                else:
+                    embedded_in = None
                 
         # well, this is a very lazy way of doing it :D
         # it's OK so long there are not too many consecutive infeasible nodes,
         # then it could hit the max recursion limit...
         if not feasible:
+            #print "FAIL"
             return self.getNextChild()
         
         ### --- end of CONSTRAINTS ---
@@ -334,10 +359,10 @@ class BBNode():
         # make the child
         # inherit the parent assignment plus the new assignment
         child_design = self.design.copy()
-        child_desing.addCollection(self.currentCol)
-        child_desing.indexes[self.currentCol] = indexes
-        child_desing.shardKeys[self.currentCol] = shardKey
-        child_desing.denorm[self.currentCol] = denorm
+        child_design.addCollection(self.currentCol)
+        child_design.indexes[self.currentCol] = indexes
+        child_design.shardKeys[self.currentCol] = shardKey
+        child_design.denorm[self.currentCol] = denorm
         
         child = BBNode(child_design, self.bbsearch, False, self.depth + 1)
         
@@ -355,8 +380,12 @@ class BBNode():
         self.shardIter = SimpleKeyIterator(self.bbsearch.designCandidate.shardKeys[self.currentCol])
         self.denormIter = SimpleKeyIterator(self.bbsearch.designCandidate.denorm[self.currentCol])
         self.indexIter = IndexKeyIterator(self.bbsearch.designCandidate.indexKeys[self.currentCol])
-    
-            
+        
+        #print "COL: ", col, "denorm: ", self.bbsearch.designCandidate.denorm[self.currentCol]
+        #for f in self.denormIter:
+        #    print str(f)
+        #self.indexIter.rewind()
+        
     # This function determines the lower and upper bound of this node
     # It updates the global lower/upper bound accordingly
     # retrun: True if the node should be explored, False if the node can be discarded
@@ -372,13 +401,13 @@ class BBNode():
         # Check against the best value we have seen so far
         # If this node is better, update the optimal solution
         if self.isLeaf():
-            if self.cost < self.bbsearch.best_cost:
-                self.bbsearch.best_cost = self.cost
-                self.bbsearch.best_design = self.best_design
+            if self.cost < self.bbsearch.bestCost:
+                self.bbsearch.bestCost = self.cost
+                self.bbsearch.bestDesign = self.design.copy()
         
         # A node can be pruned when its cost is greater than the global best_cost
         # So when this function returns False, the node is discarded
-        return self.cost <= self.bbsearch.best_cost
+        return self.cost <= self.bbsearch.bestCost
         
 
     # mostly for testing. Recursive.
@@ -388,7 +417,7 @@ class BBNode():
             c.addChildrenToList(result)
 
     def isLeaf(self):
-        return len(self.children) == 0
+        return self.design.isComplete(len(self.bbsearch.designCandidate.collections))
 
     def __str__(self):
         tab="\n"

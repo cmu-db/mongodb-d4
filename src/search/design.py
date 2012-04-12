@@ -18,8 +18,8 @@ class Design(object):
     public methods
     '''
     # returns True when all collections are assigned
-    def isComplete(self, totalNumberOfCollection):
-        return len(collections) == totalNumberOfCollections
+    def isComplete(self, totalNumberOfCollections):
+        return len(self.collections) == totalNumberOfCollections
         
     
     def addCollection(self, collection) :
@@ -52,6 +52,7 @@ class Design(object):
             d.shardKeys[k] = self.shardKeys[k]
         for k in self.denorm.keys():
             d.denorm[k] = self.denorm[k]
+        return d
             
     
     
@@ -85,10 +86,10 @@ class Design(object):
     def __str__(self):
         s=""
         for col in self.collections:
-            s += "\n COLLECTION: " + col
-            s += " indexes: " + self.indexes[col]
+            s += " COLLECTION: " + col
+            s += " indexes: " + str(self.indexes[col])
             s += " shardKey: " + self.shardKeys[col]
-            s += " denorm: " + self.denorm[col]
+            s += " denorm: " + self.denorm[col] + "\n"
         return s
             
     
