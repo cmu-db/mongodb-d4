@@ -13,7 +13,7 @@ import math
     
 import catalog
 import workload
-import search
+from search import design
 import costmodel
 from util import *
 
@@ -113,7 +113,7 @@ if __name__ == '__main__':
     collections = metadata_db.Collection.find()
     statistics = {}
     results = {}
-    starting_design = search.Design()
+    starting_design = design.Design()
     for col in collections :
         starting_design.addCollection(col)
         statistics[col['name']] = {}
@@ -197,10 +197,10 @@ if __name__ == '__main__':
             sessn.queries.append(qry)
         wrkld.addSession(sessn)
     
-    cm = costmodel.CostModel({'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0}, statistics)
-    print 'Network Cost: ', cm.networkCost(starting_design, wrkld, 1)
-    print 'Disk Cost: ', cm.diskCost(starting_design, wrkld)
-    print 'Skew Cost: ', cm.skewCost(starting_design, wrkld)
+    cm = costmodel.CostModel(wrkld, {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10}, statistics)
+    print 'Network Cost: ', cm.networkCost(starting_design)
+    print 'Disk Cost: ', cm.diskCost(starting_design)
+    print 'Skew Cost: ', cm.skewCost(starting_design)
     ## ----------------------------------------------
     ## STEP 3
     ## Execute the LNS design algorithm
