@@ -25,18 +25,6 @@ def calc_stats(params, stats) :
         output += v * stats[k]
     return output
     
-def variance_factor(list, norm):
-    n, mean, std = len(list), 0, 0
-    if n <= 1 or norm == 0 :
-        return 0
-    else :
-        for a in list:
-            mean = mean + a
-        mean = mean / float(n)
-        for a in list:
-            std = std + (a - mean)**2
-        std = math.sqrt(std / float(n-1))
-        return abs(1 - (std / norm))
     
 ## ==============================================
 ## main
@@ -111,55 +99,17 @@ if __name__ == '__main__':
         'dist_data_keys' : 0.0
     }
     collections = metadata_db.Collection.find()
-    statistics = {}
+    statistics = catalog.gatherStatisticsFromCollections(metadata_db.Collection.find())
     results = {}
     starting_design = design.Design()
     for col in collections :
-        starting_design.addCollection(col)
-        statistics[col['name']] = {}
+        starting_design.addCollection(col['name'])
         results[col['name']] = {}
-        norm_queries = 0
-        norm_hqk = 0
-        norm_hdk = 0
-        norm_dqk = 0
-        norm_ddk = 0
         col_fields = []
         for field, data in col['fields'].iteritems() :
             col_fields.append(field)
-            statistics[col['name']][field] = {}
-            results[col['name']][field] = 0
-            if data['query_use_count'] > norm_queries :
-                norm_queries = data['query_use_count']
-            if len(data['hist_query_keys']) > norm_hqk :
-               norm_hqk = len(data['hist_query_keys'])
-            if len(data['hist_data_keys']) > norm_hdk :
-               norm_hkd = len(data['hist_data_keys'])
-            if len(data['hist_query_values']) == 0 :
-                norm_dqk = 0
-            else :
-                norm_dqk = max(data['hist_query_values'])
-            if len(data['hist_data_values']) == 0 :
-                norm_ddk = 0
-            else :
-                norm_ddk = max(data['hist_data_values'])
-        starting_design.addFieldsOneCollection(col, col_fields)
-        for field, data in col['fields'].iteritems() :
-            if norm_queries == 0 :
-                statistics[col['name']][field]['num_queries'] = 0
-            else :
-                statistics[col['name']][field]['num_queries'] = data['query_use_count'] / norm_queries
-            if norm_hqk == 0 :
-                statistics[col['name']][field]['num_query_keys'] = 0
-            else :
-                statistics[col['name']][field]['num_query_keys'] = len(data['hist_query_keys']) / norm_hqk
-            if norm_hdk == 0:
-                statistics[col['name']][field]['num_data_keys'] = 0
-            else : 
-                statistics[col['name']][field]['num_data_keys'] = len(data['hist_data_keys']) / norm_hdk
-            statistics[col['name']][field]['dist_query_keys'] = variance_factor(data['hist_query_values'], norm_dqk)
-            statistics[col['name']][field]['dist_data_keys'] = variance_factor(data['hist_data_values'], norm_ddk)
-        for field, data in col['fields'].iteritems() :
             results[col['name']][field] = calc_stats(params, statistics[col['name']][field])
+        starting_design.addFieldsOneCollection(col['name'], col_fields)
         attr = None
         value = 0
         for field, data in results[col['name']].iteritems() :
@@ -167,6 +117,7 @@ if __name__ == '__main__':
                 value = data
                 attr = field
         starting_design.addShardKey(col['name'], attr)
+        
     ## ----------------------------------------------
     ## STEP 2
     ## Create Workload for passing into cost function
@@ -198,6 +149,7 @@ if __name__ == '__main__':
         wrkld.addSession(sessn)
     
     cm = costmodel.CostModel(wrkld, {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10}, statistics)
+    
     print 'Network Cost: ', cm.networkCost(starting_design)
     print 'Disk Cost: ', cm.diskCost(starting_design)
     print 'Skew Cost: ', cm.skewCost(starting_design)

@@ -10,7 +10,7 @@ class Design(object):
     def __init__(self):
         # set of collection names
         self.collections = []
-        self.fields = {} # I think thid does not need to be here
+        self.fields = {} # I think this does not need to be here
         self.shardKeys = {} 
         self.indexes = {}
         self.denorm = {}

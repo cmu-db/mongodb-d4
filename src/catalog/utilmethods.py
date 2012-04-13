@@ -7,6 +7,7 @@ from datetime import datetime
 from pprint import pformat
 
 import collection
+import math
 
 LOG = logging.getLogger(__name__)
 
@@ -110,3 +111,64 @@ def fieldTypeToPython(strType):
     for t in [ str, bool, datetime ]:
         if strType == t.__name__: return t
     return eval("types.%sType" % strType.title())
+    
+def gatherStatisticsFromCollections(collectionsIterable) :
+    '''
+    Gather statistics from an iterable of collections for using in instantiation of
+    the cost model and for determining the initial design solution
+    '''
+    statistics = {}
+    for col in collectionsIterable :
+        statistics[col['name']] = {}
+        norm_queries = 0
+        norm_hqk = 0
+        norm_hdk = 0
+        norm_dqk = 0
+        norm_ddk = 0
+        col_fields = []
+        for field, data in col['fields'].iteritems() :
+            col_fields.append(field)
+            statistics[col['name']][field] = {}
+            if data['query_use_count'] > norm_queries :
+                norm_queries = data['query_use_count']
+            if len(data['hist_query_keys']) > norm_hqk :
+               norm_hqk = len(data['hist_query_keys'])
+            if len(data['hist_data_keys']) > norm_hdk :
+               norm_hkd = len(data['hist_data_keys'])
+            if len(data['hist_query_values']) == 0 :
+                norm_dqk = 0
+            else :
+                norm_dqk = max(data['hist_query_values'])
+            if len(data['hist_data_values']) == 0 :
+                norm_ddk = 0
+            else :
+                norm_ddk = max(data['hist_data_values'])
+        for field, data in col['fields'].iteritems() :
+            if norm_queries == 0 :
+                statistics[col['name']][field]['num_queries'] = 0
+            else :
+                statistics[col['name']][field]['num_queries'] = data['query_use_count'] / norm_queries
+            if norm_hqk == 0 :
+                statistics[col['name']][field]['num_query_keys'] = 0
+            else :
+                statistics[col['name']][field]['num_query_keys'] = len(data['hist_query_keys']) / norm_hqk
+            if norm_hdk == 0:
+                statistics[col['name']][field]['num_data_keys'] = 0
+            else : 
+                statistics[col['name']][field]['num_data_keys'] = len(data['hist_data_keys']) / norm_hdk
+            statistics[col['name']][field]['dist_query_keys'] = variance_factor(data['hist_query_values'], norm_dqk)
+            statistics[col['name']][field]['dist_data_keys'] = variance_factor(data['hist_data_values'], norm_ddk)
+    return statistics
+    
+def variance_factor(list, norm):
+    n, mean, std = len(list), 0, 0
+    if n <= 1 or norm == 0 :
+        return 0
+    else :
+        for a in list:
+            mean = mean + a
+        mean = mean / float(n)
+        for a in list:
+            std = std + (a - mean)**2
+        std = math.sqrt(std / float(n-1))
+        return abs(1 - (std / norm))
