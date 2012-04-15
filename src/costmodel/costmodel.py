@@ -24,7 +24,7 @@ class CostModel(object):
         cost += self.alpha * self.networkCost(design)
         cost += self.beta * self.diskCost(design)
         cost += self.gamma * self.skewCost(design)
-        return cost
+        return cost / (self.alpha + self.beta + self.gamma)
         
     def networkCost(self, design) :
         return self.partialNetworkCost(design, self.workload)
@@ -72,6 +72,8 @@ class CostModel(object):
                 # denormalization scheme
                 if design.hasCollection(q.collection) :
                     if q.type == 'insert' :
+                        # is this assumption valid that an insert query would only make
+                        # one request??
                         result += 1
                     else :
                         # Network costs of SELECT, UPDATE, DELETE queries are based off
@@ -95,7 +97,7 @@ class CostModel(object):
                 else :
                     # How do we determine if this query needs to be counted in the
                     # denormalization scheme?
-                    pass
+                    results += 0
         return result
         
     @staticmethod
