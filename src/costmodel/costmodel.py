@@ -94,6 +94,8 @@ class CostModel(object):
                                     result += self.guessNodes(design, q.collection, k)
                             else :
                                 result += self.config['nodes']
+                        else :
+                            result += self.config['nodes']
                 else :
                     # Is this an incomplete design or has the collection been accounted
                     # for via denormalization... either way it will affect the 
