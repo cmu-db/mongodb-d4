@@ -91,12 +91,17 @@ class CostModel(object):
                                 if v == 'equality' :
                                     result += 1
                                 else :
+                                    # How do we use the statistics to determine the 
+                                    # selectivity of this particular attribute and 
+                                    # thus determine the number of nodes required to 
+                                    # answer the query.
                                     result += math.ceil(0.25 * self.config['nodes'])
                             else :
                                 result += self.config['nodes']
                 else :
-                    # How do we determine if this query needs to be counted in the
-                    # denormalization scheme?
+                    # Is this an incomplete design or has the collection been accounted
+                    # for via denormalization... either way it will affect the 
+                    # overall network cost
                     results += 0
         return result
         

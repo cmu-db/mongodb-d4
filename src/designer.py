@@ -158,6 +158,7 @@ if __name__ == '__main__':
     print 'Network Cost: ', cm.networkCost(starting_design)
     print 'Disk Cost: ', cm.diskCost(starting_design)
     print 'Skew Cost: ', cm.skewCost(starting_design)
+    
     ## ----------------------------------------------
     ## STEP 3
     ## Execute the LNS design algorithm
