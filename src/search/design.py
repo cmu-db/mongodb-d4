@@ -41,6 +41,8 @@ class Design(object):
         self.indexes.pop(collection)
         self.denorm.pop(collection)
     
+    def hasCollection(self, collection) :
+        return collection in self.collections
     
     def copy(self):
         d = Design()

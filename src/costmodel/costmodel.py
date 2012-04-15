@@ -68,6 +68,9 @@ class CostModel(object):
         stat_collections = list(self.stats)
         for s in wrkld_sgmnt.sessions :
             for q in s.queries :
+                # Check to see if the queried collection exists in the design's 
+                # denormalization scheme
+                
                 if q.type == 'insert' :
                     result += 1
                 elif q.type == 'select' :
