@@ -70,22 +70,28 @@ class CostModel(object):
             for q in s.queries :
                 # Check to see if the queried collection exists in the design's 
                 # denormalization scheme
-                
-                if q.type == 'insert' :
-                    result += 1
-                elif q.type == 'select' :
-                    if len(q.predicates) > 0 :
-                        scan = True
-                        for k,v in q.predicates.iteritems() :
-                            if design.shardKeys[q.collection] == k :
-                                scan = False
-                        if scan == False :
-                            result += 1
-                        else :
-                            result += 10
-                elif q.type == 'update' :
-                    pass
-                elif q.type == 'delete' :
+                if design.hasCollection(q.collection) :
+                    if q.type == 'insert' :
+                        result += 1
+                    elif q.type == 'select' :
+                        if len(q.predicates) > 0 :
+                            scan = True
+                            for k,v in q.predicates.iteritems() :
+                                if design.shardKeys[q.collection] == k :
+                                    scan = False
+                            if scan == False :
+                                # Query uses shard key... need to determine if this is an
+                                # equality predicate or a range type
+                                result += 1
+                            else :
+                                result += self.config['nodes']
+                    elif q.type == 'update' :
+                        pass
+                    elif q.type == 'delete' :
+                        pass
+                else :
+                    # How do we determine if this query needs to be counted in the
+                    # denormalization scheme?
                     pass
         return result
         
