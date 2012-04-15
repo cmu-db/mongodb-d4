@@ -108,7 +108,7 @@ if __name__ == '__main__':
         col_fields = []
         for field, data in col['fields'].iteritems() :
             col_fields.append(field)
-            results[col['name']][field] = calc_stats(params, statistics[col['name']][field])
+            results[col['name']][field] = calc_stats(params, statistics[col['name']]['fields'][field])
         starting_design.addFieldsOneCollection(col['name'], col_fields)
         attr = None
         value = 0

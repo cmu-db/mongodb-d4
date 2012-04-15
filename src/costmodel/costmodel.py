@@ -110,6 +110,7 @@ class CostModel(object):
     attribute and thus determine the number of nodes required to answer the query?
     '''
     def guessNodes(self, design, collection, key) : 
+        stats = self.statistics[collection][key]
         print key, collection
         return 0
         

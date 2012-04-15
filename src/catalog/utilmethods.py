@@ -119,7 +119,10 @@ def gatherStatisticsFromCollections(collectionsIterable) :
     '''
     statistics = {}
     for col in collectionsIterable :
-        statistics[col['name']] = {}
+        statistics[col['name']] = {
+            'fields' : {},
+            'tupleCount' : col['tuple_count']
+        }
         norm_queries = 0
         norm_hqk = 0
         norm_hdk = 0
@@ -128,7 +131,7 @@ def gatherStatisticsFromCollections(collectionsIterable) :
         col_fields = []
         for field, data in col['fields'].iteritems() :
             col_fields.append(field)
-            statistics[col['name']][field] = {}
+            statistics[col['name']]['fields'][field] = {}
             if data['query_use_count'] > norm_queries :
                 norm_queries = data['query_use_count']
             if len(data['hist_query_keys']) > norm_hqk :
@@ -145,19 +148,19 @@ def gatherStatisticsFromCollections(collectionsIterable) :
                 norm_ddk = max(data['hist_data_values'])
         for field, data in col['fields'].iteritems() :
             if norm_queries == 0 :
-                statistics[col['name']][field]['num_queries'] = 0
+                statistics[col['name']]['fields'][field]['num_queries'] = 0
             else :
-                statistics[col['name']][field]['num_queries'] = data['query_use_count'] / norm_queries
+                statistics[col['name']]['fields'][field]['num_queries'] = data['query_use_count'] / norm_queries
             if norm_hqk == 0 :
-                statistics[col['name']][field]['num_query_keys'] = 0
+                statistics[col['name']]['fields'][field]['num_query_keys'] = 0
             else :
-                statistics[col['name']][field]['num_query_keys'] = len(data['hist_query_keys']) / norm_hqk
+                statistics[col['name']]['fields'][field]['num_query_keys'] = len(data['hist_query_keys']) / norm_hqk
             if norm_hdk == 0:
-                statistics[col['name']][field]['num_data_keys'] = 0
+                statistics[col['name']]['fields'][field]['num_data_keys'] = 0
             else : 
-                statistics[col['name']][field]['num_data_keys'] = len(data['hist_data_keys']) / norm_hdk
-            statistics[col['name']][field]['dist_query_keys'] = variance_factor(data['hist_query_values'], norm_dqk)
-            statistics[col['name']][field]['dist_data_keys'] = variance_factor(data['hist_data_values'], norm_ddk)
+                statistics[col['name']]['fields'][field]['num_data_keys'] = len(data['hist_data_keys']) / norm_hdk
+            statistics[col['name']]['fields'][field]['dist_query_keys'] = variance_factor(data['hist_query_values'], norm_dqk)
+            statistics[col['name']]['fields'][field]['dist_data_keys'] = variance_factor(data['hist_data_values'], norm_ddk)
     return statistics
     
 def variance_factor(list, norm):
