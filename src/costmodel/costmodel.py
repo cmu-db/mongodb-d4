@@ -96,6 +96,7 @@ class CostModel(object):
                                     # thus determine the number of nodes required to 
                                     # answer the query.
                                     result += math.ceil(0.25 * self.config['nodes'])
+                                    self.guessNodes(design, k)
                             else :
                                 result += self.config['nodes']
                 else :
@@ -104,6 +105,13 @@ class CostModel(object):
                     # overall network cost
                     results += 0
         return result
+        
+    '''
+    Serve as a stand-in for the EXPLAIN function referenced in the paper?
+    '''
+    def guessNodes(self, design, key) : 
+        print key
+        return 0
         
     @staticmethod
     def skewVariance(list) :
