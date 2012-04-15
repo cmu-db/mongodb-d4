@@ -3,6 +3,7 @@
 import sys
 import json
 import logging
+import math 
 
 ## ==============================================
 ## CostModel
@@ -39,10 +40,28 @@ class CostModel(object):
             end = self.workload.sessions[self.workload.length - 1].endTime
         else :
             return 0
+            
+        # Divide the workload up into segments for skew analysis
         offset = (end - start) / self.skew_segments
+        timer = start + offset
+        i = 0
+        wl_seg = self.workload.factory()
         for s in self.workload.sessions :
-            pass
-        return -1
+            if s.endTime > timer :
+                i += 1
+                timer += offset
+                segments.append(wl_seg)
+                wl_seg = self.workload.factory()
+            wl_seg.addSession(s)
+        segments.append(wl_seg)
+        
+        # Calculate the network cost for each segment for skew analysis
+        for i in range(0, len(segments)) :
+            segment_costs.append(self.partialNetworkCost(design, segments[i]))
+        
+        # Determine overall skew cost as a function of the distribution of the
+        # segment network costs
+        return CostModel.skewVariance(segment_costs)
         
     def partialNetworkCost(self, design, wrkld_sgmnt) :
         result = 0
@@ -66,5 +85,20 @@ class CostModel(object):
                 elif q.type == 'delete' :
                     pass
         return result
+        
+    @staticmethod
+    def skewVariance(list) :
+        norm = max(list)
+        n, mean, std = len(list), 0, 0
+        if n <= 1 or norm == 0 :
+            return 0
+        else :
+            for a in list:
+                mean = mean + a
+            mean = mean / float(n)
+            for a in list:
+                std = std + (a - mean)**2
+            std = math.sqrt(std / float(n-1))
+        return abs(1 - (std / norm))
 ## CLASS
     
