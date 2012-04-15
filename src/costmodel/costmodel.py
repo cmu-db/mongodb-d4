@@ -73,22 +73,25 @@ class CostModel(object):
                 if design.hasCollection(q.collection) :
                     if q.type == 'insert' :
                         result += 1
-                    elif q.type == 'select' :
+                    else :
+                        # Network costs of SELECT, UPDATE, DELETE queries are based off
+                        # of using the sharding key in the predicate
                         if len(q.predicates) > 0 :
                             scan = True
+                            query_type = None
                             for k,v in q.predicates.iteritems() :
                                 if design.shardKeys[q.collection] == k :
                                     scan = False
+                                    query_type = v
                             if scan == False :
                                 # Query uses shard key... need to determine if this is an
                                 # equality predicate or a range type
-                                result += 1
+                                if v == 'equality' :
+                                    result += 1
+                                else :
+                                    result += math.ceil(0.25 * self.config['nodes'])
                             else :
                                 result += self.config['nodes']
-                    elif q.type == 'update' :
-                        pass
-                    elif q.type == 'delete' :
-                        pass
                 else :
                     # How do we determine if this query needs to be counted in the
                     # denormalization scheme?

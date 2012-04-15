@@ -138,7 +138,10 @@ if __name__ == '__main__':
             elif op['type'] == '$query' :
                 qry.type = 'select'
                 for k,v in op['content'][0]['query'].iteritems() :
-                    qry.predicates[k] = v
+                    if type(v) == 'dict' :
+                        qry.predicates[k] = 'range'
+                    else :
+                        qry.predicates[k] = 'equality'
             elif op['type'] == '$update' :
                 qry.type = 'update'
                 # todo: add predicates from update queries
