@@ -111,8 +111,8 @@ class CostModel(object):
     '''
     def guessNodes(self, design, collection, key) : 
         stats = self.statistics[collection]['fields'][key]
-        print key, collection
-        return 0
+        avg = sum(stats['hist_data_values']) / len(stats['hist_data_values'])
+        return math.ceil(avg * self.config['nodes'])
         
     @staticmethod
     def skewVariance(list) :
