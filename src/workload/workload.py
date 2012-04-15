@@ -20,7 +20,6 @@ class Workload(object) :
     def testFactory() :
         return Workload()
     
-    @staticmethod
-    def factory() :
+    def factory(self) :
         return Workload()
 # END CLASS
