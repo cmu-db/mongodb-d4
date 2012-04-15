@@ -3,7 +3,7 @@
 import sys
 import json
 import logging
-import math 
+import math
 
 ## ==============================================
 ## CostModel
@@ -64,6 +64,7 @@ class CostModel(object):
         return CostModel.skewVariance(segment_costs)
         
     def partialNetworkCost(self, design, wrkld_sgmnt) :
+        worst_case = 0
         result = 0
         stat_collections = list(self.stats)
         for s in wrkld_sgmnt.sessions :
@@ -71,6 +72,7 @@ class CostModel(object):
                 # Check to see if the queried collection exists in the design's 
                 # denormalization scheme
                 if design.hasCollection(q.collection) :
+                    worst_case += self.nodes
                     if q.type == 'insert' :
                         # is this assumption valid that an insert query would only make
                         # one request??
@@ -89,19 +91,19 @@ class CostModel(object):
                                 # Query uses shard key... need to determine if this is an
                                 # equality predicate or a range type
                                 if v == 'equality' :
-                                    result += 1
+                                    result += 0.0
                                 else :
                                     result += self.guessNodes(design, q.collection, k)
                             else :
-                                result += self.config['nodes']
+                                result += self.nodes
                         else :
-                            result += self.config['nodes']
+                            result += self.nodes
                 else :
                     # Is this an incomplete design or has the collection been accounted
                     # for via denormalization... either way it will affect the 
                     # overall network cost
                     results += 0
-        return result
+        return result / worst_case
         
     '''
     Serve as a stand-in for the EXPLAIN function referenced in the paper?
@@ -112,7 +114,7 @@ class CostModel(object):
     def guessNodes(self, design, collection, key) : 
         stats = self.statistics[collection]['fields'][key]
         avg = sum(stats['hist_data_values']) / len(stats['hist_data_values'])
-        return math.ceil(avg * self.config['nodes'])
+        return avg * self.nodes
         
     @staticmethod
     def skewVariance(list) :
