@@ -12,6 +12,10 @@ class Workload(object) :
         for session in sessions :
             self.addSession(session)
     
+    @property
+    def length(self) :
+        return len(self.sessions)
+        
     @staticmethod
     def testFactory() :
         return Workload()

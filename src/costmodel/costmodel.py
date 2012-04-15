@@ -16,6 +16,7 @@ class CostModel(object):
         self.gamma = config['gamma']
         self.nodes = config['nodes']
         self.stats = statistics
+        self.skew_segments = 10
         
     def overallCost(self, design) :
         cost = 0
@@ -31,11 +32,17 @@ class CostModel(object):
         return 1.0
         
     def skewCost(self, design):
-        result = 0
+        segment_costs = []
+        segments = []
+        if self.workload.length > 0 :
+            start = self.workload.sessions[0].startTime
+            end = self.workload.sessions[self.workload.length - 1].endTime
+        else :
+            return 0
+        offset = (end - start) / self.skew_segments
         for s in self.workload.sessions :
-            for q in s.queries :
-                pass
-        return result
+            pass
+        return -1
         
     def partialNetworkCost(self, design, wrkld_sgmnt) :
         result = 0
