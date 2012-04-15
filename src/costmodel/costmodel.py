@@ -91,12 +91,7 @@ class CostModel(object):
                                 if v == 'equality' :
                                     result += 1
                                 else :
-                                    # How do we use the statistics to determine the 
-                                    # selectivity of this particular attribute and 
-                                    # thus determine the number of nodes required to 
-                                    # answer the query.
-                                    result += math.ceil(0.25 * self.config['nodes'])
-                                    self.guessNodes(design, k)
+                                    result += self.guessNodes(design, q.collection, k)
                             else :
                                 result += self.config['nodes']
                 else :
@@ -108,9 +103,12 @@ class CostModel(object):
         
     '''
     Serve as a stand-in for the EXPLAIN function referenced in the paper?
+    
+    How do we use the statistics to determine the selectivity of this particular
+    attribute and thus determine the number of nodes required to answer the query?
     '''
-    def guessNodes(self, design, key) : 
-        print key
+    def guessNodes(self, design, collection, key) : 
+        print key, collection
         return 0
         
     @staticmethod
