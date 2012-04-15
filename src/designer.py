@@ -141,8 +141,10 @@ if __name__ == '__main__':
                     qry.predicates[k] = v
             elif op['type'] == '$update' :
                 qry.type = 'update'
+                # todo: add predicates from update queries
             elif op['type'] == '$remove' :
                 qry.type = 'delete'
+                # todo: add predicates from delete queries
             else :
                 qry.type = None
             sessn.queries.append(qry)

@@ -25,28 +25,7 @@ class CostModel(object):
         return cost
         
     def networkCost(self, design) :
-        result = 0
-        stat_collections = list(self.stats)
-        for s in self.workload.sessions :
-            for q in s.queries :
-                if q.type == 'insert' :
-                    result += 1
-                elif q.type == 'select' :
-                    if len(q.predicates) > 0 :
-                        scan = True
-                        for k,v in q.predicates.iteritems() :
-                            if design.shardKeys[q.collection] == k :
-                                scan = False
-                        if scan == False : 
-                            result += 1
-                        else :
-                            reslut += 10
-                elif q.type == 'update' :
-                    pass
-                elif q.type == 'delete' :
-                    pass
-                
-        return result
+        return self.partialNetworkCost(design, self.workload)
         
     def diskCost(self, design):
         return 1.0
@@ -56,6 +35,29 @@ class CostModel(object):
         for s in self.workload.sessions :
             for q in s.queries :
                 pass
+        return result
+        
+    def partialNetworkCost(self, design, wrkld_sgmnt) :
+        result = 0
+        stat_collections = list(self.stats)
+        for s in wrkld_sgmnt.sessions :
+            for q in s.queries :
+                if q.type == 'insert' :
+                    result += 1
+                elif q.type == 'select' :
+                    if len(q.predicates) > 0 :
+                        scan = True
+                        for k,v in q.predicates.iteritems() :
+                            if design.shardKeys[q.collection] == k :
+                                scan = False
+                        if scan == False :
+                            result += 1
+                        else :
+                            result += 10
+                elif q.type == 'update' :
+                    pass
+                elif q.type == 'delete' :
+                    pass
         return result
 ## CLASS
     
