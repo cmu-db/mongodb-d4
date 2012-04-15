@@ -121,7 +121,7 @@ def gatherStatisticsFromCollections(collectionsIterable) :
     for col in collectionsIterable :
         statistics[col['name']] = {
             'fields' : {},
-            'tupleCount' : col['tuple_count']
+            'tuple_count' : col['tuple_count']
         }
         norm_queries = 0
         norm_hqk = 0
@@ -131,7 +131,13 @@ def gatherStatisticsFromCollections(collectionsIterable) :
         col_fields = []
         for field, data in col['fields'].iteritems() :
             col_fields.append(field)
-            statistics[col['name']]['fields'][field] = {}
+            statistics[col['name']]['fields'][field] = {
+                'query_use_count' : data['query_use_count'],
+                'hist_query_keys' : data['hist_query_keys'],
+                'hist_query_values' : data['hist_query_values'],
+                'hist_data_keys' : data['hist_query_keys'],
+                'hist_data_values' : data['hist_query_values']
+            }
             if data['query_use_count'] > norm_queries :
                 norm_queries = data['query_use_count']
             if len(data['hist_query_keys']) > norm_hqk :
