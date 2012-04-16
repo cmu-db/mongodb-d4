@@ -404,17 +404,32 @@ class Sql2mongo (object) :
         elif cls == 'Token' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
             self.table_aliases['main'] = tbl_name
+        
         ''' PROCESS SET clause '''
         if set_loc <> None :
             end = len(self.stmt.tokens) - 1
             if where_loc <> None :
                 end = where_loc
-            for i in range(set_loc + 1, end) :
+            i = set_loc + 1
+            while i < end :
                 cls = self.stmt.tokens[i].__class__.__name__
                 if cls == 'Comparison' :
                     parts = self.process_where_comparison(self.stmt.tokens[i])
                     self.set_cols[self.table_aliases[parts[0]]].append(parts[1])
-            
+                elif cls == 'Identifier' :
+                    parts = self.process_identifier(self.stmt.tokens[i])
+                    i += 1
+                    if self.stmt.tokens[i].to_unicode() == u' ' :
+                        i += 1
+                    op = self.stmt.tokens[i].to_unicode()
+                    i += 1
+                    if self.stmt.tokens[i].to_unicode() == u' ' :
+                        i += 1
+                    val = self.stmt.tokens[i]
+                    clause = self.process_where_clause(parts[1], self.process_where_comparison_operator(op), self.process_where_comparison_value(val))
+                    self.set_cols[self.table_aliases[parts[0]]].append(clause)
+                i += 1
+        
         ''' PROCESS WHERE clause '''
         if where_loc <> None :
             where = self.stmt.tokens[where_loc]
