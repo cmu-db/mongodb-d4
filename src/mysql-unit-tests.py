@@ -7,7 +7,7 @@ import sql2mongo
 class TestConversions (unittest.TestCase) :
     
     def setUp(self) :
-        schema = {'users': ['a', 'b']}
+        schema = {'users': ['a', 'b', 'name']}
         self.mongo = sql2mongo.Sql2mongo(schema)
     
     def testDeleteQuery01(self) :
@@ -215,7 +215,13 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.update({b:'q'}, {$set:{a:1}}, false, true)", result[0])
-    
+
+    def testUpdateQuery02(self) :
+        sql = "UPDATE users SET name = 'XXXXXXXXXXX' WHERE u_id=2000"
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual(u"db.user.update({u_id:2000}, {$set{name:'XXXXXXXXXXX'}}, false, true)", result[0])
+        
     def testUpdateQuery01Trace(self) :
         sql = "UPDATE users SET a=1 WHERE b='q'"
         self.mongo.process_sql(sql)

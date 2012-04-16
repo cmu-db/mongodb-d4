@@ -401,7 +401,9 @@ class Sql2mongo (object) :
         if cls == 'Identifier' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
             self.table_aliases['main'] = tbl_name
-        
+        elif cls == 'Token' :
+            tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
+            self.table_aliases['main'] = tbl_name
         ''' PROCESS SET clause '''
         if set_loc <> None :
             end = len(self.stmt.tokens) - 1
