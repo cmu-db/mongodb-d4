@@ -70,10 +70,11 @@ if __name__ == '__main__':
     
     mysql_conn = mdb.connect(host=args['host'], db=args['name'], user=args['user'], passwd=args['pass'])
     c1 = mysql_conn.cursor()
-    c1.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s", args['name'])
+    c1.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s AND TABLE_NAME <> 'general_log'", args['name'])
     quick_look = {}
     for row in c1:
         tbl_name = row[0]
+        print tbl_name
         coll_catalog = metadata_db.Collection()
         coll_catalog['name'] = unicode(tbl_name)
         coll_catalog['shard_keys'] = { }
@@ -103,7 +104,7 @@ if __name__ == '__main__':
             }
         ## FOR
         
-        # TODO: Get the index information from MySQL for this table
+        # Get the index information from MySQL for this table
         sql = "SHOW INDEXES FROM " + args['name'] + "." + tbl_name
         c3 = mysql_conn.cursor()
         c3.execute(sql)
@@ -114,10 +115,6 @@ if __name__ == '__main__':
                 index_name = ind_row[2]
             coll_catalog['indexes'][ind_row[2]].append(ind_row[4])
         ## FOR
-
-        # TODO: Perform some analysis on the table to figure out the information 
-        # that we need for selecting the candidates and our cost model
-
         coll_catalog.validate()
         coll_catalog.save()
         
@@ -137,7 +134,7 @@ if __name__ == '__main__':
         ## ENDFOR
     ## ENDFOR
 
-    # TODO: Ingest a MySQL query log and convert it into our workload.Sessions objects
+    # Ingest a MySQL query log and convert it into our workload.Sessions objects
     c4 = mysql_conn.cursor()
     c4.execute("""
         SELECT * FROM general_log ORDER BY thread_id, event_time;	
