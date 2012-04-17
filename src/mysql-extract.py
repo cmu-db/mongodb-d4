@@ -70,7 +70,7 @@ if __name__ == '__main__':
     
     mysql_conn = mdb.connect(host=args['host'], db=args['name'], user=args['user'], passwd=args['pass'])
     c1 = mysql_conn.cursor()
-    c1.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s AND TABLE_NAME <> 'general_log'", args['name'])
+    c1.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s", args['name'])
     quick_look = {}
     for row in c1:
         tbl_name = row[0]
@@ -166,7 +166,8 @@ if __name__ == '__main__':
         ## ENDIF
         if row[5] <> '' :
             query = mongo.process_sql(row[5])
-            if mongo.query_type <> 'UNKNOWN' : 
+            if mongo.query_type <> 'UNKNOWN' :
+                print row[5] 
                 operations = mongo.generate_operations(stamp)
                 for op in operations :
                     session['operations'].append(op)
