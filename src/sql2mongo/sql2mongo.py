@@ -560,15 +560,15 @@ class Sql2mongo (object) :
             if op.to_unicode() == '=' :
                 return ':'
             elif op.to_unicode() == '>' :
-                return '$gt'
+                return 'gt' # $gt - $ removed to make python happy
             elif op.to_unicode() == '>=' :
-                return '$gte'
+                return 'gte' # $gte - $ removed to make python happy
             elif op.to_unicode() == '<' :
-                return '$lt'
+                return 'lt' # $lt - $ removed to make python happy
             elif op.to_unicode() == '<=' :
-                return '$lte'
+                return 'lte' # $lte - $ removed to make python happy
             elif op.to_unicode() == '!=' :
-                return '$ne'
+                return 'ne' # $ne - $ removed to make python happy
             elif op.to_unicode() == 'LIKE' :
                 return 'LIKE'
             else :
