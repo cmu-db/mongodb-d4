@@ -3,7 +3,6 @@
 import sys
 import json
 import logging
-import math
 
 ## ==============================================
 ## CostModel
@@ -27,7 +26,8 @@ class CostModel(object):
         return cost / (self.alpha + self.beta + self.gamma)
         
     def networkCost(self, design) :
-        return self.partialNetworkCost(design, self.workload)
+        cost, queries = self.partialNetworkCost(design, self.workload)
+        return cost
         
     def diskCost(self, design):
         return 1.0
@@ -61,18 +61,26 @@ class CostModel(object):
         
         # Determine overall skew cost as a function of the distribution of the
         # segment network costs
-        return CostModel.skewVariance(segment_costs)
+        sum_of_query_counts = 0
+        sum_intervals = 0
+        for i in range(0, len(segments)) :
+            skew = 1 - segment_costs[i][0]
+            sum_intervals += skew * segment_costs[i][1]
+            sum_of_query_counts += segment_costs[i][1]
+        return sum_intervals / sum_of_query_counts
         
     def partialNetworkCost(self, design, wrkld_sgmnt) :
         worst_case = 0
         result = 0
         stat_collections = list(self.stats)
+        query_count = 0
         for s in wrkld_sgmnt.sessions :
             for q in s.queries :
                 # Check to see if the queried collection exists in the design's 
                 # denormalization scheme
                 if design.hasCollection(q.collection) :
                     worst_case += self.nodes
+                    query_count += 1
                     if q.type == 'insert' :
                         # is this assumption valid that an insert query would only make
                         # one request??
@@ -103,7 +111,8 @@ class CostModel(object):
                     # for via denormalization... either way it will affect the 
                     # overall network cost
                     results += 0
-        return result / worst_case
+        cost = result / worst_case
+        return (cost, query_count)
         
     '''
     Serve as a stand-in for the EXPLAIN function referenced in the paper?
@@ -116,19 +125,5 @@ class CostModel(object):
         avg = sum(stats['hist_data_values']) / len(stats['hist_data_values'])
         return avg * self.nodes
         
-    @staticmethod
-    def skewVariance(list) :
-        norm = max(list)
-        n, mean, std = len(list), 0, 0
-        if n <= 1 or norm == 0 :
-            return 0
-        else :
-            for a in list:
-                mean = mean + a
-            mean = mean / float(n)
-            for a in list:
-                std = std + (a - mean)**2
-            std = math.sqrt(std / float(n-1))
-        return abs(1 - (std / norm))
 ## CLASS
     
