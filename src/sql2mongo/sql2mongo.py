@@ -96,9 +96,25 @@ class Sql2mongo (object) :
     def process_identifier(self, token) :
         parts = token.to_unicode().split('.')
         if len(parts) == 1 :
-            return ('main', parts[0])
+            index = 'main'
+            data = parts[0]
         else :
-            return (parts[0], parts[1])
+            index = parts[0]
+            data = parts[1]
+        
+        if index not in list(self.table_aliases) :
+            tables = []
+            alias = None
+            for k,v in self.schema.iteritems() :
+                if data in v :
+                    tables.append(k)
+            for k,v in self.table_aliases.iteritems() :
+                for t in tables :
+                    if t == v :
+                        alias = k
+            return (alias, data)
+        else :
+            return (index, data)
     ## End process_identifier()
 
     def process_query_delete(self) :
@@ -258,7 +274,7 @@ class Sql2mongo (object) :
         if where_loc <> None :
             end = where_loc
         elif sort_loc <> None :
-            end = sort_loc
+            end = sort_loc - 2
         elif limit_loc <> None :
             end = limit_loc
         elif skip_loc <> None :
@@ -272,9 +288,22 @@ class Sql2mongo (object) :
             return None
         ## End if
         
-        for i in range(from_loc + 1, end) :
+        i = from_loc + 1
+        while i < end :
             cls = self.stmt.tokens[i].__class__.__name__
-            if cls <> 'Token' :
+            if cls == 'IdentifierList' :
+                clauses = []
+                vals = self.stmt.tokens[i].get_identifiers()
+                for v in vals :
+                    parts = v.to_unicode().split(' ')
+                    if len(parts) == 1 :
+                        index = 'main'
+                    elif len(parts) == 2 :
+                        index = parts[1]
+                    else :
+                        index = parts[2]
+                    self.table_aliases[index] = parts[0]
+            elif cls == 'Identifier' : 
                 parts = self.stmt.tokens[i].to_unicode().split(' ')
                 if len(parts) == 1 :
                     index = 'main'
@@ -284,9 +313,25 @@ class Sql2mongo (object) :
                     index = parts[2]
                 ## End if
                 self.table_aliases[index] = parts[0]
+            elif cls == 'Token' :
+                token = self.stmt.tokens[i]
+                if token.ttype <> sqlparse.tokens.Token.Punctuation and token.ttype <> sqlparse.tokens.Token.Text.Whitespace :
+                    table = token.to_unicode()
+                    i += 1
+                    next = self.stmt.tokens[i]
+                    if next.ttype == sqlparse.tokens.Token.Text.Whitespace :
+                        i += 1
+                    next = self.stmt.tokens[i]
+                    if next.to_unicode() == 'AS' :
+                        i += 1
+                        next = self.stmt.tokens[i]
+                        if next.ttype == sqlparse.tokens.Token.Text.Whitespace :
+                            i += 1
+                    alias = next.to_unicode()
+                    self.table_aliases[alias] = table
             ## End if
-        ## End for
-        
+            i += 1
+        ## End While
         ''' Process Joins '''
         
         ''' Process SELECT Clause '''
@@ -302,6 +347,12 @@ class Sql2mongo (object) :
                         self.project_cols[self.table_aliases['main']].append(parts[0])
                     else :
                         self.project_cols[self.table_aliases[parts[0]]].append(parts[1])
+            elif cls == 'Function' :
+                clause = self.stmt.tokens[i].to_unicode()
+                left_paren = clause.find('(')
+                right_paren = clause.rfind(')')
+                func = clause[0:left_paren]
+                args = clause[left_paren + 1:right_paren]
             else :
                 parts = self.stmt.tokens[i].to_unicode().split('.')
                 if len(parts) == 1 :

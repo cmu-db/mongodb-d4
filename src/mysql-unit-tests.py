@@ -7,7 +7,7 @@ import sql2mongo
 class TestConversions (unittest.TestCase) :
     
     def setUp(self) :
-        schema = {'users': ['a', 'b', 'name']}
+        schema = {'users': ['a', 'b', 'name'], 'review' : ['rating'], 'trust' : [], 'user' : []}
         self.mongo = sql2mongo.Sql2mongo(schema)
     
     def testDeleteQuery01(self) :
@@ -159,13 +159,13 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find({name:/Joe^})", result[0])
-        
+    
     def testSelectQuery09(self) :
         sql = 'SELECT * FROM users ORDER BY name DESC'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find().sort({name:-1})", result[0])
-        
+    
     def testSelectQuery10(self) :
         sql = 'SELECT * FROM users WHERE a=1 and b="q"'
         self.mongo.process_sql(sql)
@@ -198,18 +198,26 @@ class TestConversions (unittest.TestCase) :
         self.assertEqual(u"db.users.find().limit(1)", result[0])
     
     def testSelectQuery14(self) :
-        sql = 'SELECT * FROM users WHERE a > 10 AND a < 20'
+        sql = 'SELECT * FROM users u WHERE u.a > 10 AND u.a < 20'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u"db.users.find({'a':{$gt:10,$lt:20}})", result[0])
-        
     def testSelectQuery14Trace(self) :
         sql = 'SELECT * FROM users WHERE a > 10 AND a < 20'
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
         output = {u'query' : { 'a' : { '$gt':10.0, '$lt':20.0}}}
         self.assertEqual(output, result[0])
-        
+    
+    '''
+    def testSelectQuery15(self) :
+        sql = 'SELECT avg(rating) FROM review r, user u WHERE u.u_id = r.u_id AND r.u_id=2000 ORDER BY rating LIMIT 10'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        print self.mongo.render_trace()
+        self.assertEqual(True, False)
+    '''
+    
     def testUpdateQuery01(self) :
         sql = "UPDATE users SET a=1 WHERE b='q'"
         self.mongo.process_sql(sql)
@@ -230,7 +238,7 @@ class TestConversions (unittest.TestCase) :
         set = {'a' : 1.0}
         self.assertEqual(query, result[0])
         self.assertEqual(set, result[1])
-    '''
+    
 ## END CLASS
 
 if __name__ == '__main__':
