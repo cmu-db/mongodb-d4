@@ -67,7 +67,11 @@ class CostModel(object):
             skew = 1 - segment_costs[i][0]
             sum_intervals += skew * segment_costs[i][1]
             sum_of_query_counts += segment_costs[i][1]
-        return sum_intervals / sum_of_query_counts
+        
+        if sum_of_query_counts == 0 :
+            return 0
+        else :
+            return sum_intervals / sum_of_query_counts
         
     def partialNetworkCost(self, design, wrkld_sgmnt) :
         worst_case = 0
@@ -80,34 +84,44 @@ class CostModel(object):
                 # Check to see if the queried collection exists in the design's 
                 # denormalization scheme
                 if design.hasCollection(q.collection) :
-                    worst_case += self.nodes
-                    query_count += 1
-                    if q.type == 'insert' :
-                        # is this assumption valid that an insert query would only make
-                        # one request??
-                        result += 1
-                    else :
-                        # Network costs of SELECT, UPDATE, DELETE queries are based off
-                        # of using the sharding key in the predicate
-                        if len(q.predicates) > 0 :
-                            scan = True
-                            query_type = None
-                            for k,v in q.predicates.iteritems() :
-                                if design.shardKeys[q.collection] == k :
-                                    scan = False
-                                    query_type = v
-                            if scan == False :
-                                # Query uses shard key... need to determine if this is an
-                                # equality predicate or a range type
-                                if v == 'equality' :
-                                    result += 0.0
+                    process = False
+                    parent_col = design.getParentCollection(q.collection)
+                    if parent_col == -1 :
+                        process = False
+                    elif parent_col == q.collection :
+                        process = True
+                    if process == True :
+                        worst_case += self.nodes
+                        query_count += 1
+                        if q.type == 'insert' :
+                            result += 1
+                        else :
+                            # Network costs of SELECT, UPDATE, DELETE queries are based off
+                            # of using the sharding key in the predicate
+                            if len(q.predicates) > 0 :
+                                scan = True
+                                query_type = None
+                                for k,v in q.predicates.iteritems() :
+                                    if design.shardKeys[q.collection] == k :
+                                        scan = False
+                                        query_type = v
+                                if scan == False :
+                                    # Query uses shard key... need to determine if this is an
+                                    # equality predicate or a range type
+                                    if v == 'equality' :
+                                        result += 0.0
+                                    else :
+                                        result += self.guessNodes(design, q.collection, k)
                                 else :
-                                    result += self.guessNodes(design, q.collection, k)
+                                    result += self.nodes
                             else :
                                 result += self.nodes
-                        else :
-                            result += self.nodes
+                    else :
+                        # query does not need to be processed
+                        pass
                 else :
+                    # Collection is not in design.. don't count query
+                    pass
                     parent_col = design.getParentCollection(q.collection)
                     if parent_col == None :
                         pass # No action required
