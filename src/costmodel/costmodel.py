@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import division
 import sys
 import json
 import logging
@@ -16,7 +16,7 @@ class CostModel(object):
         self.gamma = config['gamma']
         self.nodes = config['nodes']
         self.stats = statistics
-        self.skew_segments = 10
+        self.skew_segments = 9
         
     def overallCost(self, design) :
         cost = 0
@@ -124,9 +124,7 @@ class CostModel(object):
     attribute and thus determine the number of nodes required to answer the query?
     '''
     def guessNodes(self, design, collection, key) : 
-        stats = self.statistics[collection]['fields'][key]
-        avg = sum(stats['hist_data_values']) / len(stats['hist_data_values'])
-        return avg * self.nodes
+        return math.ceil(self.stats[collection]['fields'][key]['selectivity'] * self.nodes)
         
 ## CLASS
     

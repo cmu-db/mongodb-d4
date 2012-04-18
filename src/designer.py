@@ -160,9 +160,12 @@ if __name__ == '__main__':
         wrkld.addSession(sessn)
     
     cm = costmodel.CostModel(wrkld, {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10}, statistics)
-    print 'Network Cost: ', cm.networkCost(starting_design)
-    print 'Disk Cost: ', cm.diskCost(starting_design)
-    print 'Skew Cost: ', cm.skewCost(starting_design)
+    print 'Network Cost: '
+    print cm.networkCost(starting_design)
+    print 'Disk Cost: '
+    print cm.diskCost(starting_design)
+    print 'Skew Cost: '
+    print cm.skewCost(starting_design)
     
     ## ----------------------------------------------
     ## STEP 3
