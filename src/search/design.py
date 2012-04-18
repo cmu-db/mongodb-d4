@@ -58,7 +58,7 @@ class Design(object):
             
     def getParentCollection(self, collection) :
         if collection in list(self.denorm) :
-            if self.denorm[collection] = "" :
+            if self.denorm[collection] == "" :
                 return collection
             else :
                 return self.getParentCollection(self.denorm[collection])
