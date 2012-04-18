@@ -126,5 +126,7 @@ class CostModel(object):
     def guessNodes(self, design, collection, key) : 
         return math.ceil(self.stats[collection]['fields'][key]['selectivity'] * self.nodes)
         
+    def getIndexSize(self, design, collection, stats) :
+        pass
 ## CLASS
     
