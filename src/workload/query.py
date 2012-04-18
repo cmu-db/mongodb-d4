@@ -7,5 +7,6 @@ class Query(object) :
         self.type = None
         self.predicates = {}
         self.timestamp = None
-
+        self.projection = {}
+        
 # END CLASS

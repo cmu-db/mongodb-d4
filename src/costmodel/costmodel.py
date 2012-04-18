@@ -82,14 +82,17 @@ class CostModel(object):
             previous_query = None
             for q in s.queries :
                 # Check to see if the queried collection exists in the design's 
-                # denormalization scheme
+                # de-normalization scheme
                 if design.hasCollection(q.collection) :
                     process = False
                     parent_col = design.getParentCollection(q.collection)
-                    if parent_col == -1 :
-                        process = False
-                    elif parent_col == q.collection :
+                    if parent_col == q.collection :
                         process = True
+                    else :
+                        # Collection is de-normalized.  Can the query be overlooked?
+                        if previous_query.collection == parent_col :
+                            if len(previous_query.projection) > 0 :
+                                process = True
                     if process == True :
                         worst_case += self.nodes
                         query_count += 1
