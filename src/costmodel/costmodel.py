@@ -75,6 +75,7 @@ class CostModel(object):
         stat_collections = list(self.stats)
         query_count = 0
         for s in wrkld_sgmnt.sessions :
+            previous_query = None
             for q in s.queries :
                 # Check to see if the queried collection exists in the design's 
                 # denormalization scheme
@@ -107,10 +108,19 @@ class CostModel(object):
                         else :
                             result += self.nodes
                 else :
-                    # Is this an incomplete design or has the collection been accounted
-                    # for via denormalization... either way it will affect the 
-                    # overall network cost
-                    results += 0
+                    parent_col = design.getParentCollection(q.collection)
+                    if parent_col == None :
+                        pass # No action required
+                    elif parent_col == q.collection :
+                        pass # No action required
+                    else :
+                        # Process previous query to determine whether or not this
+                        # query will be satisfied by the previous query
+                        if previous_query.collection == parent_col :
+                            pass
+                            # this may need to be moved inside the test for if a design has the colletion
+                        results += 0
+                previous_query = q
         if worst_case == 0 :
             cost = 0
         else :
