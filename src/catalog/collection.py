@@ -36,6 +36,11 @@ Dictionary for fields
 {
     'type': catalog.fieldTypeToString(col_type),
     'query_use_count' : 0,
+    'cardinality' : 0,
+    'selectivity' : 0,
+}
+
+{
     'hist_query_keys' : [],
     'hist_query_values' : [],
     'hist_data_keys' : [],

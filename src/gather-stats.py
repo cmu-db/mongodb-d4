@@ -89,16 +89,17 @@ if __name__ == '__main__':
         first[col['name']] = {}
         for k, v in col['fields'].iteritems() :
             first[col['name']][k] = True
+    distinct_values = {}
+    
     if args['reset'] :
+        collections = metadata_db.Collection.find()
         for col in collections :
+            distinct_values[col['name']] = {}
             for k, v in col['fields'].iteritems() :
+                distinct_values[col['name']][k] = []
                 v['query_use_count'] = 0
-                v['hist_query_keys'] = []
-                v['hist_query_values'] = []
-                v['hist_data_keys'] = []
-                v['hist_data_values'] = []
-                v['max'] = None
-                v['min'] = None
+                v['cardinality'] = 0
+                v['selectivity'] = 0
             col.save()
     
     ## ----------------------------------------------
@@ -127,14 +128,6 @@ if __name__ == '__main__':
             for t in tuples :
                 ## Update times the column is referenced in a query
                 col_info['fields'][t[0]]['query_use_count'] += 1
-                
-                ## Process Histogram for column values in a query
-                if t[1] not in col_info['fields'][t[0]]['hist_query_keys'] :
-                    col_info['fields'][t[0]]['hist_query_keys'].append(t[1])
-                    col_info['fields'][t[0]]['hist_query_values'].append(1)
-                else :
-                    index = col_info['fields'][t[0]]['hist_query_keys'].index(t[1])
-                    col_info['fields'][t[0]]['hist_query_values'][index] += 1
             col_info.save()
     
     ## ----------------------------------------------
@@ -151,22 +144,17 @@ if __name__ == '__main__':
                 for k, v in row.iteritems() :
                     if k <> '_id' :
                         ## Process Histogram for column values in the dataset
-                        if v not in col['fields'][k]['hist_data_keys'] :
-                            col['fields'][k]['hist_data_keys'].append(v)
-                            col['fields'][k]['hist_data_values'].append(1)
-                        else :
-                            index = col['fields'][k]['hist_data_keys'].index(v)
-                            col['fields'][k]['hist_data_values'][index] += 1
-                        
-                        ## Process Min and Max Statistics
-                        if first[col['name']][k] == True :
-                            col['fields'][k]['max'] = v
-                            col['fields'][k]['min'] = v
-                            first[col['name']][k] = False
-                        else :
-                            if v > col['fields'][k]['max'] :
-                                 col['fields'][k]['max'] = v
-                            if v < col['fields'][k]['min'] :
-                                col['fields'][k]['min'] = v
+                        if v not in distinct_values[col['name']][k] :
+                            distinct_values[col['name']][k].append(v)
+        col.save()
+        
+    collections = metadata_db.Collection.find()
+    for col in collections :
+        for k,v in col['fields'].iteritems() :
+            v['cardinality'] = len(distinct_values[col['name']][k])
+            if col['tuple_count'] == 0 :
+                v['selectivity'] = 0
+            else :
+                v['selectivity'] = v['cardinality'] / col['tuple_count']
         col.save()
 ## END MAIN

@@ -12,6 +12,7 @@ import MySQLdb as mdb
 from datetime import datetime
 from pprint import pprint,pformat
 from ConfigParser import SafeConfigParser
+import re
 
 import catalog
 from util import *
@@ -165,9 +166,10 @@ if __name__ == '__main__':
             session['operations'] = []
         ## ENDIF
         if row[5] <> '' :
-            query = mongo.process_sql(row[5])
+            sql = re.sub("`", "", row[5])
+            query = mongo.process_sql(sql)
             if mongo.query_type <> 'UNKNOWN' :
-                print row[5] 
+                print sql
                 operations = mongo.generate_operations(stamp)
                 for op in operations :
                     session['operations'].append(op)
