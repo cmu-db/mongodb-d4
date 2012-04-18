@@ -132,6 +132,7 @@ if __name__ == '__main__':
             if op['type'] == '$insert' :
                 qry.type = 'insert'
                 # No predicate for insert operations
+                # No projections for insert operations
             elif op['type'] == '$query' :
                 qry.type = 'select'
                 if op['content'][0]['query'] <> None :

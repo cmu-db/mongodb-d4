@@ -86,7 +86,11 @@ class CostModel(object):
                 if design.hasCollection(q.collection) :
                     process = False
                     parent_col = design.getParentCollection(q.collection)
-                    if parent_col == q.collection :
+                    if previous_query == None :
+                        process = True
+                    elif parent_col == q.collection :
+                        process = True
+                    elif previous_query.type <> 'select' or q.type <> 'select' :
                         process = True
                     else :
                         # Collection is de-normalized.  Can the query be overlooked?
@@ -125,18 +129,6 @@ class CostModel(object):
                 else :
                     # Collection is not in design.. don't count query
                     pass
-                    parent_col = design.getParentCollection(q.collection)
-                    if parent_col == None :
-                        pass # No action required
-                    elif parent_col == q.collection :
-                        pass # No action required
-                    else :
-                        # Process previous query to determine whether or not this
-                        # query will be satisfied by the previous query
-                        if previous_query.collection == parent_col :
-                            pass
-                            # this may need to be moved inside the test for if a design has the colletion
-                        results += 0
                 previous_query = q
         if worst_case == 0 :
             cost = 0
