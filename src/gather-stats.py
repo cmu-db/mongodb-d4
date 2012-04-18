@@ -85,18 +85,18 @@ if __name__ == '__main__':
     sample_rate = cparser.getint(config.SECT_DESIGNER, 'sample_rate')
     first = {}
     collections = metadata_db.Collection.find()
+    distinct_values = {}
     for col in collections :
+        distinct_values[col['name']] = {}
         first[col['name']] = {}
         for k, v in col['fields'].iteritems() :
+            distinct_values[col['name']][k] = {}
             first[col['name']][k] = True
-    distinct_values = {}
     
     if args['reset'] :
         collections = metadata_db.Collection.find()
         for col in collections :
-            distinct_values[col['name']] = {}
             for k, v in col['fields'].iteritems() :
-                distinct_values[col['name']][k] = []
                 v['query_use_count'] = 0
                 v['cardinality'] = 0
                 v['selectivity'] = 0
@@ -107,6 +107,7 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
         for op in rec['operations'] :
+            print 'operation in workload'
             tuples = []
             col_info = metadata_db.Collection.one({'name':op['collection']})
             if op['type'] == '$delete' :
@@ -119,8 +120,9 @@ if __name__ == '__main__':
                         tuples.append((k, v))
             elif op['type'] == '$query' :
                 for content in op['content'] :
-                    for k, v in content['query'].iteritems() :
-                       tuples.append((k, v))
+                    if content['query'] != None :
+                        for k, v in content['query'].iteritems() :
+                            tuples.append((k, v))
             elif op['type'] == '$update' :
                 for content in op['content'] :
                     for k,v in content.iteritems() :
@@ -142,10 +144,9 @@ if __name__ == '__main__':
             to_use = random.randrange(1, 100, 1)
             if to_use <= sample_rate : 
                 for k, v in row.iteritems() :
+                    print col['name'], ' - ', k
                     if k <> '_id' :
-                        ## Process Histogram for column values in the dataset
-                        if v not in distinct_values[col['name']][k] :
-                            distinct_values[col['name']][k].append(v)
+                        distinct_values[col['name']][k][v] = v
         col.save()
         
     collections = metadata_db.Collection.find()

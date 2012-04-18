@@ -134,11 +134,12 @@ if __name__ == '__main__':
                 # No predicate for insert operations
             elif op['type'] == '$query' :
                 qry.type = 'select'
-                for k,v in op['content'][0]['query'].iteritems() :
-                    if type(v) == 'dict' :
-                        qry.predicates[k] = 'range'
-                    else :
-                        qry.predicates[k] = 'equality'
+                if op['content'][0]['query'] <> None :
+                    for k,v in op['content'][0]['query'].iteritems() :
+                        if type(v) == 'dict' :
+                            qry.predicates[k] = 'range'
+                        else :
+                            qry.predicates[k] = 'equality'
             elif op['type'] == '$update' :
                 qry.type = 'update'
                 # todo: add predicates from update queries

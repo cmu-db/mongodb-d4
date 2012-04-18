@@ -111,7 +111,10 @@ class CostModel(object):
                     # for via denormalization... either way it will affect the 
                     # overall network cost
                     results += 0
-        cost = result / worst_case
+        if worst_case == 0 :
+            cost = 0
+        else :
+            cost = result / worst_case
         return (cost, query_count)
         
     '''
