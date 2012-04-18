@@ -92,7 +92,7 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     
     params = {
-        'num_queries' : 1.0,
+        'query_use_count' : 1.0,
     }
     collections = metadata_db.Collection.find()
     statistics = catalog.gatherStatisticsFromCollections(metadata_db.Collection.find())
@@ -131,6 +131,7 @@ if __name__ == '__main__':
             qry.timestamp = op['timestamp']
             if op['type'] == '$insert' :
                 qry.type = 'insert'
+                print 'insert'
                 # No predicate for insert operations
             elif op['type'] == '$query' :
                 qry.type = 'select'
@@ -152,7 +153,7 @@ if __name__ == '__main__':
         wrkld.addSession(sessn)
     
     cm = costmodel.CostModel(wrkld, {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10}, statistics)
-    
+    print statistics
     print 'Network Cost: ', cm.networkCost(starting_design)
     print 'Disk Cost: ', cm.diskCost(starting_design)
     print 'Skew Cost: ', cm.skewCost(starting_design)

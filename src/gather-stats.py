@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+from __future__ import division
 import os
 import sys
 import argparse
@@ -107,7 +107,6 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
         for op in rec['operations'] :
-            print 'operation in workload'
             tuples = []
             col_info = metadata_db.Collection.one({'name':op['collection']})
             if op['type'] == '$delete' :
@@ -144,7 +143,6 @@ if __name__ == '__main__':
             to_use = random.randrange(1, 100, 1)
             if to_use <= sample_rate : 
                 for k, v in row.iteritems() :
-                    print col['name'], ' - ', k
                     if k <> '_id' :
                         distinct_values[col['name']][k][v] = v
         col.save()
