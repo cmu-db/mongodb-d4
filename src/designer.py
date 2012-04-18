@@ -93,14 +93,11 @@ if __name__ == '__main__':
     
     params = {
         'num_queries' : 1.0,
-        'num_query_keys' : 0.0,
-        'dist_query_keys' : 0.0,
-        'num_data_keys' : 0.0,
-        'dist_data_keys' : 0.0
     }
     collections = metadata_db.Collection.find()
     statistics = catalog.gatherStatisticsFromCollections(metadata_db.Collection.find())
     results = {}
+    
     starting_design = design.Design()
     for col in collections :
         starting_design.addCollection(col['name'])
