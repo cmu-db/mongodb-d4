@@ -92,11 +92,8 @@ class CostModel(object):
                         process = True
                     elif previous_query.type <> 'select' or q.type <> 'select' :
                         process = True
-                    else :
-                        # Collection is de-normalized.  Can the query be overlooked?
-                        if previous_query.collection == parent_col :
-                            if len(previous_query.projection) > 0 :
-                                process = True
+                    elif previous_query.collection <> parent_col :
+                        process = True
                     if process == True :
                         worst_case += self.nodes
                         query_count += 1
