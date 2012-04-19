@@ -118,19 +118,17 @@ def gatherStatisticsFromCollections(collectionsIterable) :
     the cost model and for determining the initial design solution
     '''
     statistics = {}
+    statistics['total_queries'] = 0
     for col in collectionsIterable :
+        # determine the average size of a document in KB per collection
         statistics[col['name']] = {
             'fields' : {},
-            'tuple_count' : col['tuple_count']
+            'tuple_count' : col['tuple_count'],
+            'workload_queries' : 0,
+            'workload_percent' : 0.0,
+            'kb_per_doc' : 1
         }
-        norm_queries = 0
-        norm_hqk = 0
-        norm_hdk = 0
-        norm_dqk = 0
-        norm_ddk = 0
-        col_fields = []
         for field, data in col['fields'].iteritems() :
-            col_fields.append(field)
             statistics[col['name']]['fields'][field] = {
                 'query_use_count' : data['query_use_count'],
                 'cardinality' : data['cardinality'],
