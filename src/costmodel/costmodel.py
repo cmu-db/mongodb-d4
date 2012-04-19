@@ -3,6 +3,8 @@ from __future__ import division
 import sys
 import json
 import logging
+import math
+import random
 
 ## ==============================================
 ## CostModel
@@ -16,6 +18,15 @@ class CostModel(object):
         self.gamma = config['gamma']
         self.nodes = config['nodes']
         self.stats = statistics
+        self.rg = random.Random()
+        self.rg.seed('cost model coolness')
+        # Convert GB to KB
+        self.max_memory = config['max_memory'] * 1024 * 1024
+        # Size of an index per document (default 10 kb)
+        if 'index_node_size' in list(config) :
+            self.index_node_size = config['index_node_size']
+        else :
+            self.index_node_size = 1
         self.skew_segments = 9
         
     def overallCost(self, design) :
@@ -30,6 +41,37 @@ class CostModel(object):
         return cost
         
     def diskCost(self, design):
+        # 1. estimate index memory requirements
+        index_memory = self.getIndexSize(design)
+        if index_memory > self.max_memory :
+            return 10000000000000
+        
+        # 2. approximate distribution of working sets based on the
+        #    frequency with which collections are queried in the working set
+        working_set = self.estimateWorkingSets(design, self.max_memory - index_memory)
+        
+        # 3. Iterate of workload, foreach query:
+        # a. how many page reads will be required to satisfy the data
+        for s in self.workload.sessions :
+            for q in s.queries :
+                # is the collection in the design - if not ignore
+                if design.hasCollection(q.collection) == False :
+                    break
+                    
+                # Need to consider de-normalization like in the network cost to determine
+                # if the query should even count against the disk cost
+                # or not... data will still have to count because workload would be adjusted
+                # to get the same data via de-normalization
+                
+                # Does this depend on the type of query? (insert vs update vs delete vs select)
+                # 1. is there an index on a predicate
+                # 2. predict if data is in working set
+                ws_hit = self.rg.randint(1, 100)
+                if ws_hit <= working_set[q.collection] :
+                    print 'Working Set Hit !!!!!!'
+                else :
+                    print 'Working Set Miss :('
+                pass
         return 1.0
         
     def skewCost(self, design):
@@ -142,7 +184,29 @@ class CostModel(object):
     def guessNodes(self, design, collection, key) : 
         return math.ceil(self.stats[collection]['fields'][key]['selectivity'] * self.nodes)
         
-    def getIndexSize(self, design, collection, stats) :
-        pass
+    '''
+    Estimate the amount of memory required by the indexes of a given design
+    '''
+    def getIndexSize(self, design) :
+        memory = 0
+        for col in design.collections :
+            # Add a hit for the index on '_id' attribute for each collection
+            memory += self.stats[col]['tuple_count'] * self.index_node_size
+            
+            # Process other indexes for this collection in the design
+            memory += self.stats[col]['tuple_count'] * self.index_node_size * len(design.indexes[col])
+        return memory
+        
+    '''
+    Estimate the number of documents per collection that will fit in working set space
+    '''
+    def estimateWorkingSets(self, design, capacity) :
+        working_set_counts = {}
+        for col in design.collections :
+            working_set_counts[col] = capacity * self.stats[col]['workload_percent']
+            working_set_counts[col] = working_set_counts[col] / self.stats[col]['kb_per_doc']
+            working_set_counts[col] = working_set_counts[col] / self.stats[col]['tuple_count']
+            working_set_counts[col] = math.ceil(working_set_counts[col] * 100)
+        return working_set_counts
 ## CLASS
     
