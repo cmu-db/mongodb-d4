@@ -126,6 +126,8 @@ if __name__ == '__main__':
             sessn.startTime = rec['operations'][0]['timestamp']
             sessn.endTime = rec['operations'][len(rec['operations']) - 1]['timestamp']
         for op in rec['operations'] :
+            statistics[op['collection']]['workload_queries'] += 1
+            statistics['total_queries'] += 1
             qry = workload.Query()
             qry.collection = op['collection']
             qry.timestamp = op['timestamp']
@@ -160,7 +162,16 @@ if __name__ == '__main__':
             sessn.queries.append(qry)
         wrkld.addSession(sessn)
     
-    cm = costmodel.CostModel(wrkld, {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10}, statistics)
+    ## -------------------------------------------------
+    ## STEP 3
+    ## Finalize workload percentage statistics for each collection
+    ## -------------------------------------------------
+    collections = metadata_db.Collection.find()
+    for col in collections :
+        statistics[col['name']]['workload_percent'] = statistics[col['name']]['workload_queries'] / statistics['total_queries']
+        
+    config_params = {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10, 'max_memory' : 4}
+    cm = costmodel.CostModel(wrkld, config_params, statistics)
     print 'Network Cost: '
     print cm.networkCost(starting_design)
     print 'Disk Cost: '
