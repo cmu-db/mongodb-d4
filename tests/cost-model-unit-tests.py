@@ -7,7 +7,7 @@ import search
 import workload
 
 class TestCostModel (unittest.TestCase) :
-    
+    '''
     def setUp(self) :
         constants = {
            'alpha' : 0.0,
@@ -39,7 +39,7 @@ class TestCostModel (unittest.TestCase) :
         config = {'nodes' : 4}
         cost = self.cm.overallCost(self.d, self.w, config)
         self.assertEqual(cost, 0.0)
-    
+    '''
 ## End Class
 
 if __name__ == '__main__':
