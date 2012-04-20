@@ -39,7 +39,8 @@ class CostModel(object):
     def networkCost(self, design) :
         cost, queries = self.partialNetworkCost(design, self.workload)
         return cost
-        
+    ## end def ##
+    
     def diskCost(self, design):
         # 1. estimate index memory requirements
         index_memory = self.getIndexSize(design)
@@ -58,11 +59,6 @@ class CostModel(object):
                 if design.hasCollection(q.collection) == False :
                     break
                     
-                # Need to consider de-normalization like in the network cost to determine
-                # if the query should even count against the disk cost
-                # or not... data will still have to count because workload would be adjusted
-                # to get the same data via de-normalization
-                
                 # Does this depend on the type of query? (insert vs update vs delete vs select)
                 # 1. is there an index on a predicate
                 # 2. predict if data is in working set
@@ -73,7 +69,8 @@ class CostModel(object):
                     print 'Working Set Miss :('
                 pass
         return 1.0
-        
+    ## end def ##
+    
     def skewCost(self, design):
         segment_costs = []
         segments = []
