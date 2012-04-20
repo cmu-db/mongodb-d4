@@ -9,6 +9,37 @@ import random
 ## ==============================================
 ## CostModel
 ## ==============================================
+'''
+Cost Model object
+
+config {
+    'alpha' : Network cost coefficient,
+    'beta' : Disk cost coefficient,
+    'gamma' : Skew cost coefficient,
+    'nodes' : Number of nodes in the Mongo DB instance,
+    'max_memory' : Amount of memory per node in GB,
+    'index_node_size' : Amount of memory required to index 1 document
+}
+
+statistics {
+    'collections' : {
+        'collection_name' : {
+            'fields' : {
+                'field_name' : {
+                    'query_use_count' : Number of queries in which this field appears in the predicate,
+                    'cardinality' : Number of distinct values,
+                    'selectivity' : Cardinalty / Tuple Count
+                }
+            },
+            'tuple_count' : Number of tuples in the collection,
+            'workload_queries' : Number of queries in the workload that target this collection,
+            'workload_percent' : Percentage of queries in the workload that target this collection,
+            'kb_per_doc' : The average number of kilobytes per document in this collection,
+        },
+    },
+    'total_queries' : total number of queries in the workload??,
+  }
+'''
 class CostModel(object):
     
     def __init__(self, workload, config, statistics = {}) :
