@@ -118,8 +118,13 @@ class CostModel(object):
                     ## end if ##
                     
                     # How many pages for the queries tuples?
-                    min_pages = self.stats[q.collection]['max_pages']
                     max_pages = self.stats[q.collection]['max_pages']
+                    min_pages = max_pages
+                    
+                    # Is the entire collection in the working set?
+                    if working_set[q.collection] >= 100 :
+                        print 'in memory'
+                        min_pages = 0
                     
                     # Does this query hit an index?
                     
@@ -258,7 +263,7 @@ class CostModel(object):
         return memory
         
     '''
-    Estimate the number of documents per collection that will fit in working set space
+    Estimate the percentage of a collection that will fit in working set space
     '''
     def estimateWorkingSets(self, design, capacity) :
         working_set_counts = {}
