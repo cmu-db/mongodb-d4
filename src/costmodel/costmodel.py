@@ -41,34 +41,57 @@ class CostModel(object):
         return cost
     ## end def ##
     
+    '''
+    Estimate the Disk Cost for a design and a workload
+    - Best case, every query is satisfied by main memory
+    - Worst case, every query requires a full collection
+    '''
     def diskCost(self, design):
+        worst_case = 0
+        cost = 0
         # 1. estimate index memory requirements
         index_memory = self.getIndexSize(design)
         if index_memory > self.max_memory :
             return 10000000000000
         
-        # 2. approximate distribution of working sets based on the
-        #    frequency with which collections are queried in the working set
+        # 2. approximate the number of documents per collection in the working set
         working_set = self.estimateWorkingSets(design, self.max_memory - index_memory)
         
         # 3. Iterate of workload, foreach query:
-        # a. how many page reads will be required to satisfy the data
         for s in self.workload.sessions :
             for q in s.queries :
                 # is the collection in the design - if not ignore
                 if design.hasCollection(q.collection) == False :
                     break
-                    
+                
                 # Does this depend on the type of query? (insert vs update vs delete vs select)
-                # 1. is there an index on a predicate
-                # 2. predict if data is in working set
-                ws_hit = self.rg.randint(1, 100)
-                if ws_hit <= working_set[q.collection] :
-                    print 'Working Set Hit !!!!!!'
+                multiplier = 1
+                if q.type == 'insert' :
+                    multiplier = 2
+                    max_pages = 1
+                    min_pages = 1
+                    pass
                 else :
-                    print 'Working Set Miss :('
-                pass
-        return 1.0
+                    if q.type == 'update' or q.type == 'delete' :
+                        multiplier = 2
+                    ## end if ##
+                    
+                    # How many pages for the queries tuples?
+                    min_pages = 0
+                    max_pages = 100
+                    
+                    # Does this query hit an index?
+                    
+                    # Does this query hit the working set?
+                    ws_hit = self.rg.randint(1, 100)
+                    if ws_hit <= working_set[q.collection] :
+                        min_pages = 0
+                
+                    
+                    
+                cost += multiplier * min_pages        
+                worst_case += multiplier * max_pages
+        return cost / worst_case
     ## end def ##
     
     def skewCost(self, design):
