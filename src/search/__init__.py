@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
-#from designer import *
-#from design import Design
+from bbsearch import *
+from designer import *
+from design import *
+
 #del design
 #del designer
+#del bbsearch
