@@ -167,9 +167,10 @@ if __name__ == '__main__':
     ## Finalize workload percentage statistics for each collection
     ## -------------------------------------------------
     collections = metadata_db.Collection.find()
+    page_size = 16
     for col in collections :
         statistics[col['name']]['workload_percent'] = statistics[col['name']]['workload_queries'] / statistics['total_queries']
-        
+        statistics[col['name']]['max_pages'] = statistics[col['name']]['tuple_count'] * statistics[col['name']]['kb_per_doc'] / page_size
     config_params = {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10, 'max_memory' : 4}
     cm = costmodel.CostModel(wrkld, config_params, statistics)
     print 'Network Cost: '
