@@ -12,13 +12,16 @@ import random
 '''
 Cost Model object
 
+workload : Workload abstraction class
+
 config {
     'alpha' : Network cost coefficient,
     'beta' : Disk cost coefficient,
     'gamma' : Skew cost coefficient,
     'nodes' : Number of nodes in the Mongo DB instance,
     'max_memory' : Amount of memory per node in GB,
-    'index_node_size' : Amount of memory required to index 1 document
+    'index_node_size' : Amount of memory required to index 1 document,
+    'page_size' : size of disk page
 }
 
 statistics {
@@ -35,6 +38,7 @@ statistics {
             'workload_queries' : Number of queries in the workload that target this collection,
             'workload_percent' : Percentage of queries in the workload that target this collection,
             'kb_per_doc' : The average number of kilobytes per document in this collection,
+            'max_pages' : The maximum number of pages required to scan the collection
         },
     },
     'total_queries' : total number of queries in the workload??,
@@ -53,12 +57,18 @@ class CostModel(object):
         self.rg.seed('cost model coolness')
         # Convert GB to KB
         self.max_memory = config['max_memory'] * 1024 * 1024
+        
         # Size of an index per document (default 10 kb)
         if 'index_node_size' in list(config) :
             self.index_node_size = config['index_node_size']
         else :
             self.index_node_size = 1
         self.skew_segments = 9
+        
+        if 'page_size' in list(config) :
+            self.page_size = config['page_size']
+        else :
+            self.page_size = 16
         
     def overallCost(self, design) :
         cost = 0
@@ -108,8 +118,8 @@ class CostModel(object):
                     ## end if ##
                     
                     # How many pages for the queries tuples?
-                    min_pages = 0
-                    max_pages = 100
+                    min_pages = self.stats[q.collection]['max_pages']
+                    max_pages = self.stats[q.collection]['max_pages']
                     
                     # Does this query hit an index?
                     
@@ -117,11 +127,10 @@ class CostModel(object):
                     ws_hit = self.rg.randint(1, 100)
                     if ws_hit <= working_set[q.collection] :
                         min_pages = 0
-                
+                ## end if ##
                     
-                    
-                cost += multiplier * min_pages        
-                worst_case += multiplier * max_pages
+                cost += min_pages        
+                worst_case += max_pages
         return cost / worst_case
     ## end def ##
     
