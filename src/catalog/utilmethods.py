@@ -126,9 +126,12 @@ def gatherStatisticsFromCollections(collectionsIterable) :
             'tuple_count' : col['tuple_count'],
             'workload_queries' : 0,
             'workload_percent' : 0.0,
-            'kb_per_doc' : 10
+            'kb_per_doc' : 10,
+            'interesting' : []
         }
         for field, data in col['fields'].iteritems() :
+            if data['query_use_count'] > 0 :
+               statistics[col['name']]['interesting'].append(field)
             statistics[col['name']]['fields'][field] = {
                 'query_use_count' : data['query_use_count'],
                 'cardinality' : data['cardinality'],

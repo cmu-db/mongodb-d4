@@ -14,9 +14,11 @@ import math
 import catalog
 import workload
 from search import design
+from search import bbsearch
+from search import designcandidate
 import costmodel
 from util import *
-
+import itertools
 LOG = logging.getLogger(__name__)
 
 def calc_stats(params, stats) :
@@ -168,8 +170,10 @@ if __name__ == '__main__':
     ## Finalize workload percentage statistics for each collection
     ## -------------------------------------------------
     collections = metadata_db.Collection.find()
+    col_names = []
     page_size = 16
     for col in collections :
+        col_names.append(col['name']) # for step 5
         statistics[col['name']]['workload_percent'] = statistics[col['name']]['workload_queries'] / statistics['total_queries']
         statistics[col['name']]['max_pages'] = statistics[col['name']]['tuple_count'] * statistics[col['name']]['kb_per_doc'] / page_size
     config_params = {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10, 'max_memory' : 4}
@@ -186,10 +190,34 @@ if __name__ == '__main__':
     ## STEP 5
     ## Instantiate and populate the design candidates
     ## ----------------------------------------------
+    dc = designcandidate.DesignCandidate()
+    collections = metadata_db.Collection.find()
+    for col in collections :
+        # addCollection(self, collection, indexKeys, shardKeys, denorm)
+        
+        # deal with shards
+        shardKeys = statistics[col['name']]['interesting']
+        
+        # deal with indexes
+        indexKeys = [[]]
+        for o in range(1, len(statistics[col['name']]['interesting']) + 1) :
+            for t in itertools.combinations(statistics[col['name']]['interesting'], o) :
+                index = []
+                for field in t :
+                    index.append(field)
+                indexKeys.append(index)
+        
+        # deal with de-normalization
+        denorm = []
+        for cn in col_names :
+           if cn <> col['name'] :
+               denorm.append(cn)
+        dc.addCollection(col['name'], indexKeys, shardKeys, denorm)
     
     ## ----------------------------------------------
     ## STEP 6
     ## Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
-    
+    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 120)
+    bb.solve()
 ## MAIN
