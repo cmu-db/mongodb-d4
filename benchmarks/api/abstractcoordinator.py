@@ -44,7 +44,7 @@ class AbstractCoordinator:
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
         
         self._config = config
-        self._config['name'] = config['benchmark'].upper()
+        self._name = config['name']
         
         ## Invoke the workers for this benchmark invocation
         for ch in channels :
@@ -56,7 +56,7 @@ class AbstractCoordinator:
                 pass
             else:
                 pass
-        LOG.info("%s Initialization Completed!" % self._config['name'])
+        LOG.info("%s Initialization Completed!" % self._name)
     ## DEF
         
     def load(self, config, channels):
@@ -79,7 +79,7 @@ class AbstractCoordinator:
         
     def loadImpl(self, config, channels):
         '''Distribute loading to a list of channels by sending command message to each of them'''
-        return None
+        raise NotImplementedError("%s does not implement loadImpl" % (self._name))
         
     def distributeExecution(self, config, channels):
         '''distribute execution to a list of channels by send command message to each of them.\

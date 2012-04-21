@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------------
 # Copyright (C) 2011
 # Andy Pavlo
-# http:##www.cs.brown.edu/~pavlo/
+# http://www.cs.brown.edu/~pavlo/
 #
 # Original Java Version:
 # Copyright (C) 2008

@@ -34,19 +34,22 @@ class AbstractWorker:
     def __init__(self):
         ''' All subclass constructor should not take any argument. You can do more initializing work in initializing method '''
         self._config = None
+        self._name = None
         pass
     ## DEF
     
     def initialize(self, config, channel):
         '''Work Initialization. You always must send a INIT_COMPLETED message back'''
-        LOG.info("Initializing %s Worker" % config['name'])
         self._config = config
+        self._name = config['name']
+        
+        LOG.info("Initializing %s Worker" % self._name)
         self.initImpl(config, channel)
         sendMessage(MSG_INIT_COMPLETED, None, channel)
     ## DEF
     
     def initImpl(self, config, channel):
-        return None
+        raise NotImplementedError("%s does not implement initImpl" % (self._name))
         
     def load(self, config, channel, msg):
         '''Perform actual loading. We will always send back LOAD_COMPLETED message'''
@@ -57,7 +60,7 @@ class AbstractWorker:
     ## DEF
     
     def loadImpl(self, config, channel, msg):
-        return None
+        raise NotImplementedError("%s does not implement loadImpl" % (self._name))
         
     def startExecution(config, channel, msg):
         ''' Actual execution. You might want to send a EXECUTE_COMPLETED message back with the loading time'''
