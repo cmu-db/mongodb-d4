@@ -18,7 +18,7 @@ from search import bbsearch
 from search import designcandidate
 import costmodel
 from util import *
-
+import itertools
 LOG = logging.getLogger(__name__)
 
 def calc_stats(params, stats) :
@@ -196,10 +196,17 @@ if __name__ == '__main__':
         # addCollection(self, collection, indexKeys, shardKeys, denorm)
         
         # deal with shards
-        shardKeys = []
+        shardKeys = statistics[col['name']]['interesting']
         
         # deal with indexes
-        indexKeys = []
+        indexKeys = [[]]
+        for o in range(1, len(statistics[col['name']]['interesting']) + 1) :
+            for t in itertools.combinations(statistics[col['name']]['interesting'], o) :
+                index = []
+                for field in t :
+                    index.append(field)
+                indexKeys.append(index)
+        print indexKeys
         
         # deal with de-normalization
         denorm = []
