@@ -173,17 +173,23 @@ if __name__ == '__main__':
         statistics[col['name']]['workload_percent'] = statistics[col['name']]['workload_queries'] / statistics['total_queries']
         statistics[col['name']]['max_pages'] = statistics[col['name']]['tuple_count'] * statistics[col['name']]['kb_per_doc'] / page_size
     config_params = {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10, 'max_memory' : 4}
+    
+    ## -------------------------------------------------
+    ## STEP 4
+    ## Instantiate cost model, determine upper bound from starting design
+    ## -------------------------------------------------
     cm = costmodel.CostModel(wrkld, config_params, statistics)
-    print 'Network Cost: '
-    print cm.networkCost(starting_design)
-    print 'Disk Cost: '
-    print cm.diskCost(starting_design)
-    print 'Skew Cost: '
-    print cm.skewCost(starting_design)
+    upper_bound = cm.overallCost(starting_design)
+    print upper_bound
     
     ## ----------------------------------------------
-    ## STEP 3
-    ## Execute the LNS design algorithm
+    ## STEP 5
+    ## Instantiate and populate the design candidates
+    ## ----------------------------------------------
+    
+    ## ----------------------------------------------
+    ## STEP 6
+    ## Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
     
 ## MAIN
