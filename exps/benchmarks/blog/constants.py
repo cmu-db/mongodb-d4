@@ -1,9 +1,7 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2011
-# Andy Pavlo & Yang Lu
-# http://www.cs.brown.edu/~pavlo/
+# Copyright (C) 2012
+# Andy Pavlo - http://www.cs.brown.edu/~pavlo/
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -25,41 +23,20 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
-import sys
-import os
-import string
-import re
-import glob
-import time
-import execnet
-import logging
-from pprint import pprint, pformat
+from datetime import datetime
 
-import drivers
-from util import *
-from runtime import *
-from api.abstractcoordinator import AbstractCoordinator
-from api.message import *
+DB_NAME = 'microblog'
+ARTICLE_COLL = 'articles'
+COMMENT_COLL = 'comments'
+NUM_ARTICLES = 10000
+NUM_AUTHORS = 30
+MAX_AUTHOR_SIZE = 20
+MAX_TITLE_SIZE = 200
+MAX_CONTENT_SIZE = 102400
+MAX_COMMENT_SIZE = 1024
+MAX_COMMENT_RATING = 100
+MAX_NUM_COMMENTS = 100
 
-LOG = logging.getLogger(__name__)
+START_DATE = datetime.strptime('1/1/2008 1:30 PM', '%m/%d/%Y %I:%M %p')
+STOP_DATE = datetime.now()
 
-class TpccCoordinator(AbstractCoordinator) :
-    
-    def initImpl(self, config, channels):
-        ## Create our ScaleParameter stuff that we're going to need
-        self._scaleParameters = scaleparameters.makeWithScaleFactor(int(config['warehouses']), float(config['scalefactor']))
-    ## DEF
-    
-    def loadImpl(self, config, channels) :
-        '''divide loading to several clients'''
-        procs = len(channels)
-        w_ids = map(lambda x:[], range(procs))
-        for w_id in range(self._scaleParameters.starting_warehouse, self._scaleParameters.ending_warehouse+1):
-            idx = w_id % procs
-            w_ids[idx].append(w_id)
-            
-        for i in range(len(channels)):
-            sendMessage(MSG_CMD_LOAD, w_ids[i], channels[i])
-    ## DEF
-
-## CLASS

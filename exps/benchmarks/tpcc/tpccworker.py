@@ -87,22 +87,17 @@ class TpccWorker(AbstractWorker):
             traceback.print_exc(file = sys.stdout)
             raise
     ## DEF
-    
         
-        
-    def startExecution(self, config, channel, msg):
+    def executeImpl(self, config, channel, msg):
         assert self._driver!=None
         
-        config['execute']=True
-        config['reset']=False
-        soe= (config['stop_on_error']=='1')
+        config['execute'] = True
+        config['reset'] = False
+        soe = (config['stop_on_error']=='1')
         
-        e = executor.Executor(self._driver, self._sf, stop_on_error = soe)
+        e = executor.Executor(self._driver, self._scaleParameters, stop_on_error = soe)
         self._driver.executeStart()
-        results = e.execute(args['duration'])
+        results = e.execute(config['duration'])
         self._driver.executeFinish()
         sendMessage(EXECUTE_COMPLETED, results, channel)
-        
-    def moreProcessing(self, config, channel, msg):
-        '''hook'''
-        return None
+## CLASS

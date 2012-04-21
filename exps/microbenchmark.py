@@ -18,19 +18,7 @@ logging.basicConfig(level = logging.INFO,
                     datefmt="%m-%d-%Y %H:%M:%S",
                     stream = sys.stdout)
 
-DB_NAME = 'microblog'
-ARTICLE_COLL = 'articles'
-COMMENT_COLL = 'comments'
-NUM_AUTHORS = 30
-MAX_AUTHOR_SIZE = 20
-MAX_TITLE_SIZE = 200
-MAX_CONTENT_SIZE = 102400
-MAX_COMMENT_SIZE = 1024
-MAX_COMMENT_RATING = 100
-MAX_NUM_COMMENTS = 100
 
-START_DATE = datetime.strptime('1/1/2008 1:30 PM', '%m/%d/%Y %I:%M %p')
-STOP_DATE = datetime.now()
 
 
 def string_generator(size=6, chars=string.ascii_uppercase + string.digits):

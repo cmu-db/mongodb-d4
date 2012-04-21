@@ -1,9 +1,7 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2011
-# Andy Pavlo & Yang Lu
-# http://www.cs.brown.edu/~pavlo/
+# Copyright (C) 2012
+# Andy Pavlo - http://www.cs.brown.edu/~pavlo/
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -28,38 +26,31 @@
 import sys
 import os
 import string
-import re
-import glob
-import time
-import execnet
 import logging
 from pprint import pprint, pformat
 
-import drivers
-from util import *
-from runtime import *
+import constants
 from api.abstractcoordinator import AbstractCoordinator
 from api.message import *
 
 LOG = logging.getLogger(__name__)
 
-class TpccCoordinator(AbstractCoordinator) :
+class BlogCoordinator(AbstractCoordinator) :
     
     def initImpl(self, config, channels):
-        ## Create our ScaleParameter stuff that we're going to need
-        self._scaleParameters = scaleparameters.makeWithScaleFactor(int(config['warehouses']), float(config['scalefactor']))
-    ## DEF
+        self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
+        return
     
     def loadImpl(self, config, channels) :
         '''divide loading to several clients'''
         procs = len(channels)
-        w_ids = map(lambda x:[], range(procs))
-        for w_id in range(self._scaleParameters.starting_warehouse, self._scaleParameters.ending_warehouse+1):
-            idx = w_id % procs
-            w_ids[idx].append(w_id)
-            
+        articleRange = [ ]
+        articlesPerChannel = self.num_articles / procs
+        first = 0
         for i in range(len(channels)):
-            sendMessage(MSG_CMD_LOAD, w_ids[i], channels[i])
+            last = first + articlesPerChannel
+            sendMessage(MSG_CMD_LOAD, (first, last), channels[i])
+            first = last
     ## DEF
 
 ## CLASS

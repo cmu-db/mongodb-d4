@@ -64,12 +64,20 @@ class AbstractWorker:
     def loadImpl(self, config, channel, msg):
         raise NotImplementedError("%s does not implement loadImpl" % (self._name))
         
-    def startExecution(config, channel, msg):
+    def execute(config, channel, msg):
         ''' Actual execution. You might want to send a EXECUTE_COMPLETED message back with the loading time'''
-        return None
+        config['execute'] = True
+        config['reset'] = False
+        self.executeImpl(config, channel, msg)
+        sendMessage(EXECUTE_COMPLETED, results, channel)
+        pass
+    ## DEF
+        
+    def executeImpl(self, config, channel, msg):
+        raise NotImplementedError("%s does not implement executeImpl" % (self._name))
         
     def moreProcessing(config, channel, msg):
         '''hook'''
         return None
-
+## CLASS
 

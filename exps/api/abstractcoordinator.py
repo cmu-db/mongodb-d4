@@ -37,6 +37,7 @@ class AbstractCoordinator:
         self._benchmark = None
         self._config = None
         self._load_result = None
+        self._total_results = None
         pass
     
     def init(self, config, channels):
@@ -88,18 +89,27 @@ class AbstractCoordinator:
         '''Distribute loading to a list of channels by sending command message to each of them'''
         raise NotImplementedError("%s does not implement loadImpl" % (self._name))
         
-    def distributeExecution(self, config, channels):
+    def execute(self, config, channels):
         '''distribute execution to a list of channels by send command message to each of them.\
         You can collect the execution result from each channel'''
+        LOG.info("Executing %s Workload" % self._name)
         
-        ##How to use channel object, see http://codespeak.net/execnet/examples.html
-        ##See also ExampleCoordinator.py
+        self._total_results = results.Results()
+        for ch in channels :
+            sendMessage(MSG_CMD_EXECUTE, None, ch)
+        for ch in channels :
+            msg = getMessage(ch.receive())
+            if msg.header == MSG_EXECUTE_COMPLETED :
+                r = msg.data
+                self._total_results.append(r)
+            else:
+                pass
         
         return None
         
     def showResult(self, config, channels):
-        '''optional result display method'''
-        return None
+        print self._total_results.show(self._load_result)
+        
        
     def moreProcessing(self, config, channels):
         '''hook'''
