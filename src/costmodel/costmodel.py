@@ -269,7 +269,7 @@ class CostModel(object):
         working_set_counts = {}
         leftovers = {}
         buffer = 0
-        
+        needs_memory = []
         # create tuples of workload percentage, collection for sorting
         sorting_pairs = []
         for col in design.collections :
@@ -278,10 +278,20 @@ class CostModel(object):
         
         # iterate over sorted tuples to process in descending order of usage
         for pair in sorting_pairs :
-            memory_available = capacity * pair[0] + buffer
+            memory_available = capacity * pair[0]
             memory_needed = self.stats[pair[1]]['kb_per_doc'] * self.stats[pair[1]]['tuple_count']
             
             # is there leftover memory that can be put in a buffer for other collections?
+            if memory_needed <= memory_available :
+                working_set_counts[pair[1]] = 100
+                buffer += memory_available - memory_needed
+            else :
+                needs_memory.append((pair[0], pair[1]))
+        
+        for pair in needs_memory :
+            memory_available = capacity * pair[0] + buffer
+            memory_needed = self.stats[pair[1]]['kb_per_doc'] * self.stats[pair[1]]['tuple_count']
+            
             if memory_needed <= memory_available :
                 working_set_counts[pair[1]] = 100
                 buffer = memory_available - memory_needed
