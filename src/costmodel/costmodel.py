@@ -100,7 +100,7 @@ class CostModel(object):
         # 2. approximate the number of documents per collection in the working set
         working_set = self.estimateWorkingSets(design, self.max_memory - index_memory)
         
-        # 3. Iterate of workload, foreach query:
+        # 3. Iterate over workload, foreach query:
         for s in self.workload.sessions :
             for q in s.queries :
                 # is the collection in the design - if not ignore
@@ -125,15 +125,16 @@ class CostModel(object):
                     
                     # Is the entire collection in the working set?
                     if working_set[q.collection] >= 100 :
-                        #print 'in memory'
                         min_pages = 0
                     
                     # Does this query hit an index?
-                    
-                    # Does this query hit the working set?
-                    ws_hit = self.rg.randint(1, 100)
-                    if ws_hit <= working_set[q.collection] :
+                    elif design.hasIndex(q.collection, list(q.predicates)) :
                         min_pages = 0
+                    else :
+                    # Does this query hit the working set?
+                        ws_hit = self.rg.randint(1, 100)
+                        if ws_hit <= working_set[q.collection] :
+                            min_pages = 0
                 ## end if ##
                     
                 cost += min_pages        

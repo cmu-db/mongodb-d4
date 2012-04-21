@@ -91,6 +91,12 @@ class Design(object):
             for i in v :
                 self.addIndex(k, i)
     
+    def hasIndex(self, collection, list) :
+        for field in list :
+           for i in self.indexes[collection] :
+               if field in i :
+                   return True
+        return False
     
     def __str__(self):
         s=""

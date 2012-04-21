@@ -114,6 +114,7 @@ if __name__ == '__main__':
                 value = data
                 attr = field
         starting_design.addShardKey(col['name'], attr)
+        starting_design.addIndex(col['name'], [attr])
         
     ## ----------------------------------------------
     ## STEP 2
