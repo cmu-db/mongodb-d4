@@ -267,7 +267,8 @@ class CostModel(object):
     '''
     def estimateWorkingSets(self, design, capacity) :
         working_set_counts = {}
-        left_overs = {}
+        leftovers = {}
+        buffer = 0
         
         # create tuples of workload percentage, collection for sorting
         sorting_pairs = []
@@ -277,11 +278,17 @@ class CostModel(object):
         
         # iterate over sorted tuples to process in descending order of usage
         for pair in sorting_pairs :
-            working_set_counts[pair[1]] = capacity * pair[0]
-            working_set_counts[pair[1]] = working_set_counts[pair[1]] / self.stats[pair[1]]['kb_per_doc']
-            working_set_counts[pair[1]] = working_set_counts[pair[1]] / self.stats[pair[1]]['tuple_count']
-            working_set_counts[pair[1]] = math.ceil(working_set_counts[pair[1]] * 100)
-        
+            memory_available = capacity * pair[0] + buffer
+            memory_needed = self.stats[pair[1]]['kb_per_doc'] * self.stats[pair[1]]['tuple_count']
+            
+            # is there leftover memory that can be put in a buffer for other collections?
+            if memory_needed <= memory_available :
+                working_set_counts[pair[1]] = 100
+                buffer = memory_available - memory_needed
+            else :
+                working_set_counts[pair[1]] = memory_available / self.stats[pair[1]]['kb_per_doc']
+                working_set_counts[pair[1]] = working_set_counts[pair[1]] / self.stats[pair[1]]['tuple_count']
+                working_set_counts[pair[1]] = math.ceil(working_set_counts[pair[1]] * 100)
         return working_set_counts
     ## end def ##
 ## end class ##
