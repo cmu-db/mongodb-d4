@@ -123,7 +123,7 @@ class CostModel(object):
                     
                     # Is the entire collection in the working set?
                     if working_set[q.collection] >= 100 :
-                        print 'in memory'
+                        #print 'in memory'
                         min_pages = 0
                     
                     # Does this query hit an index?
@@ -267,11 +267,21 @@ class CostModel(object):
     '''
     def estimateWorkingSets(self, design, capacity) :
         working_set_counts = {}
+        left_overs = {}
+        
+        # create tuples of workload percentage, collection for sorting
+        sorting_pairs = []
         for col in design.collections :
-            working_set_counts[col] = capacity * self.stats[col]['workload_percent']
-            working_set_counts[col] = working_set_counts[col] / self.stats[col]['kb_per_doc']
-            working_set_counts[col] = working_set_counts[col] / self.stats[col]['tuple_count']
-            working_set_counts[col] = math.ceil(working_set_counts[col] * 100)
+            sorting_pairs.append((self.stats[col]['workload_percent'], col))
+        sorting_pairs.sort(reverse=True)
+        
+        # iterate over sorted tuples to process in descending order of usage
+        for pair in sorting_pairs :
+            working_set_counts[pair[1]] = capacity * pair[0]
+            working_set_counts[pair[1]] = working_set_counts[pair[1]] / self.stats[pair[1]]['kb_per_doc']
+            working_set_counts[pair[1]] = working_set_counts[pair[1]] / self.stats[pair[1]]['tuple_count']
+            working_set_counts[pair[1]] = math.ceil(working_set_counts[pair[1]] * 100)
+        
         return working_set_counts
-## CLASS
-    
+    ## end def ##
+## end class ##
