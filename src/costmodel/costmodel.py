@@ -69,14 +69,16 @@ class CostModel(object):
             self.page_size = config['page_size']
         else :
             self.page_size = 16
-        
+    ## end def ##
+    
     def overallCost(self, design) :
         cost = 0
         cost += self.alpha * self.networkCost(design)
         cost += self.beta * self.diskCost(design)
         cost += self.gamma * self.skewCost(design)
         return cost / (self.alpha + self.beta + self.gamma)
-        
+    ## end def ##
+    
     def networkCost(self, design) :
         cost, queries = self.partialNetworkCost(design, self.workload)
         return cost
