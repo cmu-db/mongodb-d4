@@ -25,6 +25,8 @@
 # -----------------------------------------------------------------------
 import time
 import execnet
+import logging
+
 from .message import *
 
 LOG = logging.getLogger(__name__)

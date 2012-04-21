@@ -26,7 +26,7 @@
 import time
 import execnet
 import logging
-from .message import *
+from message import *
 
 LOG = logging.getLogger(__name__)
 
@@ -36,15 +36,14 @@ class AbstractCoordinator:
         '''All subclass constructor should not taken any arguments. You can do more initializing work in initialize() method'''
         self._benchmark = None
         self._config = None
-        self._sf = None
         self._load_result = None
         pass
     
     def initialize(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
-        
         self._config = config
         self._name = config['name']
+        LOG.info("Intializing Benchmark Coordinator for %s" % self._name)
         
         ## Invoke the workers for this benchmark invocation
         for ch in channels :

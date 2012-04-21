@@ -32,11 +32,11 @@ import re
 import argparse
 import glob
 import execnet
-import msgprocessor
 import logging
-from message import *
 from ConfigParser import SafeConfigParser
 from pprint import pprint, pformat
+
+from api.messageprocessor import *
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(funcName)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -61,36 +61,63 @@ class Benchmark:
         
         cparser = SafeConfigParser()
         cparser.read(os.path.realpath(self._args['config'].name))
-        config = dict(cparser.items('configuration'))
-        logging.debug("Configuration File:\n%s" % config)
+        config = dict()
+        for s in cparser.sections():
+            config = dict(config.items() + cparser.items(s))
+        ## FOR
+        
+        # Extra stuff from the argumetns that we want to stash
+        for key,val in args.items():
+            if key != 'config': config[key] = val
+        config['name'] = args['benchmark'].upper()
+        
+        # Figure out where the hell we actually are
+        realpath = os.path.realpath(__file__)
+        basedir = os.path.dirname(realpath)
+        if not os.path.exists(realpath):
+            cwd = os.getcwd()
+            basename = os.path.basename(realpath)
+            if os.path.exists(os.path.join(cwd, basename)):
+                basedir = cwd
+        #config['path'] = os.path.join(basedir, "api")
+        config['path'] = os.path.realpath(basedir)
+        
+        logging.debug("Configuration File:\n%s" % pformat(config))
         return config
         
     def createChannels(self):
         '''Create a list of channels used for communication between coordinator and worker'''
+        assert self._config['clients']
+        clients = re.split(r"\s+", str(self._config['clients']))
+        assert len(clients) > 0
+        logging.info("Invoking benchmark framework on %d clients" % len(clients))
+
+        import benchmark
+        remoteCall = benchmark
+        
+        # Create ssh channels to client nodes
         channels=[]
-        assert self._config['clients']!=''
-        clients = re.split(r"\s+",str(self._config['clients']))
-        logging.info(clients)
-        ##Create ssh channels to client nodes
         for node in clients:
             cmd = 'ssh='+ node
             cmd += r"//chdir="
             cmd += self._config['path']
             logging.debug(cmd)
-            logging.debug(self._config['clientprocs'])
+            logging.debug("# of Client Processes: %s" % self._config['clientprocs'])
             for i in range(int(self._config['clientprocs'])):
+                logging.debug("Invoking %s on %s" % (remoteCall, node))
                 gw = execnet.makegateway(cmd)
-                ch = gw.remote_exec(msgprocessor)
+                ch = gw.remote_exec(remoteCall)
                 channels.append(ch)
-        logging.info(channels)
+        logging.debug(channels)
         return channels
         
     def createCoordinator(self):
         '''Coordinator factory method.'''
         benchmark = self._config['benchmark']
-        fullName = benchmark.title()+"Coordinator"
-        mod = __import__('%s.%s' %(benchmark.lower(),fullName.lower()), globals(), locals(), [fullName])
-        klass = getattr(mod, fullName)
+        fullName = benchmark.title() + "Coordinator"
+        moduleName = "benchmarks.%s.%s" % (benchmark.lower(), fullName.lower())
+        moduleHandle = __import__(moduleName, globals(), locals(), [fullName])
+        klass = getattr(moduleHandle, fullName)
         return klass()
     
     def runBenchmark(self):
@@ -157,5 +184,12 @@ if __name__=='__main__':
     ben = Benchmark(args)
     ben.runBenchmark()
 ## MAIN
-    
+
+## ==============================================
+## EXECNET PROCESSOR
+## ==============================================
+if __name__ == '__channelexec__':
+    mp = MessageProcessor(channel)
+    mp.processMessage()
+## EXEC
  

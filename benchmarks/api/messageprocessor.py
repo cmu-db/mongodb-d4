@@ -53,7 +53,7 @@ class MessageProcessor:
             if msg.header == MSG_CMD_INIT :
                 self._config = msg.data
                 self._worker = self.createWorker()
-                self._worker.initialize(self._config, self._channel, msg)
+                self._worker.initialize(self._config, self._channel)
             elif msg.header == MSG_CMD_LOAD :
                 self._worker.startLoading(self._config, self._channel, msg)
             elif msg.header == MSG_CMD_EXECUTE :
@@ -65,8 +65,5 @@ class MessageProcessor:
             else:
                 LOG.warn("Unexpected message type")
                 return
-    ## DEF
+## CLASS
 
-if __name__ == '__channelexec__':
-    mp = MsgProcessor(channel)
-    mp.processMessage()

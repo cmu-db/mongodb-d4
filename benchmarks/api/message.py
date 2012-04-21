@@ -47,7 +47,8 @@ for key in globals().keys():
 def sendMessage(msg, data, channel):
     '''serialize the data and send the msg through channel'''
     m = Message(msg,data)
-    channel.send(pickle.dumps(m, -1))
+    p = pickle.dumps(m, -1)
+    channel.send(p)
     
 def getMessage(item):
     ''' restore Message from channel'''

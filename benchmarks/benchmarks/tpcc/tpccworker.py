@@ -40,7 +40,7 @@ LOG = logging.getLogger(__name__)
 
 class TpccWorker(AbstractWorker):
     
-    def initImpl(self, config, channel, msg):
+    def initImpl(self, config, channel):
         ## Create a handle to the target client driver
         driverClass = self.createDriverClass(config['system'])
         assert driverClass != None, "Failed to find '%s' class" % config['system']
