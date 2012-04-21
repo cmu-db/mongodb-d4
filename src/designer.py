@@ -195,12 +195,18 @@ if __name__ == '__main__':
     for col in collections :
         # addCollection(self, collection, indexKeys, shardKeys, denorm)
         
+        # deal with shards
+        shardKeys = []
+        
+        # deal with indexes
+        indexKeys = []
+        
         # deal with de-normalization
         denorm = []
         for cn in col_names :
            if cn <> col['name'] :
                denorm.append(cn)
-        dc.addCollection(col['name'], [], [], denorm)
+        dc.addCollection(col['name'], indexKeys, shardKeys, denorm)
     
     ## ----------------------------------------------
     ## STEP 6
