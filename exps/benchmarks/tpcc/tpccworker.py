@@ -89,15 +89,14 @@ class TpccWorker(AbstractWorker):
     ## DEF
         
     def executeImpl(self, config, channel, msg):
-        assert self._driver!=None
+        assert self._driver != None
         
-        config['execute'] = True
-        config['reset'] = False
         soe = (config['stop_on_error']=='1')
         
         e = executor.Executor(self._driver, self._scaleParameters, stop_on_error = soe)
         self._driver.executeStart()
         results = e.execute(config['duration'])
         self._driver.executeFinish()
-        sendMessage(EXECUTE_COMPLETED, results, channel)
+        return (results)
+        
 ## CLASS

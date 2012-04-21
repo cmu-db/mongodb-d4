@@ -68,7 +68,7 @@ class AbstractWorker:
         ''' Actual execution. You might want to send a EXECUTE_COMPLETED message back with the loading time'''
         config['execute'] = True
         config['reset'] = False
-        self.executeImpl(config, channel, msg)
+        results = self.executeImpl(config, channel, msg)
         sendMessage(EXECUTE_COMPLETED, results, channel)
         pass
     ## DEF

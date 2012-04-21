@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
 # Copyright (C) 2011
-# Andy Pavlo
-# http://www.cs.brown.edu/~pavlo/
+# Andy Pavlo - http://www.cs.brown.edu/~pavlo/
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -27,6 +26,8 @@
 import logging
 import time
 
+LOG = logging.getLogger(__name__)
+
 class Results:
     
     def __init__(self):
@@ -41,7 +42,7 @@ class Results:
     def startBenchmark(self):
         """Mark the benchmark as having been started"""
         assert self.start == None
-        logging.debug("Starting benchmark statistics collection")
+        LOG.debug("Starting benchmark statistics collection")
         self.start = time.time()
         return self.start
         
@@ -49,7 +50,7 @@ class Results:
         """Mark the benchmark as having been stopped"""
         assert self.start != None
         assert self.stop == None
-        logging.debug("Stopping benchmark statistics collection")
+        LOG.debug("Stopping benchmark statistics collection")
         self.stop = time.time()
         
     def startTransaction(self, txn):
@@ -84,7 +85,7 @@ class Results:
 
             self.txn_counters[txn_name] = orig_cnt + r.txn_counters[txn_name]
             self.txn_times[txn_name] = orig_time + r.txn_times[txn_name]
-            #logging.debug("%s [cnt=%d, time=%d]" % (txn_name, self.txn_counters[txn_name], self.txn_times[txn_name]))
+            #LOG.debug("%s [cnt=%d, time=%d]" % (txn_name, self.txn_counters[txn_name], self.txn_times[txn_name]))
         ## HACK
         self.start = r.start
         self.stop = r.stop
