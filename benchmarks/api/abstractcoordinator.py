@@ -39,11 +39,14 @@ class AbstractCoordinator:
         self._load_result = None
         pass
     
-    def initialize(self, config, channels):
+    def init(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
         self._config = config
         self._name = config['name']
-        LOG.info("Intializing Benchmark Coordinator for %s" % self._name)
+        LOG.info("Initializing %s Benchmark Coordinator" % self._name)
+        
+        ## First initialize our local coordinator
+        self.initImpl(self._config, channels)
         
         ## Invoke the workers for this benchmark invocation
         for ch in channels :
@@ -55,12 +58,17 @@ class AbstractCoordinator:
                 pass
             else:
                 pass
-        LOG.info("%s Initialization Completed!" % self._name)
+        LOG.debug("%s Initialization Completed!" % self._name)
     ## DEF
+        
+    def loadImpl(self, config, channels):
+        '''Benchmark coordinator initialization method'''
+        raise NotImplementedError("%s does not implement initImpl" % (self._name))
         
     def load(self, config, channels):
         ''' distribute loading to a list of channels by sending command message to each of them.\
         You can collect the load time from each channel and returns the total loading time'''
+        LOG.info("Loading %s Database" % self._name)
         
         load_start = time.time()
         self.loadImpl(config, channels)

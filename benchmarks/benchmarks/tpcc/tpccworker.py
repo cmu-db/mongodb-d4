@@ -29,6 +29,7 @@ import os
 import string
 import re
 import logging
+import traceback
 from pprint import pprint, pformat
 
 import drivers
@@ -42,6 +43,19 @@ class TpccWorker(AbstractWorker):
     
     def initImpl(self, config, channel):
         ## Create a handle to the target client driver
+        config['system'] = "mongodb"
+        realpath = os.path.realpath(__file__)
+        basedir = os.path.dirname(realpath)
+        if not os.path.exists(realpath):
+            cwd = os.getcwd()
+            basename = os.path.basename(realpath)
+            if os.path.exists(os.path.join(cwd, basename)):
+                basedir = cwd
+        config['ddl'] = os.path.join(basedir, "tpcc.sql")
+        
+        ## Create our ScaleParameter stuff that we're going to need
+        self._scaleParameters = scaleparameters.makeWithScaleFactor(int(config['warehouses']), float(config['scalefactor']))
+        
         driverClass = self.createDriverClass(config['system'])
         assert driverClass != None, "Failed to find '%s' class" % config['system']
         driver = driverClass(config['ddl'])
@@ -59,10 +73,11 @@ class TpccWorker(AbstractWorker):
     
     def loadImpl(self, config, channel, msg):
         assert self._driver != None
+        w_ids = msg.data
+        loadItems = (1 in w_ids)
         
         try:
-            loadItems = (1 in w_ids)
-            l = loader.Loader(self._driver, self._sf, msg.data, loadItems)
+            l = loader.Loader(self._driver, self._scaleParameters, w_ids, loadItems)
             self._driver.loadStart()
             l.execute()
             self._driver.loadFinish()   

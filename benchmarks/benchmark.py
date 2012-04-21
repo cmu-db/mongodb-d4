@@ -124,11 +124,11 @@ class Benchmark:
         '''Execute the target benchmark!'''
         
         # Step 1: Initialize all of the Workers on the client nodes
-        self._coordinator.initialize(self._config, self._channels) 
+        self._coordinator.init(self._config, self._channels) 
         
         # Step 2: Load the benchmark database
         if not self._args['no_load']:
-            self._coordinator.distributeLoading(self._config, self._channels)            
+            self._coordinator.load(self._config, self._channels)            
             
         # Step 3: Execute the benchmark workload
         if not self._args['no_execute']:

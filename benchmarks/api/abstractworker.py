@@ -40,7 +40,7 @@ class AbstractWorker:
         pass
     ## DEF
     
-    def initialize(self, config, channel):
+    def init(self, config, channel):
         '''Work Initialization. You always must send a INIT_COMPLETED message back'''
         self._config = config
         self._name = config['name']

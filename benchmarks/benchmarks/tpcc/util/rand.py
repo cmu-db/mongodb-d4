@@ -33,24 +33,27 @@ import random
 
 SYLLABLES = [ "BAR", "OUGHT", "ABLE", "PRI", "PRES", "ESE", "ANTI", "CALLY", "ATION", "EING" ]
 
-nurand = None # NURand
+_nurand = None # NURand
 def setNURand(nu):
-    global nurand
-    nurand = nu
+    global _nurand
+    _nurand = nu
 ## DEF
 
 def NURand(a, x, y):
     """A non-uniform random number, as defined by TPC-C 2.1.6. (page 20)."""
-    global nurand
+    global _nurand
     assert x <= y
-    assert nurand != None
+    if _nurand == None:
+        import nurand
+        _nurand = nurand.makeForLoad()
+    assert _nurand != None
     
     if a == 255:
-        c = nurand.cLast
+        c = _nurand.cLast
     elif a == 1023:
-        c = nurand.cId
+        c = _nurand.cId
     elif a == 8191:
-        c = nurand.orderLineItemId
+        c = _nurand.orderLineItemId
     else:
         raise Exception("a = " + a + " is not a supported value")
     

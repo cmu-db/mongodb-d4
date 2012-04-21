@@ -233,7 +233,7 @@ class MongodbDriver(AbstractDriver):
         for key in MongodbDriver.DEFAULT_CONFIG.keys():
             assert key in config, "Missing parameter '%s' in %s configuration" % (key, self.name)
         
-        self.conn = pymongo.Connection(config['host'], config['port'])
+        self.conn = pymongo.Connection(config['host'], int(config['port']))
         self.database = self.conn[str(config['name'])]
         self.denormalize = config['denormalize']
         if self.denormalize: logging.debug("Using denormalized data model")
@@ -259,7 +259,8 @@ class MongodbDriver(AbstractDriver):
             if load_indexes and name in TABLE_INDEXES and \
             (self.denormalize or (self.denormalize == False and not name in MongodbDriver.DENORMALIZED_TABLES[1:])):
                 logging.debug("Creating index for %s" % name)
-                self.database[name].create_index(map(lambda x: (x, pymongo.ASCENDING), TABLE_INDEXES[name]))
+                for index in TABLE_INDEXES[name]:
+                    self.database[name].create_index(index)
         ## FOR
     
     ## ----------------------------------------------
