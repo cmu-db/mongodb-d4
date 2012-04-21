@@ -36,7 +36,7 @@ import msgprocessor
 import logging
 from message import *
 from ConfigParser import SafeConfigParser
-from pprint import pprint,pformat
+from pprint import pprint, pformat
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(funcName)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -88,23 +88,29 @@ class Benchmark:
     def createCoordinator(self):
         '''Coordinator factory method.'''
         benchmark = self._config['benchmark']
-        fullName= benchmark.title()+"Coordinator"
+        fullName = benchmark.title()+"Coordinator"
         mod = __import__('%s.%s' %(benchmark.lower(),fullName.lower()), globals(), locals(), [fullName])
         klass = getattr(mod, fullName)
         return klass()
     
     def runBenchmark(self):
-        '''A template method for all benchmarks'''
-        for ch in self._channels:
-            sendMessage(CONFIG,self._config,ch)
-            
-        self._coordinator.initialize(self._config,self._channels)       
+        '''Execute the target benchmark!'''
+        
+        # Step 1: Initialize all of the Workers on the client nodes
+        self._coordinator.initialize(self._config, self._channels) 
+        
+        # Step 2: Load the benchmark database
         if not self._args['no_load']:
-            self._coordinator.distributeLoading(self._config,self._channels)            
+            self._coordinator.distributeLoading(self._config, self._channels)            
+            
+        # Step 3: Execute the benchmark workload
         if not self._args['no_execute']:
-            self._coordinator.distributeExecution(self._config,self._channels)    
-        self._coordinator.showResult(self._config,self._channels)        
-        self._coordinator.moreProcessing(self._config,self._channels)
+            self._coordinator.distributeExecution(self._config, self._channels)    
+            
+        # Step 4: Clean things up and show results
+        self._coordinator.showResult(self._config, self._channels)        
+        self._coordinator.moreProcessing(self._config, self._channels)
+## CLASS
         
 ## ==============================================
 ## getBenchmarks
@@ -122,15 +128,15 @@ def getBenchmarks():
 if __name__=='__main__':
     #Simplified args
     aparser = argparse.ArgumentParser(description='MongoDB Benchmark Framework')
-    aparser.add_argument('benchmark', choices=getBenchmarks(),
+    aparser.add_argument('benchmark', choices = getBenchmarks(),
                          help='Target benchmark')
     aparser.add_argument('--config', type = file,
                          help='Path to benchmark configuration file')
     aparser.add_argument('--reset', action='store_true',
                          help='Instruct the driver to reset the contents of the database')
-    aparser.add_argument('--scalefactor', default=1, type=float, metavar='SF',
+    aparser.add_argument('--scalefactor', default = 1, type = float, metavar='SF',
                          help='Benchmark scale factor')
-    aparser.add_argument('--clientprocs', default=1, type=int, metavar='N',
+    aparser.add_argument('--clientprocs', default = 1, type = int, metavar='N',
                          help='Number of processes on each client node.')
                          
     aparser.add_argument('--stop-on-error', action='store_true',

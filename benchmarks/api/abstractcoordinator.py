@@ -37,35 +37,48 @@ class AbstractCoordinator:
         self._benchmark = None
         self._config = None
         self._sf = None
+        self._load_result = None
         pass
     
     def initialize(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
         
         self._config = config
-        self._benchmark = config['benchmark'].upper()
-        self._sf = scaleparameters.makeWithScaleFactor(self._config['warehouses'], self._config['scalefactor'])
-        self._config['load'] = False
-        self._config['execute'] = False
+        self._config['name'] = config['benchmark'].upper()
         
+        ## Invoke the workers for this benchmark invocation
         for ch in channels :
-            sendMessage(MSG_CMD_INIT, self._sf, ch)
+            sendMessage(MSG_CMD_INIT, self._config, ch)
+        ## Block until they all respond with an acknowledgement
         for ch in channels :
             msg = getMessage(ch.receive())
-            if msg.header==MSG_INIT_COMPLETED :
+            if msg.header == MSG_INIT_COMPLETED :
                 pass
             else:
                 pass
-        LOG.info("%s Initialization Completed!" % self._benchmark)
+        LOG.info("%s Initialization Completed!" % self._config['name'])
     ## DEF
         
-    def distributeLoading(self, config, channels):
+    def load(self, config, channels):
         ''' distribute loading to a list of channels by sending command message to each of them.\
         You can collect the load time from each channel and returns the total loading time'''
         
-        ##How to use channel object, see http://codespeak.net/execnet/examples.html
-        ##See also ExampleCoordinator.py
+        load_start = time.time()
+        self.loadImpl(config, channels)
+        for ch in channels :
+            msg = getMessage(ch.receive())
+            if msg.header == MSG_LOAD_COMPLETED :
+                pass
+            else:
+                pass
+        self._load_result = time.time() - load_start
+        LOG.info("Loading completed: %s" % self._load_result)
         
+        return None
+    ## DEF
+        
+    def loadImpl(self, config, channels):
+        '''Distribute loading to a list of channels by sending command message to each of them'''
         return None
         
     def distributeExecution(self, config, channels):

@@ -50,10 +50,9 @@ class MessageProcessor:
         for item in self._channel:
             msg = getMessage(item)
             LOG.info("Incoming Message: %s" % getMessageName(msg.header))
-            if msg.header == MSG_CONFIG :
+            if msg.header == MSG_CMD_INIT :
                 self._config = msg.data
                 self._worker = self.createWorker()
-            elif msg.header == MSG_CMD_INIT :                
                 self._worker.initialize(self._config, self._channel, msg)
             elif msg.header == MSG_CMD_LOAD :
                 self._worker.startLoading(self._config, self._channel, msg)
