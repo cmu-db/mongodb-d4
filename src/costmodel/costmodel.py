@@ -131,7 +131,7 @@ class CostModel(object):
                     elif design.hasIndex(q.collection, list(q.predicates)) :
                         min_pages = 0
                     else :
-                    # Does this query hit the working set?
+                        # Does this query hit the working set?
                         ws_hit = self.rg.randint(1, 100)
                         if ws_hit <= working_set[q.collection] :
                             min_pages = 0
