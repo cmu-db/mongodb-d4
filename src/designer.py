@@ -206,7 +206,6 @@ if __name__ == '__main__':
                 for field in t :
                     index.append(field)
                 indexKeys.append(index)
-        print indexKeys
         
         # deal with de-normalization
         denorm = []
