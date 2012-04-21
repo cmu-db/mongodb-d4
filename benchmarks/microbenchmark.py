@@ -26,6 +26,7 @@ MAX_AUTHOR_SIZE = 20
 MAX_TITLE_SIZE = 200
 MAX_CONTENT_SIZE = 102400
 MAX_COMMENT_SIZE = 1024
+MAX_COMMENT_RATING = 100
 MAX_NUM_COMMENTS = 100
 
 START_DATE = datetime.strptime('1/1/2008 1:30 PM', '%m/%d/%Y %I:%M %p')
@@ -83,7 +84,7 @@ def show_results(start, stop, num) :
 ## -----------------------------------------------------
 ## Generate Synthetic Data for Micro-Benchmarking
 ## -----------------------------------------------------
-def generateData(conn, num_articles):
+def generateData(conn, num_articles, denormalize = False):
     logging.info("Initializing database '%s'" % DB_NAME)
     conn.drop_database(DB_NAME)
     
@@ -94,8 +95,9 @@ def generateData(conn, num_articles):
         authors.append(string_generator(authorSize))
     ## FOR
     
-    ## Zipfian distribution on the number of comments
+    ## Zipfian distribution on the number of comments & their ratings
     commentsZipf = ZipfGenerator(MAX_NUM_COMMENTS, 1.0)
+    ratingZipf = ZipfGenerator(MAX_COMMENT_RATING, 1.0)
     
     logging.info('Begin generating synthetic data')
     i = 0
@@ -113,7 +115,7 @@ def generateData(conn, num_articles):
         slug = "".join(slug)
         articleDate = random_date(START_DATE, STOP_DATE)
         
-        doc = {
+        article = {
             "id": i,
             "title": title,
             "date": articleDate,
@@ -121,22 +123,30 @@ def generateData(conn, num_articles):
             "slug": slug,
             "content": string_generator(contentSize)
         }
-        conn[DB_NAME][ARTICLE_COLL].insert(doc)
-        
+
         numComments = commentsZipf.next()
         lastDate = articleDate
         for ii in xrange(0, numComments):
             lastDate = random_date(lastDate, STOP_DATE)
-            doc = {
+            comment = {
                 "id": commentId,
                 "article": i,
                 "date": lastDate, 
                 "author": string_generator(int(random.gauss(MAX_AUTHOR_SIZE/2, MAX_AUTHOR_SIZE/4))),
                 "comment": string_generator(int(random.gauss(MAX_COMMENT_SIZE/2, MAX_COMMENT_SIZE/4))),
+                "rating": int(ratingZipf.next())
             }
-            conn[DB_NAME][COMMENT_COLL].insert(doc)
+            if denormalize == False:
+                conn[DB_NAME][COMMENT_COLL].insert(comment)
+            else:
+                if not "comments" in article:
+                    article["comments"] = [ ]
+                article["comments"].append(comment)
             commentId += 1
         ## FOR (comments)
+        
+        conn[DB_NAME][ARTICLE_COLL].insert(article)
+        
         if i % 1000 == 0 :
             logging.info("ARTICLE: %6d / %d" % (i, num_articles))
     ## FOR (articles)
@@ -144,7 +154,14 @@ def generateData(conn, num_articles):
     logging.info("# of ARTICLES: %d" % i)
     logging.info("# of COMMENTS: %d" % commentId)
 ## DEF
-    
+
+## -----------------------------------------------------
+## EXP#1 - Sharding
+## -----------------------------------------------------
+def generateData(conn, num_articles, duration, denormalize = False):
+    articleZipf = ZipfGenerator(num_articles, 1.0)
+## DEF
+
 ## ==============================================
 ## main
 ## ==============================================
@@ -153,6 +170,7 @@ if __name__ == '__main__':
     aparser = argparse.ArgumentParser(description="Microbenchmark")
     aparser.add_argument('--articles', type=int, default=10000)
     aparser.add_argument('--load', action='store_true')
+    aparser.add_argument('--denormalize', action='store_true')
     
     aparser.add_argument('--queries', type=int, default=1000)
     aparser.add_argument('--host', type=str, default="localhost", help='MongoDB hostname')
@@ -177,7 +195,7 @@ if __name__ == '__main__':
     ## -----------------------------------------------------
     if args['load']:
         logging.info('Generating sample data')
-        generateData(conn, args['articles'])
+        generateData(conn, args['articles'], args['denormalize'])
         
         
     #columns = ['key1', 'key2']

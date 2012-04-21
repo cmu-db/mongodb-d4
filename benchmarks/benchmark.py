@@ -62,9 +62,7 @@ class Benchmark:
         cparser = SafeConfigParser()
         cparser.read(os.path.realpath(self._args['config'].name))
         config = dict(cparser.items('configuration'))
-        config['load'] = False # ?? 
-        config['execute'] = False # ??
-        logging.info(config)
+        logging.debug("Configuration File:\n%s" % config)
         return config
         
     def createChannels(self):
