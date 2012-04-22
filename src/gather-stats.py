@@ -135,9 +135,19 @@ if __name__ == '__main__':
             to_use = random.randrange(1, 100, 1)
             if to_use <= sample_rate : 
                 for k, v in row.iteritems() :
-                    print col['name'], col, k, v
                     if k <> '_id' :
+                        if col['fields'][k]['type'] == 'int' :
+                            tuple_sizes[col['name']] += 4
+                        elif col['fields'][k]['type'] == 'str' :
+                            tuple_sizes[col['name']] += len(v)
+                        elif col['fields'][k]['type'] == 'datetime' :
+                            tuple_sizes[col['name']] += 8
+                        elif col['fields'][k]['type'] == 'float' :
+                            tuple_sizes[col['name']] += 8
                         distinct_values[col['name']][k][v] = v
+                    else :
+                        tuple_sizes[col['name']] += 12
+        col['avg_doc_size'] = int(tuple_sizes[col['name']] / col['tuple_count'])
         col.save()
     
     ## ---------------------------------------------
