@@ -171,17 +171,17 @@ if __name__ == '__main__':
     ## -------------------------------------------------
     collections = metadata_db.Collection.find()
     col_names = []
-    page_size = 16
+    page_size = cparser.getint(config.SECT_CLUSTER, 'page_size')
     for col in collections :
         col_names.append(col['name']) # for step 5
         statistics[col['name']]['workload_percent'] = statistics[col['name']]['workload_queries'] / statistics['total_queries']
         statistics[col['name']]['max_pages'] = statistics[col['name']]['tuple_count'] * statistics[col['name']]['kb_per_doc'] / page_size
-    config_params = {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10, 'max_memory' : 4}
     
     ## -------------------------------------------------
     ## STEP 4
     ## Instantiate cost model, determine upper bound from starting design
     ## -------------------------------------------------
+    config_params = {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10, 'max_memory' : 4}
     cm = costmodel.CostModel(wrkld, config_params, statistics)
     upper_bound = cm.overallCost(starting_design)
     print upper_bound
