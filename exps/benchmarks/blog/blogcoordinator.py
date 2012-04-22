@@ -30,14 +30,14 @@ import random
 import logging
 from pprint import pprint, pformat
 
-import util
 import constants
+from util import *
 from api.abstractcoordinator import AbstractCoordinator
 from api.message import *
 
 LOG = logging.getLogger(__name__)
 
-class BlogCoordinator(AbstractCoordinator) :
+class BlogCoordinator(AbstractCoordinator):
     
     def initImpl(self, config, channels):
         self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
@@ -48,18 +48,18 @@ class BlogCoordinator(AbstractCoordinator) :
             authorSize = int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4))
             self.authors.append(rand.randomString(authorSize))
         ## FOR
-        
         return
+    ## DEF
     
-    def loadImpl(self, config, channels) :
-        '''divide loading to several clients'''
+    def loadImpl(self, config, channels):
         procs = len(channels)
         articleRange = [ ]
         articlesPerChannel = self.num_articles / procs
         first = 0
         for i in range(len(channels)):
             last = first + articlesPerChannel
-            sendMessage(MSG_CMD_LOAD, (first, last), channels[i])
+            LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
+            sendMessage(MSG_CMD_LOAD, (first, last, self.authors), channels[i])
             first = last
     ## DEF
 

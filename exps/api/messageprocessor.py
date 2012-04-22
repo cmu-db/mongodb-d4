@@ -52,6 +52,9 @@ class MessageProcessor:
             LOG.info("Incoming Message: %s" % getMessageName(msg.header))
             if msg.header == MSG_CMD_INIT :
                 self._config = msg.data
+                if 'debug' in self._config and self._config['debug']:
+                    logging.getLogger().setLevel(logging.DEBUG)
+                
                 self._worker = self.createWorker()
                 self._worker.init(self._config, self._channel)
             elif msg.header == MSG_CMD_LOAD :

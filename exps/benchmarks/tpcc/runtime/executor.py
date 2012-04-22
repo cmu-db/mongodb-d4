@@ -30,7 +30,6 @@
 # -----------------------------------------------------------------------
 
 import sys
-import multiprocessing
 import time
 import random
 import traceback
@@ -48,38 +47,6 @@ class Executor:
         self.driver = driver
         self.scaleParameters = scaleParameters
         self.stop_on_error = stop_on_error
-    ## DEF
-    
-    def execute(self, duration):
-        r = results.Results()
-        assert r
-        logging.info("Executing benchmark for %d seconds" % duration)
-        start = r.startBenchmark()
-        debug = logging.getLogger().isEnabledFor(logging.DEBUG)
-
-        while (time.time() - start) <= duration:
-            txn, params = self.doOne()
-            txn_id = r.startTransaction(txn)
-            
-            if debug: logging.debug("Executing '%s' transaction" % txn)
-            try:
-                val = self.driver.executeTransaction(txn, params)
-            except KeyboardInterrupt:
-                return -1
-            except (Exception, AssertionError), ex:
-                logging.warn("Failed to execute Transaction '%s': %s" % (txn, ex))
-                if debug: traceback.print_exc(file=sys.stdout)
-                if self.stop_on_error: raise
-                r.abortTransaction(txn_id)
-                continue
-
-            #if debug: logging.debug("%s\nParameters:\n%s\nResult:\n%s" % (txn, pformat(params), pformat(val)))
-            
-            r.stopTransaction(txn_id)
-        ## WHILE
-            
-        r.stopBenchmark()
-        return (r)
     ## DEF
     
     def doOne(self):

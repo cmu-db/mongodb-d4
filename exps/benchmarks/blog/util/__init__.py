@@ -1,3 +1,4 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["zipf", "rand"]
+from rand import *
+from zipf import *

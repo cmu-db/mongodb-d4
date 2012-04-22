@@ -23,10 +23,12 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
+import sys
 import time
-import execnet
 import logging
+import traceback
 
+from .results import *
 from .message import *
 
 LOG = logging.getLogger(__name__)
@@ -35,32 +37,34 @@ class AbstractWorker:
     '''Abstract Benchmark Worker'''
     def __init__(self):
         ''' All subclass constructor should not take any argument. You can do more initializing work in initializing method '''
-        self._config = None
-        self._name = None
-        self._id = None
+        self.config = None
+        self.name = None
+        self.id = None
+        self.stop_on_error = False
         pass
     ## DEF
     
-    def getWorkerId():
+    def getWorkerId(self):
         """Return the unique identifier for this worker instance"""
-        return self._id
+        return self.id
     
-    def getBenchmarkName():
-        return self._name
+    def getBenchmarkName(self):
+        return self.name
     
-    def init(self, config, channel, msg):
+    def init(self, config, channel):
         '''Work Initialization. You always must send a INIT_COMPLETED message back'''
-        self._config = config
-        self._name = config['name']
-        self._id = config["id"]
+        self.config = config
+        self.name = config['name']
+        self.id = config['id']
+        self.stop_on_error = config['stop_on_error']
         
-        LOG.info("Initializing %s Worker [clientId=%d]" % (self._name, self._id))
+        LOG.info("Initializing %s Worker [clientId=%d]" % (self.name, self.id))
         self.initImpl(config, channel)
         sendMessage(MSG_INIT_COMPLETED, None, channel)
     ## DEF
     
     def initImpl(self, config, channel):
-        raise NotImplementedError("%s does not implement initImpl" % (self._name))
+        raise NotImplementedError("%s does not implement initImpl" % (self.name))
         
     def load(self, config, channel, msg):
         '''Perform actual loading. We will always send back LOAD_COMPLETED message'''
@@ -71,19 +75,49 @@ class AbstractWorker:
     ## DEF
     
     def loadImpl(self, config, channel, msg):
-        raise NotImplementedError("%s does not implement loadImpl" % (self._name))
+        raise NotImplementedError("%s does not implement loadImpl" % (self.name))
         
     def execute(config, channel, msg):
         ''' Actual execution. You might want to send a EXECUTE_COMPLETED message back with the loading time'''
         config['execute'] = True
         config['reset'] = False
-        results = self.executeImpl(config, channel, msg)
-        sendMessage(MSG_EXECUTE_COMPLETED, results, channel)
-        pass
+        
+        r = Results()
+        assert r
+        LOG.info("Executing benchmark for %d seconds" % config['duration'])
+        start = r.startBenchmark()
+        debug = logging.getLogger().isEnabledFor(logging.DEBUG)
+
+        while (time.time() - start) <= config['duration']:
+            txn, params = self.next(config)
+            txn_id = r.startTransaction(txn)
+            
+            if debug: logging.debug("Executing '%s' transaction" % txn)
+            try:
+                val = self.executeImpl(config, txn, params)
+            except KeyboardInterrupt:
+                return -1
+            except (Exception, AssertionError), ex:
+                logging.warn("Failed to execute Transaction '%s': %s" % (txn, ex))
+                if debug: traceback.print_exc(file=sys.stdout)
+                if self.stop_on_error: raise
+                r.abortTransaction(txn_id)
+                continue
+
+            #if debug: logging.debug("%s\nParameters:\n%s\nResult:\n%s" % (txn, pformat(params), pformat(val)))
+            
+            r.stopTransaction(txn_id)
+        ## WHILE
+            
+        r.stopBenchmark()
+        sendMessage(MSG_EXECUTE_COMPLETED, r, channel)
     ## DEF
         
-    def executeImpl(self, config, channel, msg):
-        raise NotImplementedError("%s does not implement executeImpl" % (self._name))
+    def next(self, config):
+        raise NotImplementedError("%s does not implement next" % (self.name))
+        
+    def executeImpl(self, config, txn, params):
+        raise NotImplementedError("%s does not implement executeImpl" % (self.name))
         
     def moreProcessing(config, channel, msg):
         '''hook'''

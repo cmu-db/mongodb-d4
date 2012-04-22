@@ -62,6 +62,8 @@ class TpccWorker(AbstractWorker):
         assert driver != None, "Failed to create '%s' driver" % config['system']
         driver.loadConfig(config)
         self._driver = driver
+        
+        self._executor = executor.Executor(self._driver, self._scaleParameters, stop_on_error = self.stop_on_error)
     ## DEF
     
     def createDriverClass(self, name):
@@ -87,15 +89,14 @@ class TpccWorker(AbstractWorker):
             traceback.print_exc(file = sys.stdout)
             raise
     ## DEF
+    
+    def next(self, config):
+        assert self._executor != None
+        return self._executor.doOne()
         
-    def executeImpl(self, config, channel, msg):
+    def executeImpl(self, config, txn, params):
         assert self._driver != None
-        
-        soe = (config['stop_on_error']=='1')
-        e = executor.Executor(self._driver, self._scaleParameters, stop_on_error = soe)
-        self._driver.executeStart()
-        results = e.execute(config['duration'])
-        self._driver.executeFinish()
-        return (results)
+        assert self._executor != None
+        val = self._driver.executeTransaction(txn, params)
     ## DEF    
 ## CLASS

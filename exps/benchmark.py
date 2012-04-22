@@ -82,6 +82,12 @@ class Benchmark:
         #config['path'] = os.path.join(basedir, "api")
         config['path'] = os.path.realpath(basedir)
         
+        # Fix common problems
+        for key in [ "port", "duration", "experiment" ]:
+            if key in config:
+                config[key] = int(config[key])
+        ## FOR
+        
         logging.debug("Configuration File:\n%s" % pformat(config))
         return config
         
@@ -114,6 +120,19 @@ class Benchmark:
     def createCoordinator(self):
         '''Coordinator factory method.'''
         benchmark = self._config['benchmark']
+        
+        # First make sure that the benchmark is on our sys.path
+        realpath = os.path.realpath(__file__)
+        basedir = os.path.dirname(realpath)
+        if not os.path.exists(realpath):
+            cwd = os.getcwd()
+            basename = os.path.basename(realpath)
+            if os.path.exists(os.path.join(cwd, basename)):
+                basedir = cwd
+        benchmarkDir = os.path.join(basedir, "benchmarks", benchmark)
+        sys.path.append(os.path.realpath(benchmarkDir))
+        
+        # Then use some black magic to instantiate an instance of the benchmark's coordinator
         fullName = benchmark.title() + "Coordinator"
         moduleName = "benchmarks.%s.%s" % (benchmark.lower(), fullName.lower())
         moduleHandle = __import__(moduleName, globals(), locals(), [fullName])

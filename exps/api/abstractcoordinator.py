@@ -50,12 +50,14 @@ class AbstractCoordinator:
         self.initImpl(self._config, channels)
         
         ## Invoke the workers for this benchmark invocation
-        clientId = 0
+        workerId = 0
         for ch in channels:
-            clientConfig = dict(self._config.items())
-            clientConfig["id"] = clientId
-            sendMessage(MSG_CMD_INIT, clientConfig, ch)
-            clientId += 1
+            workerConfig = dict(self._config.items())
+            workerConfig["id"] = workerId
+            workerId += 1
+            sendMessage(MSG_CMD_INIT, workerConfig, ch)
+        ## FOR
+            
         ## Block until they all respond with an acknowledgement
         for ch in channels :
             msg = getMessage(ch.receive())

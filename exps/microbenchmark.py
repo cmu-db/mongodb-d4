@@ -9,7 +9,7 @@ import string
 import math
 import bisect
 import random
-import pymongo
+
 from datetime import datetime, timedelta
 from pprint import pprint
 
@@ -21,42 +21,9 @@ logging.basicConfig(level = logging.INFO,
 
 
 
-def string_generator(size=6, chars=string.ascii_uppercase + string.digits):
-    return ''.join(random.choice(chars) for x in range(size))
 
-def random_date(start, end):
-    """
-    This function will return a random datetime between two datetime 
-    objects.
-    """
-    delta = end - start
-    int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
-    random_second = random.randrange(int_delta)
-    return (start + timedelta(seconds=random_second))
-## DEF
     
-## -----------------------------------------------------
-## Zipfian Distribution Generator
-## -----------------------------------------------------
-class ZipfGenerator: 
-    
-    def __init__(self, n, alpha): 
-        # Calculate Zeta values from 1 to n: 
-        tmp = [1. / (math.pow(float(i), alpha)) for i in range(1, n+1)] 
-        zeta = reduce(lambda sums, x: sums + [sums[-1] + x], tmp, [0]) 
-        
-        # Store the translation map: 
-        self.distMap = [x / zeta[-1] for x in zeta] 
-    
-    def next(self): 
-        # Take a uniform 0-1 pseudo-random value: 
-        u = random.random()  
 
-        # Translate the Zipf variable: 
-        return bisect.bisect(self.distMap, u) - 1
-
-        return i - 1 
-## CLASS
     
     
 def show_results(start, stop, num) :
@@ -73,74 +40,11 @@ def show_results(start, stop, num) :
 ## Generate Synthetic Data for Micro-Benchmarking
 ## -----------------------------------------------------
 def generateData(conn, num_articles, denormalize = False):
-    logging.info("Initializing database '%s'" % DB_NAME)
-    conn.drop_database(DB_NAME)
     
-    ## Precompute our blog article authors
-    authors = [ ]
-    for i in xrange(0, NUM_AUTHORS):
-        authorSize = int(random.gauss(MAX_AUTHOR_SIZE/2, MAX_AUTHOR_SIZE/4))
-        authors.append(string_generator(authorSize))
-    ## FOR
-    
-    ## Zipfian distribution on the number of comments & their ratings
-    commentsZipf = ZipfGenerator(MAX_NUM_COMMENTS, 1.0)
-    ratingZipf = ZipfGenerator(MAX_COMMENT_RATING, 1.0)
-    
-    logging.info('Begin generating synthetic data')
-    i = 0
-    commentId = 0
-    for i in xrange(0, num_articles):
-        titleSize = int(random.gauss(MAX_TITLE_SIZE/2, MAX_TITLE_SIZE/4))
-        contentSize = int(random.gauss(MAX_CONTENT_SIZE/2, MAX_CONTENT_SIZE/4))
-        
-        title = string_generator(titleSize)
-        slug = list(title)
-        for idx in xrange(0, titleSize):
-            if random.randint(0, 10) == 0:
-                slug[idx] = "-"
-        ## FOR
-        slug = "".join(slug)
-        articleDate = random_date(START_DATE, STOP_DATE)
-        
-        article = {
-            "id": i,
-            "title": title,
-            "date": articleDate,
-            "author": random.choice(authors),
-            "slug": slug,
-            "content": string_generator(contentSize)
-        }
 
-        numComments = commentsZipf.next()
-        lastDate = articleDate
-        for ii in xrange(0, numComments):
-            lastDate = random_date(lastDate, STOP_DATE)
-            comment = {
-                "id": commentId,
-                "article": i,
-                "date": lastDate, 
-                "author": string_generator(int(random.gauss(MAX_AUTHOR_SIZE/2, MAX_AUTHOR_SIZE/4))),
-                "comment": string_generator(int(random.gauss(MAX_COMMENT_SIZE/2, MAX_COMMENT_SIZE/4))),
-                "rating": int(ratingZipf.next())
-            }
-            if denormalize == False:
-                conn[DB_NAME][COMMENT_COLL].insert(comment)
-            else:
-                if not "comments" in article:
-                    article["comments"] = [ ]
-                article["comments"].append(comment)
-            commentId += 1
-        ## FOR (comments)
-        
-        conn[DB_NAME][ARTICLE_COLL].insert(article)
-        
-        if i % 1000 == 0 :
-            logging.info("ARTICLE: %6d / %d" % (i, num_articles))
-    ## FOR (articles)
+   
     
-    logging.info("# of ARTICLES: %d" % i)
-    logging.info("# of COMMENTS: %d" % commentId)
+    
 ## DEF
 
 ## -----------------------------------------------------
@@ -169,14 +73,7 @@ if __name__ == '__main__':
 
     if args['debug']: logging.getLogger().setLevel(logging.DEBUG)
     
-    ## ----------------------------------------------
-    ## Connect to MongoDB
-    ## ----------------------------------------------
-    try:
-        conn = pymongo.Connection(args['host'], args['port'])
-    except:
-        logging.error("Failed to connect to MongoDB at %s:%s" % (args['host'], args['port']))
-        raise
+    
 
     ## -----------------------------------------------------
     ## Load in sample data
