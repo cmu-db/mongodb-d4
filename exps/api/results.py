@@ -95,6 +95,7 @@ class Results:
         
     def show(self, load_time = None):
         if self.start == None:
+            LOG.warn("Attempting to get benchmark results before it was started")
             return "Benchmark not started"
         if self.stop == None:
             duration = time.time() - self.start

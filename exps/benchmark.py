@@ -40,7 +40,7 @@ from api.messageprocessor import *
 from api.directchannel import *
 
 logging.basicConfig(level = logging.INFO,
-                    format="%(asctime)s [%(funcName)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
                     datefmt="%m-%d-%Y %H:%M:%S",
                     stream = sys.stdout)
 

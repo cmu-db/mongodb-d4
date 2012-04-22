@@ -165,11 +165,11 @@ class Loader:
         for i_id in range(1, self.scaleParameters.items+1):
             original = (i_id in selectedRows)
             s_tuples.append(self.generateStock(w_id, i_id, original))
+            total_tuples += 1
             if len(s_tuples) >= self.batch_size:
                 logging.debug("LOAD - %s [W_ID=%d]: %5d / %d" % (constants.TABLENAME_STOCK, w_id, total_tuples, self.scaleParameters.items))
                 self.handle.loadTuples(constants.TABLENAME_STOCK, s_tuples)
                 s_tuples = [ ]
-            total_tuples += 1
         ## FOR
         if len(s_tuples) > 0:
             logging.debug("LOAD - %s [W_ID=%d]: %5d / %d" % (constants.TABLENAME_STOCK, w_id, total_tuples, self.scaleParameters.items))

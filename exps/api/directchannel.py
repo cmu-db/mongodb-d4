@@ -36,7 +36,9 @@ class DirectChannel:
         self.processor = MessageProcessor(self)
         
         m = Message(MSG_EMPTY, True)
-        self.response = pickle.dumps(m, -1)
+        self.defaultResponse = pickle.dumps(m, -1)
+        self.response = None
+        
         pass
     
     def __iter__(self):
@@ -48,11 +50,22 @@ class DirectChannel:
         return self.queue.pop(0)
 
     def send(self, msg):
-        self.queue.append(msg)
-        self.processor.processMessage()
+        m = getMessage(msg)
+        if m.header in [ MSG_INIT_COMPLETED, MSG_LOAD_COMPLETED, MSG_EXECUTE_COMPLETED ]:
+            self.response = msg
+        else:
+            self.queue.append(msg)
+            self.processor.processMessage()
+    ## DEF
         
     def receive(self):
-        return self.response
+        r = None
+        if self.response != None:
+            r = self.response
+            self.response = None
+        else:
+            r = self.defaultResponse
+        return r
 ## CLASS
 
     
