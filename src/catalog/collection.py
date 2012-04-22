@@ -16,6 +16,7 @@ class Collection(Document):
         'shard_keys': dict,
         'indexes': dict,
         'tuple_count' : int,
+        'avg_doc_size' : int,
     }
     required_fields = [ 'name' ]
     #use_autorefs = True
@@ -38,14 +39,5 @@ Dictionary for fields
     'query_use_count' : 0,
     'cardinality' : 0,
     'selectivity' : 0,
-}
-
-{
-    'hist_query_keys' : [],
-    'hist_query_values' : [],
-    'hist_data_keys' : [],
-    'hist_data_values' : [],
-    'max' : Maximum Value,
-    'min' : Minimum Value,
 }
 '''
