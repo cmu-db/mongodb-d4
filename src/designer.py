@@ -184,7 +184,9 @@ if __name__ == '__main__':
     alpha = cparser.getfloat(config.SECT_COSTMODEL, 'weight_network')
     beta = cparser.getfloat(config.SECT_COSTMODEL, 'weight_disk')
     gamma = cparser.getfloat(config.SECT_COSTMODEL, 'weight_skew')
-    config_params = {'alpha' : alpha, 'beta' : beta, 'gamma' : gamma, 'nodes' : 10, 'max_memory' : 4}
+    cluster_nodes = cparser.getint(config.SECT_CLUSTER, 'nodes')
+    memory = cparser.getint(config.SECT_CLUSTER, 'node_memory')
+    config_params = {'alpha' : alpha, 'beta' : beta, 'gamma' : gamma, 'nodes' : cluster_nodes, 'max_memory' : memory}
     cm = costmodel.CostModel(wrkld, config_params, statistics)
     upper_bound = cm.overallCost(starting_design)
     print upper_bound
