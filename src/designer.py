@@ -181,7 +181,10 @@ if __name__ == '__main__':
     ## STEP 4
     ## Instantiate cost model, determine upper bound from starting design
     ## -------------------------------------------------
-    config_params = {'alpha' : 1.0, 'beta' : 1.0, 'gamma' : 1.0, 'nodes' : 10, 'max_memory' : 4}
+    alpha = cparser.getfloat(config.SECT_COSTMODEL, 'weight_network')
+    beta = cparser.getfloat(config.SECT_COSTMODEL, 'weight_disk')
+    gamma = cparser.getfloat(config.SECT_COSTMODEL, 'weight_skew')
+    config_params = {'alpha' : alpha, 'beta' : beta, 'gamma' : gamma, 'nodes' : 10, 'max_memory' : 4}
     cm = costmodel.CostModel(wrkld, config_params, statistics)
     upper_bound = cm.overallCost(starting_design)
     print upper_bound
