@@ -55,8 +55,8 @@ class CostModel(object):
         self.stats = statistics
         self.rg = random.Random()
         self.rg.seed('cost model coolness')
-        # Convert GB to KB
-        self.max_memory = config['max_memory'] * 1024 * 1024
+        # Convert MB to KB
+        self.max_memory = config['max_memory'] * 1024
         
         # Size of an index per document (default 10 kb)
         if 'index_node_size' in list(config) :
