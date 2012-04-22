@@ -176,7 +176,7 @@ if __name__ == '__main__':
     for col in collections :
         col_names.append(col['name']) # for step 5
         statistics[col['name']]['workload_percent'] = statistics[col['name']]['workload_queries'] / statistics['total_queries']
-        statistics[col['name']]['max_pages'] = statistics[col['name']]['tuple_count'] * statistics[col['name']]['kb_per_doc'] / page_size
+        statistics[col['name']]['max_pages'] = statistics[col['name']]['tuple_count'] * statistics[col['name']]['avg_doc_size'] /  (page_size * 1024)
     
     ## -------------------------------------------------
     ## STEP 4

@@ -19,9 +19,8 @@ config {
     'beta' : Disk cost coefficient,
     'gamma' : Skew cost coefficient,
     'nodes' : Number of nodes in the Mongo DB instance,
-    'max_memory' : Amount of memory per node in GB,
+    'max_memory' : Amount of memory per node in MB,
     'index_node_size' : Amount of memory required to index 1 document,
-    'page_size' : size of disk page
 }
 
 statistics {
@@ -56,19 +55,8 @@ class CostModel(object):
         self.rg = random.Random()
         self.rg.seed('cost model coolness')
         # Convert MB to KB
-        self.max_memory = config['max_memory'] * 1024
-        
-        # Size of an index per document (default 10 kb)
-        if 'index_node_size' in list(config) :
-            self.index_node_size = config['index_node_size']
-        else :
-            self.index_node_size = 1
+        self.max_memory = config['max_memory'] * 1024 * 1024
         self.skew_segments = 9
-        
-        if 'page_size' in list(config) :
-            self.page_size = config['page_size']
-        else :
-            self.page_size = 16
     ## end def ##
     
     def overallCost(self, design) :
@@ -259,10 +247,10 @@ class CostModel(object):
         memory = 0
         for col in design.collections :
             # Add a hit for the index on '_id' attribute for each collection
-            memory += self.stats[col]['tuple_count'] * self.index_node_size
+            memory += self.stats[col]['tuple_count'] * self.stats[col]['avg_doc_size']
             
             # Process other indexes for this collection in the design
-            memory += self.stats[col]['tuple_count'] * self.index_node_size * len(design.indexes[col])
+            memory += self.stats[col]['tuple_count'] * self.stats[col]['avg_doc_size'] * len(design.indexes[col])
         return memory
         
     '''
@@ -273,6 +261,7 @@ class CostModel(object):
         leftovers = {}
         buffer = 0
         needs_memory = []
+        
         # create tuples of workload percentage, collection for sorting
         sorting_pairs = []
         for col in design.collections :
@@ -282,7 +271,7 @@ class CostModel(object):
         # iterate over sorted tuples to process in descending order of usage
         for pair in sorting_pairs :
             memory_available = capacity * pair[0]
-            memory_needed = self.stats[pair[1]]['kb_per_doc'] * self.stats[pair[1]]['tuple_count']
+            memory_needed = self.stats[pair[1]]['avg_doc_size'] * self.stats[pair[1]]['tuple_count']
             
             # is there leftover memory that can be put in a buffer for other collections?
             if memory_needed <= memory_available :
@@ -293,13 +282,13 @@ class CostModel(object):
         
         for pair in needs_memory :
             memory_available = capacity * pair[0] + buffer
-            memory_needed = self.stats[pair[1]]['kb_per_doc'] * self.stats[pair[1]]['tuple_count']
+            memory_needed = self.stats[pair[1]]['avg_doc_size'] * self.stats[pair[1]]['tuple_count']
             
             if memory_needed <= memory_available :
                 working_set_counts[pair[1]] = 100
                 buffer = memory_available - memory_needed
             else :
-                working_set_counts[pair[1]] = memory_available / self.stats[pair[1]]['kb_per_doc']
+                working_set_counts[pair[1]] = memory_available / self.stats[pair[1]]['avg_doc_size']
                 working_set_counts[pair[1]] = working_set_counts[pair[1]] / self.stats[pair[1]]['tuple_count']
                 working_set_counts[pair[1]] = math.ceil(working_set_counts[pair[1]] * 100)
         return working_set_counts

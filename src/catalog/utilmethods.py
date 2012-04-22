@@ -126,7 +126,7 @@ def gatherStatisticsFromCollections(collectionsIterable) :
             'tuple_count' : col['tuple_count'],
             'workload_queries' : 0,
             'workload_percent' : 0.0,
-            'kb_per_doc' : col['kb_per_doc'],
+            'avg_doc_size' : col['avg_doc_size'],
             'interesting' : [],
         }
         for field, data in col['fields'].iteritems() :
