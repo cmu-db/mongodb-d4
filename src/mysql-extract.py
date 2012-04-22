@@ -95,12 +95,8 @@ if __name__ == '__main__':
             coll_catalog["fields"][col_name] = {
                 'type': catalog.fieldTypeToString(col_type),
                 'query_use_count' : 0,
-                'hist_query_keys' : [],
-                'hist_query_values' : [],
-                'hist_data_keys' : [],
-                'hist_data_values' : [],
-                'max' : None,
-                'min' : None,
+                'cardinality' : 0,
+                'selectivity' : 0
             }
         ## FOR
         
