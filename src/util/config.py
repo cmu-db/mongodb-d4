@@ -26,6 +26,7 @@ DEFAULT_CONFIG = {
     SECT_CLUSTER: {
         "nodes": ("The number of machines in the target MongoDB cluster.", 10),
         "node_memory":  ("The amount of memory available for each MongoDB database nodes.", 15360),
+        "page_size": ("The size of pages (kb) on disk for each MongoDB database node.", 4),
     },
     
     # Designer Configuration
@@ -40,7 +41,9 @@ DEFAULT_CONFIG = {
     # Cost Model Configuration
     SECT_COSTMODEL: {
         "weight_execution": ("", 1.0),
-        "weight_skew": ("", 1.0),
+        "weight_skew": ("Coefficient for the Skew cost function", 1.0),
+        "weight_network": ("Coefficient for the Network cost function", 1.0),
+        "weight_disk": ("Coefficient for the Disk cost function", 1.0),
     }
 }
 

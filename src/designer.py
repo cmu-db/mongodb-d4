@@ -85,6 +85,7 @@ if __name__ == '__main__':
         if not db_name in db_names:
             raise Exception("The %s database '%s' does not exist" % (key.upper(), db_name))
     ## FOR
+    
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
 
