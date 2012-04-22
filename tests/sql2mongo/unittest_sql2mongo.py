@@ -189,7 +189,7 @@ class TestConversions (unittest.TestCase) :
         sql = 'SELECT * FROM users WHERE a=1 or b=2'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
-        self.assertEqual(u"db.users.find({or:[{a:1},{b:2}]})", result[0])
+        self.assertEqual(u"db.users.find({$or:[{a:1},{b:2}]})", result[0])
         
     def testSelectQuery13(self) :
         sql = 'SELECT * FROM users LIMIT 1'
