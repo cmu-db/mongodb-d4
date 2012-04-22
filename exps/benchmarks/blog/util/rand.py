@@ -23,44 +23,20 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
-import sys
-import os
-import string
 import random
-import logging
-from pprint import pprint, pformat
+import string
 
-import util
-import constants
-from api.abstractcoordinator import AbstractCoordinator
-from api.message import *
+def randomString(size=6, chars=string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(chars) for x in range(size))
+## DEF
 
-LOG = logging.getLogger(__name__)
-
-class BlogCoordinator(AbstractCoordinator) :
-    
-    def initImpl(self, config, channels):
-        self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
-        
-        ## Precompute our blog article authors
-        self.authors = [ ]
-        for i in xrange(0, constants.NUM_AUTHORS):
-            authorSize = int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4))
-            self.authors.append(rand.randomString(authorSize))
-        ## FOR
-        
-        return
-    
-    def loadImpl(self, config, channels) :
-        '''divide loading to several clients'''
-        procs = len(channels)
-        articleRange = [ ]
-        articlesPerChannel = self.num_articles / procs
-        first = 0
-        for i in range(len(channels)):
-            last = first + articlesPerChannel
-            sendMessage(MSG_CMD_LOAD, (first, last), channels[i])
-            first = last
-    ## DEF
-
-## CLASS
+def randomDate(start, end):
+    """
+    This function will return a random datetime between two datetime 
+    objects.
+    """
+    delta = end - start
+    int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
+    random_second = random.randrange(int_delta)
+    return (start + timedelta(seconds=random_second))
+## DEF

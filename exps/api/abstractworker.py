@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2011
-# Yang Lu
-# http://www.cs.brown.edu/~yanglu/
+# Copyright (C) 2012
+# Yang Lu - http://www.cs.brown.edu/~yanglu/
+# Andy Pavlo - http://www.cs.brown.edu/~pavlo/
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -37,15 +37,24 @@ class AbstractWorker:
         ''' All subclass constructor should not take any argument. You can do more initializing work in initializing method '''
         self._config = None
         self._name = None
+        self._id = None
         pass
     ## DEF
     
-    def init(self, config, channel):
+    def getWorkerId():
+        """Return the unique identifier for this worker instance"""
+        return self._id
+    
+    def getBenchmarkName():
+        return self._name
+    
+    def init(self, config, channel, msg):
         '''Work Initialization. You always must send a INIT_COMPLETED message back'''
         self._config = config
         self._name = config['name']
+        self._id = config["id"]
         
-        LOG.info("Initializing %s Worker" % self._name)
+        LOG.info("Initializing %s Worker [clientId=%d]" % (self._name, self._id))
         self.initImpl(config, channel)
         sendMessage(MSG_INIT_COMPLETED, None, channel)
     ## DEF
@@ -69,7 +78,7 @@ class AbstractWorker:
         config['execute'] = True
         config['reset'] = False
         results = self.executeImpl(config, channel, msg)
-        sendMessage(EXECUTE_COMPLETED, results, channel)
+        sendMessage(MSG_EXECUTE_COMPLETED, results, channel)
         pass
     ## DEF
         

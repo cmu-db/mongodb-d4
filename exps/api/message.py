@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
 # Copyright (C) 2011
-# Yang Lu
-# http://www.cs.brown.edu/~yanglu/
+# Yang Lu - http://www.cs.brown.edu/~yanglu/
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -46,7 +45,7 @@ for key in globals().keys():
 
 def sendMessage(msg, data, channel):
     '''serialize the data and send the msg through channel'''
-    m = Message(msg,data)
+    m = Message(msg, data)
     p = pickle.dumps(m, -1)
     channel.send(p)
     

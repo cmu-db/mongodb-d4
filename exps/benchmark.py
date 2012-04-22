@@ -132,7 +132,7 @@ class Benchmark:
             
         # Step 3: Execute the benchmark workload
         if not self._args['no_execute']:
-            self._coordinator.distributeExecution(self._config, self._channels)    
+            self._coordinator.execute(self._config, self._channels)    
             
         # Step 4: Clean things up and show results
         self._coordinator.showResult(self._config, self._channels)        

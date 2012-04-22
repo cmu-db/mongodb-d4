@@ -1,3 +1,3 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["zipf"]
+__all__ = ["zipf", "rand"]

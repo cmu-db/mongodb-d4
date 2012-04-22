@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2011
-# Yang Lu
-# http://www.cs.brown.edu/~yanglu/
+# Copyright (C) 2012
+# Yang Lu - http://www.cs.brown.edu/~yanglu/
+# Andy Pavlo - http://www.cs.brown.edu/~pavlo/
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -50,8 +50,12 @@ class AbstractCoordinator:
         self.initImpl(self._config, channels)
         
         ## Invoke the workers for this benchmark invocation
-        for ch in channels :
-            sendMessage(MSG_CMD_INIT, self._config, ch)
+        clientId = 0
+        for ch in channels:
+            clientConfig = dict(self._config.items())
+            clientConfig["id"] = clientId
+            sendMessage(MSG_CMD_INIT, clientConfig, ch)
+            clientId += 1
         ## Block until they all respond with an acknowledgement
         for ch in channels :
             msg = getMessage(ch.receive())
