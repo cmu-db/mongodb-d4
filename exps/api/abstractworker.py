@@ -31,7 +31,8 @@ import traceback
 from .results import *
 from .message import *
 
-LOG = logging.getLogger(__name__)
+#LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 
 class AbstractWorker:
     '''Abstract Benchmark Worker'''
@@ -77,7 +78,7 @@ class AbstractWorker:
     def loadImpl(self, config, channel, msg):
         raise NotImplementedError("%s does not implement loadImpl" % (self.name))
         
-    def execute(config, channel, msg):
+    def execute(self, config, channel, msg):
         ''' Actual execution. You might want to send a EXECUTE_COMPLETED message back with the loading time'''
         config['execute'] = True
         config['reset'] = False
@@ -86,13 +87,13 @@ class AbstractWorker:
         assert r
         LOG.info("Executing benchmark for %d seconds" % config['duration'])
         start = r.startBenchmark()
-        debug = logging.getLogger().isEnabledFor(logging.DEBUG)
+        debug = LOG.isEnabledFor(logging.DEBUG)
 
         while (time.time() - start) <= config['duration']:
             txn, params = self.next(config)
             txn_id = r.startTransaction(txn)
             
-            if debug: logging.debug("Executing '%s' transaction" % txn)
+            logging.debug("Executing '%s' transaction" % txn)
             try:
                 val = self.executeImpl(config, txn, params)
             except KeyboardInterrupt:

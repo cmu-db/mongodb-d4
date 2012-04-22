@@ -24,9 +24,10 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 import time
-import execnet
 import logging
-from message import *
+
+from .results import *
+from .message import *
 
 LOG = logging.getLogger(__name__)
 
@@ -34,25 +35,25 @@ class AbstractCoordinator:
     '''Abstract coordinator.'''
     def __init__(self):
         '''All subclass constructor should not taken any arguments. You can do more initializing work in initialize() method'''
-        self._benchmark = None
-        self._config = None
-        self._load_result = None
-        self._total_results = None
+        self.benchmark = None
+        self.config = None
+        self.load_result = None
+        self.total_results = None
         pass
     
     def init(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
-        self._config = config
-        self._name = config['name']
-        LOG.info("Initializing %s Benchmark Coordinator" % self._name)
+        self.config = config
+        self.name = config['name']
+        LOG.info("Initializing %s Benchmark Coordinator" % self.name)
         
         ## First initialize our local coordinator
-        self.initImpl(self._config, channels)
+        self.initImpl(self.config, channels)
         
         ## Invoke the workers for this benchmark invocation
         workerId = 0
         for ch in channels:
-            workerConfig = dict(self._config.items())
+            workerConfig = dict(self.config.items())
             workerConfig["id"] = workerId
             workerId += 1
             sendMessage(MSG_CMD_INIT, workerConfig, ch)
@@ -65,17 +66,17 @@ class AbstractCoordinator:
                 pass
             else:
                 pass
-        LOG.debug("%s Initialization Completed!" % self._name)
+        LOG.debug("%s Initialization Completed!" % self.name)
     ## DEF
         
     def loadImpl(self, config, channels):
         '''Benchmark coordinator initialization method'''
-        raise NotImplementedError("%s does not implement initImpl" % (self._name))
+        raise NotImplementedError("%s does not implement initImpl" % (self.name))
         
     def load(self, config, channels):
         ''' distribute loading to a list of channels by sending command message to each of them.\
         You can collect the load time from each channel and returns the total loading time'''
-        LOG.info("Loading %s Database" % self._name)
+        LOG.info("Loading %s Database" % self.name)
         
         load_start = time.time()
         self.loadImpl(config, channels)
@@ -85,36 +86,36 @@ class AbstractCoordinator:
                 pass
             else:
                 pass
-        self._load_result = time.time() - load_start
-        LOG.info("Loading completed: %s" % self._load_result)
+        self.load_result = time.time() - load_start
+        LOG.info("Loading completed: %s" % self.load_result)
         
         return None
     ## DEF
         
     def loadImpl(self, config, channels):
         '''Distribute loading to a list of channels by sending command message to each of them'''
-        raise NotImplementedError("%s does not implement loadImpl" % (self._name))
+        raise NotImplementedError("%s does not implement loadImpl" % (self.name))
         
     def execute(self, config, channels):
         '''distribute execution to a list of channels by send command message to each of them.\
         You can collect the execution result from each channel'''
-        LOG.info("Executing %s Workload" % self._name)
+        LOG.info("Executing %s Workload" % self.name)
         
-        self._total_results = results.Results()
-        for ch in channels :
+        self.total_results = Results()
+        for ch in channels:
             sendMessage(MSG_CMD_EXECUTE, None, ch)
-        for ch in channels :
+        for ch in channels:
             msg = getMessage(ch.receive())
             if msg.header == MSG_EXECUTE_COMPLETED :
                 r = msg.data
-                self._total_results.append(r)
+                self.total_results.append(r)
             else:
                 pass
         
         return None
         
     def showResult(self, config, channels):
-        print self._total_results.show(self._load_result)
+        print self.total_results.show(self.load_result)
         
        
     def moreProcessing(self, config, channels):

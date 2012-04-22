@@ -151,11 +151,11 @@ class Benchmark:
             
         # Step 3: Execute the benchmark workload
         if not self._args['no_execute']:
-            self._coordinator.execute(self._config, self._channels)    
+            self._coordinator.execute(self._config, self._channels)
+            self._coordinator.showResult(self._config, self._channels)
             
-        # Step 4: Clean things up and show results
-        self._coordinator.showResult(self._config, self._channels)        
-        self._coordinator.moreProcessing(self._config, self._channels)
+        # Step 4: Clean things up (?)
+        # self._coordinator.moreProcessing(self._config, self._channels)
 ## CLASS
         
 ## ==============================================
@@ -180,9 +180,11 @@ if __name__=='__main__':
                          help='Path to benchmark configuration file')
     aparser.add_argument('--reset', action='store_true',
                          help='Instruct the driver to reset the contents of the database')
-    aparser.add_argument('--scalefactor', default = 1, type = float, metavar='SF',
+    aparser.add_argument('--scalefactor', default = 1, type=float, metavar='SF',
                          help='Benchmark scale factor')
-    aparser.add_argument('--clientprocs', default = 1, type = int, metavar='N',
+    aparser.add_argument('--duration', default = 60, type=int, metavar='D',
+                         help='Benchmark execution time in seconds')
+    aparser.add_argument('--clientprocs', default = 1, type=int, metavar='N',
                          help='Number of processes on each client node.')
                          
     aparser.add_argument('--stop-on-error', action='store_true',

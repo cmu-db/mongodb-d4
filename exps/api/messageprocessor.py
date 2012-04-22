@@ -60,7 +60,7 @@ class MessageProcessor:
             elif msg.header == MSG_CMD_LOAD :
                 self._worker.load(self._config, self._channel, msg)
             elif msg.header == MSG_CMD_EXECUTE :
-                self._worker.startExecution(self._config, self._channel, msg)
+                self._worker.execute(self._config, self._channel, msg)
             elif msg.header == MSG_CMD_STOP :
                 pass
             elif msg.header == MSG_EMPTY :
