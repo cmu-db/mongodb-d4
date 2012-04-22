@@ -50,7 +50,7 @@ class MessageProcessor:
         '''Main loop'''
         for item in self._channel:
             msg = getMessage(item)
-            LOG.info("Incoming Message: %s" % getMessageName(msg.header))
+            LOG.debug("Incoming Message: %s" % getMessageName(msg.header))
             if msg.header == MSG_CMD_INIT :
                 self._config = msg.data
                 if 'debug' in self._config and self._config['debug']:

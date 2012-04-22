@@ -93,7 +93,8 @@ class BlogWorker(AbstractWorker):
             
             title = randomString(titleSize)
             slug = list(title.replace(" ", ""))
-            for idx in xrange(0, titleSize):
+            if len(slug) > 64: slug = slug[:64]
+            for idx in xrange(0, len(slug)):
                 if random.randint(0, 10) == 0:
                     slug[idx] = "-"
             ## FOR
@@ -140,8 +141,8 @@ class BlogWorker(AbstractWorker):
             # Always insert the article
             self.conn[constants.DB_NAME][constants.ARTICLE_COLL].insert(article)
             articleCtr += 1
-            if articleCtr % 1000 == 0 :
-                LOG.info("ARTICLE: %6d / %d" % (articleCtr, (lastArticle - firstArticle)))
+            if self.debug and articleCtr % 1000 == 0 :
+                LOG.debug("ARTICLE: %6d / %d" % (articleCtr, (lastArticle - firstArticle)))
         ## FOR (articles)
         
         LOG.info("# of ARTICLES: %d" % articleCtr)
@@ -178,6 +179,9 @@ class BlogWorker(AbstractWorker):
     def executeImpl(self, config, txn, params):
         assert self.conn != None
         assert "experiment" in config
+        
+        if self.debug:
+            LOG.debug("Executing %s / %s [denormalize=%s]" % (txn, str(params), config["denormalize"]))
         
         # Sharding Key - Variant 1
         if config["experiment"] == 1:
@@ -228,11 +232,14 @@ class BlogWorker(AbstractWorker):
         """
         
         article = self.conn[constants.DB_NAME][constants.ARTICLE_COLL].find_one({"id": articleId})
+        if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            pass
         assert article["id"] == articleId
-        if not denormalize:
+        if denormalize:
             comments = self.conn[constants.DB_NAME][constants.COMMENT_COLL].find({"article": articleId})
         else:
-            assert "comments" in article
+            assert "comments" in article, pformat(article)
             comments = article["comments"]
         return
     ## DEF

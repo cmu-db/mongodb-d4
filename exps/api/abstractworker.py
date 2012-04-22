@@ -58,6 +58,7 @@ class AbstractWorker:
         self.name = config['name']
         self.id = config['id']
         self.stop_on_error = config['stop_on_error']
+        self.debug = config['debug']
         
         LOG.info("Initializing %s Worker [clientId=%d]" % (self.name, self.id))
         self.initImpl(config, channel)
