@@ -22,16 +22,6 @@ LOG = logging.getLogger(__name__)
 ## main
 ## ==============================================
 if __name__ == '__main__':
-    '''
-    Stats:
-    1. # of distinct values
-    2. # sample histogram of how often values are used in queries
-    3. # sample histogram of values that appear in dataset
-    4. min/max value
-    5. Histogram of how often the field in referenced in a query.
-    
-    Distinct values and number of distinct values are accesible by the 'hist_data_keys' list
-    '''
     aparser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                       description="%s\n%s" % (constants.PROJECT_NAME, constants.PROJECT_URL))
     aparser.add_argument('--config', type=file,
@@ -135,18 +125,24 @@ if __name__ == '__main__':
     ## Step 3: Process Dataset
     ## ----------------------------------------------
     collections = metadata_db.Collection.find()
+    tuple_sizes = {}
     for col in collections :
         col['tuple_count'] = 0
+        tuple_sizes[col['name']] = 0
         rows = dataset_db[col['name']].find()
         for row in rows :
             col['tuple_count'] += 1
             to_use = random.randrange(1, 100, 1)
             if to_use <= sample_rate : 
                 for k, v in row.iteritems() :
+                    print col['name'], col, k, v
                     if k <> '_id' :
                         distinct_values[col['name']][k][v] = v
         col.save()
-        
+    
+    ## ---------------------------------------------
+    ## Step 4: Calculate cardinality and selectivity
+    ## ---------------------------------------------
     collections = metadata_db.Collection.find()
     for col in collections :
         for k,v in col['fields'].iteritems() :
