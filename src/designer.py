@@ -207,12 +207,9 @@ if __name__ == '__main__':
         # deal with indexes
         indexKeys = [[]]
         for o in range(1, len(statistics[col['name']]['interesting']) + 1) :
-            for t in itertools.combinations(statistics[col['name']]['interesting'], o) :
-                index = []
-                for field in t :
-                    index.append(field)
-                indexKeys.append(index)
-        
+            for i in itertools.combinations(statistics[col['name']]['interesting'], o) :
+                indexKeys.append(i)
+                    
         # deal with de-normalization
         denorm = []
         for cn in col_names :
