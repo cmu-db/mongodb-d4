@@ -23,7 +23,8 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
-import execnet
+import os
+import sys
 import logging
 from message import *
 
@@ -54,6 +55,7 @@ class MessageProcessor:
                 self._config = msg.data
                 if 'debug' in self._config and self._config['debug']:
                     logging.getLogger().setLevel(logging.DEBUG)
+                setupPath(self._config["benchmark"])
                 
                 self._worker = self.createWorker()
                 self._worker.init(self._config, self._channel)
@@ -69,4 +71,19 @@ class MessageProcessor:
                 LOG.warn("Unexpected message type")
                 return
 ## CLASS
+
+## ==============================================
+## setupPath
+## ==============================================
+def setupPath(benchmark):
+    realpath = os.path.realpath(__file__)
+    basedir = os.path.realpath(os.path.join(os.path.dirname(realpath), ".."))
+    if not os.path.exists(realpath):
+        cwd = os.getcwd()
+        basename = os.path.basename(realpath)
+        if os.path.exists(os.path.join(cwd, basename)):
+            basedir = cwd
+    benchmarkDir = os.path.join(basedir, "benchmarks", benchmark)
+    sys.path.append(os.path.realpath(benchmarkDir))
+## DEF
 

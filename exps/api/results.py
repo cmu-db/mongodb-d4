@@ -124,7 +124,11 @@ class Results:
             total_time += txn_time
             total_cnt += txn_cnt
         ret += "\n" + ("-"*total_width)
-        total_rate = "%.02f txn/s" % ((total_cnt / total_time))
+        
+        rate = 0
+        if total_time > 0:
+            rate = total_cnt / float(total_time)
+        total_rate = "%.02f txn/s" % rate
         ret += f % ("TOTAL", str(total_cnt), str(total_time * 1000000), total_rate)
 
         return (ret.encode('utf-8'))

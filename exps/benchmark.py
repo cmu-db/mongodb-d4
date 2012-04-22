@@ -37,6 +37,7 @@ from ConfigParser import SafeConfigParser
 from pprint import pprint, pformat
 
 from api.messageprocessor import *
+from api.directchannel import *
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(funcName)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -101,19 +102,28 @@ class Benchmark:
         import benchmark
         remoteCall = benchmark
         
-        # Create ssh channels to client nodes
         channels=[]
-        for node in clients:
-            cmd = 'ssh='+ node
-            cmd += r"//chdir="
-            cmd += self._config['path']
-            logging.debug(cmd)
-            logging.debug("# of Client Processes: %s" % self._config['clientprocs'])
-            for i in range(int(self._config['clientprocs'])):
-                logging.debug("Invoking %s on %s" % (remoteCall, node))
-                gw = execnet.makegateway(cmd)
-                ch = gw.remote_exec(remoteCall)
-                channels.append(ch)
+        
+        # Create fake channel that invokes the worker directly in
+        # the same process
+        if self._config['direct']:
+            ch = DirectChannel()
+            channels.append(ch)
+            
+        # Otherwise create SSH channels to client nodes
+        else:
+            for node in clients:
+                cmd = 'ssh='+ node
+                cmd += r"//chdir="
+                cmd += self._config['path']
+                logging.debug(cmd)
+                logging.debug("# of Client Processes: %s" % self._config['clientprocs'])
+                for i in range(int(self._config['clientprocs'])):
+                    logging.debug("Invoking %s on %s" % (remoteCall, node))
+                    gw = execnet.makegateway(cmd)
+                    ch = gw.remote_exec(remoteCall)
+                    channels.append(ch)
+        # IF
         logging.debug(channels)
         return channels
         
@@ -122,15 +132,7 @@ class Benchmark:
         benchmark = self._config['benchmark']
         
         # First make sure that the benchmark is on our sys.path
-        realpath = os.path.realpath(__file__)
-        basedir = os.path.dirname(realpath)
-        if not os.path.exists(realpath):
-            cwd = os.getcwd()
-            basename = os.path.basename(realpath)
-            if os.path.exists(os.path.join(cwd, basename)):
-                basedir = cwd
-        benchmarkDir = os.path.join(basedir, "benchmarks", benchmark)
-        sys.path.append(os.path.realpath(benchmarkDir))
+        setupPath(benchmark)
         
         # Then use some black magic to instantiate an instance of the benchmark's coordinator
         fullName = benchmark.title() + "Coordinator"
@@ -169,6 +171,21 @@ def getBenchmarks():
 ## DEF
 
 ## ==============================================
+## setupPath
+## ==============================================
+def setupPath(benchmark):
+    realpath = os.path.realpath(__file__)
+    basedir = os.path.dirname(realpath)
+    if not os.path.exists(realpath):
+        cwd = os.getcwd()
+        basename = os.path.basename(realpath)
+        if os.path.exists(os.path.join(cwd, basename)):
+            basedir = cwd
+    benchmarkDir = os.path.join(basedir, "benchmarks", benchmark)
+    sys.path.append(os.path.realpath(benchmarkDir))
+## DEF
+
+## ==============================================
 ## MAIN
 ## ==============================================
 if __name__=='__main__':
@@ -184,6 +201,8 @@ if __name__=='__main__':
                          help='Benchmark scale factor')
     aparser.add_argument('--duration', default = 60, type=int, metavar='D',
                          help='Benchmark execution time in seconds')
+    aparser.add_argument('--direct', action='store_true',
+                         help='Execute the workers directly in this process')                            
     aparser.add_argument('--clientprocs', default = 1, type=int, metavar='N',
                          help='Number of processes on each client node.')
                          
