@@ -1,21 +1,14 @@
-BigBenchmark is a benchmark framework. It consists of two parts-- coordinator and worker.  Coordinator is used to distribute the work load to all clients listed in the config file. Worker does the actual benchmark job. They communicat through channel object sending and receiving messages. Usually a coordinator decides each client node should do what and send a command message to it. The worker gets the meesge ,finish the job and return the result to the coordinator using another message.
++ ----------------------------------------------- +
++ MongoDB Benchmark Framework                     +
++ ----------------------------------------------- +
 
-See the UML class diagram for how these classes is related. 
+This framework can run different sample workloads using MongoDB.
+It was originally based on my TPC-C benchmark framework that I used
+in my NoSQL course in spring 2011. It was then forked by one of my
+students in the summer of 2011. I then grabbed his changes and modified
+it further to support the different types of experiments that we will
+need for this work.
 
-TPC-C,TPC-H and TMI benchmarks all have a loading step and a execution step. Thus I made it a template method.  Subclass the abstarct coordinator and worker classes to implement a new benchmark
-
-How to implement a new benchmark (XYZ):
-1. Subclass AbstractCoordinator and implement all the method you need. The class should be named XyzCoordinator(first letter of the word capitalized) and the file xyzcoordinator.py(all lower case).
-2. Subclass AbstractWorker and implement all the method you need. The class should be named XyzWorker(first letter of the word capitalized) and the file xyzworker.py(all lower case).
-3. create a folder named xxx(lower case) and put xyzcoordinator.py and xyzworker.py in it.
-4. write a __init__.py to make it a package.
-This is a example benchmark called example which you can take as a reference. 
-
-
-And
-1.If you want more type of messages, you can modify msgprocessor.py and msg.py
-2.execnet1.09 and argparser python library should be installed on all machines.
-3.The configuration file should at least include system names, client node names, code paths, and how many processes you want to run on each client. 
-
-
-By Yang Lu
+TLDR:
+This code is based on: https://github.com/yanglu/BigBenchmark
+which was originally based on: https://github.com/apavlo/py-tpcc
