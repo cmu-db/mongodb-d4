@@ -44,6 +44,7 @@ DEFAULT_CONFIG = {
         "weight_skew": ("Coefficient for the Skew cost function", 1.0),
         "weight_network": ("Coefficient for the Network cost function", 1.0),
         "weight_disk": ("Coefficient for the Disk cost function", 1.0),
+        "time_intervals" : ("Number of intervals over which to examine the workload skew", 10),
     }
 }
 

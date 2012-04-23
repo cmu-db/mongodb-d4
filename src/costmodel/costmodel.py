@@ -56,7 +56,7 @@ class CostModel(object):
         self.rg.seed('cost model coolness')
         # Convert MB to KB
         self.max_memory = config['max_memory'] * 1024 * 1024
-        self.skew_segments = 9
+        self.skew_segments = config['skew_intervals'] - 1
     ## end def ##
     
     def overallCost(self, design) :

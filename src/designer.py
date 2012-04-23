@@ -187,7 +187,8 @@ if __name__ == '__main__':
     gamma = cparser.getfloat(config.SECT_COSTMODEL, 'weight_skew')
     cluster_nodes = cparser.getint(config.SECT_CLUSTER, 'nodes')
     memory = cparser.getint(config.SECT_CLUSTER, 'node_memory')
-    config_params = {'alpha' : alpha, 'beta' : beta, 'gamma' : gamma, 'nodes' : cluster_nodes, 'max_memory' : memory}
+    skews = cparser.getint(config.SECT_COSTMODEL, 'time_intervals')
+    config_params = {'alpha' : alpha, 'beta' : beta, 'gamma' : gamma, 'nodes' : cluster_nodes, 'max_memory' : memory, 'skew_intervals' : skews}
     cm = costmodel.CostModel(wrkld, config_params, statistics)
     upper_bound = cm.overallCost(starting_design)
     print upper_bound
