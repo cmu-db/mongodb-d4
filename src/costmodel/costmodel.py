@@ -57,6 +57,7 @@ class CostModel(object):
         # Convert MB to KB
         self.max_memory = config['max_memory'] * 1024 * 1024
         self.skew_segments = config['skew_intervals'] - 1
+        self.address_size = config['address_size'] / 4
     ## end def ##
     
     def overallCost(self, design) :

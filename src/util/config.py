@@ -45,6 +45,7 @@ DEFAULT_CONFIG = {
         "weight_network": ("Coefficient for the Network cost function", 1.0),
         "weight_disk": ("Coefficient for the Disk cost function", 1.0),
         "time_intervals" : ("Number of intervals over which to examine the workload skew", 10),
+        "address_size" : ("Size of an address for an index node in bits", 64),
     }
 }
 
