@@ -214,9 +214,10 @@ if __name__ == '__main__':
                     
         # deal with de-normalization
         denorm = []
-        for cn in col_names :
-           if cn <> col['name'] :
-               denorm.append(cn)
+        for k,v in col['fields'].iteritems() :
+            if v['parent_col'] <> '' :
+                if v['parent_col'] not in denorm :
+                    denorm.append(v['parent_col'])
         dc.addCollection(col['name'], indexKeys, shardKeys, denorm)
     
     ## ----------------------------------------------
