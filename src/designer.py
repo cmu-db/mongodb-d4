@@ -19,6 +19,7 @@ from search import designcandidate
 import costmodel
 from util import *
 import itertools
+import json
 LOG = logging.getLogger(__name__)
 
 def calc_stats(params, stats) :
@@ -93,7 +94,7 @@ if __name__ == '__main__':
     ## STEP 1
     ## Generate an initial solution
     ## ----------------------------------------------
-    
+    solutions = {'initial' : [], 'final' : [] }
     params = {
         'query_use_count' : 1.0,
     }
@@ -118,7 +119,8 @@ if __name__ == '__main__':
                 attr = field
         starting_design.addShardKey(col['name'], attr)
         starting_design.addIndex(col['name'], [attr])
-        
+    solutions['initial'] = starting_design.toLIST()
+    
     ## ----------------------------------------------
     ## STEP 2
     ## Create Workload for passing into cost function
@@ -192,7 +194,6 @@ if __name__ == '__main__':
     config_params = {'alpha' : alpha, 'beta' : beta, 'gamma' : gamma, 'nodes' : cluster_nodes, 'max_memory' : memory, 'skew_intervals' : skews, 'address_size' : address_size}
     cm = costmodel.CostModel(wrkld, config_params, statistics)
     upper_bound = cm.overallCost(starting_design)
-    print upper_bound
     
     ## ----------------------------------------------
     ## STEP 5
@@ -224,6 +225,9 @@ if __name__ == '__main__':
     ## STEP 6
     ## Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
-    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 120)
-    bb.solve()
+    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 10)
+    solution = bb.solve()
+    
+    solutions['final'] = solution.toLIST()
+    print json.dumps(solutions, sort_keys=False, indent=4)
 ## MAIN
