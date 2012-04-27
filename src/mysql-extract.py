@@ -139,7 +139,18 @@ if __name__ == '__main__':
     ## Step 3:
     ## Query foreign key relationships and store in catalog schema
     ## ----------------------------------------------
+    print 'Step 3: Foreign Keys'
+    c3 = mysql_conn.cursor()
+    c3.execute("""
+        SELECT CONCAT( table_name, '.', column_name, '.', 
+            referenced_table_name, '.', referenced_column_name ) AS list_of_fks 
+        FROM INFORMATION_SCHEMA.key_column_usage 
+        WHERE referenced_table_schema = %s 
+            AND referenced_table_name IS NOT NULL 
+    """, (args['name']))
     
+    for row in c3 :
+        print row
     ## ----------------------------------------------
     ## Step 4:
     ## Process MySQL query log for conversion to workload.Session objects
