@@ -101,7 +101,10 @@ if __name__ == '__main__':
                 'type': catalog.fieldTypeToString(col_type),
                 'query_use_count' : 0,
                 'cardinality' : 0,
-                'selectivity' : 0
+                'selectivity' : 0,
+                'parent_col' : '',
+                'parent_field' : '',
+                'parent_conf' : 0.0
             }
         ## FOR
         
@@ -139,7 +142,6 @@ if __name__ == '__main__':
     ## Step 3:
     ## Query foreign key relationships and store in catalog schema
     ## ----------------------------------------------
-    print 'Step 3: Foreign Keys'
     c3 = mysql_conn.cursor()
     c3.execute("""
         SELECT CONCAT( table_name, '.', column_name, '.', 
@@ -150,7 +152,15 @@ if __name__ == '__main__':
     """, (args['name']))
     
     for row in c3 :
-        print row
+        rel = row[0].split('.')
+        if len(rel) == 4 :
+            # rel = [ child_table, child_field, parent_table, parent_field]
+            collection = metadata_db.Collection.find_one({'name' : rel[0]})
+            collection['fields'][rel[1]]['parent_col'] = rel[2]
+            collection['fields'][rel[1]]['parent_field'] = rel[3]
+            collection['fields'][rel[1]]['parent_conf'] = 1.0
+            collection.save()
+        
     ## ----------------------------------------------
     ## Step 4:
     ## Process MySQL query log for conversion to workload.Session objects
