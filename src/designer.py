@@ -224,6 +224,6 @@ if __name__ == '__main__':
     ## STEP 6
     ## Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
-    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 10)
+    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 120)
     bb.solve()
 ## MAIN
