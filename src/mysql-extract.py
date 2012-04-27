@@ -51,8 +51,9 @@ if __name__ == '__main__':
     config.setDefaultValues(cparser)
     
     ## ----------------------------------------------
-    
-    ## Connect to MongoDB
+    ## Step 1:
+    ## Initialize connctions
+    ## ----------------------------------------------
     try:
         hostname = cparser.get(config.SECT_MONGODB, 'hostname')
         port = cparser.getint(config.SECT_MONGODB, 'port')        
@@ -63,13 +64,17 @@ if __name__ == '__main__':
         LOG.error("Failed to connect to MongoDB at %s:%s" % (config['hostname'], config['port']))
         raise
     
-    ## Register our objects with MongoKit
     conn.register([ catalog.Collection ])
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     metadata_db.drop_collection(constants.COLLECTION_SCHEMA)
     ## ----------------------------------------------
     
     mysql_conn = mdb.connect(host=args['host'], db=args['name'], user=args['user'], passwd=args['pass'])
+    
+    ## ----------------------------------------------
+    ## Step 2:
+    ## Determine tables/columns/indexes of MySQL schema
+    ## ----------------------------------------------
     c1 = mysql_conn.cursor()
     c1.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s", args['name'])
     quick_look = {}
@@ -130,7 +135,16 @@ if __name__ == '__main__':
         ## ENDFOR
     ## ENDFOR
 
-    # Ingest a MySQL query log and convert it into our workload.Sessions objects
+    ## ----------------------------------------------
+    ## Step 3:
+    ## Query foreign key relationships and store in catalog schema
+    ## ----------------------------------------------
+    
+    ## ----------------------------------------------
+    ## Step 4:
+    ## Process MySQL query log for conversion to workload.Session objects
+    ## ----------------------------------------------
+    
     c4 = mysql_conn.cursor()
     c4.execute("""
         SELECT * FROM general_log ORDER BY thread_id, event_time;	
