@@ -514,6 +514,7 @@ class Sql2mongo (object) :
         if reset == True :
             self.reset()
         parsed = sqlparse.parse(sql)
+        self.sql = sql
         if len(parsed) > 0 :
             self.stmt = parsed[0]
             self.query_type = self.stmt.get_type()
@@ -605,6 +606,7 @@ class Sql2mongo (object) :
         self.stmt = None
         self.use_or = False
         self.limit = {}
+        self.sql = ''
         self.project_cols = {}
         self.skip = {}
         self.set_cols = {}
