@@ -48,8 +48,8 @@ class BBSearch ():
         self.leafNodes = 0 # for testing
         self.totalNodes = 0 # for testing
         self.status = "solving"
-        print("===BBSearch Solve===")
-        print " timeout: ", self.timeout
+        #print("===BBSearch Solve===")
+        #print " timeout: ", self.timeout
         self.startTime = time.time()
         signal.signal(signal.SIGINT, self.onSigint)
         # set initial bound to infinity
@@ -99,16 +99,16 @@ class BBSearch ():
     def onTerminate(self):
         self.endTime = time.time()
         #self.restoreKeys() # change keys to collection names
-        print "\n===Search ended==="
-        print "  status: ", self.status
-        print "STATISTICS:"
-        print "  time elapsed: ", self.endTime - self.startTime, "s"
-        print "  best cost: ", self.bestCost
-        print "  total backtracks: ", self.totalBacktracks
-        print "  total nodes: ", self.totalNodes
-        print "  leaf nodes: ", self.leafNodes
-        print "BEST SOLUTION:\n", self.bestDesign
-        print "------------------\n"
+        #print "\n===Search ended==="
+        #print "  status: ", self.status
+        #print "STATISTICS:"
+        #print "  time elapsed: ", self.endTime - self.startTime, "s"
+        #print "  best cost: ", self.bestCost
+        #print "  total backtracks: ", self.totalBacktracks
+        #print "  total nodes: ", self.totalNodes
+        #print "  leaf nodes: ", self.leafNodes
+        #print "BEST SOLUTION:\n", self.bestDesign
+        #print "------------------\n"
     
     '''
     class constructor
@@ -372,7 +372,7 @@ class BBNode():
         # it's OK so long there are not too many consecutive infeasible nodes,
         # then it could hit the max recursion limit...
         if not feasible:
-            print "FAIL"
+            #print "FAIL"
             return self.getNextChild()
         
         ### --- end of CONSTRAINTS ---
@@ -411,7 +411,7 @@ class BBNode():
     # It updates the global lower/upper bound accordingly
     # retrun: True if the node should be explored, False if the node can be discarded
     def evaluate(self):
-        print ".",
+        #print ".",
         #print self
         sys.stdout.flush()
         # add child only when the solution is admissible
