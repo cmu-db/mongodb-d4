@@ -55,7 +55,7 @@ class CostModel(object):
         self.rg = random.Random()
         self.rg.seed('cost model coolness')
         # Convert MB to KB
-        self.max_memory = config['max_memory'] * 1024 * 1024
+        self.max_memory = config['max_memory'] * 1024 * 1024 * self.nodes
         self.skew_segments = config['skew_intervals'] - 1
         self.address_size = config['address_size'] / 4
     ## end def ##
