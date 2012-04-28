@@ -198,7 +198,10 @@ if __name__ == '__main__':
         ## ENDIF
         if row[5] <> '' :
             sql = re.sub("`", "", row[5])
-            query = mongo.process_sql(sql)
+            try:
+                query = mongo.process_sql(sql)
+            except (NameError, KeyError) as e :
+                break
             if mongo.query_type <> 'UNKNOWN' :
                 operations = mongo.generate_operations(stamp)
                 for op in operations :
