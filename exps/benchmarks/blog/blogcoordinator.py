@@ -43,11 +43,11 @@ class BlogCoordinator(AbstractCoordinator):
         self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
         
         # Check whether they set the denormalize flag
-        if not "denormalize" in config:
-            config["denormalize"] = False
-        config["experiment"] = int(config["experiment"])
-        if "indexes" in config:
-            config["indexes"] = int(config["indexes"])
+        if not "denormalize" in config[self.name]:
+            config[self.name]["denormalize"] = False
+        config[self.name]["experiment"] = int(config[self.name]["experiment"])
+        if "indexes" in config[self.name]:
+            config[self.name]["indexes"] = int(config[self.name]["indexes"])
         
         ## Precompute our blog article authors
         self.authors = [ ]

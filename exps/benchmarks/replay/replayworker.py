@@ -57,9 +57,9 @@ class ReplayWorker(AbstractWorker):
         ## ----------------------------------------------
         self.replayConn = None
         try:
-            self.replayConn = mongokit.Connection(host=config['replayhost'], port=config['replayport'])
+            self.replayConn = mongokit.Connection(host=config['replayhost'], port=config[self.name]['port'])
         except:
-            LOG.error("Failed to connect to replay MongoDB at %s:%s" % (config['replayhost'], config['replayport']))
+            LOG.error("Failed to connect to replay MongoDB at %s:%s" % (config[self.name]['host'], config['replayport']))
             raise
         assert self.replayConn
         self.replayConn.register([ workload.Session ])

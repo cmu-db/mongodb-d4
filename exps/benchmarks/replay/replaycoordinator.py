@@ -39,8 +39,10 @@ LOG = logging.getLogger(__name__)
 
 class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = {
-        "replayhost":   ("The hostname of database with the workload to replay", "localhost" ),
-        "replayport":   ("The port number of the workload database", 27017 ),
+        "host":     ("The hostname of database with the workload to replay", "localhost" ),
+        "port":     ("The port number of the workload database", 27017 ),
+        "dbname":   ("Name of the database with the workload", "metadata"),
+        "collname": ("Name of the collection with the sessions", constants.COLLECTION_WORKLOAD),
     }
     
     

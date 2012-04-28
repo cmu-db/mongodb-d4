@@ -43,7 +43,7 @@ class BlogWorker(AbstractWorker):
     
     def initImpl(self, config, channel):
         # Total number of articles in database
-        self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
+        self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
         
         # Zipfian distribution on the number of comments & their ratings
         self.commentsZipf = ZipfGenerator(constants.MAX_NUM_COMMENTS, 1.0)
@@ -54,14 +54,14 @@ class BlogWorker(AbstractWorker):
         ## ----------------------------------------------
         self.conn = None
         try:
-            self.conn = pymongo.Connection(config['host'], int(config['port']))
+            self.conn = pymongo.Connection(config['default']['host'], int(config['default']['port']))
         except:
-            LOG.error("Failed to connect to MongoDB at %s:%s" % (config['host'], config['port']))
+            LOG.error("Failed to connect to MongoDB at %s:%s" % (config['default']['host'], config['default']['port']))
             raise
         assert self.conn
         self.db = self.conn[constants.DB_NAME]
         
-        if config["reset"]:
+        if config['default']["reset"]:
             LOG.info("Resetting database '%s'" % constants.DB_NAME)
             self.conn.drop_database(constants.DB_NAME)
         
@@ -70,28 +70,28 @@ class BlogWorker(AbstractWorker):
         self.db[constants.COMMENT_COLL].drop_indexes()
         
         # Sharding Key
-        if config["experiment"] == 1:
+        if config[self.name]["experiment"] == 1:
             self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
             
         # Denormalization
-        elif config["experiment"] == 2:
+        elif config[self.name]["experiment"] == 2:
             # We need an index on ARTICLE
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
             # And if we're not denormalized, on COMMENTS as well
-            if not config["denormalize"]:
+            if not config[self.name]["denormalize"]:
                 self.db[constants.COMMENT_COLL].create_index([("article", pymongo.ASCENDING)])
                 
         # Indexing
-        elif config["experiment"] == 3:
+        elif config[self.name]["experiment"] == 3:
             # Nothing
-            if config["indexes"] == 0:
+            if config[self.name]["indexes"] == 0:
                 pass
             # Regular Index
-            elif config["indexes"] == 1:
+            elif config[self.name]["indexes"] == 1:
                 self.db[constants.ARTICLE_COLL].create_index([("article", pymongo.ASCENDING)])
             # Cover Index
-            elif config["indexes"] == 2:
+            elif config[self.name]["indexes"] == 2:
                 self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING), \
                                                               ("date", pymongo.ASCENDING), \
                                                               ("author", pymongo.ASCENDING)])
@@ -162,7 +162,7 @@ class BlogWorker(AbstractWorker):
                     "rating": int(self.ratingZipf.next())
                 }
                 commentCtr += 1
-                if not config["denormalize"]:
+                if not config[self.name]["denormalize"]:
                     commentsBatch.append(comment)
                 else:
                     if not "comments" in article:
@@ -195,18 +195,18 @@ class BlogWorker(AbstractWorker):
         
         # It doesn't matter what we pick, so we'll just 
         # return the name of the experiment
-        txnName = "exp%02d" % config["experiment"]
+        txnName = "exp%02d" % config[self.name]["experiment"]
         params = None
         
         # Sharding Key
-        if config["experiment"] == 1:
+        if config[self.name]["experiment"] == 1:
             assert self.articleZipf
             params = [ int(self.articleZipf.next()) ]
         # Denormalization
-        elif config["experiment"] == 2:
+        elif config[self.name]["experiment"] == 2:
             params = [ random.randint(0, self.num_articles) ]
         # Indexing
-        elif config["experiment"] == 3:
+        elif config[self.name]["experiment"] == 3:
             params = [ random.randint(0, self.num_articles) ]
         else:
             raise Exception("Unexpected experiment type %d" % config["experiment"]) 
@@ -222,13 +222,13 @@ class BlogWorker(AbstractWorker):
             LOG.debug("Executing %s / %s [denormalize=%s]" % (txn, str(params), config["denormalize"]))
         
         # Sharding Key
-        if config["experiment"] == 1:
+        if config[self.name]["experiment"] == 1:
             self.expSharding(params[0])
         # Denormalization
-        elif config["experiment"] == 2:
+        elif config[self.name]["experiment"] == 2:
             self.expDenormalization(config["denormalize"], params[0])
         # Indexing
-        elif config["experiment"] == 3:
+        elif config[self.name]["experiment"] == 3:
             self.expIndexes(params[0])
         # Busted!
         else:
