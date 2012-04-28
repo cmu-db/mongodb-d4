@@ -42,6 +42,13 @@ class BlogCoordinator(AbstractCoordinator):
     def initImpl(self, config, channels):
         self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
         
+        # Check whether they set the denormalize flag
+        if not "denormalize" in config:
+            config["denormalize"] = False
+        config["experiment"] = int(config["experiment"])
+        if "indexes" in config:
+            config["indexes"] = int(config["indexes"])
+        
         ## Precompute our blog article authors
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
