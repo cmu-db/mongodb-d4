@@ -174,10 +174,11 @@ class BlogWorker(AbstractWorker):
             # Always insert the article
             articlesBatch.append(article)
             articleCtr += 1
-            if self.debug and articleCtr % 1000 == 0 :
+            if self.debug and articleCtr % 100 == 0 :
                 LOG.debug("ARTICLE: %6d / %d" % (articleCtr, (lastArticle - firstArticle)))
                 self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-                self.db[constants.COMMENT_COLL].insert(commentsBatch)
+                if len(commentsBatch) > 0:
+                    self.db[constants.COMMENT_COLL].insert(commentsBatch)
                 articlesBatch = [ ]
                 commentsBatch = [ ]
         ## FOR (articles)
