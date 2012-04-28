@@ -807,7 +807,10 @@ class Sql2mongo (object) :
         elif val[0] in ['"', "'"] :
             val = val.strip('"\'')
         else :
-            val = float(val)
+            try:
+                val = float(val)
+            except ValueError:
+                pass
         return val
     ## End render_trace_value()
     
