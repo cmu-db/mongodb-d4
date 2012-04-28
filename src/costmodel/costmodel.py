@@ -128,7 +128,10 @@ class CostModel(object):
                     
                 cost += min_pages        
                 worst_case += max_pages
-        return cost / worst_case
+        if worst_case == 0 :
+            return 0
+        else :
+            return cost / worst_case
     ## end def ##
     
     def skewCost(self, design):

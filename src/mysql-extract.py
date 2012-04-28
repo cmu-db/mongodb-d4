@@ -200,7 +200,7 @@ if __name__ == '__main__':
             sql = re.sub("`", "", row[5])
             try:
                 query = mongo.process_sql(sql)
-            except (NameError, KeyError) as e :
+            except (NameError, KeyError, IndexError) as e :
                 break
             if mongo.query_type <> 'UNKNOWN' :
                 operations = mongo.generate_operations(stamp)
