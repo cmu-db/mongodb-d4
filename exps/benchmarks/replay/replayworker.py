@@ -63,7 +63,7 @@ class ReplayWorker(AbstractWorker):
             raise
         assert self.replayConn
         self.replayConn.register([ workload.Session ])
-        self.replayCurosr = self.replayConn
+        
         
         ## ----------------------------------------------
         ## TARGET CONNECTION
@@ -87,6 +87,12 @@ class ReplayWorker(AbstractWorker):
         # by the designer tool.
        
 
+        # TODO: We are going to need to examine each session and figure out whether
+        # we need to combine operations together if they access collections that
+        # are denormalized into each other
+        self.replayCursor = self.replayConn.find({'operations': {'$ne': {'$size': 0}}})
+        self.replaySessionIdx = 0
+       
         return  
     ## DEF
     
@@ -103,29 +109,17 @@ class ReplayWorker(AbstractWorker):
     ## DEF
     
     def next(self, config):
-        assert "experiment" in config
-        
-        
-        
-        # It doesn't matter what we pick, so we'll just 
-        # return the name of the experiment
-        txnName = "exp%02d" % config["experiment"]
-        params = None
-        
-        # Sharding Key
-        if config["experiment"] == 1:
-            assert self.articleZipf
-            params = [ int(self.articleZipf.next()) ]
-        # Denormalization
-        elif config["experiment"] == 2:
-            params = [ random.randint(0, self.num_articles) ]
-        # Indexing
-        elif config["experiment"] == 3:
-            params = [ random.randint(0, self.num_articles) ]
-        else:
-            raise Exception("Unexpected experiment type %d" % config["experiment"]) 
-        
-        return (txnName, params)
+        # I guess if we run out of Sessions we can just loop back around?
+        try:
+            sess = self.replayCursor[self.replaySessionIdx]
+        except:
+            self.replaySessionIdx = 0
+            return self.next(config)
+        self.replaySessionIdx += 1
+            
+        # It would be nice if had a classification for these 
+        # sessions so that we could actually know what we are doing here
+        return ("replay", sess)
     ## DEF
         
     def executeImpl(self, config, txn, params):
@@ -188,88 +182,9 @@ class ReplayWorker(AbstractWorker):
                 
                 # I'll see you in hell!!
                 result = self.db[coll].remove(whereClause)
-                
         ## FOR
         
-        
-        
-        if self.debug:
-            LOG.debug("Executing %s / %s [denormalize=%s]" % (txn, str(params), config["denormalize"]))
-        
-        # Sharding Key
-        if config["experiment"] == 1:
-            self.expSharding(params[0])
-        # Denormalization
-        elif config["experiment"] == 2:
-            self.expDenormalization(config["denormalize"], params[0])
-        # Indexing
-        elif config["experiment"] == 3:
-            self.expIndexes(params[0])
-        # Busted!
-        else:
-            pass
-        
         return
     ## DEF
-    
-    
-    def expSharding(self, articleId):
-        """
-        For this experiment, we will shard articles by their autoinc id and then 
-        by their id+timestamp. This will show that sharding on just the id won't
-        work because of skew, but by adding the timestamp the documents are spread out
-        more evenly. If we shard on the id+timestamp, will queries that only use the 
-        timestamp get redirected to a mininal number of nodes?
-        Not sure if this is a good experiment to show this. Might be too trivial.
-        """
-        article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId}, {"comments": 0})
-        if not article:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            pass
-        return
-    ## DEF
-    
-    def expDenormalization(self, denormalize, articleId):
-        """
-        In our microbenchmark we should have a collection of articles and collection of 
-        article comments. The target workload will be to grab an article and grab the 
-        top 10 comments for that article sorted by a user rating. In the first experiment,
-        we will store the articles and comments in separate collections.
-        In the second experiment, we'll embedded the comments inside of the articles.
-        Not sure if we can do that in a single query... 
-        What we should see is that the system is really fast when it can use a single 
-        query for documents that contain a small number of embedded documents. But 
-        then as the size of the comments list for each article increases, the two query
-        approach is faster. We may want to also have queries that append to the comments
-        list to show that it gets expensive to write to documents with a long list of 
-        nested documents
-        """
-        
-        article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-        if not article:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            pass
-        assert article["id"] == articleId
-        if denormalize:
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        else:
-            assert "comments" in article, pformat(article)
-            comments = article["comments"]
-        return
-    ## DEF
-    
-    def expIndexes(self, articleId):
-        """
-        In our final benchmark, we compared the performance difference between a query on 
-        a collection with (1) no index for the query's predicate, (2) an index with only one 
-        key from the query's predicate, and (3) a covering index that has all of the keys 
-        referenced by that query.
-        What do we want to vary here on the x-axis? The number of documents in the collection?
-        """
-        
-        article = self.db[constants.ARTICLE_COLL].find({"id": articleId}, {"id", "date", "author"})
-        if not article:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-        
-        return
+
 ## CLASS

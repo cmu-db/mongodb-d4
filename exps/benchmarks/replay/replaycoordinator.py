@@ -37,7 +37,7 @@ from api.message import *
 
 LOG = logging.getLogger(__name__)
 
-class BlogCoordinator(AbstractCoordinator):
+class ReplayCoordinator(AbstractCoordinator):
     
     def initImpl(self, config, channels):
         self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
