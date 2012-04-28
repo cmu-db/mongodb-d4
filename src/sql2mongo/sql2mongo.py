@@ -318,6 +318,9 @@ class Sql2mongo (object) :
                 if token.ttype <> sqlparse.tokens.Token.Punctuation and token.ttype <> sqlparse.tokens.Token.Text.Whitespace :
                     table = token.to_unicode()
                     i += 1
+                    if i >= end :
+                        self.table_aliases['main'] = table
+                        break
                     next = self.stmt.tokens[i]
                     if next.ttype == sqlparse.tokens.Token.Text.Whitespace :
                         i += 1
