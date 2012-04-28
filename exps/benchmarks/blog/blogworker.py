@@ -223,16 +223,15 @@ class BlogWorker(AbstractWorker):
         
         # Sharding Key
         if config["experiment"] == 1:
-            self.expDenormalization(params[0])
+            self.expSharding(params[0])
         # Denormalization
         elif config["experiment"] == 2:
             self.expDenormalization(config["denormalize"], params[0])
-        # Indexing - Variant 1
-        elif config["experiment"] == 5:
-            self.expIndexes(config["denormalize"], params[0])
-            pass
-        # Indexing - Variant 2
-        elif config["experiment"] == 6:
+        # Indexing
+        elif config["experiment"] == 3:
+            self.expIndexes(params[0])
+        # Busted!
+        else:
             pass
         
         return
@@ -284,7 +283,7 @@ class BlogWorker(AbstractWorker):
         return
     ## DEF
     
-    def experiment3(self, config, channel, msg):
+    def expIndexes(self, articleId):
         """
         In our final benchmark, we compared the performance difference between a query on 
         a collection with (1) no index for the query's predicate, (2) an index with only one 
@@ -292,5 +291,10 @@ class BlogWorker(AbstractWorker):
         referenced by that query.
         What do we want to vary here on the x-axis? The number of documents in the collection?
         """
-        pass
+        
+        article = self.db[constants.ARTICLE_COLL].find({"id": articleId}, {"id", "date", "author"})
+        if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        
+        return
 ## CLASS
