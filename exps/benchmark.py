@@ -43,6 +43,16 @@ logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
                     datefmt="%m-%d-%Y %H:%M:%S",
                     stream = sys.stdout)
+                    
+# Setup path back to designer framework
+realpath = os.path.realpath(__file__)
+basedir = os.path.realpath(os.path.join(os.path.dirname(realpath), "../src"))
+if not os.path.exists(realpath):
+    cwd = os.getcwd()
+    basename = os.path.basename(realpath)
+    if os.path.exists(os.path.join(cwd, basename)):
+        basedir = cwd
+sys.path.append(os.path.realpath(basedir))
 
 ## ==============================================
 ## Benchmark Invocation
@@ -132,7 +142,7 @@ class Benchmark:
         benchmark = self._config['benchmark']
         
         # First make sure that the benchmark is on our sys.path
-        setupPath(benchmark)
+        setupBenchmarkPath(benchmark)
         
         # Then use some black magic to instantiate an instance of the benchmark's coordinator
         fullName = benchmark.title() + "Coordinator"
@@ -171,9 +181,9 @@ def getBenchmarks():
 ## DEF
 
 ## ==============================================
-## setupPath
+## setupBenchmarkPath
 ## ==============================================
-def setupPath(benchmark):
+def setupBenchmarkPath(benchmark):
     realpath = os.path.realpath(__file__)
     basedir = os.path.dirname(realpath)
     if not os.path.exists(realpath):
