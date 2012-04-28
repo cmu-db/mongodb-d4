@@ -228,11 +228,4 @@ if __name__ == '__main__':
     ## ENDFOR
     if len(session['operations']) > 0 :
         session.save()
-    
-    sessions = metadata_db.Session.find()
-    i = 0
-    for s in sessions :
-        i += 1
-        if len(s['operations']) == 0 :
-            print i, len(s['operations'])
 ## MAIN
