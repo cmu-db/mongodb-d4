@@ -38,36 +38,22 @@ from api.message import *
 LOG = logging.getLogger(__name__)
 
 class ReplayCoordinator(AbstractCoordinator):
+    DEFAULT_CONFIG = {
+        "replayhost":   ("The hostname of database with the workload to replay", "localhost" ),
+        "replayport":   ("The port number of the workload database", 27017 ),
+    }
+    
     
     def initImpl(self, config, channels):
-        self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
-        
-        # Check whether they set the denormalize flag
-        if not "denormalize" in config:
-            config["denormalize"] = False
-        config["experiment"] = int(config["experiment"])
-        if "indexes" in config:
-            config["indexes"] = int(config["indexes"])
-        
-        ## Precompute our blog article authors
-        self.authors = [ ]
-        for i in xrange(0, constants.NUM_AUTHORS):
-            authorSize = int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4))
-            self.authors.append(rand.randomString(authorSize))
-        ## FOR
-        return
+        # Nothing to do over here...
+        pass
     ## DEF
     
     def loadImpl(self, config, channels):
-        procs = len(channels)
-        articleRange = [ ]
-        articlesPerChannel = self.num_articles / procs
-        first = 0
-        for i in range(len(channels)):
-            last = first + articlesPerChannel
-            LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
-            sendMessage(MSG_CMD_LOAD, (first, last, self.authors), channels[i])
-            first = last
+        # TODO: Figure out how we are going to convert the original
+        # database to whatever design that they want us to have
+        for ch in channels:
+            sendMessage(MSG_CMD_LOAD, None, ch)
     ## DEF
 
 ## CLASS

@@ -59,7 +59,7 @@ class ReplayWorker(AbstractWorker):
         try:
             self.replayConn = mongokit.Connection(host=config['replayhost'], port=config['replayport'])
         except:
-            LOG.error("Failed to connect to MongoDB at %s:%s" % (config['replayhost'], config['replayport']))
+            LOG.error("Failed to connect to replay MongoDB at %s:%s" % (config['replayhost'], config['replayport']))
             raise
         assert self.replayConn
         self.replayConn.register([ workload.Session ])
@@ -72,7 +72,7 @@ class ReplayWorker(AbstractWorker):
         try:
             self.conn = pymongo.Connection(config['host'], config['port'])
         except:
-            LOG.error("Failed to connect to MongoDB at %s:%s" % (config['host'], config['port']))
+            LOG.error("Failed to connect to target MongoDB at %s:%s" % (config['host'], config['port']))
             raise
         assert self.conn
         self.db = self.conn[constants.DB_NAME]
@@ -97,7 +97,7 @@ class ReplayWorker(AbstractWorker):
     ## DEF
     
     def loadImpl(self, config, channel, msg):
-        assert self.conn != None
+        assert self.conn
         
         # TODO: Get the original database from the replayConn and then
         # massage it according to the design
@@ -109,6 +109,8 @@ class ReplayWorker(AbstractWorker):
     ## DEF
     
     def next(self, config):
+        assert self.replayCursor
+        
         # I guess if we run out of Sessions we can just loop back around?
         try:
             sess = self.replayCursor[self.replaySessionIdx]
@@ -123,11 +125,12 @@ class ReplayWorker(AbstractWorker):
     ## DEF
         
     def executeImpl(self, config, txn, params):
-        assert self.conn != None
+        assert self.conn
         
         # The first parameter is going to be the Session that we need to replay
         # The txn doesn't matter
         sess = params[0]
+        assert sess
         
         for op in sess['operations']:
             # TODO: We should check whether they are trying to make a query
