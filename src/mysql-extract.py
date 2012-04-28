@@ -196,29 +196,43 @@ if __name__ == '__main__':
             session['uid'] = uid
             session['operations'] = []
         ## ENDIF
+        
         if row[5] <> '' :
             sql = re.sub("`", "", row[5])
+            success = True
             try:
                 query = mongo.process_sql(sql)
             except (NameError, KeyError, IndexError) as e :
-                break
-            if mongo.query_type <> 'UNKNOWN' :
-                operations = mongo.generate_operations(stamp)
-                for op in operations :
-                    session['operations'].append(op)
-                ## ENDFOR
-            elif row[5].strip().lower() == 'commit' :
-                if len(session['operations']) > 0 :
-                    session.save()
-                    uid += 1
+                success = False
+            if success == True :
+                if mongo.query_type <> 'UNKNOWN' :
+                    operations = mongo.generate_operations(stamp)
+                    if len(operations) == 0 :
+                        print row[5]
+                    for op in operations :
+                        session['operations'].append(op)
+                    ## ENDFOR
+                elif row[5].strip().lower() == 'commit' :
+                    if len(session['operations']) > 0 :
+                        session.save()
+                        uid += 1
+                    ## ENDIF
+                    session = metadata_db.Session()
+                    session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
+                    session['ip2'] = hostIP
+                    session['uid'] = uid
+                    session['operations'] = []
                 ## ENDIF
-                session = metadata_db.Session()
-                session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
-                session['ip2'] = hostIP
-                session['uid'] = uid
-                session['operations'] = []
             ## ENDIF
-        ## ENDIF
+        ## End if ##
     ## ENDFOR
-    session.save()
+    if len(session['operations']) > 0 :
+        session.save()
+    
+    sessions = metadata_db.Session.find()
+    i = 0
+    for s in sessions :
+        i += 1
+        if len(s['operations']) == 0 :
+            print i, len(s['operations'])
 ## MAIN
