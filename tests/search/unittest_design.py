@@ -100,7 +100,7 @@ class TestDesign (unittest.TestCase) :
             hierarchy = d.getDenormalizationHierarchy(collection)
             #print "-"*50
             #print collection, hierarchy
-            self.assertIsNotNone(hierarchy)
+            self.assertNotEqual(hierarchy, None)
             self.assertIn(collection, expected)
             self.assertEqual(expected[collection], hierarchy)
         ## FOR
