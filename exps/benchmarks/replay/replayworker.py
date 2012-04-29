@@ -57,7 +57,6 @@ class ReplayWorker(AbstractWorker):
         ## WORKLOAD REPLAY CONNECTION
         ## ----------------------------------------------
         self.replayConn = None
-        self.replayColl = config[self.name]['collname']
         self.replayHost = config[self.name]['host']
         self.replayPort = config[self.name]['port']
         try:
@@ -66,9 +65,9 @@ class ReplayWorker(AbstractWorker):
             LOG.error("Failed to connect to replay MongoDB at %s:%s" % (self.replayHost, self.replayPort))
             raise
         assert self.replayConn
-        self.workloadDB = self.replayConn[config[self.name]['dbname']]
-        self.dataDB = self.replayConn["dataset"]
-        self.collections = set([c for c in self.dataDB.collection_names()])
+        self.workloadDB = self.replayConn[config[self.name]['workloaddb']]
+        self.dataDB = self.replayConn[config[self.name]['datadb']]
+        self.collections = [c for c in self.dataDB.collection_names()]
         self.collections.remove("system.indexes")
         LOG.debug("Original Data Collections: %s" % self.collections)
         
@@ -89,16 +88,52 @@ class ReplayWorker(AbstractWorker):
         # TODO: We are going to need to examine each session and figure out whether
         # we need to combine operations together if they access collections that
         # are denormalized into each other
-        self.replayCursor = self.workloadDB[self.replayColl].find({'operations': {'$ne': {'$size': 0}}})
+        self.replayCursor = self.workloadDB[config[self.name]['workloadcollection']].find({'operations': {'$ne': {'$size': 0}}})
        
         return  
     ## DEF
     
     def loadImpl(self, config, channel, msg):
         assert self.conn
+        from bson.code import Code
         
-        # TODO: Get the original database from the workloadConn and then
+        # TODO: Get the original database from the replayConn and then
         # massage it according to the design
+        copied = [ ]
+        denormalized = False
+        for collName in self.collections:
+            # TODO: Examine the design and see whether this collection
+            # is denormalized into another collection
+            
+            if denormalized:
+                # TODO: Check whether the collection that we're suppose to copy
+                # ourselves into has already been copied over
+                pass
+                
+            # Otherwise we can just copy it directly
+            else:
+                LOG.debug("Copying collection %s.%s to %s.%s" % (self.dataDB.name, collName, self.targetDB.name, collName))
+              
+                # I look into trying use server-side code for copying the 
+                # collection but I think the Javascript stuff is sandboxed
+                # into a single database
+              
+                batch = [ ]
+                ctr = 0
+                for d in self.dataDB[collName].find():
+                    batch.append(d)
+                    if len(batch) == 1000: # FIXME
+                        self.targetDB[collName].insert(batch)
+                        batch = [ ]
+                    ctr += 1
+                ## FOR
+                if len(batch) > 0:
+                    self.targetDB[collName].insert(batch)
+                copied.append(collName)
+                LOG.debug("Finished copying '%s' [numDocuments=%d]" % (collName, ctr))
+        ## FOR
+                
+        
         
         # TODO: Go through the sample workload and rewrite the queries according
         # to the design. I think that this just means that we need to identify whether

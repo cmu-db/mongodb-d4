@@ -43,8 +43,9 @@ class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = {
         "host":     ("The hostname of database with the workload to replay", "localhost"),
         "port":     ("The port number of the workload database", 27017),
-        "dbname":   ("Name of the database with the workload", "metadata"),
-        "collname": ("Name of the workload collection containing the sessions that we want to replay", constants.COLLECTION_WORKLOAD),
+        "workloaddb":   ("Name of the database with the workload", "metadata"),
+        "workloadcollection": ("Name of the workload collection containing the sessions that we want to replay", constants.COLLECTION_WORKLOAD),
+        "datadb":   ("Name of the database with the original database", "dataset"),
         "ignorecollections": ("If set to true, the worker will ignore operations that attempt to access an unexpected collection", False),
     }
     
