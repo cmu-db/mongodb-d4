@@ -25,13 +25,14 @@ class TestDesign (unittest.TestCase) :
         d = design.Design()
         collection = 'test'
         key = ['field 1']
+        d.addCollection(collection)
         d.addShardKey(collection, key)
         self.assertEqual(d.getShardKey(collection, key), key)
         
     def testAddShardKeys(self) :
         d = design.Design()
         collections = ['test 1', 'test 2']
-        d.addcollections(collections)
+        d.addCollections(collections)
         keys = {}
         for col in collections :
             keys[col] = ['field 1']
