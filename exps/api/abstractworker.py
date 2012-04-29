@@ -28,12 +28,16 @@ import time
 import logging
 import traceback
 import pymongo
+from pprint import pformat
 
+# Designer
+import search
+
+# Benchmark API
 from .results import *
 from .message import *
 
-#LOG = logging.getLogger(__name__)
-LOG = logging.getLogger()
+LOG = logging.getLogger(__name__)
 
 class AbstractWorker:
     '''Abstract Benchmark Worker'''
@@ -62,7 +66,19 @@ class AbstractWorker:
         self.debug = config['default']['debug']
         
         LOG.info("Initializing %s Worker [clientId=%d]" % (self.name.upper(), self.id))
-        LOG.debug("%s Configuration:\n%s" % (self.name.upper(), self.config[self.name]))
+        if self.debug:
+            LOG.debug("%s Configuration:\n%s" % (self.name.upper(), pformat(self.config[self.name])))
+        
+        ## ----------------------------------------------
+        ## DATABASE DESIGN
+        ## ----------------------------------------------
+        self.design = None
+        if config['default']['design']:
+            if self.debug:
+                LOG.debug("Instantiating design from JSON")
+            initalD, self.design = search.utilmethods.fromJSON(config['default']['design'])
+            if self.debug:
+                LOG.debug("Design:\n%s" % self.design)
         
         ## ----------------------------------------------
         ## TARGET CONNECTION
@@ -70,6 +86,8 @@ class AbstractWorker:
         self.conn = None
         targetHost = config['default']['host']
         targetPort = config['default']['port']
+        if self.debug:
+            LOG.debug("Connecting MongoDB database at %s:%d" % (targetHost, targetPort))
         try:
             self.conn = pymongo.Connection(targetHost, targetPort)
         except:

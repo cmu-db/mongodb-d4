@@ -35,9 +35,10 @@ from pprint import pprint, pformat
 
 # Designer
 import workload
+import search
 from util import constants
 
-# Benchmark
+# Benchmark API
 from api.abstractworker import AbstractWorker
 from api.message import *
 
@@ -48,9 +49,7 @@ TARGET_DB_NAME = 'replay'
 class ReplayWorker(AbstractWorker):
     
     def initImpl(self, config):
-        # We need two connections. One to the target database and one
-        # to the workload database. 
-        
+        assert self.design, "Missing database design for workload"
         self.ignoreCollections = config[self.name]['ignorecollections']
         
         ## ----------------------------------------------
@@ -97,17 +96,22 @@ class ReplayWorker(AbstractWorker):
         assert self.conn
         from bson.code import Code
         
-        # TODO: Get the original database from the replayConn and then
-        # massage it according to the design
+        # Get the original database from the dataDB and copy it into
+        # the targetDB (massaging it according to the design)
         copied = [ ]
-        denormalized = False
-        for collName in self.collections:
+        loadOrder = search.utilmethods.buildLoadingList(self.design)
+        LOG.debug("Loading List: %s" % loadOrder)
+        for collName in loadOrder:
             # TODO: Examine the design and see whether this collection
             # is denormalized into another collection
             
-            if denormalized:
-                # TODO: Check whether the collection that we're suppose to copy
+            if self.design.isDenormalized(collName):
+                # Check whether the collection that we're suppose to copy
                 # ourselves into has already been copied over
+                parent = self.design.getDenormalizationParent(collName)
+                assert parent
+                assert parent in copied
+                
                 pass
                 
             # Otherwise we can just copy it directly
@@ -132,9 +136,9 @@ class ReplayWorker(AbstractWorker):
                 copied.append(collName)
                 LOG.debug("Finished copying '%s' [numDocuments=%d]" % (collName, ctr))
         ## FOR
+        
+        # If there are still collections that we need to copy
                 
-        
-        
         # TODO: Go through the sample workload and rewrite the queries according
         # to the design. I think that this just means that we need to identify whether
         # we have any denormalized collections.

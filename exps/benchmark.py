@@ -99,6 +99,15 @@ class Benchmark:
                 if key in config[s]: config[s][key] = int(config[s][key])
         ## FOR
         
+        # Read in the serialized design file and ship that over the wire
+        if "design" in config["default"] and config["default"]["design"]:
+            LOG.debug("Reading in design file '%s'" % config["default"]["design"])
+            with open(config["default"]["design"], "r") as fd:
+                config["default"]["design"] = fd.read()
+        else:
+            config["default"]["design"] = None
+        ## IF
+        
         logging.info("Configuration File:\n%s" % pformat(config))
         return config
         
@@ -202,8 +211,10 @@ if __name__=='__main__':
     aparser = argparse.ArgumentParser(description='MongoDB Benchmark Framework')
     aparser.add_argument('benchmark', choices = getBenchmarks(),
                          help='Target benchmark')
-    aparser.add_argument('--config', type = file,
+    aparser.add_argument('--config', type=file,
                          help='Path to benchmark configuration file')
+    aparser.add_argument('--design', type=str,
+                         help='Path to benchmark design file')
     aparser.add_argument('--reset', action='store_true',
                          help='Instruct the driver to reset the contents of the database')
     aparser.add_argument('--scalefactor', default = 1, type=float, metavar='SF',

@@ -74,6 +74,37 @@ class TestDesign (unittest.TestCase) :
     def testDesignFactory(self) :
         d = design.Design.testFactory()
         self.assertEqual(isinstance(d, design.Design), True)
+        
+    def testGetDenormalizationHierarchy(self) :
+        # Dependency Tree
+        #    A
+        #   / \
+        #  B   C
+        #  |
+        #  D
+        expected = {
+            'A': [ ],
+            'B': ['A'],
+            'C': ['A'],
+            'D': ['A', 'B']
+        }
+
+        d = design.Design()
+        d.addCollections(expected.keys())
+        d.setDenormalizationParent('B', 'A')
+        d.setDenormalizationParent('C', 'A')
+        d.setDenormalizationParent('D', 'B')
+        print d
+        
+        for collection in d.getCollections():
+            hierarchy = d.getDenormalizationHierarchy(collection)
+            #print "-"*50
+            #print collection, hierarchy
+            self.assertIsNotNone(hierarchy)
+            self.assertIn(collection, expected)
+            self.assertEqual(expected[collection], hierarchy)
+        ## FOR
+    ## DEF
 ## End Class
 
 if __name__ == '__main__':
