@@ -38,13 +38,13 @@ class Design(object):
     ## DEF
     
     def removeCollection(self, collection):
-        if collection not in list(self.collections) :
+        if collection not in list(self.data) :
             raise LookupError("Collection not found: " + collection)
         self.data.pop(collection)
 	## DEF
 	    
     def hasCollection(self, collection) :
-        return collection in list(self.collections)
+        return collection in list(self.data)
     ## DEF
     
     '''
