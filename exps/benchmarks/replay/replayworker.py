@@ -66,14 +66,16 @@ class ReplayWorker(AbstractWorker):
             LOG.error("Failed to connect to replay MongoDB at %s:%s" % (self.replayHost, self.replayPort))
             raise
         assert self.replayConn
-        self.replayDB = self.replayConn[config[self.name]['dbname']]
+        self.workloadDB = self.replayConn[config[self.name]['dbname']]
+        self.dataDB = self.replayConn["dataset"]
+        self.collections = set([c for c in self.dataDB.collection_names()])
+        self.collections.remove("system.indexes")
+        LOG.debug("Original Data Collections: %s" % self.collections)
         
         ## ----------------------------------------------
         ## TARGET DATABASE
         ## ----------------------------------------------
-        self.db = self.conn[TARGET_DB_NAME]
-        self.collections = set([c for c in self.db.collection_names()])
-        LOG.debug("Target Collections: %s" % self.collections)
+        self.targetDB = self.conn[TARGET_DB_NAME]
         
         # TODO: Figure out we're going to load the database. I guess it
         # would come from the workload database, right?
@@ -87,7 +89,7 @@ class ReplayWorker(AbstractWorker):
         # TODO: We are going to need to examine each session and figure out whether
         # we need to combine operations together if they access collections that
         # are denormalized into each other
-        self.replayCursor = self.replayDB[self.replayColl].find({'operations': {'$ne': {'$size': 0}}})
+        self.replayCursor = self.workloadDB[self.replayColl].find({'operations': {'$ne': {'$size': 0}}})
        
         return  
     ## DEF
@@ -95,7 +97,7 @@ class ReplayWorker(AbstractWorker):
     def loadImpl(self, config, channel, msg):
         assert self.conn
         
-        # TODO: Get the original database from the replayConn and then
+        # TODO: Get the original database from the workloadConn and then
         # massage it according to the design
         
         # TODO: Go through the sample workload and rewrite the queries according
@@ -175,7 +177,7 @@ class ReplayWorker(AbstractWorker):
             # TODO: We need to handle counts + sorts + limits
             if self.debug:
                 LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, fieldsClause))
-            resultCursor = self.db[coll].find(whereClause, fieldsClause)
+            resultCursor = self.targetDB[coll].find(whereClause, fieldsClause)
             
             # We have to iterate through the result so that we know that
             # the cursor has copied all the bytes
@@ -201,13 +203,13 @@ class ReplayWorker(AbstractWorker):
             # TODO: What about the 'manipulate' or 'safe' flags?
             if self.debug:
                 LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, updateClause))
-            result = self.db[coll].update(whereClause, updateClause)
+            result = self.targetDB[coll].update(whereClause, updateClause)
             
         # INSERT
         elif op['type'] == "$insert":
             # Just get the payload and fire it off
             # There's nothing else to really do here
-            result = self.db[coll].insert(op['content'])
+            result = self.targetDB[coll].insert(op['content'])
             
         # DELETE
         elif op['type'] == "$delete":
@@ -221,7 +223,7 @@ class ReplayWorker(AbstractWorker):
             # I'll see you in hell!!
             if self.debug:
                 LOG.debug("%s '%s' - WHERE:%s" % (op['type'][1:].upper(), coll, whereClause))
-            result = self.db[coll].remove(whereClause)
+            result = self.targetDB[coll].remove(whereClause)
         
         # UNKNOWN!
         else:
