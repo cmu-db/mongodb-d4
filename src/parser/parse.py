@@ -45,7 +45,7 @@ query_response_map = {}
 TIME_MASK = "[0-9]+\.[0-9]+.*"
 ARROW_MASK = "(-->>|<<--)"
 IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{5,5}"
-COLLECTION_MASK = "\w+\.\$?\w+"
+COLLECTION_MASK = "[\w+\.]+\$?\w+"
 SIZE_MASK = "\d+ bytes"
 MAGIC_ID_MASK = "id:\w+"
 TRANSACTION_ID_MASK = "\d+"
@@ -118,7 +118,10 @@ def addSession(ip1, ip2):
     getTracesCollection().save(session)
     return session
 
-def store(transaction):    
+def store(transaction):
+    #print ""
+    #print ""
+    #print current_transaction
     if (current_transaction['arrow'] == '-->>'):
         ip1 = current_transaction['IP1']
         ip2 = current_transaction['IP2']
@@ -130,6 +133,12 @@ def store(transaction):
         session = addSession(ip1, ip2)
     else:
         session = current_session_map[ip1]
+    
+    if 'type' not in current_transaction:
+        LOG.error("INCOMPLETE operation:")
+        LOG.error(current_transaction)
+        return
+    
     # create the operation -- corresponds to current_transaction
     op = {
             'collection': unicode(current_transaction['collection']),
@@ -148,8 +157,12 @@ def store(transaction):
     # RESPONSE - append it to the query
     if current_transaction['type'] == "$reply":
         query_id = current_transaction['query_id'];
-        query = query_response_map[query_id]
-        query['response'] = op
+        if query_id in query_response_map:
+            query = query_response_map[query_id]
+            query['response'] = op
+        else:
+            print "SKIPPED QUERY"
+            print op
     else:
         # Append the operation to the current session
         session['operations'].append(op)
@@ -183,12 +196,43 @@ def add_yaml_to_content(yaml_line):
     #skip empty lines
     if len(yaml_line.split()) is 0:
         return
+    
+    if not yaml_line.strip().startswith("{"):
+        # this is not a content line... it can't be yaml
+        print "SKIPPING:"
+        print yaml_line
+        return
+    
+    if yaml_line.strip().startswith("{"):
+        if not yaml_line.strip().endswith("}"):
+            print "PROBLEM: undended line. Please use parser_prep"
+            print yaml_line
+            exit()
+    
+    
+    
+    # this is a bit hacky, but it works.
+    # un-escaped " characters mess the yaml parser up...
+    # {value: "this is a "problem""}
+    # insted, it's fine if the string looks like this:
+    # {value: this is not a problem}
+    # solution: (does not work well)
+    #yaml_line = yaml_line.replace("\"", "")
+    
+    
+    yaml_line = yaml_line.replace("http:", "http")
+    yaml_line = yaml_line.replace("rv:", "rv")
+    yaml_line = yaml_line.replace("?", "")
+    
+    
     #yaml parser might fail :D
     try:
         obj = yaml.load(yaml_line)
-    except yaml.scanner.ScannerError as err:
+    except (yaml.scanner.ScannerError, yaml.parser.ParserError, yaml.reader.ReaderError) as err:
         LOG.error("Parsing yaml to JSON: " + str(yaml_line))
         LOG.error("details: " + str(err))
+        #print yaml_line
+        #exit()
         return
     valid_json = json.dumps(obj)
     obj = yaml.load(valid_json)
@@ -237,6 +281,8 @@ def process_content_line(line):
         if len(lines) > 2:
             LOG.error("Fuck. This update query is tricky to parse: " + str(line))
             LOG.error("Skipping it for now...")
+        if len(lines) < 2:
+            return
         add_yaml_to_content(lines[0])
         add_yaml_to_content(lines[1])
     
