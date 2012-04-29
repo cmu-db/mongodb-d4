@@ -38,7 +38,7 @@ class TestUtilMethods (unittest.TestCase):
             while len(loadRound) > 0:
                 collection = loadOrder.pop(0)
                 self.assertNotEqual(collection, None)
-                self.assertIn(collection, loadRound)
+                self.assertTrue(collection in loadRound)
                 loadRound.remove(collection)
             ## WHILE
         ## FOR

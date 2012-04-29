@@ -101,7 +101,7 @@ class TestDesign (unittest.TestCase) :
             #print "-"*50
             #print collection, hierarchy
             self.assertNotEqual(hierarchy, None)
-            self.assertIn(collection, expected)
+            self.assertTrue(collection in expected)
             self.assertEqual(expected[collection], hierarchy)
         ## FOR
     ## DEF
