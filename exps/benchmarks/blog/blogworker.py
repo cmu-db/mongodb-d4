@@ -41,30 +41,54 @@ LOG = logging.getLogger(__name__)
 
 class BlogWorker(AbstractWorker):
     
-    def initImpl(self, config, channel):
+    def initImpl(self, config):
         # Total number of articles in database
-        self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
+        self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
         
         # Zipfian distribution on the number of comments & their ratings
         self.commentsZipf = ZipfGenerator(constants.MAX_NUM_COMMENTS, 1.0)
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.0)
+        self.db = self.conn[constants.DB_NAME]
         
-        ## ----------------------------------------------
-        ## Connect to MongoDB
-        ## ----------------------------------------------
-        self.conn = None
-        try:
-            self.conn = pymongo.Connection(config['host'], int(config['port']))
-        except:
-            LOG.error("Failed to connect to MongoDB at %s:%s" % (config['host'], config['port']))
-            raise
-        assert self.conn
-        
-        if config["reset"]:
+        if config['default']["reset"]:
             LOG.info("Resetting database '%s'" % constants.DB_NAME)
             self.conn.drop_database(constants.DB_NAME)
         
-        pass
+        # Always drop the indexes
+        self.db[constants.ARTICLE_COLL].drop_indexes()
+        self.db[constants.COMMENT_COLL].drop_indexes()
+        
+        # Sharding Key
+        if config[self.name]["experiment"] == 1:
+            self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
+            self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
+            
+        # Denormalization
+        elif config[self.name]["experiment"] == 2:
+            # We need an index on ARTICLE
+            self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
+            # And if we're not denormalized, on COMMENTS as well
+            if not config[self.name]["denormalize"]:
+                self.db[constants.COMMENT_COLL].create_index([("article", pymongo.ASCENDING)])
+                
+        # Indexing
+        elif config[self.name]["experiment"] == 3:
+            # Nothing
+            if config[self.name]["indexes"] == 0:
+                pass
+            # Regular Index
+            elif config[self.name]["indexes"] == 1:
+                self.db[constants.ARTICLE_COLL].create_index([("article", pymongo.ASCENDING)])
+            # Cover Index
+            elif config[self.name]["indexes"] == 2:
+                self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING), \
+                                                              ("date", pymongo.ASCENDING), \
+                                                              ("author", pymongo.ASCENDING)])
+            else:
+                raise Exception("Unexpected index configuration type %d" % config["indexes"])
+        else:
+            raise Exception("Unexpected experiment type %d" % config["experiment"])
+        
     ## DEF
     
     def loadImpl(self, config, channel, msg):
@@ -75,10 +99,6 @@ class BlogWorker(AbstractWorker):
         # the list of author names that we'll generate articles from
         firstArticle, lastArticle, authors = msg.data
         
-        # Check whether they set the denormalize flag
-        if not "denormalize" in config:
-            config["denormalize"] = False
-        
         LOG.info("Generating %s data" % self.getBenchmarkName())
         articleCtr = 0
         commentCtr = 0
@@ -87,6 +107,8 @@ class BlogWorker(AbstractWorker):
         ## ----------------------------------------------
         ## LOAD ARTICLES
         ## ----------------------------------------------
+        articlesBatch = [ ]
+        commentsBatch = [ ]
         for articleId in xrange(firstArticle, lastArticle):
             titleSize = int(random.gauss(constants.MAX_TITLE_SIZE/2, constants.MAX_TITLE_SIZE/4))
             contentSize = int(random.gauss(constants.MAX_CONTENT_SIZE/2, constants.MAX_CONTENT_SIZE/4))
@@ -129,8 +151,8 @@ class BlogWorker(AbstractWorker):
                     "rating": int(self.ratingZipf.next())
                 }
                 commentCtr += 1
-                if not config["denormalize"]:
-                    self.conn[constants.DB_NAME][constants.COMMENT_COLL].insert(comment)
+                if not config[self.name]["denormalize"]:
+                    commentsBatch.append(comment)
                 else:
                     if not "comments" in article:
                         article["comments"] = [ ]
@@ -139,11 +161,19 @@ class BlogWorker(AbstractWorker):
             ## FOR (comments)
 
             # Always insert the article
-            self.conn[constants.DB_NAME][constants.ARTICLE_COLL].insert(article)
+            articlesBatch.append(article)
             articleCtr += 1
-            if self.debug and articleCtr % 1000 == 0 :
+            if self.debug and articleCtr % 100 == 0 :
                 LOG.debug("ARTICLE: %6d / %d" % (articleCtr, (lastArticle - firstArticle)))
+                self.db[constants.ARTICLE_COLL].insert(articlesBatch)
+                if len(commentsBatch) > 0:
+                    self.db[constants.COMMENT_COLL].insert(commentsBatch)
+                articlesBatch = [ ]
+                commentsBatch = [ ]
         ## FOR (articles)
+        if len(articlesBatch) > 0:
+            self.db[constants.ARTICLE_COLL].insert(articlesBatch)
+            self.db[constants.COMMENT_COLL].insert(commentsBatch)
         
         LOG.info("# of ARTICLES: %d" % articleCtr)
         LOG.info("# of COMMENTS: %d" % commentCtr)
@@ -154,24 +184,21 @@ class BlogWorker(AbstractWorker):
         
         # It doesn't matter what we pick, so we'll just 
         # return the name of the experiment
-        txnName = "exp%02d" % config["experiment"]
+        txnName = "exp%02d" % config[self.name]["experiment"]
         params = None
         
-        # Sharding Key - Variant 1
-        if config["experiment"] == 1:
-            pass
-        # Sharding Key - Variant 2
-        elif config["experiment"] == 2:
-            pass
+        # Sharding Key
+        if config[self.name]["experiment"] == 1:
+            assert self.articleZipf
+            params = [ int(self.articleZipf.next()) ]
         # Denormalization
-        elif config["experiment"] == 3:
+        elif config[self.name]["experiment"] == 2:
             params = [ random.randint(0, self.num_articles) ]
-        # Indexing - Variant 1
-        elif config["experiment"] == 5:
-            pass
-        # Indexing - Variant 2
-        elif config["experiment"] == 6:
-            pass
+        # Indexing
+        elif config[self.name]["experiment"] == 3:
+            params = [ random.randint(0, self.num_articles) ]
+        else:
+            raise Exception("Unexpected experiment type %d" % config["experiment"]) 
         
         return (txnName, params)
     ## DEF
@@ -183,27 +210,24 @@ class BlogWorker(AbstractWorker):
         if self.debug:
             LOG.debug("Executing %s / %s [denormalize=%s]" % (txn, str(params), config["denormalize"]))
         
-        # Sharding Key - Variant 1
-        if config["experiment"] == 1:
-            pass
-        # Sharding Key - Variant 2
-        elif config["experiment"] == 2:
-            pass
+        # Sharding Key
+        if config[self.name]["experiment"] == 1:
+            self.expSharding(params[0])
         # Denormalization
-        elif config["experiment"] == 3:
+        elif config[self.name]["experiment"] == 2:
             self.expDenormalization(config["denormalize"], params[0])
-        # Indexing - Variant 1
-        elif config["experiment"] == 5:
-            pass
-        # Indexing - Variant 2
-        elif config["experiment"] == 6:
+        # Indexing
+        elif config[self.name]["experiment"] == 3:
+            self.expIndexes(params[0])
+        # Busted!
+        else:
             pass
         
         return
     ## DEF
     
     
-    def experiment1(self, config, channel, msg):
+    def expSharding(self, articleId):
         """
         For this experiment, we will shard articles by their autoinc id and then 
         by their id+timestamp. This will show that sharding on just the id won't
@@ -212,8 +236,12 @@ class BlogWorker(AbstractWorker):
         timestamp get redirected to a mininal number of nodes?
         Not sure if this is a good experiment to show this. Might be too trivial.
         """
-        
-        pass
+        article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId}, {"comments": 0})
+        if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            pass
+        return
+    ## DEF
     
     def expDenormalization(self, denormalize, articleId):
         """
@@ -231,20 +259,20 @@ class BlogWorker(AbstractWorker):
         nested documents
         """
         
-        article = self.conn[constants.DB_NAME][constants.ARTICLE_COLL].find_one({"id": articleId})
+        article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             pass
         assert article["id"] == articleId
         if denormalize:
-            comments = self.conn[constants.DB_NAME][constants.COMMENT_COLL].find({"article": articleId})
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
         else:
             assert "comments" in article, pformat(article)
             comments = article["comments"]
         return
     ## DEF
     
-    def experiment3(self, config, channel, msg):
+    def expIndexes(self, articleId):
         """
         In our final benchmark, we compared the performance difference between a query on 
         a collection with (1) no index for the query's predicate, (2) an index with only one 
@@ -252,5 +280,10 @@ class BlogWorker(AbstractWorker):
         referenced by that query.
         What do we want to vary here on the x-axis? The number of documents in the collection?
         """
-        pass
+        
+        article = self.db[constants.ARTICLE_COLL].find({"id": articleId}, {"id", "date", "author"})
+        if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        
+        return
 ## CLASS

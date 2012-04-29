@@ -41,7 +41,15 @@ LOG = logging.getLogger(__name__)
 
 class TpccWorker(AbstractWorker):
     
-    def initImpl(self, config, channel):
+    def initImpl(self, config):
+        # Collapse config into a single dict
+        new_config = { }
+        for s in config.keys()
+            if not s in ['default', self.name]: continue
+            for k in config[s].keys():
+                new_config[k] = config[s][k]
+        config = new_config
+        
         ## Create a handle to the target client driver
         config['system'] = "mongodb"
         realpath = os.path.realpath(__file__)
@@ -58,7 +66,7 @@ class TpccWorker(AbstractWorker):
         
         driverClass = self.createDriverClass(config['system'])
         assert driverClass != None, "Failed to find '%s' class" % config['system']
-        driver = driverClass(config['ddl'])
+        driver = driverClass(self.conn, config['ddl'])
         assert driver != None, "Failed to create '%s' driver" % config['system']
         driver.loadConfig(config)
         self._driver = driver

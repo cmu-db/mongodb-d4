@@ -44,6 +44,10 @@ from api.message import *
 LOG = logging.getLogger(__name__)
 
 class TpccCoordinator(AbstractCoordinator) :
+    DEFAULT_CONFIG = {
+        "name":         ("Collection name", "tpcc"),
+        "denormalize":  ("If set to true, then the CUSTOMER data will be denormalized into a single document", True),
+    }
     
     def initImpl(self, config, channels):
         ## Create our ScaleParameter stuff that we're going to need

@@ -30,47 +30,35 @@ import random
 import logging
 from pprint import pprint, pformat
 
-import constants
-from util import *
+# Designer
+from util import constants
+
+# Benchmark
 from api.abstractcoordinator import AbstractCoordinator
 from api.message import *
 
 LOG = logging.getLogger(__name__)
 
-class BlogCoordinator(AbstractCoordinator):
+class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = {
-        "denormalize":  ("If set to true, then the COMMENTS are denormalized into ARTICLES", False),
+        "host":     ("The hostname of database with the workload to replay", "localhost"),
+        "port":     ("The port number of the workload database", 27017),
+        "workloaddb":   ("Name of the database with the workload", "metadata"),
+        "workloadcollection": ("Name of the workload collection containing the sessions that we want to replay", constants.COLLECTION_WORKLOAD),
+        "datadb":   ("Name of the database with the original database", "dataset"),
+        "ignorecollections": ("If set to true, the worker will ignore operations that attempt to access an unexpected collection", False),
     }
     
     def initImpl(self, config, channels):
-        self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
-        
-        # Check whether they set the denormalize flag
-        if not "denormalize" in config[self.name]:
-            config[self.name]["denormalize"] = False
-        config[self.name]["experiment"] = int(config[self.name]["experiment"])
-        if "indexes" in config[self.name]:
-            config[self.name]["indexes"] = int(config[self.name]["indexes"])
-        
-        ## Precompute our blog article authors
-        self.authors = [ ]
-        for i in xrange(0, constants.NUM_AUTHORS):
-            authorSize = int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4))
-            self.authors.append(rand.randomString(authorSize))
-        ## FOR
-        return
+        # Nothing to do over here...
+        pass
     ## DEF
     
     def loadImpl(self, config, channels):
-        procs = len(channels)
-        articleRange = [ ]
-        articlesPerChannel = self.num_articles / procs
-        first = 0
-        for i in range(len(channels)):
-            last = first + articlesPerChannel
-            LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
-            sendMessage(MSG_CMD_LOAD, (first, last, self.authors), channels[i])
-            first = last
+        # TODO: Figure out how we are going to convert the original
+        # database to whatever design that they want us to have
+        for ch in channels:
+            sendMessage(MSG_CMD_LOAD, None, ch)
     ## DEF
 
 ## CLASS

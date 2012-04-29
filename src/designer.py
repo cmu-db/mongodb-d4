@@ -19,6 +19,7 @@ from search import designcandidate
 import costmodel
 from util import *
 import itertools
+import json
 LOG = logging.getLogger(__name__)
 
 def calc_stats(params, stats) :
@@ -93,7 +94,7 @@ if __name__ == '__main__':
     ## STEP 1
     ## Generate an initial solution
     ## ----------------------------------------------
-    
+    solutions = {'initial' : [], 'final' : [] }
     params = {
         'query_use_count' : 1.0,
     }
@@ -118,7 +119,8 @@ if __name__ == '__main__':
                 attr = field
         starting_design.addShardKey(col['name'], attr)
         starting_design.addIndex(col['name'], [attr])
-        
+    solutions['initial'] = starting_design.toLIST()
+    
     ## ----------------------------------------------
     ## STEP 2
     ## Create Workload for passing into cost function
@@ -129,42 +131,46 @@ if __name__ == '__main__':
         if len(rec['operations']) > 0 :
             sessn.startTime = rec['operations'][0]['timestamp']
             sessn.endTime = rec['operations'][len(rec['operations']) - 1]['timestamp']
-        for op in rec['operations'] :
-            statistics[op['collection']]['workload_queries'] += 1
-            statistics['total_queries'] += 1
-            qry = workload.Query()
-            qry.collection = op['collection']
-            qry.timestamp = op['timestamp']
-            if op['type'] == '$insert' :
-                qry.type = 'insert'
-                # No predicate for insert operations
-                # No projections for insert operations
-            elif op['type'] == '$query' :
-                qry.type = 'select'
-                if op['content'][0]['query'] <> None :
-                    for k,v in op['content'][0]['query'].iteritems() :
+            
+            for op in rec['operations'] :
+                statistics[op['collection']]['workload_queries'] += 1
+                statistics['total_queries'] += 1
+                qry = workload.Query()
+                qry.collection = op['collection']
+                qry.timestamp = op['timestamp']
+                if op['type'] == '$insert' :
+                    qry.type = 'insert'
+                    # No predicate for insert operations
+                    # No projections for insert operations
+                elif op['type'] == '$query' :
+                    qry.type = 'select'
+                    if op['content'][0]['query'] <> None :
+                        for k,v in op['content'][0]['query'].iteritems() :
+                            if type(v) == 'dict' :
+                                qry.predicates[k] = 'range'
+                            else :
+                                qry.predicates[k] = 'equality'
+                elif op['type'] == '$update' :
+                    qry.type = 'update'
+                    try :
+                        for k,v in op['content'][0].iteritems() :
+                            if type(v) == 'dict' :
+                                qry.predicates[k] = 'range'
+                            else :
+                                qry.predicates[k] = 'equality'
+                    except AttributeError :
+                        pass
+                elif op['type'] == '$remove' :
+                    qry.type = 'delete'
+                    for k,v in op['content'][0].iteritems() :
                         if type(v) == 'dict' :
                             qry.predicates[k] = 'range'
                         else :
                             qry.predicates[k] = 'equality'
-            elif op['type'] == '$update' :
-                qry.type = 'update'
-                for k,v in op['content'][0].iteritems() :
-                    if type(v) == 'dict' :
-                        qry.predicates[k] = 'range'
-                    else :
-                        qry.predicates[k] = 'equality'
-            elif op['type'] == '$remove' :
-                qry.type = 'delete'
-                for k,v in op['content'][0].iteritems() :
-                    if type(v) == 'dict' :
-                        qry.predicates[k] = 'range'
-                    else :
-                        qry.predicates[k] = 'equality'
-            else :
-                qry.type = None
-            sessn.queries.append(qry)
-        wrkld.addSession(sessn)
+                else :
+                    qry.type = None
+                sessn.queries.append(qry)
+            wrkld.addSession(sessn)
     
     ## -------------------------------------------------
     ## STEP 3
@@ -188,10 +194,10 @@ if __name__ == '__main__':
     cluster_nodes = cparser.getint(config.SECT_CLUSTER, 'nodes')
     memory = cparser.getint(config.SECT_CLUSTER, 'node_memory')
     skews = cparser.getint(config.SECT_COSTMODEL, 'time_intervals')
-    config_params = {'alpha' : alpha, 'beta' : beta, 'gamma' : gamma, 'nodes' : cluster_nodes, 'max_memory' : memory, 'skew_intervals' : skews}
+    address_size = cparser.getint(config.SECT_COSTMODEL, 'address_size')
+    config_params = {'alpha' : alpha, 'beta' : beta, 'gamma' : gamma, 'nodes' : cluster_nodes, 'max_memory' : memory, 'skew_intervals' : skews, 'address_size' : address_size}
     cm = costmodel.CostModel(wrkld, config_params, statistics)
     upper_bound = cm.overallCost(starting_design)
-    print upper_bound
     
     ## ----------------------------------------------
     ## STEP 5
@@ -213,15 +219,19 @@ if __name__ == '__main__':
                     
         # deal with de-normalization
         denorm = []
-        for cn in col_names :
-           if cn <> col['name'] :
-               denorm.append(cn)
+        for k,v in col['fields'].iteritems() :
+            if v['parent_col'] <> '' :
+                if v['parent_col'] not in denorm :
+                    denorm.append(v['parent_col'])
         dc.addCollection(col['name'], indexKeys, shardKeys, denorm)
     
     ## ----------------------------------------------
     ## STEP 6
     ## Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
-    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 120)
-    bb.solve()
+    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 10)
+    solution = bb.solve()
+    
+    solutions['final'] = solution.toLIST()
+    print json.dumps(solutions, sort_keys=False, indent=4)
 ## MAIN

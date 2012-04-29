@@ -55,8 +55,9 @@ class CostModel(object):
         self.rg = random.Random()
         self.rg.seed('cost model coolness')
         # Convert MB to KB
-        self.max_memory = config['max_memory'] * 1024 * 1024
+        self.max_memory = config['max_memory'] * 1024 * 1024 * self.nodes
         self.skew_segments = config['skew_intervals'] - 1
+        self.address_size = config['address_size'] / 4
     ## end def ##
     
     def overallCost(self, design) :
@@ -127,7 +128,10 @@ class CostModel(object):
                     
                 cost += min_pages        
                 worst_case += max_pages
-        return cost / worst_case
+        if worst_case == 0 :
+            return 0
+        else :
+            return cost / worst_case
     ## end def ##
     
     def skewCost(self, design):
@@ -250,7 +254,8 @@ class CostModel(object):
             memory += self.stats[col]['tuple_count'] * self.stats[col]['avg_doc_size']
             
             # Process other indexes for this collection in the design
-            memory += self.stats[col]['tuple_count'] * self.stats[col]['avg_doc_size'] * len(design.indexes[col])
+            for index in design.indexes[col] :
+                memory += self.stats[col]['tuple_count'] * self.address_size * len(index)
         return memory
         
     '''

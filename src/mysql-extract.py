@@ -51,8 +51,9 @@ if __name__ == '__main__':
     config.setDefaultValues(cparser)
     
     ## ----------------------------------------------
-    
-    ## Connect to MongoDB
+    ## Step 1:
+    ## Initialize connctions
+    ## ----------------------------------------------
     try:
         hostname = cparser.get(config.SECT_MONGODB, 'hostname')
         port = cparser.getint(config.SECT_MONGODB, 'port')        
@@ -63,13 +64,17 @@ if __name__ == '__main__':
         LOG.error("Failed to connect to MongoDB at %s:%s" % (config['hostname'], config['port']))
         raise
     
-    ## Register our objects with MongoKit
     conn.register([ catalog.Collection ])
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     metadata_db.drop_collection(constants.COLLECTION_SCHEMA)
     ## ----------------------------------------------
     
     mysql_conn = mdb.connect(host=args['host'], db=args['name'], user=args['user'], passwd=args['pass'])
+    
+    ## ----------------------------------------------
+    ## Step 2:
+    ## Determine tables/columns/indexes of MySQL schema
+    ## ----------------------------------------------
     c1 = mysql_conn.cursor()
     c1.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s", args['name'])
     quick_look = {}
@@ -96,7 +101,10 @@ if __name__ == '__main__':
                 'type': catalog.fieldTypeToString(col_type),
                 'query_use_count' : 0,
                 'cardinality' : 0,
-                'selectivity' : 0
+                'selectivity' : 0,
+                'parent_col' : '',
+                'parent_field' : '',
+                'parent_conf' : 0.0
             }
         ## FOR
         
@@ -130,7 +138,34 @@ if __name__ == '__main__':
         ## ENDFOR
     ## ENDFOR
 
-    # Ingest a MySQL query log and convert it into our workload.Sessions objects
+    ## ----------------------------------------------
+    ## Step 3:
+    ## Query foreign key relationships and store in catalog schema
+    ## ----------------------------------------------
+    c3 = mysql_conn.cursor()
+    c3.execute("""
+        SELECT CONCAT( table_name, '.', column_name, '.', 
+            referenced_table_name, '.', referenced_column_name ) AS list_of_fks 
+        FROM INFORMATION_SCHEMA.key_column_usage 
+        WHERE referenced_table_schema = %s 
+            AND referenced_table_name IS NOT NULL 
+    """, (args['name']))
+    
+    for row in c3 :
+        rel = row[0].split('.')
+        if len(rel) == 4 :
+            # rel = [ child_table, child_field, parent_table, parent_field]
+            collection = metadata_db.Collection.find_one({'name' : rel[0]})
+            collection['fields'][rel[1]]['parent_col'] = rel[2]
+            collection['fields'][rel[1]]['parent_field'] = rel[3]
+            collection['fields'][rel[1]]['parent_conf'] = 1.0
+            collection.save()
+        
+    ## ----------------------------------------------
+    ## Step 4:
+    ## Process MySQL query log for conversion to workload.Session objects
+    ## ----------------------------------------------
+    
     c4 = mysql_conn.cursor()
     c4.execute("""
         SELECT * FROM general_log ORDER BY thread_id, event_time;	
@@ -161,26 +196,36 @@ if __name__ == '__main__':
             session['uid'] = uid
             session['operations'] = []
         ## ENDIF
+        
         if row[5] <> '' :
             sql = re.sub("`", "", row[5])
-            query = mongo.process_sql(sql)
-            if mongo.query_type <> 'UNKNOWN' :
-                operations = mongo.generate_operations(stamp)
-                for op in operations :
-                    session['operations'].append(op)
-                ## ENDFOR
-            elif row[5].strip().lower() == 'commit' :
-                if len(session['operations']) > 0 :
-                    session.save()
-                    uid += 1
+            success = True
+            try:
+                query = mongo.process_sql(sql)
+            except (NameError, KeyError, IndexError) as e :
+                success = False
+            if success == True :
+                if mongo.query_type <> 'UNKNOWN' :
+                    operations = mongo.generate_operations(stamp)
+                    if len(operations) == 0 :
+                        print row[5]
+                    for op in operations :
+                        session['operations'].append(op)
+                    ## ENDFOR
+                elif row[5].strip().lower() == 'commit' :
+                    if len(session['operations']) > 0 :
+                        session.save()
+                        uid += 1
+                    ## ENDIF
+                    session = metadata_db.Session()
+                    session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
+                    session['ip2'] = hostIP
+                    session['uid'] = uid
+                    session['operations'] = []
                 ## ENDIF
-                session = metadata_db.Session()
-                session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
-                session['ip2'] = hostIP
-                session['uid'] = uid
-                session['operations'] = []
             ## ENDIF
-        ## ENDIF
+        ## End if ##
     ## ENDFOR
-    session.save()
+    if len(session['operations']) > 0 :
+        session.save()
 ## MAIN

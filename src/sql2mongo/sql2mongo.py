@@ -5,13 +5,13 @@ import json
 import yaml
 
 '''
-@todo: JOIN processing
-@todo: Process basic OR criteria
 @todo: Handle nested queries?
 '''
 
 class Sql2mongo (object) :
 
+    query_id = 0
+    
     '''
     Class constructor
     '''
@@ -63,6 +63,8 @@ class Sql2mongo (object) :
             op['output'] = []
             op['type'] = self.mongo_type()
             op['size'] = 0
+            op['flags'] = None
+            op['query_id'] = Sql2mongo.query_id
             if self.query_type == 'DELETE' :
                 op['content'].append(self.generate_content_remove(table))
             elif self.query_type == 'INSERT' :
@@ -73,6 +75,7 @@ class Sql2mongo (object) :
                 content = self.generate_content_update(table)
                 for i in content :
                     op['content'].append(i)
+                op['flags'] = 2
             operations.append(op)
         return operations
     ## End generate_operations()
@@ -318,6 +321,9 @@ class Sql2mongo (object) :
                 if token.ttype <> sqlparse.tokens.Token.Punctuation and token.ttype <> sqlparse.tokens.Token.Text.Whitespace :
                     table = token.to_unicode()
                     i += 1
+                    if i >= end :
+                        self.table_aliases['main'] = table
+                        break
                     next = self.stmt.tokens[i]
                     if next.ttype == sqlparse.tokens.Token.Text.Whitespace :
                         i += 1
@@ -511,9 +517,11 @@ class Sql2mongo (object) :
     ## End process_query_update()
     
     def process_sql(self, sql, reset=True) :
+        Sql2mongo.query_id += 1
         if reset == True :
             self.reset()
         parsed = sqlparse.parse(sql)
+        self.sql = sql
         if len(parsed) > 0 :
             self.stmt = parsed[0]
             self.query_type = self.stmt.get_type()
@@ -605,6 +613,7 @@ class Sql2mongo (object) :
         self.stmt = None
         self.use_or = False
         self.limit = {}
+        self.sql = ''
         self.project_cols = {}
         self.skip = {}
         self.set_cols = {}
@@ -802,7 +811,10 @@ class Sql2mongo (object) :
         elif val[0] in ['"', "'"] :
             val = val.strip('"\'')
         else :
-            val = float(val)
+            try:
+                val = float(val)
+            except ValueError:
+                pass
         return val
     ## End render_trace_value()
     

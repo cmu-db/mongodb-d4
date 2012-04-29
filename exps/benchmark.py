@@ -43,6 +43,16 @@ logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
                     datefmt="%m-%d-%Y %H:%M:%S",
                     stream = sys.stdout)
+                    
+# Setup path back to designer framework
+realpath = os.path.realpath(__file__)
+basedir = os.path.realpath(os.path.join(os.path.dirname(realpath), "../src"))
+if not os.path.exists(realpath):
+    cwd = os.getcwd()
+    basename = os.path.basename(realpath)
+    if os.path.exists(os.path.join(cwd, basename)):
+        basedir = cwd
+sys.path.append(os.path.realpath(basedir))
 
 ## ==============================================
 ## Benchmark Invocation
@@ -64,13 +74,13 @@ class Benchmark:
         cparser.read(os.path.realpath(self._args['config'].name))
         config = dict()
         for s in cparser.sections():
-            config = dict(config.items() + cparser.items(s))
+            config[s] = dict(cparser.items(s))
         ## FOR
         
         # Extra stuff from the argumetns that we want to stash
         for key,val in args.items():
-            if key != 'config': config[key] = val
-        config['name'] = args['benchmark'].upper()
+            if key != 'config': config['default'][key] = val
+        config['default']['name'] = args['benchmark'].lower()
         
         # Figure out where the hell we actually are
         realpath = os.path.realpath(__file__)
@@ -84,29 +94,28 @@ class Benchmark:
         config['path'] = os.path.realpath(basedir)
         
         # Fix common problems
-        for key in [ "port", "duration", "experiment" ]:
-            if key in config:
-                config[key] = int(config[key])
+        for s in config.keys():
+            for key in ["port", "duration", "experiment"]:
+                if key in config[s]: config[s][key] = int(config[s][key])
         ## FOR
         
-        logging.debug("Configuration File:\n%s" % pformat(config))
+        logging.info("Configuration File:\n%s" % pformat(config))
         return config
         
     def createChannels(self):
         '''Create a list of channels used for communication between coordinator and worker'''
-        assert self._config['clients']
-        clients = re.split(r"\s+", str(self._config['clients']))
+        assert 'clients' in self._config['default']
+        clients = re.split(r"\s+", str(self._config['default']['clients']))
         assert len(clients) > 0
         logging.info("Invoking benchmark framework on %d clients" % len(clients))
 
         import benchmark
         remoteCall = benchmark
-        
         channels=[]
         
         # Create fake channel that invokes the worker directly in
         # the same process
-        if self._config['direct']:
+        if self._config['default']['direct']:
             ch = DirectChannel()
             channels.append(ch)
             
@@ -115,10 +124,10 @@ class Benchmark:
             for node in clients:
                 cmd = 'ssh='+ node
                 cmd += r"//chdir="
-                cmd += self._config['path']
+                cmd += self._config['default']['path']
                 logging.debug(cmd)
-                logging.debug("# of Client Processes: %s" % self._config['clientprocs'])
-                for i in range(int(self._config['clientprocs'])):
+                logging.debug("# of Client Processes: %s" % self._config['default']['clientprocs'])
+                for i in range(int(self._config['default']['clientprocs'])):
                     logging.debug("Invoking %s on %s" % (remoteCall, node))
                     gw = execnet.makegateway(cmd)
                     ch = gw.remote_exec(remoteCall)
@@ -129,10 +138,10 @@ class Benchmark:
         
     def createCoordinator(self):
         '''Coordinator factory method.'''
-        benchmark = self._config['benchmark']
+        benchmark = self._config['default']['benchmark']
         
         # First make sure that the benchmark is on our sys.path
-        setupPath(benchmark)
+        setupBenchmarkPath(benchmark)
         
         # Then use some black magic to instantiate an instance of the benchmark's coordinator
         fullName = benchmark.title() + "Coordinator"
@@ -171,9 +180,9 @@ def getBenchmarks():
 ## DEF
 
 ## ==============================================
-## setupPath
+## setupBenchmarkPath
 ## ==============================================
-def setupPath(benchmark):
+def setupBenchmarkPath(benchmark):
     realpath = os.path.realpath(__file__)
     basedir = os.path.dirname(realpath)
     if not os.path.exists(realpath):

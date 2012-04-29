@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from util import *
+import json
 
 ## ==============================================
 ## Design
@@ -106,8 +107,22 @@ class Design(object):
             s += " shardKey: " + str(self.shardKeys[col])
             s += " denorm: " + str(self.denorm[col]) + "\n"
         return s
-            
     
+            
+    def toJSON(self) :
+        return json.dumps(self.toLIST(), sort_keys=False, indent=4)
+    
+    def toLIST(self) :
+        result = []
+        for col in self.collections:
+           document = {}
+           document['collection'] = col
+           document['indexes'] = self.indexes[col]
+           document['shardKey'] = self.shardKeys[col]
+           document['denorm'] = []
+           result.append(document)
+        return result
+        
     @staticmethod
     def testFactory() :
         design = Design()

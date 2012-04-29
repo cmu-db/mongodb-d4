@@ -39,5 +39,8 @@ Dictionary for fields
     'query_use_count' : 0,
     'cardinality' : 0,
     'selectivity' : 0,
+    'parent_col' : '',
+    'parent_key' : '',
+    'parent_conf' : 0.0,
 }
 '''

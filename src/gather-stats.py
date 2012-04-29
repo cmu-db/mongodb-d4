@@ -114,11 +114,17 @@ if __name__ == '__main__':
                             tuples.append((k, v))
             elif op['type'] == '$update' :
                 for content in op['content'] :
-                    for k,v in content.iteritems() :
-                        tuples.append((k, v))
+                    try :
+                        for k,v in content.iteritems() :
+                            tuples.append((k, v))
+                    except AttributeError :
+                        pass
             for t in tuples :
                 ## Update times the column is referenced in a query
-                col_info['fields'][t[0]]['query_use_count'] += 1
+                try :
+                    col_info['fields'][t[0]]['query_use_count'] += 1
+                except KeyError :
+                    pass
             col_info.save()
     
     ## ----------------------------------------------
@@ -147,7 +153,10 @@ if __name__ == '__main__':
                         distinct_values[col['name']][k][v] = v
                     else :
                         tuple_sizes[col['name']] += 12
-        col['avg_doc_size'] = int(tuple_sizes[col['name']] / col['tuple_count'])
+        if col['tuple_count'] == 0 :
+            col['avg_doc_size'] = 0
+        else :
+            col['avg_doc_size'] = int(tuple_sizes[col['name']] / col['tuple_count'])
         col.save()
     
     ## ---------------------------------------------
