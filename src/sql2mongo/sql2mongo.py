@@ -63,6 +63,7 @@ class Sql2mongo (object) :
             op['output'] = []
             op['type'] = self.mongo_type()
             op['size'] = 0
+            op['flags'] = None
             if self.query_type == 'DELETE' :
                 op['content'].append(self.generate_content_remove(table))
             elif self.query_type == 'INSERT' :
@@ -73,6 +74,7 @@ class Sql2mongo (object) :
                 content = self.generate_content_update(table)
                 for i in content :
                     op['content'].append(i)
+                op['flags'] = 2
             operations.append(op)
         return operations
     ## End generate_operations()

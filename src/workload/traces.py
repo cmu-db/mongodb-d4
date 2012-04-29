@@ -22,6 +22,7 @@ class Session(Document):
                 'output':       dict,
                 'type':         unicode,
                 'size':         int,
+                'flags':        int,
             }
         ],
     }
