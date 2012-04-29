@@ -9,46 +9,47 @@ import json
 class Design(object):
 
     def __init__(self):
-        # set of collection names
-        self.collections = []
-        self.fields = {} # I think this does not need to be here
-        self.shardKeys = {} 
-        self.indexes = {}
-        self.denorm = {}
+        self.data = {}
+        
     '''
     public methods
     '''
     # returns True when all collections are assigned
     def isComplete(self, totalNumberOfCollections):
-        return len(self.collections) == totalNumberOfCollections
-        
+        return len(self.data) == totalNumberOfCollections
+    ## DEF
     
     def getCollections(self):
-        return self.collections
+        return list(self.data)
     ## DEF
     
     def addCollection(self, collection) :
-        if collection not in self.collections :
-            self.collections.append(collection)
-            self.indexes[collection] = [] # no indexes
-            self.denorm[collection] = None # not denormalized
-            self.shardKeys[collection] = None # no sharding
+        if collection not in list(self.data) :
+            self.data[collection] = {
+                'indexes' : [],
+                'shardKeys' : [],
+                'denorm' : None
+            }
+    ## DEF
     
     def addCollections(self, collections) :
         for collection in collections :
             self.addCollection(collection)
+    ## DEF
     
     def removeCollection(self, collection):
-        if collection not in self.collections:
+        if collection not in list(self.collections) :
             raise LookupError("Collection not found: " + collection)
-        self.collections.remove(collection)
-        self.shardKeys.pop(collection)
-        self.indexes.pop(collection)
-        self.denorm.pop(collection)
-    
+        self.data.pop(collection)
+	## DEF
+	    
     def hasCollection(self, collection) :
-        return collection in self.collections
+        return collection in list(self.collections)
+    ## DEF
     
+    '''
+    @todo: re-implement
+    '''
     def copy(self):
         d = Design()
         for c in self.collections:
@@ -67,14 +68,14 @@ class Design(object):
     ## DEF
     
     def setDenormalizationParent(self, collection, parent):
-        self.denorm[collection] = parent
+        self.data[collection]['denorm'] = parent
     ## DEF
     
     def getDenormalizationParent(self, collection):
-        if collection in self.denorm and \
-           self.denorm[collection] and \
-           self.denorm[collection] != collection:
-            return self.denorm[collection]
+        if collection in list(self.data) and \
+           self.data[collection]['denorm'] and \
+           self.data[collection]['denorm'] != collection:
+            return self.data[collection]['denorm']
         return None
     ## DEF
     
@@ -88,80 +89,71 @@ class Design(object):
     ## DEF
             
     def getParentCollection(self, collection) :
-        if collection in self.denorm:
-            if not self.denorm[collection] :
+        if collection in list(self.data):
+            if not self.data[collection]['denorm'] :
                 return collection
             else :
-                return self.getParentCollection(self.denorm[collection])
+                return self.getParentCollection(self.data[collection]['denorm'])
         else :
             return None
-    
-    def addFieldsOneCollection(self, collection, fields) :
-        self.fields[collection] = fields
-    
-    def addFields(self, fields) :
-        self.fields = fields
+    ## DEF
     
     def addShardKey(self, collection, key) :
-        self.shardKeys[collection] = key
-    
+        self.data[collection]['shardKeys'] = key
+    ## DEF
+
     def addShardKeys(self, keys) :
         for k, v in keys.iteritems() :
-            self.shardKeys[k] = v
+            self.data[k]['shardKeys'] = v
+    ## DEF
     
     def addIndex(self, collection, index) :
         add = True
-        for i in self.indexes[collection] :
+        for i in self.data[collection]['indexes'] :
             if i == index :
                 add = False
         if add == True :
             self.indexes[collection].append(index)
+    ## DEF
     
     def addIndexes(self, indexes) :
         for k, v in indexes.iteritems() :
             for i in v :
                 self.addIndex(k, i)
+    ## DEF
     
     def hasIndex(self, collection, list) :
         for field in list :
-           for i in self.indexes[collection] :
+           for i in self.data[collection]['indexes'] :
                if field in i :
                    return True
         return False
+    ## DEF
     
     def __str__(self):
         s=""
-        for col in self.collections:
-            s += " COLLECTION: " + col
-            s += " indexes: " + str(self.indexes[col])
-            s += " shardKey: " + str(self.shardKeys[col])
-            s += " denorm: " + str(self.denorm[col]) + "\n"
+        for k, v in self.data.iteritems() :
+            s += " COLLECTION: " + k
+            s += " indexes: " + str(v['indexes'])
+            s += " shardKey: " + str(v['shardKeys'])
+            s += " denorm: " + str(v['denorm']) + "\n"
         return s
-    
+    ## DEF
             
     def toJSON(self) :
-        return json.dumps(self.toLIST(), sort_keys=False, indent=4)
+        return json.dumps(self.toDICT(), sort_keys=False, indent=4)
     
-    def toLIST(self) :
-        result = []
-        for col in self.collections:
-           document = {}
-           document['collection'] = col
-           document['indexes'] = self.indexes[col]
-           document['shardKey'] = self.shardKeys[col]
-           document['denorm'] = []
-           result.append(document)
-        return result
-        
+    def toDICT(self) :
+        return self.data
+    ## DEF
+    
     @staticmethod
     def testFactory() :
         design = Design()
         collections = ['col 1', 'col 2']
         design.addCollections(collections)
-        design.addFieldsOneCollection('col 1', ['c1a', 'c1b', 'c1c', 'c1d'])
-        design.addFieldsOneCollection('col 2', ['c2a', 'c2b', 'c2c', 'c2d'])
-        design.addShardKey('col 1', 'c1b')
-        design.addShardKey('col 2', 'c2a')
+        design.addShardKey('col 1', ['c1b'])
+        design.addShardKey('col 2', ['c2a'])
         design.addIndexes({ 'col 1' : [['c1a']], 'col 2' : [['c2c'], ['c2a', 'c2d']] })
         return design
 ## CLASS
