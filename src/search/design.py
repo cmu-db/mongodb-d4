@@ -23,6 +23,10 @@ class Design(object):
         return len(self.collections) == totalNumberOfCollections
         
     
+    def getCollections(self):
+        return self.collections
+    ## DEF
+    
     def addCollection(self, collection) :
         if collection not in self.collections :
             self.collections.append(collection)
@@ -56,9 +60,27 @@ class Design(object):
         for k in self.denorm.keys():
             d.denorm[k] = self.denorm[k]
         return d
-            
+          
+          
     def isDenormalized(self, collection):
-        return collection in self.denorm
+        return self.getDenormalizationParent(collection) != None
+    ## DEF
+    
+    def getDenormalizationParent(self, collection):
+        if collection in self.denorm and \
+           self.denorm[collection] and \
+           self.denorm[collection] != collection:
+            return self.denorm[collection]
+        return None
+    ## DEF
+    
+    def getDenormalizationHierarchy(self, collection, ret=[ ]):
+        if collection in self.denorm and self.denorm[collection] and self.denorm[collection] :
+            if len(ret) == 0: ret.insert(0, collection)
+            ret.insert(0, self.denorm[collection]) 
+            return self.getDenormalizationHierarchy(self.denorm[collection], ret)
+        return ret
+    ## DEF
             
     def getParentCollection(self, collection) :
         if collection in self.denorm:
