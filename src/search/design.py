@@ -147,6 +147,14 @@ class Design(object):
         return self.data
     ## DEF
     
+    def inShardKeyPattern(self, collection, attr) :
+        return attr in self.data[collection]['shardKeys']
+    ## DEF
+    
+    def getIndexes(self, collection) :
+        return self.data[collection]['indexes']
+    ## DEF 
+    
     @staticmethod
     def testFactory() :
         design = Design()
