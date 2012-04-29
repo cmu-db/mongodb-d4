@@ -102,6 +102,17 @@ class Design(object):
         self.data[collection]['shardKeys'] = key
     ## DEF
 
+    def getShardKey(self, collection) :
+        return self.data[collection]['shardKeys']
+    ## DEF
+    
+    def getShardKeys(self) :
+        keys = {}
+        for k, v in self.data.iteritems() :
+            keys[k] = v['shardKeys']
+        return keys
+    ## DEF
+    
     def addShardKeys(self, keys) :
         for k, v in keys.iteritems() :
             self.data[k]['shardKeys'] = v
@@ -151,9 +162,16 @@ class Design(object):
         return attr in self.data[collection]['shardKeys']
     ## DEF
     
-    def getIndexes(self, collection) :
+    def getIndexesForCollection(self, collection) :
         return self.data[collection]['indexes']
     ## DEF 
+    
+    def getIndexes(self) :
+        indexes = {}
+        for k,v in self.data.iteritems() :
+            indexes[k] = v['indexes']
+        return indexes
+    ## DEF
     
     @staticmethod
     def testFactory() :

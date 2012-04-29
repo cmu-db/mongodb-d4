@@ -254,7 +254,7 @@ class CostModel(object):
             memory += self.stats[col]['tuple_count'] * self.stats[col]['avg_doc_size']
             
             # Process other indexes for this collection in the design
-            for index in design.getIndexes(col) :
+            for index in design.getIndexesForCollection(col) :
                 memory += self.stats[col]['tuple_count'] * self.address_size * len(index)
         return memory
         
