@@ -30,7 +30,7 @@ class TestUtilMethods (unittest.TestCase):
         
         loadOrder = utilmethods.buildLoadingList(d)
         print loadOrder
-        self.assertIsNotNone(loadOrder)
+        self.assertNotEqual(loadOrder, None)
         
         # Go through each round and pop out collections
         # as we simulate them being loaded
