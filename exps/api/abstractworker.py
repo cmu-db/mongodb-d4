@@ -60,7 +60,8 @@ class AbstractWorker:
         self.stop_on_error = config['default']['stop_on_error']
         self.debug = config['default']['debug']
         
-        LOG.info("Initializing %s Worker [clientId=%d]" % (self.name, self.id))
+        LOG.info("Initializing %s Worker [clientId=%d]" % (self.name.upper(), self.id))
+        LOG.debug("%s Configuration:\n%s" % (self.name.upper(), self.config[self.name]))
         self.initImpl(config)
         sendMessage(MSG_INIT_COMPLETED, None, channel)
     ## DEF

@@ -45,6 +45,7 @@ class ReplayCoordinator(AbstractCoordinator):
         "port":     ("The port number of the workload database", 27017),
         "dbname":   ("Name of the database with the workload", "metadata"),
         "collname": ("Name of the workload collection containing the sessions that we want to replay", constants.COLLECTION_WORKLOAD),
+        "ignorecollections": ("If set to true, the worker will ignore operations that attempt to access an unexpected collection", False),
     }
     
     def initImpl(self, config, channels):

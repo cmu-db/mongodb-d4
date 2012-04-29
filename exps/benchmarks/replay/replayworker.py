@@ -51,6 +51,8 @@ class ReplayWorker(AbstractWorker):
         # We need two connections. One to the target database and one
         # to the workload database. 
         
+        self.ignoreCollections = config[self.name]['ignorecollections']
+        
         ## ----------------------------------------------
         ## WORKLOAD REPLAY CONNECTION
         ## ----------------------------------------------
@@ -127,7 +129,8 @@ class ReplayWorker(AbstractWorker):
         
         # It would be nice if had a classification for these 
         # sessions so that we could actually know what we are doing here
-        LOG.debug("Next Session '%s' / %d Operations" % (sess["_id"], len(sess["operations"])))
+        if self.debug:
+            LOG.debug("Next Session '%s' / %d Operations" % (sess["_id"], len(sess["operations"])))
         return ("replay", sess)
     ## DEF
         
@@ -136,6 +139,8 @@ class ReplayWorker(AbstractWorker):
         assert self.conn
         assert sess
         
+        if self.debug:
+            LOG.debug("START (%s) %s" % (sess["_id"], "-"*50))
         for op in sess['operations']:
             try:
                 self.executeOperation(op)
@@ -143,6 +148,8 @@ class ReplayWorker(AbstractWorker):
                 LOG.error("Unexpected error when executing operation in Session %s:\n%s" % (sess["_id"], pformat(op)))
                 raise
         ## FOR
+        if self.debug:
+            LOG.debug("FINISH (%s) %s" % (sess["_id"], "-"*50))
         
         return
     ## DEF
@@ -155,8 +162,14 @@ class ReplayWorker(AbstractWorker):
         # know about.
         coll = op['collection']
         if not coll in self.collections:
-            raise Exception("Skipping operation on unexpected collection '%s'" % coll)
-        LOG.debug("Executing '%s' operation on '%s'" % (op['type'], coll))
+            msg = "Invalid operation on unexpected collection '%s'" % coll
+            if self.ignoreCollections:
+                LOG.warn(msg)
+                return
+            else:
+                raise Exception(msg)
+        if self.debug:
+            LOG.debug("Executing '%s' operation on '%s'" % (op['type'], coll))
         
         # QUERY
         if op['type'] == "$query":
@@ -171,12 +184,18 @@ class ReplayWorker(AbstractWorker):
             # Execute!
             # TODO: Need to check the performance difference of find vs find_one
             # TODO: We need to handle counts + sorts + limits
+            if self.debug:
+                LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, fieldsClause))
             resultCursor = self.db[coll].find(whereClause, fieldsClause)
             
             # We have to iterate through the result so that we know that
             # the cursor has copied all the bytes
             result = [r for r in resultCursor]
             LOG.debug("Number of Results: %d" % len(result))
+            
+            # TODO: For queries that were originally joins, we need a way
+            # to save the output of the queries to use as the input for
+            # subsequent queries
             
         # UPDATE
         elif op['type'] == "$update":
@@ -191,6 +210,8 @@ class ReplayWorker(AbstractWorker):
             # Let 'er rip!
             # TODO: Need to handle 'upsert' and 'multi' flags
             # TODO: What about the 'manipulate' or 'safe' flags?
+            if self.debug:
+                LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, updateClause))
             result = self.db[coll].update(whereClause, updateClause)
             
         # INSERT
@@ -209,13 +230,16 @@ class ReplayWorker(AbstractWorker):
             assert len(whereClause) > 0, "SAFETY CHECK: Empty WHERE clause for %s" % op['type']
             
             # I'll see you in hell!!
+            if self.debug:
+                LOG.debug("%s '%s' - WHERE:%s" % (op['type'][1:].upper(), coll, whereClause))
             result = self.db[coll].remove(whereClause)
         
         # UNKNOWN!
         else:
             raise Exception("Unexpected query type: %s" % op['type'])
         
-        LOG.debug("%s Result: %s" % (op['type'], pformat(result)))
+        if self.debug:
+            LOG.debug("%s Result: %s" % (op['type'], pformat(result)))
         return result
     ## DEF
 
