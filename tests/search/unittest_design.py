@@ -27,7 +27,7 @@ class TestDesign (unittest.TestCase) :
         key = ['field 1']
         d.addCollection(collection)
         d.addShardKey(collection, key)
-        self.assertEqual(d.getShardKey(collection, key), key)
+        self.assertEqual(d.getShardKey(collection), key)
         
     def testAddShardKeys(self) :
         d = design.Design()
@@ -53,7 +53,7 @@ class TestDesign (unittest.TestCase) :
         indexes = [['field 1'], ['field 2']]
         d.addCollection(collection)
         d.addIndexes({collection : indexes})
-        self.assertEqual(d.getIndexesforCollection(collection), indexes)
+        self.assertEqual(d.getIndexesForCollection(collection), indexes)
     
     def testDesignFactory(self) :
         d = design.Design.testFactory()
