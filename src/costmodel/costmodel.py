@@ -208,7 +208,7 @@ class CostModel(object):
                                 scan = True
                                 query_type = None
                                 for k,v in q.predicates.iteritems() :
-                                    if design.shardKeys[q.collection] == k :
+                                    if design.inShardKeyPattern(q.collection, k) :
                                         scan = False
                                         query_type = v
                                 if scan == False :
@@ -249,12 +249,12 @@ class CostModel(object):
     '''
     def getIndexSize(self, design) :
         memory = 0
-        for col in design.collections :
+        for col in design.getCollections() :
             # Add a hit for the index on '_id' attribute for each collection
             memory += self.stats[col]['tuple_count'] * self.stats[col]['avg_doc_size']
             
             # Process other indexes for this collection in the design
-            for index in design.indexes[col] :
+            for index in design.getIndexes(col) :
                 memory += self.stats[col]['tuple_count'] * self.address_size * len(index)
         return memory
         
@@ -269,7 +269,7 @@ class CostModel(object):
         
         # create tuples of workload percentage, collection for sorting
         sorting_pairs = []
-        for col in design.collections :
+        for col in design.getCollections() :
             sorting_pairs.append((self.stats[col]['workload_percent'], col))
         sorting_pairs.sort(reverse=True)
         
