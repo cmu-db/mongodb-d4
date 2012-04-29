@@ -27,6 +27,7 @@ import sys
 import time
 import logging
 import traceback
+import pymongo
 
 from .results import *
 from .message import *
@@ -62,6 +63,20 @@ class AbstractWorker:
         
         LOG.info("Initializing %s Worker [clientId=%d]" % (self.name.upper(), self.id))
         LOG.debug("%s Configuration:\n%s" % (self.name.upper(), self.config[self.name]))
+        
+        ## ----------------------------------------------
+        ## TARGET CONNECTION
+        ## ----------------------------------------------
+        self.conn = None
+        targetHost = config['default']['host']
+        targetPort = config['default']['port']
+        try:
+            self.conn = pymongo.Connection(targetHost, targetPort)
+        except:
+            LOG.error("Failed to connect to target MongoDB at %s:%s" % (targetHost, targetPort))
+            raise
+        assert self.conn
+        
         self.initImpl(config)
         sendMessage(MSG_INIT_COMPLETED, None, channel)
     ## DEF

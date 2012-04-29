@@ -203,10 +203,10 @@ class MongodbDriver(AbstractDriver):
     ]
     
     
-    def __init__(self, ddl):
+    def __init__(self, conn, ddl):
         super(MongodbDriver, self).__init__("mongodb", ddl)
         self.database = None
-        self.conn = None
+        self.conn = conn
         self.denormalize = False
         self.w_customers = { }
         self.w_orders = { }
@@ -228,7 +228,6 @@ class MongodbDriver(AbstractDriver):
         for key in MongodbDriver.DEFAULT_CONFIG.keys():
             assert key in config, "Missing parameter '%s' in %s configuration" % (key, self.name)
         
-        self.conn = pymongo.Connection(config['host'], int(config['port']))
         self.database = self.conn[str(config['name'])]
         self.denormalize = config['denormalize']
         if self.denormalize: logging.debug("Using denormalized data model")

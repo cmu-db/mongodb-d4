@@ -66,21 +66,11 @@ class ReplayWorker(AbstractWorker):
             LOG.error("Failed to connect to replay MongoDB at %s:%s" % (self.replayHost, self.replayPort))
             raise
         assert self.replayConn
-        self.replayConn.register([ workload.Session ])
         self.replayDB = self.replayConn[config[self.name]['dbname']]
         
         ## ----------------------------------------------
-        ## TARGET CONNECTION
+        ## TARGET DATABASE
         ## ----------------------------------------------
-        self.conn = None
-        targetHost = config['default']['host']
-        targetPort = config['default']['port']
-        try:
-            self.conn = pymongo.Connection(targetHost, targetPort)
-        except:
-            LOG.error("Failed to connect to target MongoDB at %s:%s" % (targetHost, targetPort))
-            raise
-        assert self.conn
         self.db = self.conn[TARGET_DB_NAME]
         self.collections = set([c for c in self.db.collection_names()])
         LOG.debug("Target Collections: %s" % self.collections)
@@ -98,7 +88,6 @@ class ReplayWorker(AbstractWorker):
         # we need to combine operations together if they access collections that
         # are denormalized into each other
         self.replayCursor = self.replayDB[self.replayColl].find({'operations': {'$ne': {'$size': 0}}})
-        self.replaySessionIdx = 0
        
         return  
     ## DEF

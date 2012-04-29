@@ -48,17 +48,6 @@ class BlogWorker(AbstractWorker):
         # Zipfian distribution on the number of comments & their ratings
         self.commentsZipf = ZipfGenerator(constants.MAX_NUM_COMMENTS, 1.0)
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.0)
-        
-        ## ----------------------------------------------
-        ## Connect to MongoDB
-        ## ----------------------------------------------
-        self.conn = None
-        try:
-            self.conn = pymongo.Connection(config['default']['host'], int(config['default']['port']))
-        except:
-            LOG.error("Failed to connect to MongoDB at %s:%s" % (config['default']['host'], config['default']['port']))
-            raise
-        assert self.conn
         self.db = self.conn[constants.DB_NAME]
         
         if config['default']["reset"]:

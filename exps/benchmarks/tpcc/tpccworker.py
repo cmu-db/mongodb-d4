@@ -66,7 +66,7 @@ class TpccWorker(AbstractWorker):
         
         driverClass = self.createDriverClass(config['system'])
         assert driverClass != None, "Failed to find '%s' class" % config['system']
-        driver = driverClass(config['ddl'])
+        driver = driverClass(self.conn, config['ddl'])
         assert driver != None, "Failed to create '%s' driver" % config['system']
         driver.loadConfig(config)
         self._driver = driver
