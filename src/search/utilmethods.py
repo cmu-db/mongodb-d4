@@ -3,10 +3,10 @@
 import json
 import design
 
-'''
-Convert the result of designer.py into a tuple of Design instances (initial, final)
-'''
 def fromJSON(input) :
+    '''
+    Convert the result of designer.py into a tuple of Design instances (initial, final)
+    '''
     solutions = json.loads(input)
     initial = fromLIST(solutions['initial'])
     final = fromLIST(solutions['final'])

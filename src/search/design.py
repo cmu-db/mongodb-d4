@@ -57,14 +57,17 @@ class Design(object):
             d.denorm[k] = self.denorm[k]
         return d
             
+    def isDenormalized(self, collection):
+        return collection in self.denorm
+            
     def getParentCollection(self, collection) :
-        if collection in list(self.denorm) :
-            if self.denorm[collection] == "" or self.denorm[collection] == None :
+        if collection in self.denorm:
+            if not self.denorm[collection] :
                 return collection
             else :
                 return self.getParentCollection(self.denorm[collection])
         else :
-            return -1
+            return None
     
     def addFieldsOneCollection(self, collection, fields) :
         self.fields[collection] = fields
