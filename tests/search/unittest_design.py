@@ -13,47 +13,30 @@ class TestDesign (unittest.TestCase) :
         d = design.Design()
         collection = 'Test'
         d.addCollection(collection)
-        self.assertEqual(d.collections, [collection])
+        self.assertEqual(d.getCollections(), [collection])
     
     def testAddCollections(self) :
         d = design.Design()
         collections = ['Test 1', 'Test 2']
         d.addCollections(collections)
-        self.assertEqual(d.collections, collections)
-                
-    def testAddFieldsOneCollection(self) :
-        d = design.Design()
-        collection = 'test'
-        d.addCollection(collection)
-        fields = ['field 1', 'field 2']
-        d.addFieldsOneCollection(collection, fields)
-        self.assertEqual(d.fields, {collection : fields})
-        
-    def testAddFields(self) :
-        d = design.Design()
-        collections = ['test 1', 'test 2']
-        fields = {}
-        for col in collections :
-            fields[col] = ['test 1', 'test 2']
-        d.addCollections(collections)
-        d.addFields(fields)
-        self.assertEqual(d.fields, fields)
+        self.assertEqual(d.getCollections(), collections)
         
     def testAddShardKey(self) :
         d = design.Design()
         collection = 'test'
-        key = 'field 1'
+        key = ['field 1']
         d.addShardKey(collection, key)
-        self.assertEqual(d.shardKeys, {collection : key})
+        self.assertEqual(d.getShardKey(collection, key), key)
         
     def testAddShardKeys(self) :
         d = design.Design()
         collections = ['test 1', 'test 2']
+        d.addcollections(collections)
         keys = {}
         for col in collections :
-            keys[col] = 'field 1'
+            keys[col] = ['field 1']
         d.addShardKeys(keys)
-        self.assertEqual(d.shardKeys, keys)
+        self.assertEqual(d.getShardKeys(), keys)
         
     def testAddIndex(self) :
         d = design.Design()
@@ -61,7 +44,7 @@ class TestDesign (unittest.TestCase) :
         index = ['field 1', 'field 2']
         d.addCollection(collection)
         d.addIndex(collection, index)
-        self.assertEqual(d.indexes, {collection : [index]})
+        self.assertEqual(d.getIndexesForCollection(collection), [index])
         
     def testAddIndexes(self) :
         d = design.Design()
@@ -69,7 +52,7 @@ class TestDesign (unittest.TestCase) :
         indexes = [['field 1'], ['field 2']]
         d.addCollection(collection)
         d.addIndexes({collection : indexes})
-        self.assertEqual(d.indexes, {collection : indexes})
+        self.assertEqual(d.getIndexesforCollection(collection), indexes)
     
     def testDesignFactory(self) :
         d = design.Design.testFactory()
