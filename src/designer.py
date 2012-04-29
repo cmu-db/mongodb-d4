@@ -110,16 +110,15 @@ if __name__ == '__main__':
         for field, data in col['fields'].iteritems() :
             col_fields.append(field)
             results[col['name']][field] = calc_stats(params, statistics[col['name']]['fields'][field])
-        starting_design.addFieldsOneCollection(col['name'], col_fields)
         attr = None
         value = 0
         for field, data in results[col['name']].iteritems() :
             if data >= value :
                 value = data
                 attr = field
-        starting_design.addShardKey(col['name'], attr)
+        starting_design.addShardKey(col['name'], [attr])
         starting_design.addIndex(col['name'], [attr])
-    solutions['initial'] = starting_design.toLIST()
+    solutions['initial'] = starting_design.toDICT()
     
     ## ----------------------------------------------
     ## STEP 2
