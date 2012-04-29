@@ -113,7 +113,7 @@ class Design(object):
             if i == index :
                 add = False
         if add == True :
-            self.indexes[collection].append(index)
+            self.data[collection]['indexes'].append(index)
     ## DEF
     
     def addIndexes(self, indexes) :
