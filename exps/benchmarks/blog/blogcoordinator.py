@@ -38,6 +38,9 @@ from api.message import *
 LOG = logging.getLogger(__name__)
 
 class BlogCoordinator(AbstractCoordinator):
+    DEFAULT_CONFIG = {
+        "denormalize":  ("If set to true, then the COMMENTS are denormalized into ARTICLES", False),
+    }
     
     def initImpl(self, config, channels):
         self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)

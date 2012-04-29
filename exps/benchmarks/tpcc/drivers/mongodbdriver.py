@@ -194,12 +194,7 @@ TABLE_INDEXES = {
 ## MongodbDriver
 ## ==============================================
 class MongodbDriver(AbstractDriver):
-    DEFAULT_CONFIG = {
-        "host":         ("The hostname to mongod", "localhost" ),
-        "port":         ("The port number to mongod", 27017 ),
-        "name":         ("Collection name", "tpcc"),
-        "denormalize":  ("If set to true, then the CUSTOMER data will be denormalized into a single document", True),
-    }
+
     DENORMALIZED_TABLES = [
         constants.TABLENAME_CUSTOMER,
         constants.TABLENAME_ORDERS,

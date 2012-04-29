@@ -35,20 +35,19 @@ from pprint import pprint, pformat
 
 # Designer
 import workload
+from util import constants
 
 # Benchmark
-import constants
-from util import *
 from api.abstractworker import AbstractWorker
 from api.message import *
 
 LOG = logging.getLogger(__name__)
 
-DB_NAME = 'replay'
+TARGET_DB_NAME = 'replay'
 
 class ReplayWorker(AbstractWorker):
     
-    def initImpl(self, config, channel):
+    def initImpl(self, config):
         # We need two connections. One to the target database and one
         # to the workload database. 
         
@@ -56,41 +55,47 @@ class ReplayWorker(AbstractWorker):
         ## WORKLOAD REPLAY CONNECTION
         ## ----------------------------------------------
         self.replayConn = None
+        self.replayColl = config[self.name]['collname']
+        self.replayHost = config[self.name]['host']
+        self.replayPort = config[self.name]['port']
         try:
-            self.replayConn = mongokit.Connection(host=config['replayhost'], port=config[self.name]['port'])
+            self.replayConn = mongokit.Connection(host=self.replayHost, port=self.replayPort)
         except:
-            LOG.error("Failed to connect to replay MongoDB at %s:%s" % (config[self.name]['host'], config['replayport']))
+            LOG.error("Failed to connect to replay MongoDB at %s:%s" % (self.replayHost, self.replayPort))
             raise
         assert self.replayConn
         self.replayConn.register([ workload.Session ])
-        
+        self.replayDB = self.replayConn[config[self.name]['dbname']]
         
         ## ----------------------------------------------
         ## TARGET CONNECTION
         ## ----------------------------------------------
         self.conn = None
+        targetHost = config['default']['host']
+        targetPort = config['default']['port']
         try:
-            self.conn = pymongo.Connection(config['host'], config['port'])
+            self.conn = pymongo.Connection(targetHost, targetPort)
         except:
-            LOG.error("Failed to connect to target MongoDB at %s:%s" % (config['host'], config['port']))
+            LOG.error("Failed to connect to target MongoDB at %s:%s" % (targetHost, targetPort))
             raise
         assert self.conn
-        self.db = self.conn[constants.DB_NAME]
+        self.db = self.conn[TARGET_DB_NAME]
+        self.collections = set([c for c in self.db.collection_names()])
+        LOG.debug("Target Collections: %s" % self.collections)
         
         # TODO: Figure out we're going to load the database. I guess it
         # would come from the workload database, right?
-        if config["reset"]:
-            LOG.info("Resetting database '%s'" % constants.DB_NAME)
-            self.conn.drop_database(constants.DB_NAME)
+        if config['default']["reset"]:
+            LOG.info("Resetting database '%s'" % TARGET_DB_NAME)
+            self.conn.drop_database(TARGET_DB_NAME)
         
         # TODO: We need to also load in the JSON design file generated
         # by the designer tool.
-       
 
         # TODO: We are going to need to examine each session and figure out whether
         # we need to combine operations together if they access collections that
         # are denormalized into each other
-        self.replayCursor = self.replayConn.find({'operations': {'$ne': {'$size': 0}}})
+        self.replayCursor = self.replayDB[self.replayColl].find({'operations': {'$ne': {'$size': 0}}})
         self.replaySessionIdx = 0
        
         return  
@@ -113,81 +118,105 @@ class ReplayWorker(AbstractWorker):
         
         # I guess if we run out of Sessions we can just loop back around?
         try:
-            sess = self.replayCursor[self.replaySessionIdx]
+            sess = self.replayCursor.next()
         except:
-            self.replaySessionIdx = 0
-            return self.next(config)
-        self.replaySessionIdx += 1
-            
+            raise
+            #self.replaySessionIdx = 0
+            #return self.next(config)
+        #self.replaySessionIdx += 1
+        
         # It would be nice if had a classification for these 
         # sessions so that we could actually know what we are doing here
+        LOG.debug("Next Session '%s' / %d Operations" % (sess["_id"], len(sess["operations"])))
         return ("replay", sess)
     ## DEF
         
-    def executeImpl(self, config, txn, params):
+    def executeImpl(self, config, txn, sess):
+        """Execute the operations for the given session"""
         assert self.conn
-        
-        # The first parameter is going to be the Session that we need to replay
-        # The txn doesn't matter
-        sess = params[0]
         assert sess
         
         for op in sess['operations']:
-            # TODO: We should check whether they are trying to make a query
-            # against a collection that we don't know about so that we can print
-            # a nice error message. This is because we know that we should never
-            # have an operation that doesn't touch a collection that we don't already
-            # know about.
-            coll = op['collection']
-            
-            # QUERY
-            if op['type'] == "$query":
-                # The query field has our where clause
-                whereClause = op['content']['query']
-                
-                # And the second element is the projection
-                fieldsClause = { }
-                if 'fields' in op['content']:
-                    fieldsClause = op['content']['fields']
-
-                # Execute!
-                # I don't think there is anything we need to do with the result
-                # TODO: Need to check the performance difference of find vs find_one
-                # TODO: We need to handle counts + sorts + limits
-                result = self.db[coll].find(whereClause, fieldsClause)
-                
-            # UPDATE
-            elif op['type'] == "$update":
-                # The first element in the content field is the WHERE clause
-                whereClause = op['content'][0]
-                
-                # The second element has what we're trying to update
-                updateClause = op['content'][1]
-                
-                # Let 'er rip!
-                # TODO: Need to handle 'upsert' and 'multi' flags
-                # TODO: What about the 'manipulate' or 'safe' flags?
-                result = self.db[coll].update(whereClause, updateClause)
-                
-            # INSERT
-            elif op['type'] == "$insert":
-                # Just get the payload and fire it off
-                # There's nothing else to really do here
-                result = self.db[coll].insert(op['content'])
-                
-            # DELETE
-            elif op['type'] == "$delete":
-                # The first element in the content field is the WHERE clause
-                whereClause = op['content'][0]
-                
-                # SAFETY CHECK: Don't let them accidently delete the entire collection
-                assert whereClause and len(whereClause) > 0
-                
-                # I'll see you in hell!!
-                result = self.db[coll].remove(whereClause)
+            try:
+                self.executeOperation(op)
+            except:
+                LOG.error("Unexpected error when executing operation in Session %s:\n%s" % (sess["_id"], pformat(op)))
+                raise
         ## FOR
         
         return
+    ## DEF
+    
+    def executeOperation(self, op):
+        # TODO: We should check whether they are trying to make a query
+        # against a collection that we don't know about so that we can print
+        # a nice error message. This is because we know that we should never
+        # have an operation that doesn't touch a collection that we don't already
+        # know about.
+        coll = op['collection']
+        if not coll in self.collections:
+            raise Exception("Skipping operation on unexpected collection '%s'" % coll)
+        LOG.debug("Executing '%s' operation on '%s'" % (op['type'], coll))
+        
+        # QUERY
+        if op['type'] == "$query":
+            # The query field has our where clause
+            whereClause = op['content'][0]['query']
+            
+            # And the second element is the projection
+            fieldsClause = None
+            if 'fields' in op['content']:
+                fieldsClause = op['content']['fields']
+
+            # Execute!
+            # TODO: Need to check the performance difference of find vs find_one
+            # TODO: We need to handle counts + sorts + limits
+            resultCursor = self.db[coll].find(whereClause, fieldsClause)
+            
+            # We have to iterate through the result so that we know that
+            # the cursor has copied all the bytes
+            result = [r for r in resultCursor]
+            LOG.debug("Number of Results: %d" % len(result))
+            
+        # UPDATE
+        elif op['type'] == "$update":
+            # The first element in the content field is the WHERE clause
+            whereClause = op['content'][0]
+            assert whereClause, "Missing WHERE clause for %s" % op['type']
+            
+            # The second element has what we're trying to update
+            updateClause = op['content'][1]
+            assert updateClause, "Missing UPDATE clause for %s" % op['type']
+            
+            # Let 'er rip!
+            # TODO: Need to handle 'upsert' and 'multi' flags
+            # TODO: What about the 'manipulate' or 'safe' flags?
+            result = self.db[coll].update(whereClause, updateClause)
+            
+        # INSERT
+        elif op['type'] == "$insert":
+            # Just get the payload and fire it off
+            # There's nothing else to really do here
+            result = self.db[coll].insert(op['content'])
+            
+        # DELETE
+        elif op['type'] == "$delete":
+            # The first element in the content field is the WHERE clause
+            whereClause = op['content'][0]
+            assert whereClause, "Missing WHERE clause for %s" % op['type']
+            
+            # SAFETY CHECK: Don't let them accidently delete the entire collection
+            assert len(whereClause) > 0, "SAFETY CHECK: Empty WHERE clause for %s" % op['type']
+            
+            # I'll see you in hell!!
+            result = self.db[coll].remove(whereClause)
+        
+        # UNKNOWN!
+        else:
+            raise Exception("Unexpected query type: %s" % op['type'])
+        
+        LOG.debug("%s Result: %s" % (op['type'], pformat(result)))
+        return result
     ## DEF
 
 ## CLASS

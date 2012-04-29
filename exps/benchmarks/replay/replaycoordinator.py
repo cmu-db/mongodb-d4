@@ -30,8 +30,10 @@ import random
 import logging
 from pprint import pprint, pformat
 
-import constants
-from util import *
+# Designer
+from util import constants
+
+# Benchmark
 from api.abstractcoordinator import AbstractCoordinator
 from api.message import *
 
@@ -39,12 +41,11 @@ LOG = logging.getLogger(__name__)
 
 class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = {
-        "host":     ("The hostname of database with the workload to replay", "localhost" ),
-        "port":     ("The port number of the workload database", 27017 ),
+        "host":     ("The hostname of database with the workload to replay", "localhost"),
+        "port":     ("The port number of the workload database", 27017),
         "dbname":   ("Name of the database with the workload", "metadata"),
-        "collname": ("Name of the collection with the sessions", constants.COLLECTION_WORKLOAD),
+        "collname": ("Name of the workload collection containing the sessions that we want to replay", constants.COLLECTION_WORKLOAD),
     }
-    
     
     def initImpl(self, config, channels):
         # Nothing to do over here...

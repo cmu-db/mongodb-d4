@@ -36,15 +36,7 @@ class MessageProcessor:
         self._channel = channel
         self._worker = None
         self._config = None
-        
-    def createWorker(self):
-        '''Worker factory method'''
-        benchmark = self._config['benchmark']
-        fullName= benchmark.title()+"Worker"
-        moduleName = 'benchmarks.%s.%s' % (benchmark.lower(), fullName.lower())
-        moduleHandle = __import__(moduleName, globals(), locals(), [fullName])
-        klass = getattr(moduleHandle, fullName)
-        return klass()
+        self._benchmark = None
         
     def processMessage(self):
         '''Main loop'''
@@ -53,10 +45,11 @@ class MessageProcessor:
             LOG.debug("Incoming Message: %s" % getMessageName(msg.header))
             if msg.header == MSG_CMD_INIT :
                 self._config = msg.data
-                if 'debug' in self._config and self._config['debug']:
+                self._benchmark = self._config['default']['benchmark']
+                if 'debug' in self._config['default'] and self._config['default']['debug']:
                     logging.getLogger().setLevel(logging.DEBUG)
-                setupPath(self._config["benchmark"])
-                
+                    
+                setupPath(self._benchmark)
                 self._worker = self.createWorker()
                 self._worker.init(self._config, self._channel)
             elif msg.header == MSG_CMD_LOAD :
@@ -70,6 +63,16 @@ class MessageProcessor:
             else:
                 LOG.warn("Unexpected message type")
                 return
+    ## DEF
+            
+    def createWorker(self):
+        '''Worker factory method'''
+        
+        fullName= self._benchmark.title() + "Worker"
+        moduleName = 'benchmarks.%s.%s' % (self._benchmark.lower(), fullName.lower())
+        moduleHandle = __import__(moduleName, globals(), locals(), [fullName])
+        klass = getattr(moduleHandle, fullName)
+        return klass()
 ## CLASS
 
 ## ==============================================

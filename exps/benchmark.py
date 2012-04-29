@@ -80,7 +80,7 @@ class Benchmark:
         # Extra stuff from the argumetns that we want to stash
         for key,val in args.items():
             if key != 'config': config['default'][key] = val
-        config['default']['name'] = args['benchmark'].upper()
+        config['default']['name'] = args['benchmark'].lower()
         
         # Figure out where the hell we actually are
         realpath = os.path.realpath(__file__)
@@ -95,7 +95,7 @@ class Benchmark:
         
         # Fix common problems
         for s in config.keys():
-            for key in [ "port", "duration", "experiment" ]:
+            for key in ["port", "duration", "experiment"]:
                 if key in config[s]: config[s][key] = int(config[s][key])
         ## FOR
         

@@ -55,22 +55,22 @@ class AbstractWorker:
     def init(self, config, channel):
         '''Work Initialization. You always must send a INIT_COMPLETED message back'''
         self.config = config
-        self.name = config['name']
-        self.id = config['id']
-        self.stop_on_error = config['stop_on_error']
-        self.debug = config['debug']
+        self.name = config['default']['name']
+        self.id = config['default']['id']
+        self.stop_on_error = config['default']['stop_on_error']
+        self.debug = config['default']['debug']
         
         LOG.info("Initializing %s Worker [clientId=%d]" % (self.name, self.id))
-        self.initImpl(config, channel)
+        self.initImpl(config)
         sendMessage(MSG_INIT_COMPLETED, None, channel)
     ## DEF
     
-    def initImpl(self, config, channel):
+    def initImpl(self, config):
         raise NotImplementedError("%s does not implement initImpl" % (self.name))
         
     def load(self, config, channel, msg):
         '''Perform actual loading. We will always send back LOAD_COMPLETED message'''
-        LOG.info("Invoking %s Loader" % config['name'])
+        LOG.info("Invoking %s Loader" % self.name)
         self.loadImpl(config, channel, msg)
         sendMessage(MSG_LOAD_COMPLETED, None, channel)
         pass
@@ -81,16 +81,16 @@ class AbstractWorker:
         
     def execute(self, config, channel, msg):
         ''' Actual execution. You might want to send a EXECUTE_COMPLETED message back with the loading time'''
-        config['execute'] = True
-        config['reset'] = False
+        config['default']['execute'] = True
+        config['default']['reset'] = False
         
         r = Results()
         assert r
-        LOG.info("Executing benchmark for %d seconds" % config['duration'])
+        LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
         start = r.startBenchmark()
         debug = LOG.isEnabledFor(logging.DEBUG)
 
-        while (time.time() - start) <= config['duration']:
+        while (time.time() - start) <= config['default']['duration']:
             txn, params = self.next(config)
             txn_id = r.startTransaction(txn)
             

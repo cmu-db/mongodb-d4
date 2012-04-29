@@ -41,7 +41,7 @@ LOG = logging.getLogger(__name__)
 
 class BlogWorker(AbstractWorker):
     
-    def initImpl(self, config, channel):
+    def initImpl(self, config):
         # Total number of articles in database
         self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
         

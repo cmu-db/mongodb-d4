@@ -41,7 +41,7 @@ LOG = logging.getLogger(__name__)
 
 class TpccWorker(AbstractWorker):
     
-    def initImpl(self, config, channel):
+    def initImpl(self, config):
         # Collapse config into a single dict
         new_config = { }
         for s in config.keys()

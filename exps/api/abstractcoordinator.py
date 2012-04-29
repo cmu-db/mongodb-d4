@@ -44,8 +44,16 @@ class AbstractCoordinator:
     def init(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
         self.config = config
-        self.name = config['name']
-        LOG.info("Initializing %s Benchmark Coordinator" % self.name)
+        self.name = config['default']['name']
+        LOG.info("Initializing %s Benchmark Coordinator" % self.name.upper())
+
+        ## Add in the default configuration values for this benchmark
+        for key in self.DEFAULT_CONFIG.keys():
+            if not key in self.config[self.name]:
+                val = self.DEFAULT_CONFIG[key]
+                self.config[self.name][key] = val[1]
+                LOG.debug("Setting %s Default Config Parameter: %s" % (self.name.upper(), self.config[self.name][key]))
+        ## FOR
         
         ## First initialize our local coordinator
         self.initImpl(self.config, channels)
@@ -54,7 +62,7 @@ class AbstractCoordinator:
         workerId = 0
         for ch in channels:
             workerConfig = dict(self.config.items())
-            workerConfig["id"] = workerId
+            workerConfig['default']["id"] = workerId
             workerId += 1
             sendMessage(MSG_CMD_INIT, workerConfig, ch)
         ## FOR
@@ -66,12 +74,12 @@ class AbstractCoordinator:
                 pass
             else:
                 pass
-        LOG.debug("%s Initialization Completed!" % self.name)
+        LOG.debug("%s Initialization Completed!" % self.name.upper())
     ## DEF
         
     def loadImpl(self, config, channels):
         '''Benchmark coordinator initialization method'''
-        raise NotImplementedError("%s does not implement initImpl" % (self.name))
+        raise NotImplementedError("%s does not implement initImpl" % (self.name.upper()))
         
     def load(self, config, channels):
         ''' distribute loading to a list of channels by sending command message to each of them.\
@@ -92,14 +100,14 @@ class AbstractCoordinator:
         return None
     ## DEF
         
-    def loadImpl(self, config, channels):
+    def executeImpl(self, config, channels):
         '''Distribute loading to a list of channels by sending command message to each of them'''
-        raise NotImplementedError("%s does not implement loadImpl" % (self.name))
+        raise NotImplementedError("%s does not implement loadImpl" % (self.name.upper()))
         
     def execute(self, config, channels):
         '''distribute execution to a list of channels by send command message to each of them.\
         You can collect the execution result from each channel'''
-        LOG.info("Executing %s Workload" % self.name)
+        LOG.info("Executing %s Workload" % self.name.upper())
         
         self.total_results = Results()
         for ch in channels:
