@@ -23,6 +23,7 @@ class Session(Document):
                 'type':         unicode,
                 'size':         int,
                 'flags':        int,
+                'query_id':     int,
             }
         ],
     }

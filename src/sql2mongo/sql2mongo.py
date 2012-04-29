@@ -5,13 +5,13 @@ import json
 import yaml
 
 '''
-@todo: JOIN processing
-@todo: Process basic OR criteria
 @todo: Handle nested queries?
 '''
 
 class Sql2mongo (object) :
 
+    query_id = 0
+    
     '''
     Class constructor
     '''
@@ -64,6 +64,7 @@ class Sql2mongo (object) :
             op['type'] = self.mongo_type()
             op['size'] = 0
             op['flags'] = None
+            op['query_id'] = Sql2mongo.query_id
             if self.query_type == 'DELETE' :
                 op['content'].append(self.generate_content_remove(table))
             elif self.query_type == 'INSERT' :
@@ -516,6 +517,7 @@ class Sql2mongo (object) :
     ## End process_query_update()
     
     def process_sql(self, sql, reset=True) :
+        Sql2mongo.query_id += 1
         if reset == True :
             self.reset()
         parsed = sqlparse.parse(sql)
