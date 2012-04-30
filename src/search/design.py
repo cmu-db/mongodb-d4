@@ -10,6 +10,7 @@ class Design(object):
 
     def __init__(self):
         self.data = {}
+        self.collections = []
         
     '''
     public methods
@@ -20,11 +21,12 @@ class Design(object):
     ## DEF
     
     def getCollections(self):
-        return list(self.data)
+        return self.collections
     ## DEF
     
     def addCollection(self, collection) :
         if collection not in list(self.data) :
+            self.collections.append(collection)
             self.data[collection] = {
                 'indexes' : [],
                 'shardKeys' : [],
@@ -41,6 +43,7 @@ class Design(object):
         if collection not in list(self.data) :
             raise LookupError("Collection not found: " + collection)
         self.data.pop(collection)
+        self.collections.remove(collection)
 	## DEF
 	    
     def hasCollection(self, collection) :
