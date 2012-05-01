@@ -62,9 +62,9 @@ class OpHasher:
             raise Exception("Unexpected query type: %s" % op["type"])
         
         # Extract the list of fields that are used
-        sortedFields = tuple(sorted(fields.keys()))
+        fieldsHash = self.computeFieldsHash(fields)
         
-        t = (op["collection"], op["type"], sortedFields)
+        t = (op["collection"], op["type"], fieldsHash)
         h = hash(t)
         
         print fields, t, h
@@ -72,13 +72,14 @@ class OpHasher:
     ## DEF
     
     def computeFieldsHash(self, fields):
-        _sorted = [ ]
+        f = [ ]
         for k, v in fields.iteritems():
             if type(v) == dict:
-                pass
+                f.append(self.computeFieldsHash(v))
             else:
-                pass
+                f.append(k)
         ## FOR
-        
+        return hash(tuple(sorted(f)))
+    ## DEF
     
 ## CLASS
