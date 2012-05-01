@@ -16,7 +16,10 @@ class TestOpHasher (unittest.TestCase):
     def genQuery(self, query):
         return [ {"query": query} ]
         
-    def testHashQuery01(self):
+    def genUpdate(self, query, update):
+        return [ query, update ]
+        
+    def testHashQuery(self):
         op = {
             "collection": u'ABC',
             "content":    self.genQuery({"a": 2}),
@@ -33,6 +36,29 @@ class TestOpHasher (unittest.TestCase):
         h2 = self.hasher.hash(op)
         self.assertNotEqual(h0, h2)
     ## DEF
+    
+    def testHashUpdate(self):
+        whereClause = {"u_id": 123, "i_id": 456}
+        updateClause = {"rating": 999}
+        
+        op = {
+            "collection": u'ABC',
+            "content":    self.genUpdate(whereClause, updateClause),
+            "type":       "$update",
+        }
+        h0 = self.hasher.hash(op)
+        self.assertNotEqual(h0, None)
+        
+        newWhere = dict(whereClause.items() + [("XXX", 123)])
+        op["content"] = self.genUpdate(newWhere, updateClause)
+        h1 = self.hasher.hash(op)
+        self.assertNotEqual(h0, h1)
+        
+        newUpdate = dict(updateClause.items() + [("XXX", 123)])
+        op["content"] = self.genUpdate(whereClause, newUpdate)
+        h2 = self.hasher.hash(op)
+        self.assertNotEqual(h0, h2)
+        ## DEF
 
 ## CLASS
 

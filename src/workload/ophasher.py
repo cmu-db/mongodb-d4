@@ -63,8 +63,9 @@ class OpHasher:
         
         # Extract the list of fields that are used
         fieldsHash = self.computeFieldsHash(fields)
+        updateHash = self.computeFieldsHash(updateFields) if updateFields else None
         
-        t = (op["collection"], op["type"], fieldsHash)
+        t = (op["collection"], op["type"], fieldsHash, updateHash)
         h = hash(t)
         
         print fields, t, h
