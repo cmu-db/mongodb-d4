@@ -24,6 +24,7 @@
 # -----------------------------------------------------------------------
 
 import sys
+import random
 import logging
 from pprint import pformat
 
@@ -37,15 +38,11 @@ class StatsProcessor:
     def __init__(self, metadata_db, dataset_db):
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
-        
         self.hasher = OpHasher()
-        self.first = {}
-        self.distinct_values = {}
-        
-        self.preprocess()
     ## DEF
     
     def reset(self):
+        # FIXME: This should be done with a single update query
         for col in self.metadata_db.Collection.find():
             for k, v in col['fields'].iteritems() :
                 v['query_use_count'] = 0
@@ -54,20 +51,9 @@ class StatsProcessor:
                 col.save()
     ## DEF
     
-    def preprocess(self):
-        """Preprocessing & Zero statistics if required"""
-        for col in self.metadata_db.Collection.find():
-            self.distinct_values[col['name']] = {}
-            self.first[col['name']] = {}
-            for k, v in col['fields'].iteritems() :
-                self.distinct_values[col['name']][k] = {}
-                self.first[col['name']][k] = True
-        ## FOR
-    ## DEF
-    
     def processWorkload(self):
         """Process Workload Trace"""
-        for rec in self.metadata_db[constants.COLLECTION_WORKLOAD].find() :
+        for rec in self.metadata_db[constants.COLLECTION_WORKLOAD].find().limit(1000) :
             for op in rec['operations'] :
                 tuples = []
                 col_info = self.metadata_db.Collection.one({'name':op['collection']})
@@ -98,26 +84,34 @@ class StatsProcessor:
                     except KeyError :
                         pass
                 col_info.save()
-            self.computeQueryClasses(rec)
+            
+                # Query Id!
+                op[u"query_id"] = self.hasher.hash(op)
+            self.metadata_db[constants.COLLECTION_WORKLOAD].save(rec)
         ## FOR
-        sys.exit(1)
-    ## DEF
-    
-    def computeQueryClasses(self, rec):
-        for op in rec['operations']:
-            self.hasher.hash(op)
-        print "-"*100
+        print("Query Class Histogram:\n%s" % self.hasher.histogram)
     ## DEF
     
     def processDataset(self, sample_rate):
         """Process Sample Dataset"""
         tuple_sizes = {}
+        distinct_values = {}
+        first = {}
         
         # Compute per-column statistics
         for col in self.metadata_db.Collection.find():
+            if not col['name'] in distinct_values:
+                distinct_values[col['name']] = {}
+                first[col['name']] = {}
+                for k, v in col['fields'].iteritems() :
+                    distinct_values[col['name']][k] = {}
+                    first[col['name']][k] = True
+                ## FOR
+            ## IF
+            
             col['tuple_count'] = 0
             tuple_sizes[col['name']] = 0
-            rows = dataset_db[col['name']].find()
+            rows = self.dataset_db[col['name']].find()
             for row in rows :
                 col['tuple_count'] += 1
                 to_use = random.randrange(1, 100, 1)

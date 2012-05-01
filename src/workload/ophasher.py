@@ -26,11 +26,14 @@
 import logging
 from pprint import pformat
 
+from util.histogram import Histogram
+
 LOG = logging.getLogger(__name__)
 
 class OpHasher:
     
     def __init__(self):
+        self.histogram = Histogram()
         pass
     ## DEF
     
@@ -43,7 +46,6 @@ class OpHasher:
         # QUERY
         if op["type"] == "$query":
             # The query field has our where clause
-            print op
             fields = op["content"][0]["query"]
         # UPDATE
         elif op["type"] == "$update":
@@ -67,19 +69,21 @@ class OpHasher:
         
         t = (op["collection"], op["type"], fieldsHash, updateHash)
         h = hash(t)
-        
-        print fields, t, h
+        LOG.debug("%s %s => HASH:%d" % (fields, t, h))
+        self.histogram.put(h)
         return h
     ## DEF
     
     def computeFieldsHash(self, fields):
         f = [ ]
-        for k, v in fields.iteritems():
-            if type(v) == dict:
-                f.append(self.computeFieldsHash(v))
-            else:
-                f.append(k)
-        ## FOR
+        if fields:
+            for k, v in fields.iteritems():
+                if type(v) == dict:
+                    f.append(self.computeFieldsHash(v))
+                else:
+                    f.append(k)
+            ## FOR
+        ## IF
         return hash(tuple(sorted(f)))
     ## DEF
     
