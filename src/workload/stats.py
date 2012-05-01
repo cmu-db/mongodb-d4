@@ -22,8 +22,12 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
-import logging
 
+import sys
+import logging
+from pprint import pformat
+
+from ophasher import *
 from util import constants
 
 LOG = logging.getLogger(__name__)
@@ -34,6 +38,7 @@ class StatsProcessor:
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
         
+        self.hasher = OpHasher()
         self.first = {}
         self.distinct_values = {}
         
@@ -93,7 +98,15 @@ class StatsProcessor:
                     except KeyError :
                         pass
                 col_info.save()
+            self.computeQueryClasses(rec)
         ## FOR
+        sys.exit(1)
+    ## DEF
+    
+    def computeQueryClasses(self, rec):
+        for op in rec['operations']:
+            self.hasher.hash(op)
+        print "-"*100
     ## DEF
     
     def processDataset(self, sample_rate):
