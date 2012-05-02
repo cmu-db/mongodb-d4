@@ -83,6 +83,8 @@ def initDB(hostname, port, w_db, w_col):
     global workload_db
     global workload_col
 
+    LOG.info("Connecting to MongoDB at %s:%d" % (hostname, port))
+    
     # Initialize connection to db that stores raw transactions
     connection = Connection(hostname, port)
     workload_db = connection[w_db]
