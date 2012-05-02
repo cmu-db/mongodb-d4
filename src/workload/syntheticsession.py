@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-class Sess(object) :
+class SyntheticSession(object) :
 
     def __init__(self) :
         self.queries = []

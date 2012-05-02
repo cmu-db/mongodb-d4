@@ -126,7 +126,7 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     wrkld = workload.Workload()
     for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
-        sessn = workload.Sess()
+        sessn = workload.SyntheticSession()
         if len(rec['operations']) > 0 :
             sessn.startTime = rec['operations'][0]['timestamp']
             sessn.endTime = rec['operations'][len(rec['operations']) - 1]['timestamp']
