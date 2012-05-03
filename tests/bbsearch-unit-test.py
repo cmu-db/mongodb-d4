@@ -31,7 +31,7 @@ class DummyCostModel:
 def checkShardKeyExist(nodelist, shardkey):
     for node in nodelist:
         for col in node.design.collections:
-            key = node.design.shardKeys[col]
+            key = node.design.getShardKey(col)
             if key == shardkey:
                 return True
     return False
