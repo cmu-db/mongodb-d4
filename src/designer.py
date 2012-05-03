@@ -231,6 +231,6 @@ if __name__ == '__main__':
     bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 10)
     solution = bb.solve()
     
-    solutions['final'] = solution.toLIST()
+    solutions['final'] = solution.toDICT()
     print json.dumps(solutions, sort_keys=False, indent=4)
 ## MAIN

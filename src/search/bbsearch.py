@@ -381,9 +381,14 @@ class BBNode():
         # inherit the parent assignment plus the new assignment
         child_design = self.design.copy()
         child_design.addCollection(self.currentCol)
-        child_design.indexes[self.currentCol] = indexes
-        child_design.shardKeys[self.currentCol] = shardKey
-        child_design.denorm[self.currentCol] = denorm
+        
+        for i in indexes :
+            child_design.addIndex(self.currentCol, i)
+        child_design.addShardKey(self.currentCol, shardKey)
+        child_design.setDenormalizationParent(self.currentCol, denorm)
+        #child_design.indexes[self.currentCol] = indexes
+        #child_design.shardKeys[self.currentCol] = shardKey
+        #child_design.denorm[self.currentCol] = denorm
         
         child = BBNode(child_design, self.bbsearch, False, self.depth + 1)
         
