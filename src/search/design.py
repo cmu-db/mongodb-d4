@@ -55,14 +55,13 @@ class Design(object):
     '''
     def copy(self):
         d = Design()
-        for c in self.collections:
-            d.collections.append(c)
-        for k in self.indexes.keys():
-            d.indexes[k] = self.indexes[k]
-        for k in self.shardKeys.keys():
-            d.shardKeys[k] = self.shardKeys[k]
-        for k in self.denorm.keys():
-            d.denorm[k] = self.denorm[k]
+        for k,v in self.data.iteritems() :
+            d.addCollection(k)
+            d.addShardKey(k, self.getShardKey(k))
+            d.setDenormalizationParent(k, self.getDenormalizationParent(k))
+            indexes = self.getIndexesForCollection(k)
+            for i in indexes :
+                d.addIndex(k, i)
         return d
           
           

@@ -228,9 +228,9 @@ if __name__ == '__main__':
     ## STEP 6
     ## Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
-    #bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 10)
-    #solution = bb.solve()
+    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 10)
+    solution = bb.solve()
     
-    #solutions['final'] = solution.toLIST()
+    solutions['final'] = solution.toLIST()
     print json.dumps(solutions, sort_keys=False, indent=4)
 ## MAIN
