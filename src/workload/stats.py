@@ -84,8 +84,11 @@ class StatsProcessor:
                     except KeyError :
                         pass
                 col_info.save()
-            
-                # Query Id!
+    ## DEF
+    
+    def processQueryIds(self):
+        for rec in self.metadata_db[constants.COLLECTION_WORKLOAD].find().limit(1000):
+            for op in rec['operations'] :
                 op[u"query_id"] = self.hasher.hash(op)
             self.metadata_db[constants.COLLECTION_WORKLOAD].save(rec)
         ## FOR
