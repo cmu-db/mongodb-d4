@@ -65,6 +65,7 @@ class Sql2mongo (object) :
             op['size'] = 0
             op['flags'] = None
             op['query_group'] = Sql2mongo.query_id
+            op['query_id'] = None
             if self.query_type == 'DELETE' :
                 op['content'].append(self.generate_content_remove(table))
             elif self.query_type == 'INSERT' :
