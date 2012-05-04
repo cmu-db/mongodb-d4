@@ -25,6 +25,7 @@ class Session(Document):
                 'flags':        int,
                 'query_id':     int,
                 'query_group':  int,
+                'has_related_query': int,
             }
         ],
     }
