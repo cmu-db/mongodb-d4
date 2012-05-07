@@ -93,6 +93,12 @@ def initDB(hostname, port, w_db, w_col):
 def cleanWorkload():
     getTracesCollection().remove()
 
+
+# helper method to split IP and port
+def getOnlyIP(ipAndPort):
+    l = ipAndPort.rsplit(":") # we can be sure that ipAndPort is in the form of IP:port since it was matched by regex...
+    return l[0]
+
 #
 # this function initializes a new Session() object (in workload/traces.py)
 # and sotres it in the collection
