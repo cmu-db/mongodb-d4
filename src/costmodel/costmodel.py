@@ -46,7 +46,8 @@ config {
     'gamma' : Skew cost coefficient,
     'nodes' : Number of nodes in the Mongo DB instance,
     'max_memory' : Amount of memory per node in MB,
-    'index_node_size' : Amount of memory required to index 1 document,
+    'address_size' : Amount of memory required to index 1 document,
+    'skew_intervals' : Number of intervals over which to calculate the skew costs
 }
 
 statistics {
