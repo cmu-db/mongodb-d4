@@ -57,9 +57,9 @@ HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
 "(?P<IP2>" + IP_MASK + ") *" + \
 "(?P<collection>" + COLLECTION_MASK + ")? *" + \
 "(?P<size>" + SIZE_MASK + ") *" + \
-"(?P<magic_id>" + MAGIC_ID_MASK + ") *" + \
-"(?P<transaction_id>" + TRANSACTION_ID_MASK + ") *" + \
-"-? *(?P<query_id>" + REPLY_ID_MASK + ")?"
+"(?P<magic_id>" + MAGIC_ID_MASK + ")[\t ]*" + \
+"(?P<transaction_id>" + TRANSACTION_ID_MASK + ")[\t ]*" + \
+"-?[\t ]*(?P<query_id>" + REPLY_ID_MASK + ")?"
 headerRegex = re.compile(HEADER_MASK);
 ### content lines
 CONTENT_REPLY_MASK = "\s*reply +.*"
@@ -169,7 +169,7 @@ def store(transaction):
             query = query_response_map[query_id]
             query['response'] = op
         else:
-            print "SKIPPED QUERY"
+            print "SKIPPED QUERY: ", query_id
             print op
     else:
         # Append the operation to the current session
@@ -201,22 +201,23 @@ def process_header_line(header):
 def add_yaml_to_content(yaml_line):
     global current_transaction
     
+    yaml_line = yaml_line.strip()
+    
     #skip empty lines
     if len(yaml_line.split()) is 0:
         return
     
-    if not yaml_line.strip().startswith("{"):
+    
+    if not yaml_line.startswith("{"):
         # this is not a content line... it can't be yaml
-        print "SKIPPING:"
+        print "SKIPPING (does not start with {):"
         print yaml_line
         return
     
-    if yaml_line.strip().startswith("{"):
-        if not yaml_line.strip().endswith("}"):
-            print "PROBLEM: undended line. Please use parser_prep"
-            print yaml_line
-            exit()
-    
+    if not yaml_line.strip().endswith("}"):
+        print "SKIPPING: undended line (missing }):"
+        print yaml_line
+        return    
     
     
     # this is a bit hacky, but it works.
@@ -226,11 +227,9 @@ def add_yaml_to_content(yaml_line):
     # {value: this is not a problem}
     # solution: (does not work well)
     #yaml_line = yaml_line.replace("\"", "")
-    
-    
-    yaml_line = yaml_line.replace("http:", "http")
-    yaml_line = yaml_line.replace("rv:", "rv")
-    yaml_line = yaml_line.replace("?", "")
+    #yaml_line = yaml_line.replace("http:", "http")
+    #yaml_line = yaml_line.replace("rv:", "rv")
+    #yaml_line = yaml_line.replace("?", "")
     
     
     #yaml parser might fail :D
@@ -312,7 +311,6 @@ def parseFile(file):
     line = file.readline()
     ctr = 0
     while line:
-        line = file.readline()
         result = headerRegex.match(line)
         #print line
         if result:
@@ -320,6 +318,7 @@ def parseFile(file):
             ctr += 1
         else:
             process_content_line(line)
+        line = file.readline()
 
     if (current_transaction):
         store(current_transaction)
