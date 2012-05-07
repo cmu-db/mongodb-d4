@@ -23,19 +23,28 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
-'''
-This class serves as an abstraction to the operations that are part of sessions of 
-the workload trace that is parsed either via the MongoSniff or MySQL data extract 
-process.  This is the most atomic unit operated on by the Cost Model in determining 
-the cost of a particular design/workload combination.
-'''
-class Query(object) :
-
-    def __init__(self) :
-        self.collection = None
-        self.type = None
-        self.predicates = {}
-        self.timestamp = None
-        self.projection = {}
-        
-# END CLASS
+class Histogram(object):
+    def __init__(self):
+        self.data = { }
+    def put(self, x, delta=1):
+        self.data[x] = self.data.get(x, 0) + delta
+    def get(self, x):
+        return self.data[x]
+    def toJava(self):
+        output = ""
+        for key in sorted(self.data.keys()):
+            cnt = self.data[key]
+            if type(key) == str:
+                key = "\"%s\"" % (key.replace('"', '\\"'))
+            output += "this.put(%s, %d);\n" % (key, cnt)
+        return output
+    ## DEF
+    def __str__(self):
+        ret = ""
+        ret += "# of Elements: %d\n" % len(self.data)
+        ret += "# of Samples:  %d\n" % sum(self.data.values())
+        ret += "="*50 + "\n"
+        ret += "\n".join([ "%-25s %d" % (x, y) for x,y in self.data.iteritems() ])
+        ret += "\n" + "="*50
+        return (ret)
+## CLASS

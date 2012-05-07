@@ -24,18 +24,17 @@
 # -----------------------------------------------------------------------
 
 '''
-This class serves as an abstraction to the operations that are part of sessions of 
-the workload trace that is parsed either via the MongoSniff or MySQL data extract 
-process.  This is the most atomic unit operated on by the Cost Model in determining 
-the cost of a particular design/workload combination.
+This class is an abstraction of the actual workload sessions parsed either via the 
+MongoSniff or MySQL data extract.  It is not much more than an ordered list of queries 
+that exist in the workload (instances of the Query class) and the start and end times
+for the session.  The start and end times are important for helping to calculate the 
+skew cost in the cost model.
 '''
-class Query(object) :
+class SyntheticSession(object) :
 
     def __init__(self) :
-        self.collection = None
-        self.type = None
-        self.predicates = {}
-        self.timestamp = None
-        self.projection = {}
+        self.queries = []
+        self.startTime = None
+        self.endTime = None
         
 # END CLASS

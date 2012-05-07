@@ -24,6 +24,8 @@ class Session(Document):
                 'size':         int,
                 'flags':        int,
                 'query_id':     int,
+                'query_group':  int,
+                'has_related_query': int,
             }
         ],
     }

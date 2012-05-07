@@ -55,7 +55,7 @@ class Sql2mongo (object) :
 
     def generate_operations(self, timestamp) :
         operations = []
-        for alias, table in self.table_aliases.iteritems() :
+        for table in self.tables :
             op = {}
             op['collection'] = table
             op['timestamp'] = timestamp
@@ -64,12 +64,17 @@ class Sql2mongo (object) :
             op['type'] = self.mongo_type()
             op['size'] = 0
             op['flags'] = None
-            op['query_id'] = Sql2mongo.query_id
+            op['query_group'] = Sql2mongo.query_id
+            op['query_id'] = None
+            op['has_related_query'] = 0
+            
             if self.query_type == 'DELETE' :
                 op['content'].append(self.generate_content_remove(table))
             elif self.query_type == 'INSERT' :
                 op['content'].append(self.generate_content_insert(table))
             elif self.query_type == 'SELECT' :
+                if len(self.tables) > 1 :
+                    op['has_related_query'] = 1
                 op['content'].append(self.generate_content_query(table))
             elif self.query_type == 'UPDATE' :
                 content = self.generate_content_update(table)
@@ -140,6 +145,7 @@ class Sql2mongo (object) :
         cls = self.stmt.tokens[tbl_token_loc].__class__.__name__
         if cls == 'Identifier' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
+            self.tables.append(tbl_name)
             self.table_aliases['main'] = tbl_name
         
         ''' PROCESS WHERE clause '''
@@ -231,6 +237,7 @@ class Sql2mongo (object) :
             ## ENDIF
         ## ENDFOR
         
+        self.tables.append(tbl_name)
         self.table_aliases['main'] = tbl_name
         
         i = 0
@@ -305,6 +312,7 @@ class Sql2mongo (object) :
                         index = parts[1]
                     else :
                         index = parts[2]
+                    self.tables.append(parts[0])
                     self.table_aliases[index] = parts[0]
             elif cls == 'Identifier' : 
                 parts = self.stmt.tokens[i].to_unicode().split(' ')
@@ -315,6 +323,7 @@ class Sql2mongo (object) :
                 else :
                     index = parts[2]
                 ## End if
+                self.tables.append(parts[0])
                 self.table_aliases[index] = parts[0]
             elif cls == 'Token' :
                 token = self.stmt.tokens[i]
@@ -322,6 +331,7 @@ class Sql2mongo (object) :
                     table = token.to_unicode()
                     i += 1
                     if i >= end :
+                        self.tables.append(table)
                         self.table_aliases['main'] = table
                         break
                     next = self.stmt.tokens[i]
@@ -334,6 +344,7 @@ class Sql2mongo (object) :
                         if next.ttype == sqlparse.tokens.Token.Text.Whitespace :
                             i += 1
                     alias = next.to_unicode()
+                    self.tables.append(table)
                     self.table_aliases[alias] = table
             ## End if
             i += 1
@@ -457,9 +468,11 @@ class Sql2mongo (object) :
         cls = self.stmt.tokens[tbl_token_loc].__class__.__name__
         if cls == 'Identifier' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
+            self.tables.append(tbl_name)
             self.table_aliases['main'] = tbl_name
         elif cls == 'Token' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
+            self.tables.append(tbl_name)
             self.table_aliases['main'] = tbl_name
         
         ''' PROCESS SET clause '''
@@ -618,6 +631,7 @@ class Sql2mongo (object) :
         self.skip = {}
         self.set_cols = {}
         self.sort_cols = {}
+        self.tables = []
         self.table_aliases = {}
         self.where_cols = {}
         for table, columns in self.schema.iteritems() :

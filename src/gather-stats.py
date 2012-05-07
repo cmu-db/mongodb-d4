@@ -28,17 +28,12 @@ if __name__ == '__main__':
                          help='Path to %s configuration file' % constants.PROJECT_NAME)
     aparser.add_argument('--host', type=str, default="localhost",
                          help='The hostname of the MongoDB instance containing the sample workload')
-    aparser.add_argument('--print-config', action='store_true',
-                         help='Print out the default configuration file used by %s' % constants.PROJECT_NAME)
     aparser.add_argument('--reset', action='store_true', help='Reset collection statistics')
     aparser.add_argument('--debug', action='store_true',
                          help='Enable debug log messages')
     args = vars(aparser.parse_args())
 
     if args['debug']: logging.getLogger().setLevel(logging.DEBUG)
-    if args['print_config']:
-        print config.makeDefaultConfig()
-        sys.exit(0)
     
     if not args['config']:
         logging.error("Missing configuration file")
@@ -65,110 +60,22 @@ if __name__ == '__main__':
     ## Register our objects with MongoKit
     conn.register([ catalog.Collection, workload.Session ])
 
-    ## FOR
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
-    
-    ## -----------------------------------------------------
-    ## Step 1: Preprocessing & Zero statistics if required
-    ## -----------------------------------------------------
-    sample_rate = cparser.getint(config.SECT_DESIGNER, 'sample_rate')
-    first = {}
-    collections = metadata_db.Collection.find()
-    distinct_values = {}
-    for col in collections :
-        distinct_values[col['name']] = {}
-        first[col['name']] = {}
-        for k, v in col['fields'].iteritems() :
-            distinct_values[col['name']][k] = {}
-            first[col['name']][k] = True
-    
+    stats = workload.StatsProcessor(metadata_db, dataset_db)
     if args['reset'] :
-        collections = metadata_db.Collection.find()
-        for col in collections :
-            for k, v in col['fields'].iteritems() :
-                v['query_use_count'] = 0
-                v['cardinality'] = 0
-                v['selectivity'] = 0
-            col.save()
+        stats.reset()
     
     ## ----------------------------------------------
     ## Step 2: Process Workload Trace
     ## ----------------------------------------------
-    for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
-        for op in rec['operations'] :
-            tuples = []
-            col_info = metadata_db.Collection.one({'name':op['collection']})
-            if op['type'] == '$delete' :
-                for content in op['content'] :
-                    for k,v in content.iteritems() :
-                        tuples.append((k, v))
-            elif op['type'] == '$insert' :
-                for content in op['content'] :
-                    for k,v in content.iteritems() :
-                        tuples.append((k, v))
-            elif op['type'] == '$query' :
-                for content in op['content'] :
-                    if content['query'] != None :
-                        for k, v in content['query'].iteritems() :
-                            tuples.append((k, v))
-            elif op['type'] == '$update' :
-                for content in op['content'] :
-                    try :
-                        for k,v in content.iteritems() :
-                            tuples.append((k, v))
-                    except AttributeError :
-                        pass
-            for t in tuples :
-                ## Update times the column is referenced in a query
-                try :
-                    col_info['fields'][t[0]]['query_use_count'] += 1
-                except KeyError :
-                    pass
-            col_info.save()
+    stats.processWorkload()
     
     ## ----------------------------------------------
     ## Step 3: Process Dataset
     ## ----------------------------------------------
-    collections = metadata_db.Collection.find()
-    tuple_sizes = {}
-    for col in collections :
-        col['tuple_count'] = 0
-        tuple_sizes[col['name']] = 0
-        rows = dataset_db[col['name']].find()
-        for row in rows :
-            col['tuple_count'] += 1
-            to_use = random.randrange(1, 100, 1)
-            if to_use <= sample_rate : 
-                for k, v in row.iteritems() :
-                    if k <> '_id' :
-                        if col['fields'][k]['type'] == 'int' :
-                            tuple_sizes[col['name']] += 4
-                        elif col['fields'][k]['type'] == 'str' :
-                            tuple_sizes[col['name']] += len(v)
-                        elif col['fields'][k]['type'] == 'datetime' :
-                            tuple_sizes[col['name']] += 8
-                        elif col['fields'][k]['type'] == 'float' :
-                            tuple_sizes[col['name']] += 8
-                        distinct_values[col['name']][k][v] = v
-                    else :
-                        tuple_sizes[col['name']] += 12
-        if col['tuple_count'] == 0 :
-            col['avg_doc_size'] = 0
-        else :
-            col['avg_doc_size'] = int(tuple_sizes[col['name']] / col['tuple_count'])
-        col.save()
-    
-    ## ---------------------------------------------
-    ## Step 4: Calculate cardinality and selectivity
-    ## ---------------------------------------------
-    collections = metadata_db.Collection.find()
-    for col in collections :
-        for k,v in col['fields'].iteritems() :
-            v['cardinality'] = len(distinct_values[col['name']][k])
-            if col['tuple_count'] == 0 :
-                v['selectivity'] = 0
-            else :
-                v['selectivity'] = v['cardinality'] / col['tuple_count']
-        col.save()
+    sample_rate = cparser.getint(config.SECT_DESIGNER, 'sample_rate')
+    stats.processDataset(sample_rate)
+
+        
 ## END MAIN

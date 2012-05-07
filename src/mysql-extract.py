@@ -66,6 +66,7 @@ if __name__ == '__main__':
     
     conn.register([ catalog.Collection ])
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
+    dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
     metadata_db.drop_collection(constants.COLLECTION_SCHEMA)
     ## ----------------------------------------------
     
@@ -228,4 +229,10 @@ if __name__ == '__main__':
     ## ENDFOR
     if len(session['operations']) > 0 :
         session.save()
+    
+    ## ---------------------------------------------
+    ## Generate Query IDs for the Workload
+    ## ---------------------------------------------
+    stats = workload.StatsProcessor(metadata_db, dataset_db)
+    stats.processQueryIds()
 ## MAIN

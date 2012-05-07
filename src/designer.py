@@ -126,7 +126,7 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     wrkld = workload.Workload()
     for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
-        sessn = workload.Sess()
+        sessn = workload.SyntheticSession()
         if len(rec['operations']) > 0 :
             sessn.startTime = rec['operations'][0]['timestamp']
             sessn.endTime = rec['operations'][len(rec['operations']) - 1]['timestamp']
@@ -228,9 +228,9 @@ if __name__ == '__main__':
     ## STEP 6
     ## Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
-    #bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 10)
-    #solution = bb.solve()
+    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 10)
+    solution = bb.solve()
     
-    #solutions['final'] = solution.toLIST()
+    solutions['final'] = solution.toDICT()
     print json.dumps(solutions, sort_keys=False, indent=4)
 ## MAIN
