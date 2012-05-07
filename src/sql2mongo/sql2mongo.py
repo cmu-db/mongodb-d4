@@ -828,7 +828,7 @@ class Sql2mongo (object) :
             try:
                 val = float(val)
             except ValueError:
-                pass
+                val = ''.join(['$$', val])
         return val
     ## End render_trace_value()
     
