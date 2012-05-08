@@ -241,10 +241,11 @@ class CostModel(object):
                                 if scan == False :
                                     # Query uses shard key... need to determine if this is an
                                     # equality predicate or a range type
-                                    if v == 'equality' :
+                                    if query_type == 'equality' :
                                         result += 0.0
                                     else :
-                                        result += self.guessNodes(design, q.collection, k)
+                                        nodes = self.guessNodes(design, q.collection, k)
+                                        result += nodes
                                 else :
                                     result += self.nodes
                             else :
