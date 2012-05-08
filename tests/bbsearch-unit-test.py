@@ -152,22 +152,23 @@ class TestSearchSpace (unittest.TestCase) :
         print("\n\n === BBSearch Simple Test - 3 indexes === \n")
         dc = designcandidate.DesignCandidate()
         dc.addCollection("col1", [], [], [])
-        dc.addCollection("col2", [("key1"), ("key1", "key2"), ("key1", "key3")], [], [])
+        dc.addCollection("col2", [("key1",), ("key1", "key2"), ("key1", "key3")], [], [])
         #same as above, just 4 time more leaf nodes, since c1 can be sharded on k1..3,None
         bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
         bb.solve()
         nodeList = bb.listAllNodes()
+        
         self.assertEqual(bb.totalNodes, len(nodeList))
         self.assertEqual(bb.totalNodes, 17)
         self.assertEqual(bb.leafNodes, 8)
         self.assertTrue(checkIndexKeyExist(nodeList, ([])))
-        self.assertTrue(checkIndexKeyExist(nodeList, (("key1",)) ))
-        self.assertTrue(checkIndexKeyExist(nodeList, (("key1", "key2"),) ))
-        self.assertTrue(checkIndexKeyExist(nodeList, (("key1", "key3"),) ))
-        self.assertTrue(checkIndexKeyExist(nodeList, (("key1"), ("key1", "key2")) ))
-        self.assertTrue(checkIndexKeyExist(nodeList, (("key1"), ("key1", "key3")) ))
-        self.assertTrue(checkIndexKeyExist(nodeList, (("key1", "key2"), ("key1", "key3")) ))
-        self.assertTrue(checkIndexKeyExist(nodeList, (("key1"), ("key1", "key2"), ("key1", "key3")) ))
+        self.assertTrue(checkIndexKeyExist(nodeList, [("key1",)] ))
+        self.assertTrue(checkIndexKeyExist(nodeList, [("key1", "key2")] ))
+        self.assertTrue(checkIndexKeyExist(nodeList, [("key1", "key3")] ))
+        self.assertTrue(checkIndexKeyExist(nodeList, [("key1",), ("key1", "key2")] ))
+        self.assertTrue(checkIndexKeyExist(nodeList, [("key1",), ("key1", "key3")] ))
+        self.assertTrue(checkIndexKeyExist(nodeList, [("key1", "key2"), ("key1", "key3")] ))
+        self.assertTrue(checkIndexKeyExist(nodeList, [("key1",), ("key1", "key2"), ("key1", "key3")] ))
         
         
         '''
@@ -182,8 +183,8 @@ class TestSearchSpace (unittest.TestCase) :
         bb = bbsearch.BBSearch(dc, costmodel, initialDesign, upper_bound, timeout)
         bb.solve()
         nodeList = bb.listAllNodes()
-        #for n in nodeList:
-        #    print n
+        for n in nodeList:
+            print n
         self.assertEqual(bb.totalNodes, len(nodeList))
         self.assertEqual(bb.totalNodes, 6)
         self.assertEqual(bb.leafNodes, 3)

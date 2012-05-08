@@ -10,10 +10,13 @@ import optparse
 def find_quote(line, startIndex):
     index = line.find("\"", startIndex)
     if index < 0:
-        return -1
+        return (-1, False)
     if line[index-1]=="\\":
         return find_quote(line, index + 1)
-    return index
+    isKey = False
+    if len(line)-index > 2:
+        isKey = line[index + 2] == ":"
+    return (index, isKey)
 
 def hash_string(s, salt):
     return "%s/%d" % (hashlib.md5(str(salt) + s).hexdigest(), len(s))
@@ -28,7 +31,7 @@ def sanitize(line, salt):
     # replace strings with their hash value
     while endIndex < len(line):
         # find start of a string
-        startIndex = find_quote(line, endIndex)
+        (startIndex, flag) = find_quote(line, endIndex)
         if startIndex < 0:
             break
         
@@ -36,7 +39,7 @@ def sanitize(line, salt):
         b = line[endIndex: startIndex]
         
         # find the end of the string
-        endIndex = find_quote(line, startIndex + 1)
+        (endIndex, isKey) = find_quote(line, startIndex + 1)
         if endIndex < 0:
             #print "ERROR: open string: ", line
             # on error, just don't sanitize...
@@ -46,9 +49,10 @@ def sanitize(line, salt):
         # this is the substring we want to hash
         string = line[startIndex: endIndex]
         #print "found string: ", string
-        hashed = hash_string(string, salt)
+        if not isKey:
+            string = hash_string(string, salt)
         # append to the result...
-        resultLine = resultLine + b + hashed
+        resultLine = resultLine + b + string
     ### END WHILE
     
     # append the rest of the line
@@ -90,7 +94,7 @@ if __name__ == '__main__':
         print output
         if f:
             f.write(output)
-
+            f.write("\n")
         line = sys.stdin.readline()
 
     f.close()

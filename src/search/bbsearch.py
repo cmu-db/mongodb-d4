@@ -338,35 +338,29 @@ class BBNode():
         
         feasible = True
         # NO CIRCULAR EMBEDDING - this checks against "embedding in itself" as well
-        embedded_in = denorm
+        denorm_parent = denorm
         # traverse the embedding chain to the end and detect cycles:
-        while embedded_in != "":
+        while denorm_parent:
             # if the end of the "embedded_in" chain is currentCol, it is a CYCLE
-            if embedded_in == self.currentCol:
+            if denorm_parent == self.currentCol:
                 feasible = False
                 break
-            if embedded_in in self.design.denorm:
-                embedded_in = self.design.denorm[embedded_in]
-            else:
-                embedded_in = ""
+            denorm_parent = self.design.getDenormalizationParent(denorm_parent)
             
         # enforce mutual exclustion of sharding keys...
         # when col1 gets denormalized into col2, they cannot have
         # both assigned a sharding key
         # again, denormalization can be chained... so we have to consider the whole chain
-        if (denorm is not "") and (shardKey is not []):
-            embedded_in = denorm
+        if (denorm) and (shardKey is not []):
+            denorm_parent = denorm
             # check all the way to the end of the embedding chain:
-            while embedded_in != "":
+            while denorm_parent:
                 # if the encapsulating collection has a shard key, it's a conflict
-                if embedded_in in self.design.shardKeys:
-                    if self.design.shardKeys[embedded_in] != []:
+                if denorm_parent in self.design.data:
+                    if self.design.getShardKey(denorm_parent) != []:
                         feasible = False
                         break
-                if embedded_in in self.design.denorm:
-                    embedded_in = self.design.denorm[embedded_in]
-                else:
-                    embedded_in = ""
+                denorm_parent = self.design.getDenormalizationParent(denorm_parent)
                 
         # well, this is a very lazy way of doing it :D
         # it's OK so long there are not too many consecutive infeasible nodes,
