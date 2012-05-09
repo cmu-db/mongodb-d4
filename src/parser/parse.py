@@ -8,6 +8,7 @@ import argparse
 import yaml
 import json
 import logging
+import workload_info
 from pymongo import Connection
 
 sys.path.append("../workload")
@@ -23,7 +24,7 @@ LOG = logging.getLogger(__name__)
 ### you can specify these with args
 INPUT_FILE = "sample.txt"
 WORKLOAD_DB = "metadata"
-WORKLOAD_COLLECTION = "sessions"
+WORKLOAD_COLLECTION = "workload01"
 INITIAL_SESSION_UID = 100 #where to start the incremental session uid
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = "27017"
@@ -58,7 +59,7 @@ HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
 "(?P<collection>" + COLLECTION_MASK + ")? *" + \
 "(?P<size>" + SIZE_MASK + ") *" + \
 "(?P<magic_id>" + MAGIC_ID_MASK + ")[\t ]*" + \
-"(?P<transaction_id>" + TRANSACTION_ID_MASK + ")[\t ]*" + \
+"(?P<trans_id>" + TRANSACTION_ID_MASK + ")[\t ]*" + \
 "-?[\t ]*(?P<query_id>" + REPLY_ID_MASK + ")?"
 headerRegex = re.compile(HEADER_MASK);
 ### content lines
@@ -73,6 +74,22 @@ insertRegex = re.compile(CONTENT_INSERT_MASK)
 queryRegex = re.compile(CONTENT_QUERY_MASK)
 updateRegex = re.compile(CONTENT_UPDATE_MASK)
 deleteRegex = re.compile(CONTENT_DELETE_MASK)
+
+# other masks for parsing
+FLAGS_MASK = ".*flags:(?P<flags>\d).*" #vals: 0,1,2,3
+flagsRegex = re.compile(FLAGS_MASK)
+NTORETURN_MASK = ".*ntoreturn: (?P<ntoreturn>-?\d+).*" # int 
+ntoreturnRegex = re.compile(NTORETURN_MASK)
+NTOSKIP_MASK = ".*ntoskip: (?P<ntoskip>\d+).*" #int
+ntoskipRegex = re.compile(NTOSKIP_MASK)
+
+# op TYPES
+TYPE_QUERY = '$query'
+TYPE_INSERT = '$insert'
+TYPE_DELETE = '$delete'
+TYPE_UPDATE = '$update'
+TYPE_REPLY = '$reply'
+QUERY_TYPES = [TYPE_QUERY, TYPE_INSERT, TYPE_DELETE, TYPE_UPDATE]
 
 #returns collection where the traces (Session objects) are stored
 def getTracesCollection():
@@ -106,22 +123,22 @@ def getOnlyIP(ipAndPort):
 # and sotres it in the collection
 # ip1 is the key in current_transaction_map
 #
-def addSession(ip1, ip2):
+def addSession(ip_client, ip_server):
     global current_session_map
     global session_uid
     global workload_db
         
         #verify a session with the uid does not exist
-    if getTracesCollection().find({'uid': session_uid}).count() > 0:
+    if getTracesCollection().find({'session_id': session_uid}).count() > 0:
         LOG.error("Error: Session with UID %s already exists." % session_uid)
         LOG.error("Maybe you want to clean the database / use a different collection?")
         sys.exit(0)
 
     session = Session()
-    session['ip1'] = unicode(ip1)
-    session['ip2'] = unicode(ip2)
-    session['uid'] = session_uid
-    current_session_map[current_transaction['IP1']] = session
+    session['ip_client'] = unicode(ip_client)
+    session['ip_server'] = unicode(ip_server)
+    session['session_id'] = session_uid
+    current_session_map[ip_client] = session
     session_uid = session_uid + 1
     getTracesCollection().save(session)
     return session
@@ -131,55 +148,67 @@ def store(transaction):
     #print ""
     #print current_transaction
     if (current_transaction['arrow'] == '-->>'):
-        ip1 = current_transaction['IP1']
-        ip2 = current_transaction['IP2']
+        ip_client = current_transaction['IP1']
+        ip_server = current_transaction['IP2']
     else:
-        ip1 = current_transaction['IP2']
-        ip2 = current_transaction['IP1']
+        ip_client = current_transaction['IP2']
+        ip_server = current_transaction['IP1']
 
-    if (ip1 not in current_session_map):
-        session = addSession(ip1, ip2)
+    if (ip_client not in current_session_map):
+        session = addSession(ip_client, ip_server)
     else:
-        session = current_session_map[ip1]
+        session = current_session_map[ip_client]
     
     if 'type' not in current_transaction:
         LOG.error("INCOMPLETE operation:")
         LOG.error(current_transaction)
         return
     
-    # create the operation -- corresponds to current_transaction
-    op = {
-            'collection': unicode(current_transaction['collection']),
-            'content': current_transaction['content'],
-            'timestamp': float(current_transaction['timestamp']),
-            'type': unicode(current_transaction['type']),
-            'size': int(current_transaction['size'].replace("bytes", "")),
-    }
-    
-    # QUERY - add entry to the query-response map so we can add its response in the future
-    if current_transaction['type'] == "$query":
-        query_id = current_transaction['transaction_id'];
-        op['response'] = None # TO BE FILLED later
+    # QUERY: $query, $delete, $insert, $update:
+    # Create the operation, add it to the session
+    if current_transaction['type'] in QUERY_TYPES:
+        # create the operation -- corresponds to current_transaction
+        query_id = current_transaction['trans_id'];
+        op = {
+                'collection': unicode(current_transaction['collection']),
+                'type': unicode(current_transaction['type']),
+                'query_time': float(current_transaction['timestamp']),
+                'query_size': int(current_transaction['size'].replace("bytes", "")),
+                'query_content': current_transaction['content'],
+                'query_id': int(query_id)
+        }
+        # update flags
+        if current_transaction['type'] == TYPE_UPDATE:
+            op['update_upsert'] = current_transaction['update_upsert']
+            op['update_multi'] = current_transaction['update_multi']
+        # query - SKIP, LIMIT
+        if current_transaction['type'] == TYPE_QUERY:
+            op['query_limit'] = int(current_transaction['ntoreturn']['ntoreturn'])
+            op['query_offset'] = int(current_transaction['ntoskip']['ntoskip'])
+            
         query_response_map[query_id] = op
+        # append it to the current session
+        session['operations'].append(op)
+        LOG.debug("added operation: %s" % op)
     
-    # RESPONSE - append it to the query
+    # RESPONSE - add information to the matching query
     if current_transaction['type'] == "$reply":
         query_id = current_transaction['query_id'];
+        # see if the matching query is in the map
         if query_id in query_response_map:
-            query = query_response_map[query_id]
-            query['response'] = op
+            # fill in missing information
+            query_op = query_response_map[query_id]
+            query_op['resp_content'] = unicode(current_transaction['content'])
+            query_op['resp_size'] = int(current_transaction['size'].replace("bytes", ""))
+            query_op['resp_time'] = float(current_transaction['timestamp'])
+            query_op['resp_id'] = int(current_transaction['trans_id'])    
         else:
-            print "SKIPPED QUERY: ", query_id
-            print op
-    else:
-        # Append the operation to the current session
-        session['operations'].append(op)
-        LOG.debug("inserting operation: %s" % op)
-    
-    #save the session
+            print "SKIPPING RESPONSE (no matching query_id): ", query_id
+            
+    #save the current session
     getTracesCollection().save(session)
     
-    LOG.debug("session %d was updated" % session['uid'])
+    LOG.debug("session %d was updated" % session['session_id'])
     return
 
 
@@ -204,32 +233,19 @@ def add_yaml_to_content(yaml_line):
     yaml_line = yaml_line.strip()
     
     #skip empty lines
-    if len(yaml_line.split()) is 0:
+    if len(yaml_line) == 0:
         return
-    
-    
+
     if not yaml_line.startswith("{"):
         # this is not a content line... it can't be yaml
-        print "SKIPPING (does not start with {):"
+        print "ERROR: JSON does not start with {:"
         print yaml_line
         return
     
     if not yaml_line.strip().endswith("}"):
-        print "SKIPPING: undended line (missing }):"
+        print "ERROR: JSON does not end with }:"
         print yaml_line
         return    
-    
-    
-    # this is a bit hacky, but it works.
-    # un-escaped " characters mess the yaml parser up...
-    # {value: "this is a "problem""}
-    # insted, it's fine if the string looks like this:
-    # {value: this is not a problem}
-    # solution: (does not work well)
-    #yaml_line = yaml_line.replace("\"", "")
-    #yaml_line = yaml_line.replace("http:", "http")
-    #yaml_line = yaml_line.replace("rv:", "rv")
-    #yaml_line = yaml_line.replace("?", "")
     
     
     #yaml parser might fail :D
@@ -249,7 +265,7 @@ def add_yaml_to_content(yaml_line):
     
     #if this is the first time we see this session, add it
     if ('whatismyuri' in obj):
-        addSession(current_transaction['IP1'], current_transaction['IP2'])
+        addSession(current_transaction['ip_client'], current_transaction['ip_server'])
     
     #store the line
     current_transaction['content'].append(obj)
@@ -266,25 +282,47 @@ def process_content_line(line):
 
     # REPLY
     if (replyRegex.match(line)):
-        current_transaction['type'] = "$reply"
+        current_transaction['type'] = TYPE_REPLY
     
     #INSERT
     elif (insertRegex.match(line)):
-        current_transaction['type'] = "$insert"
+        current_transaction['type'] = TYPE_INSERT
         line = line[line.find('{'):line.rfind('}')+1]
         add_yaml_to_content(line)
     
     # QUERY
     elif (queryRegex.match(line)):
-        current_transaction['type'] = "$query"
+        current_transaction['type'] = TYPE_QUERY
+        
+        # extract OFFSET and LIMIT
+        current_transaction['ntoskip'] = ntoskipRegex.match(line).groupdict()
+        current_transaction['ntoreturn'] = ntoreturnRegex.match(line).groupdict()
+        
         line = line[line.find('{'):line.rfind('}')+1]
         add_yaml_to_content(line)
         
     # UPDATE
     elif (updateRegex.match(line)):
-        current_transaction['type'] = "$update"
-        #this is hacky, but it's the all I have now
-        lines = line[line.find('{'):line.rfind('}')+1] .split(" o:")
+        current_transaction['type'] = TYPE_UPDATE
+        
+        # extract FLAGS
+        upsert=False
+        multi=False
+        flags = flagsRegex.match(line).groupdict()
+        if flags=='1':
+            upsert=True
+            multi=False
+        if flags=='2':
+            upsert=False
+            multi=True
+        if flags=='3':
+            upsert=True
+            multi=True
+        current_transaction['update_upsert']=upsert
+        current_transaction['update_multi']=multi
+        
+        # extract the CRITERIA and NEW_OBJ
+        lines = line[line.find('{'):line.rfind('}')+1].split(" o:")
         if len(lines) > 2:
             LOG.error("Fuck. This update query is tricky to parse: " + str(line))
             LOG.error("Skipping it for now...")
@@ -295,7 +333,7 @@ def process_content_line(line):
     
     # DELETE
     elif (deleteRegex.match(line)):
-        current_transaction['type'] = "$delete"
+        current_transaction['type'] = TYPE_DELETE
         line = line[line.find('{'):line.rfind('}')+1] 
         add_yaml_to_content(line) 
     
@@ -309,13 +347,14 @@ def parseFile(file):
     LOG.info("Processing file %s...", file)
     file = open(file, 'r')
     line = file.readline()
-    ctr = 0
+    trans_cnt = 0
+    
     while line:
         result = headerRegex.match(line)
         #print line
         if result:
             process_header_line(result.groupdict())
-            ctr += 1
+            trans_cnt += 1
         else:
             process_content_line(line)
         line = file.readline()
@@ -324,8 +363,14 @@ def parseFile(file):
         store(current_transaction)
 
     print ""
-    LOG.info("Done. Added %d workload sessions to '%s'" % (ctr, workload_col))
+    session_cnt = INITIAL_SESSION_UID - session_uid
+    LOG.info("Done. Added [%d traces], [%d sessions] to '%s'" % (trans_cnt, session_cnt, workload_col))
         
+
+
+# STATS - print out some information when parsing finishes
+def print_stats(args):
+    workload_info.print_stats(args['host'], args['port'], args['workload_db'], args['workload_col'])
 
 def main():
     global current_transaction
@@ -348,17 +393,22 @@ def main():
     LOG.info("..:: MongoDesigner Trace Parser ::..")
     print ""
 
-    #start connection and set global variables...
-    initDB(args['host'], args['port'], args['workload_db'], args['workload_col'])
-
     settings = "host: ", args['host'], " port: ", args['port'], " file: ", args['file'], " db: ", args['workload_db'], " col: ", args['workload_col']
     LOG.info("Settings: %s", settings)
-    
+
+    # initialize connection to MongoDB
+    initDB(args['host'], args['port'], args['workload_db'], args['workload_col'])
+
+    # wipe the collection
     if args['clean']:
         LOG.warn("Cleaning '%s' collection...", workload_col)
         cleanWorkload()
     
+    # parse
     parseFile(args['file'])
+    
+    # print info
+    print_stats(args)
     
     return
 

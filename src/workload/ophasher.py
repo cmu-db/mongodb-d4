@@ -46,19 +46,19 @@ class OpHasher:
         # QUERY
         if op["type"] == "$query":
             # The query field has our where clause
-            fields = op["content"][0]["query"]
+            fields = op["query_content"][0]["query"]
         # UPDATE
         elif op["type"] == "$update":
             # The first element in the content field is the WHERE clause
-            fields = op["content"][0]
-            updateFields = op['content'][1]
+            fields = op["query_content"][0]
+            updateFields = op['query_content'][1]
         # INSERT
         elif op["type"] == "$insert":
-            fields = op["content"]
+            fields = op["query_content"]
         # DELETE
         elif op["type"] == "$delete":
             # The first element in the content field is the WHERE clause
-            fields = op["content"][0]
+            fields = op["query_content"][0]
         # UNKNOWN!
         else:
             raise Exception("Unexpected query type: %s" % op["type"])

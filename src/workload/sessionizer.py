@@ -52,8 +52,8 @@ class Sessionizer:
         lastOp = None
         for op in operations:
             if lastTimestamp:
-                assert op["timestamp"] >= lastOp["timestamp"]
-                diff = op["timestamp"] - lastOp["timestamp"]
+                assert op["query_time"] >= lastOp["resp_time"]
+                diff = op["query_time"] - lastOp["resp_time"]
                 self.clientOperations.append((lastOp, op, diff))
             lastOp = op
         ## FOR
@@ -72,9 +72,9 @@ class Sessionizer:
         for clientId, clientOps in self.clientOperations.iteritems():
             for op0, op1, opDiff in clientOps:
                 if opDiff > stdDev:
-                    self.prevOpHist.put(op0["query_id"])
-                    self.nextOpHist.put(op1["query_id"])
-                    self.opHist.put((op0["query_id"], op1["query_id"]))
+                    self.prevOpHist.put(op0["query_hash"])
+                    self.nextOpHist.put(op1["query_hash"])
+                    self.opHist.put((op0["query_hash"], op1["query_hash"]))
             ## FOR
         ## FOR
         
@@ -92,13 +92,13 @@ class Sessionizer:
             for op in clientOps:
                 if lastOp:
                     sess["operations"].append(lastOp)
-                    if (lastOp["query_id"], op["query_id"]) in self.sessionBoundaries:
+                    if (lastOp["query_hash"], op["query_hash"]) in self.sessionBoundaries:
                         sess = None
                 if not sess:
                     sess = Session()
-                    sess["ip1"] = ip1
-                    sess["ip2"] = ip2
-                    sess["uid"] = uid
+                    sess["ip_client"] = ip1
+                    sess["ip_server"] = ip2
+                    sess["session_id"] = uid
                     sess["operations"] = [ ]            
                 lastOp = op
             ## FOR
