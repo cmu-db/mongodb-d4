@@ -63,7 +63,7 @@ statistics {
             'tuple_count' : Number of tuples in the collection,
             'workload_queries' : Number of queries in the workload that target this collection,
             'workload_percent' : Percentage of queries in the workload that target this collection,
-            'kb_per_doc' : The average number of kilobytes per document in this collection,
+            'avg_doc_size' : The average number of kilobytes per document in this collection,
             'max_pages' : The maximum number of pages required to scan the collection
         },
     },
@@ -115,7 +115,7 @@ class CostModel(object):
         
         # 2. approximate the number of documents per collection in the working set
         working_set = self.estimateWorkingSets(design, self.max_memory - index_memory)
-        
+        print working_set
         # 3. Iterate over workload, foreach query:
         for s in self.workload.sessions :
             for q in s.queries :
