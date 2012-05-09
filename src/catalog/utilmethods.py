@@ -120,7 +120,6 @@ def gatherStatisticsFromCollections(collectionsIterable) :
     statistics = {}
     statistics['total_queries'] = 0
     for col in collectionsIterable :
-        # todo: determine the average size of a document in KB per collection
         statistics[col['name']] = {
             'fields' : {},
             'tuple_count' : col['tuple_count'],
