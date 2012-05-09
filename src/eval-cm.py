@@ -64,6 +64,7 @@ if __name__ == '__main__':
     ## STEP 1
     ## Network Cost Evaluation
     ## ----------------------------------------------
+    print ''
     print 'Evaluating Network Cost (1000 operations, 4 shards)'
     
     wk = workload.Workload()
@@ -110,7 +111,7 @@ if __name__ == '__main__':
     d4.addShardKey('A', ['col4'])
     print cm.networkCost(d4)
     
-    print '** TEST 5: All ops executed at 2 shards '
+    print '** TEST 5: All ops executed at 4 shards '
     d5 = search.Design()
     d5.addCollection('A')
     d5.addShardKey('A', ['col5'])
@@ -121,6 +122,15 @@ if __name__ == '__main__':
     ## Skew Cost Evaluation
     ## ----------------------------------------------
     
+    print ''
+    print 'Evaluating Skew Cost (1000 operations, 4 shards)'
+    
+    print '** TEST 1: All ops executed at 1 shard'
+    print cm.skewCost(d1)
+    
+    print '** TEST 2: All ops executed at 4 shards'
+    print cm.skewCost(d5)
+     
     ## -------------------------------------------------
     ## STEP 3
     ## Disk Cost evaluation
