@@ -115,7 +115,7 @@ class CostModel(object):
         
         # 2. approximate the number of documents per collection in the working set
         working_set = self.estimateWorkingSets(design, self.max_memory - index_memory)
-        print working_set
+        
         # 3. Iterate over workload, foreach query:
         for s in self.workload.sessions :
             for q in s.queries :
@@ -311,19 +311,25 @@ class CostModel(object):
                 working_set_counts[pair[1]] = 100
                 buffer += memory_available - memory_needed
             else :
-                needs_memory.append((pair[0], pair[1]))
+                col_percent = memory_available / memory_needed
+                still_needs = 1.0 - col_percent
+                working_set_counts[pair[1]] = math.ceil(col_percent * 100)
+                needs_memory.append((still_needs, pair[1]))
         
+        '''
+        This is where the problem is... Need to rethink how I am doing this.
+        '''
         for pair in needs_memory :
-            memory_available = capacity * pair[0] + buffer
-            memory_needed = self.stats[pair[1]]['avg_doc_size'] * self.stats[pair[1]]['tuple_count']
+            memory_available = buffer
+            memory_needed = (1 - (working_set_counts[pair[1]] / 100)) * self.stats[pair[1]]['avg_doc_size'] * self.stats[pair[1]]['tuple_count']
             
             if memory_needed <= memory_available :
                 working_set_counts[pair[1]] = 100
                 buffer = memory_available - memory_needed
-            else :
-                working_set_counts[pair[1]] = memory_available / self.stats[pair[1]]['avg_doc_size']
-                working_set_counts[pair[1]] = working_set_counts[pair[1]] / self.stats[pair[1]]['tuple_count']
-                working_set_counts[pair[1]] = math.ceil(working_set_counts[pair[1]] * 100)
+            else :   
+                if memory_available > 0 :
+                    col_percent = memory_available / memory_needed
+                    working_set_counts[pair[1]] += col_percent * 100
         return working_set_counts
     ## end def ##
 ## end class ##
