@@ -13,6 +13,8 @@ from pymongo import Connection
 
 sys.path.append("../workload")
 from traces import *
+sys.path.append("../sanitizer")
+import anonymize # just for hash_string()
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(funcName)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -36,10 +38,23 @@ workload_db = None
 workload_col = None
 recreated_db = None
 
-current_session_map = {}
-session_uid = INITIAL_SESSION_UID
+# current session map holds all session objects. Mapping client_id --> Session()
+current_session_map = {} 
+session_uid = INITIAL_SESSION_UID # first session_id
 
-query_response_map = {}
+# used to pair up queries & replies by their mongosniff ID
+query_response_map = {} 
+
+# Post-processing global vars. PLAINTEXT Collection Names for AGGREGATES
+# this dictionary is used to figure out the real collection names for aggregate queries
+# the col names are hashed
+# STEP1: during the first pass (the main step of parsing), we store the names of all collections
+# we encounter in the set() known_collections
+# STEP2: we figure out the salt
+# STEP3: we compute the hash. We populate the dict  hashed_collections
+# STEP4: we add the collection names to all aggregate operations
+known_collections = set() # set of known collection names
+hashed_collections = {} # hash --> collection name
 
 ### parsing regexp masks
 ### parts of header
@@ -144,9 +159,7 @@ def addSession(ip_client, ip_server):
     return session
 
 def store(transaction):
-    #print ""
-    #print ""
-    #print current_transaction
+    
     if (current_transaction['arrow'] == '-->>'):
         ip_client = current_transaction['IP1']
         ip_server = current_transaction['IP2']
@@ -175,21 +188,39 @@ def store(transaction):
                 'query_time': float(current_transaction['timestamp']),
                 'query_size': int(current_transaction['size'].replace("bytes", "")),
                 'query_content': current_transaction['content'],
-                'query_id': int(query_id)
+                'query_id': int(query_id),
+                'query_aggregate': 0, # false -not aggregate- by default
         }
-        # update flags
-        if current_transaction['type'] == TYPE_UPDATE:
+        
+        # UPDATE flags
+        if op['type'] == TYPE_UPDATE:
             op['update_upsert'] = current_transaction['update_upsert']
             op['update_multi'] = current_transaction['update_multi']
-        # query - SKIP, LIMIT
-        if current_transaction['type'] == TYPE_QUERY:
+        
+        # QUERY - SKIP, LIMIT
+        if op['type'] == TYPE_QUERY:
             op['query_limit'] = int(current_transaction['ntoreturn']['ntoreturn'])
             op['query_offset'] = int(current_transaction['ntoskip']['ntoskip'])
-            
+        
+        # QUERY - aggregates - update collection name, set aggregate type
+        if op['type'] == TYPE_QUERY:
+            # check for aggregate
+            if op['collection'].find("$cmd") > 0:
+                op['query_aggregate'] = 1
+                # extract the real collection name
+                ## --> This has to be done at the end after the first pass, because the collection name is hashed up
+        
         query_response_map[query_id] = op
         # append it to the current session
         session['operations'].append(op)
         LOG.debug("added operation: %s" % op)
+    
+        # store the collection name in known_collections. This will be useful later.
+        # see the comment at known_collections
+        global known_collections
+        full_name = op['collection']
+        col_name = full_name[full_name.find(".")+1:] #cut off the db name
+        known_collections.add(col_name)
     
     # RESPONSE - add information to the matching query
     if current_transaction['type'] == "$reply":
@@ -343,6 +374,108 @@ def process_content_line(line):
         add_yaml_to_content(line) 
     return
 
+
+'''
+Post-processing: infer plaintext collection names for AGGREGATES
+'''
+# this functions returns a set of some hashed strings, which are most likely hashed collection names
+def get_candidate_hashes():
+    candidate_hashes = set()
+    LOG.info("Retrieving hashed collection names...")
+    for session in getTracesCollection().find():
+        for op in session['operations']:
+            if op['query_aggregate'] == 1:
+                # find the JSON of the query...
+                query = op['query_content'][0] # we care about the first (0th) BSON in the list
+                # look four count key. This would refer to a collection name
+                if 'count' in query:
+                    #print query
+                    candidate_hashes.add(query['count'])
+    LOG.info("Found %d hashed collection names. " % len(candidate_hashes))
+    print(candidate_hashes)
+    return candidate_hashes
+
+def get_hash_string(bare_col_name):
+    return "\"" + bare_col_name + "\""
+
+# this is a ridiculous hack. Let's hope the salt is 0. But even if not...
+def infer_salt(candidate_hashes, known_collections):
+    max_salt = 100000
+    LOG.info("Trying to brute-force the salt 0-%d..." % max_salt)
+    salt = 0
+    while True:
+        if salt % (max_salt / 100) == 0:
+            print ".",
+        for known_col in known_collections:
+            hashed_string = get_hash_string(known_col) # the col names are hashed with quotes around them 
+            hash = anonymize.hash_string(hashed_string, salt) # imported from anonymize.py
+            if hash in candidate_hashes:
+                LOG.info("SUCCESS! %s hashes to a known value. SALT: %d", hashed_string, salt)
+                return salt
+        salt += 1
+        if salt > max_salt:
+            break
+    LOG.info("FAIL. The salt value is unknown :(")
+    return None
+
+
+# this function populates the hashed_collections map
+# mapping HASHED_COL_NAME -> PLAIN_TEXT_COL_NAME
+def precompute_hashes(salt):
+    LOG.info("Precomputing hashes for all known collection names...")
+    global hashed_collections
+    for col_name in known_collections:
+        hash = anonymize.hash_string(get_hash_string(col_name), salt)
+        hashed_collections[hash] = col_name
+        print "hash: ", hash, "col_name: ", col_name, " hash_str: ", get_hash_string(col_name)
+    LOG.info("Done.")
+
+# now we go through aggregate ops again and fill in the collection name...
+def fill_aggregate_collection_names():
+    LOG.info("Adding plaintext collection names to aggregate operations...")
+    cnt = 0
+    for session in getTracesCollection().find():
+        for op in session['operations']:
+            if op['query_aggregate'] == 1:
+                query = op['query_content'][0] # first and only JSON from the payload
+                # iterate through the keys in the query JSON
+                # one of the should point to the hashed collection name
+                for key in query:
+                    value = query[key]
+                    #print "value: ", value, " type: ", type(value)
+                    if type(value) is type(u''):
+                        #print "candidate val: ", value
+                        if value in hashed_collections:
+                            # YES. We found it!
+                            # contains $cmd. Just to double-check
+                            if op['collection'].find("$cmd") < 0:
+                                LOG.warn("Aggregate operation does not seem to be aggregate. Skipping.")
+                                print op
+                                continue
+                            col_name = hashed_collections[value] # the plaintext collection name is restored
+                            db_name = op['collection'].split(".")[0] #extract the db name from db.$cmd
+                            cnt += 1
+                            op['collection'] = db_name + "." + col_name
+    LOG.info("Done. Updated %d aggregate operations." % cnt)
+
+# CALL THIS FUNCTION TO DO THE POST-PROCESSING
+def infer_aggregate_collections():
+    LOG.info("")
+    LOG.info("-- Aggregate Collection Names --")
+    LOG.info("Encountered %d collection names in plaintext." % len(known_collections))
+    print(known_collections)
+    candidate_hashes = get_candidate_hashes()
+    salt = infer_salt(candidate_hashes, known_collections)
+    if salt is None:
+        return
+    precompute_hashes(salt)
+    fill_aggregate_collection_names()
+
+'''
+END OF Post-processing: AGGREGATE collection names
+'''
+
+
 def parseFile(file):
     LOG.info("Processing file %s...", file)
     file = open(file, 'r')
@@ -366,7 +499,6 @@ def parseFile(file):
     session_cnt = INITIAL_SESSION_UID - session_uid
     LOG.info("Done. Added [%d traces], [%d sessions] to '%s'" % (trans_cnt, session_cnt, workload_col))
         
-
 
 # STATS - print out some information when parsing finishes
 def print_stats(args):
@@ -406,6 +538,10 @@ def main():
     
     # parse
     parseFile(args['file'])
+    
+    
+    # Post-processing: fill in aggregate collection names in plaintext
+    infer_aggregate_collections()
     
     # print info
     print_stats(args)

@@ -63,27 +63,29 @@ def cleanRecreated():
 # Handling individual types of operations
 #
 def processInsert(op):
-    payload = op["content"]
+    payload = op["query_content"]
     col = op["collection"]
     LOG.info("Inserting %d documents into collection %s", len(payload), col)
     recreated_db[col].insert(payload)
 
 def processDelete(op):
-    payload = op["content"]
+    payload = op["query_content"]
     col = op["collection"]
     #for doc in payload:
     LOG.info("Deleting documents from collection %s..", col)
     recreated_db[col].remove(payload)
 
 def processUpdate(op):
-    payload = op["content"]
+    payload = op["query_content"]
     col = op["collection"]
+    upsert = op["update_upsert"]
+    multi = op["update_multi"]
     #for doc in payload:
-    LOG.info("Updating collection %s", col)
+    LOG.info("Updating collection %s. Query: %s, New: %s, Upsert: %s, Multi: %s", col, payload[0], payload[1], str(upsert), str(multi))
     if len(payload) != 2:
-        LOG.warn("Update operation is expected to have two entries.")
+        LOG.warn("Update operation payload is expected to have exactly 2 entries.")
     else:
-        recreated_db[col].update(payload[0], payload[1])
+        recreated_db[col].update(payload[0], payload[1], upsert, multi)
 
 def processQuery(op):
     if op["collection"].find("$cmd") > -1:
@@ -106,9 +108,9 @@ def processQuery(op):
 #
 def processTraces():
     cnt = getWorkloadCol().find().count()
-    LOG.info("Found %d traces in the workload collection. Processing... ", cnt)
-    for trace in getWorkloadCol().find():
-        for op in trace["operations"]:
+    LOG.info("Found %d sessions in the workload collection. Processing... ", cnt)
+    for session in getWorkloadCol().find():
+        for op in session["operations"]:
             if (op["type"] == "$insert"):
                 processInsert(op)
             elif (op["type"] == "$delete"):
