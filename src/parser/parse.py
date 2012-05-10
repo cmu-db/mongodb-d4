@@ -456,6 +456,15 @@ def fill_aggregate_collection_names():
                             db_name = op['collection'].split(".")[0] #extract the db name from db.$cmd
                             cnt += 1
                             op['collection'] = db_name + "." + col_name
+                        ### if
+                    ### if
+                ### for        
+            ### if
+        ### for
+        # save the session
+        getTracesCollection().save(session)
+    ### for
+        
     LOG.info("Done. Updated %d aggregate operations." % cnt)
 
 # CALL THIS FUNCTION TO DO THE POST-PROCESSING
