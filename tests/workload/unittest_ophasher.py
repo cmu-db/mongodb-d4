@@ -22,17 +22,17 @@ class TestOpHasher (unittest.TestCase):
     def testHashQuery(self):
         op = {
             "collection": u'ABC',
-            "content":    self.genQuery({"a": 2}),
+            "query_content":    self.genQuery({"a": 2}),
             "type":       "$query",
         }
         h0 = self.hasher.hash(op)
         self.assertNotEqual(h0, None)
 
-        op["content"] = self.genQuery({"a": 3})
+        op["query_content"] = self.genQuery({"a": 3})
         h1 = self.hasher.hash(op)
         self.assertEqual(h0, h1)
         
-        op["content"] = self.genQuery({"a": {"$all": [2, 3]}})
+        op["query_content"] = self.genQuery({"a": {"$all": [2, 3]}})
         h2 = self.hasher.hash(op)
         self.assertNotEqual(h0, h2)
     ## DEF
@@ -43,19 +43,19 @@ class TestOpHasher (unittest.TestCase):
         
         op = {
             "collection": u'ABC',
-            "content":    self.genUpdate(whereClause, updateClause),
+            "query_content":    self.genUpdate(whereClause, updateClause),
             "type":       "$update",
         }
         h0 = self.hasher.hash(op)
         self.assertNotEqual(h0, None)
         
         newWhere = dict(whereClause.items() + [("XXX", 123)])
-        op["content"] = self.genUpdate(newWhere, updateClause)
+        op["query_content"] = self.genUpdate(newWhere, updateClause)
         h1 = self.hasher.hash(op)
         self.assertNotEqual(h0, h1)
         
         newUpdate = dict(updateClause.items() + [("XXX", 123)])
-        op["content"] = self.genUpdate(whereClause, newUpdate)
+        op["query_content"] = self.genUpdate(whereClause, newUpdate)
         h2 = self.hasher.hash(op)
         self.assertNotEqual(h0, h2)
         ## DEF
