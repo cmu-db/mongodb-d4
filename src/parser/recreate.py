@@ -88,12 +88,12 @@ def processUpdate(op):
         recreated_db[col].update(payload[0], payload[1], upsert, multi)
 
 def processQuery(op):
-    if op["collection"].find("$cmd") > -1:
+    if op["query_aggregate"] == 1:
         # This is probably AGGREGATE... disregard it
         return
     
     # The query is irrelevant, we simply add the content of the reply...
-    payload = op["response"]["content"]
+    payload = op["resp_content"]
     col = op["collection"]
     LOG.info("Adding %d query results to collection %s", len(payload), col)
     #update(old_doc, new_doc, upsert=True, multi=False)
