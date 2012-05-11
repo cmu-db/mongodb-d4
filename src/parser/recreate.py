@@ -21,9 +21,9 @@ LOG = logging.getLogger(__name__)
 
 ### DEFAULT VALUES
 ### you can specify these with args
-WORKLOAD_DB = "workload"
-WORKLOAD_COLLECTION = "traces"
-RECREATED_DB = "recreated"
+WORKLOAD_DB = "metadata"
+WORKLOAD_COLLECTION = "workload01"
+RECREATED_DB = "dataset"
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = "27017"
 
@@ -66,7 +66,9 @@ def processInsert(op):
     payload = op["query_content"]
     col = op["collection"]
     LOG.info("Inserting %d documents into collection %s", len(payload), col)
-    recreated_db[col].insert(payload)
+    for doc in payload:
+        print "inserting: ", doc
+        recreated_db[col].save(doc)
 
 def processDelete(op):
     payload = op["query_content"]
@@ -81,7 +83,7 @@ def processUpdate(op):
     upsert = op["update_upsert"]
     multi = op["update_multi"]
     #for doc in payload:
-    LOG.info("Updating collection %s. Query: %s, New: %s, Upsert: %s, Multi: %s", col, payload[0], payload[1], str(upsert), str(multi))
+    LOG.info("Updating collection %s. Upsert: %s, Multi: %s", col,str(upsert), str(multi))
     if len(payload) != 2:
         LOG.warn("Update operation payload is expected to have exactly 2 entries.")
     else:
@@ -92,6 +94,11 @@ def processQuery(op):
         # This is probably AGGREGATE... disregard it
         return
     
+    # check if resp_content was set
+    if 'resp_content' not in op:
+        LOG.warn("Query without response: %s" % str(op))
+        return
+    
     # The query is irrelevant, we simply add the content of the reply...
     payload = op["resp_content"]
     col = op["collection"]
@@ -99,6 +106,7 @@ def processQuery(op):
     #update(old_doc, new_doc, upsert=True, multi=False)
     #this is an upsert operation: insert if not present
     for doc in payload:
+        #print "doc:", doc
         recreated_db[col].update(doc, doc, True, False)
     
 

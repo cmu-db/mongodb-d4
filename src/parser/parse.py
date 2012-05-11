@@ -229,7 +229,7 @@ def store(transaction):
         if query_id in query_response_map:
             # fill in missing information
             query_op = query_response_map[query_id]
-            query_op['resp_content'] = unicode(current_transaction['content'])
+            query_op['resp_content'] = current_transaction['content']
             query_op['resp_size'] = int(current_transaction['size'].replace("bytes", ""))
             query_op['resp_time'] = float(current_transaction['timestamp'])
             query_op['resp_id'] = int(current_transaction['trans_id'])    
