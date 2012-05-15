@@ -192,9 +192,9 @@ if __name__ == '__main__':
                 first = False
             ## ENDIF
             session = metadata_db.Session()
-            session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
-            session['ip2'] = hostIP
-            session['uid'] = uid
+            session['ip_client'] = sql2mongo.stripIPtoUnicode(row[1])
+            session['ip_server'] = hostIP
+            session['session_id'] = uid
             session['operations'] = []
         ## ENDIF
         
@@ -219,9 +219,9 @@ if __name__ == '__main__':
                         uid += 1
                     ## ENDIF
                     session = metadata_db.Session()
-                    session['ip1'] = sql2mongo.stripIPtoUnicode(row[1])
-                    session['ip2'] = hostIP
-                    session['uid'] = uid
+                    session['ip_client'] = sql2mongo.stripIPtoUnicode(row[1])
+                    session['ip_server'] = hostIP
+                    session['session_id'] = uid
                     session['operations'] = []
                 ## ENDIF
             ## ENDIF
