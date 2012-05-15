@@ -58,29 +58,37 @@ class Sql2mongo (object) :
         for table in self.tables :
             op = {}
             op['collection'] = table
-            op['timestamp'] = timestamp
-            op['content'] = []
-            op['output'] = []
+            op['query_time'] = timestamp
+            op['resp_time'] = None
+            op['query_content'] = []
+            op['resp_content'] = []
             op['type'] = self.mongo_type()
-            op['size'] = 0
-            op['flags'] = None
+            op['query_size'] = 0
+            op['resp_size'] = 0
+            
             op['query_group'] = Sql2mongo.query_id
-            op['query_id'] = None
-            op['has_related_query'] = 0
+            op['query_id'] = -1
+            op['resp_id'] = -1
+            op['query_hash'] = None
+            op['update_upsert'] = 0
+            op['update_multi'] = 0
+            op['query_limit'] = -1
+            op['query_offset'] = 0
+            op['query_aggregate'] = 0
             
             if self.query_type == 'DELETE' :
-                op['content'].append(self.generate_content_remove(table))
+                op['query_content'].append(self.generate_content_remove(table))
             elif self.query_type == 'INSERT' :
-                op['content'].append(self.generate_content_insert(table))
+                op['query_content'].append(self.generate_content_insert(table))
             elif self.query_type == 'SELECT' :
-                if len(self.tables) > 1 :
-                    op['has_related_query'] = 1
-                op['content'].append(self.generate_content_query(table))
+                op['query_content'].append(self.generate_content_query(table))
+                op['query_limit'] = self.limit[table]
+                op['query_offset'] = self.skip[table]
             elif self.query_type == 'UPDATE' :
                 content = self.generate_content_update(table)
                 for i in content :
-                    op['content'].append(i)
-                op['flags'] = 2
+                    op['query_content'].append(i)
+                op['update_multi'] = 1
             operations.append(op)
         return operations
     ## End generate_operations()
@@ -440,12 +448,18 @@ class Sql2mongo (object) :
         ''' PROCESS LIMIT '''
         if limit_loc <> None :
             for alias, table_name in self.table_aliases.iteritems() :
-                self.limit[table_name] = self.stmt.tokens[limit_loc + 2].to_unicode()
-        
+                self.limit[table_name] = int(self.stmt.tokens[limit_loc + 2].to_unicode())
+        else :
+            for alias, table_name in self.table_aliases.iteritems() :
+                self.limit[table_name] = -1
+                
         ''' PROCESS SKIP '''
         if skip_loc <> None :
             for alias, table_name in self.table_aliases.iteritems() :
-                self.skip[table_name] = self.stmt.tokens[skip_loc + 2].to_unicode()
+                self.skip[table_name] = int(self.stmt.tokens[skip_loc + 2].to_unicode())
+        else :
+            for alias, table_name in self.table_aliases.iteritems() :
+                self.skip[table_name] = 0
     ## End process_query_select()
 
     def process_query_update(self) :
@@ -639,8 +653,8 @@ class Sql2mongo (object) :
             self.project_cols[table] = []
             self.set_cols[table] = []
             self.sort_cols[table] = []
-            self.limit[table] = None
-            self.skip[table] = None
+            self.limit[table] = -1
+            self.skip[table] = 0
     ## End reset()
     
     '''
