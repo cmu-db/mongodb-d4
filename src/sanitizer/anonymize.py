@@ -8,11 +8,16 @@ import re
 import optparse
 
 def find_quote(line, startIndex):
-    index = line.find("\"", startIndex)
-    if index < 0:
-        return (-1, False)
-    if line[index-1]=="\\":
-        return find_quote(line, index + 1)
+    index = startIndex
+    while index < len(line):
+        index = line.find("\"", startIndex)
+        if index < 0:
+            return (-1, False)
+        if (index == 0) or (line[index-1] != "\\"):
+            # found an unescaped quote
+            break
+        # advance after the current "
+        index += 1
     isKey = False
     if len(line)-index > 2:
         isKey = line[index + 2] == ":"
