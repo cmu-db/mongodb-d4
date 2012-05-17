@@ -82,8 +82,8 @@ class Sql2mongo (object) :
                 op['query_content'].append(self.generate_content_insert(table))
             elif self.query_type == 'SELECT' :
                 op['query_content'].append(self.generate_content_query(table))
-                op['query_limit'] = self.limit[table]
-                op['query_offset'] = self.skip[table]
+                op['query_limit'] = int(self.limit[table])
+                op['query_offset'] = int(self.skip[table])
             elif self.query_type == 'UPDATE' :
                 content = self.generate_content_update(table)
                 for i in content :
@@ -448,7 +448,7 @@ class Sql2mongo (object) :
         ''' PROCESS LIMIT '''
         if limit_loc <> None :
             for alias, table_name in self.table_aliases.iteritems() :
-                self.limit[table_name] = int(self.stmt.tokens[limit_loc + 2].to_unicode())
+                self.limit[table_name] = self.stmt.tokens[limit_loc + 2].to_unicode()
         else :
             for alias, table_name in self.table_aliases.iteritems() :
                 self.limit[table_name] = -1
@@ -456,7 +456,7 @@ class Sql2mongo (object) :
         ''' PROCESS SKIP '''
         if skip_loc <> None :
             for alias, table_name in self.table_aliases.iteritems() :
-                self.skip[table_name] = int(self.stmt.tokens[skip_loc + 2].to_unicode())
+                self.skip[table_name] = self.stmt.tokens[skip_loc + 2].to_unicode()
         else :
             for alias, table_name in self.table_aliases.iteritems() :
                 self.skip[table_name] = 0
