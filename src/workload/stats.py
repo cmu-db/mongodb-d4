@@ -58,20 +58,20 @@ class StatsProcessor:
                 tuples = []
                 col_info = self.metadata_db.Collection.one({'name':op['collection']})
                 if op['type'] == '$delete' :
-                    for content in op['content'] :
+                    for content in op['query_content'] :
                         for k,v in content.iteritems() :
                             tuples.append((k, v))
                 elif op['type'] == '$insert' :
-                    for content in op['content'] :
+                    for content in op['query_content'] :
                         for k,v in content.iteritems() :
                             tuples.append((k, v))
                 elif op['type'] == '$query' :
-                    for content in op['content'] :
+                    for content in op['query_content'] :
                         if content['query'] != None :
                             for k, v in content['query'].iteritems() :
                                 tuples.append((k, v))
                 elif op['type'] == '$update' :
-                    for content in op['content'] :
+                    for content in op['query_content'] :
                         try :
                             for k,v in content.iteritems() :
                                 tuples.append((k, v))

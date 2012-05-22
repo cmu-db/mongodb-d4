@@ -128,23 +128,23 @@ if __name__ == '__main__':
     for rec in metadata_db[constants.COLLECTION_WORKLOAD].find() :
         sessn = workload.SyntheticSession()
         if len(rec['operations']) > 0 :
-            sessn.startTime = rec['operations'][0]['timestamp']
-            sessn.endTime = rec['operations'][len(rec['operations']) - 1]['timestamp']
+            sessn.startTime = rec['operations'][0]['query_time']
+            sessn.endTime = rec['operations'][len(rec['operations']) - 1]['query_time']
             
             for op in rec['operations'] :
                 statistics[op['collection']]['workload_queries'] += 1
                 statistics['total_queries'] += 1
                 qry = workload.Query()
                 qry.collection = op['collection']
-                qry.timestamp = op['timestamp']
+                qry.timestamp = op['query_time']
                 if op['type'] == '$insert' :
                     qry.type = 'insert'
                     # No predicate for insert operations
                     # No projections for insert operations
                 elif op['type'] == '$query' :
                     qry.type = 'select'
-                    if op['content'][0]['query'] <> None :
-                        for k,v in op['content'][0]['query'].iteritems() :
+                    if op['query_content'][0]['query'] <> None :
+                        for k,v in op['query_content'][0]['query'].iteritems() :
                             if type(v) == 'dict' :
                                 qry.predicates[k] = 'range'
                             else :
@@ -152,7 +152,7 @@ if __name__ == '__main__':
                 elif op['type'] == '$update' :
                     qry.type = 'update'
                     try :
-                        for k,v in op['content'][0].iteritems() :
+                        for k,v in op['query_content'][0].iteritems() :
                             if type(v) == 'dict' :
                                 qry.predicates[k] = 'range'
                             else :
@@ -161,7 +161,7 @@ if __name__ == '__main__':
                         pass
                 elif op['type'] == '$remove' :
                     qry.type = 'delete'
-                    for k,v in op['content'][0].iteritems() :
+                    for k,v in op['query_content'][0].iteritems() :
                         if type(v) == 'dict' :
                             qry.predicates[k] = 'range'
                         else :
