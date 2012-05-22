@@ -10,7 +10,7 @@ import optparse
 def find_quote(line, startIndex):
     index = startIndex
     while index < len(line):
-        index = line.find("\"", startIndex)
+        index = line.find("\"", index)
         if index < 0:
             return (-1, False)
         if (index == 0) or (line[index-1] != "\\"):
