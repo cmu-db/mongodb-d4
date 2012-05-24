@@ -107,12 +107,12 @@ class Sanitizer:
             output = self.process_line(line)
             
             print output
-            if f:
-                f.write(output)
-                f.write("\n")
+            if self.f:
+                self.f.write(output)
+                self.f.write("\n")
             line = sys.stdin.readline()
     
-        f.close()
+        self.f.close()
 
     def __init__(self, options, args, test):
         self.f = None 
