@@ -1,0 +1,31 @@
+                     sniffing... 27017 
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 admin.$cmd  60 bytes  id:0	0
+                     	query: { "whatsmyuri" : 1 }  ntoreturn: 1 ntoskip: 0
+000.000 -            127.0.0.1:27017  <<--  127.0.0.1:33082   78 bytes  id:10	16 - 0
+                     	reply n:1 cursorId: 0
+                     	{ "you" : XXX_HASH_XXX/15, "ok" : 1 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  41 bytes  id:1	1
+                     	delete flags: 0 q: {}
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  109 bytes  id:2	2
+                     	insert: { "_id" : { "$oid" : XXX_HASH_XXX/24 }, "num" : 1, "key" : XXX_HASH_XXX/36 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  111 bytes  id:3	3
+                     	insert: { "_id" : { "$oid" : XXX_HASH_XXX/24 }, "num" : 2, "key" : XXX_HASH_XXX/38 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  114 bytes  id:4	4
+                     	insert: { "_id" : { "$oid" : XXX_HASH_XXX/24 }, "num" : 3, "key" : XXX_HASH_XXX/39 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  103 bytes  id:5	5
+                     	insert: { "_id" : { "$oid" : XXX_HASH_XXX/24 }, "num" : 4, "key" : XXX_HASH_XXX/36 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  108 bytes  id:6	6
+                     	update  flags:0 q:{ "num" : 3 } o:{ "num" : 3, "key" : XXX_HASH_XXX/32 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  83 bytes  id:7	7
+                     	update  flags:0 q:{ "num" : 1 } o:{ "num" : 1, "key" : XXX_HASH_XXX/2 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  88 bytes  id:8	8
+                     	delete flags: 0 q: { "key" : XXX_HASH_XXX/39 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  52 bytes  id:9	9
+                     	delete flags: 0 q: { "key" : XXX_HASH_XXX/2 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.col  65 bytes  id:a	10
+                     	delete flags: 0 q: { "key" : XXX_HASH_XXX/28 }
+000.000 -            127.0.0.1:33082  -->> 127.0.0.1:27017 test_db.$cmd  86 bytes  id:b	11
+                     	query: { "count" : XXX_HASH_XXX/3, "query" : {}, "fields" : {} }  ntoreturn: -1 ntoskip: 0
+000.000 -            127.0.0.1:27017  <<--  127.0.0.1:33082   64 bytes  id:11	17 - 11
+                     	reply n:1 cursorId: 0
+                     	{ "n" : 3, "ok" : 1 }
