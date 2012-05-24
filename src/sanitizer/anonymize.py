@@ -55,7 +55,7 @@ def sanitize(line, salt):
         string = line[startIndex: endIndex]
         #print "found string: ", string
         if not isKey:
-            string = hash_string(string, salt)
+            string = hash_string(string[1:len(string)-1], salt) #strip surrounding quotes
         # append to the result...
         resultLine = resultLine + b + string
     ### END WHILE
