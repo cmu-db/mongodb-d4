@@ -104,7 +104,7 @@ class Sanitizer:
         
         while line:
             
-            output = self.process_line(line, self.new_command)
+            output = self.process_line(line)
             
             print output
             if f:
