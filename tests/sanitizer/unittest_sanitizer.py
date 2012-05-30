@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-
+import os
 import unittest
 from sanitizer import anonymize
 
@@ -92,10 +92,14 @@ class TestSanitizer (unittest.TestCase):
         # The clean trace is then anonymized and compared to the expected output.
         # This verifies that the sanitizer works as expected.
         
-        clean_lines = open("trace-clean.out", "r").readlines()
-        anon_lines = open("trace-anon.out", "r").readlines()
+        basedir = os.path.dirname(os.path.realpath(__file__))
 
+        traceClean = os.path.join(basedir, "trace-clean.out")
+        clean_lines = open(traceClean, "r").readlines()
         
+        traceAnon = os.path.join(basedir, "trace-anon.out")
+        anon_lines = open(traceAnon, "r").readlines()
+
         s = anonymize.Sanitizer(None, None, True) # test: True
 
         for i in range(len(clean_lines)):
