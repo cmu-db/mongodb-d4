@@ -1,4 +1,30 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# -----------------------------------------------------------------------
+# Copyright (C) 2011 by Brown University
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+# IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+# -----------------------------------------------------------------------
+from __future__ import with_statement
+
+import os
 import sys
 import fileinput
 import hashlib
@@ -8,12 +34,19 @@ import argparse
 import yaml
 import json
 import logging
-import workload_info
+from pprint import pformat
 from pymongo import Connection
 
-sys.path.append("../workload")
+# Third-Party Dependencies
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../../libs"))
+import mongokit
+
+# MongoDB-Designer
+sys.path.append(os.path.join(basedir, "../workload"))
+sys.path.append(os.path.join(basedir, "../sanitizer"))
+import workload_info
 from traces import *
-sys.path.append("../sanitizer")
 import anonymize # just for hash_string()
 
 logging.basicConfig(level = logging.INFO,
@@ -22,8 +55,10 @@ logging.basicConfig(level = logging.INFO,
                     stream = sys.stdout)
 LOG = logging.getLogger(__name__)
 
-### DEFAULT VALUES
-### you can specify these with args
+## ==============================================
+## DEFAULT VALUES
+## you can specify these with args
+## ==============================================
 INPUT_FILE = "sample.txt"
 WORKLOAD_DB = "metadata"
 WORKLOAD_COLLECTION = "workload01"
@@ -31,7 +66,9 @@ INITIAL_SESSION_UID = 100 #where to start the incremental session uid
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = "27017"
 
-###GLOBAL VARS
+## ==============================================
+## GLOBAL VARS
+## ==============================================
 connection = None
 current_transaction = None
 workload_db = None
@@ -66,17 +103,23 @@ SIZE_MASK = "\d+ bytes"
 MAGIC_ID_MASK = "id:\w+"
 TRANSACTION_ID_MASK = "\d+"
 REPLY_ID_MASK = "\d+"
+
+## ==============================================
+## PARSING REGEXES
+## ==============================================
+
 ### header
 HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
-"(?P<IP1>" + IP_MASK + ") *" + \
-"(?P<arrow>" + ARROW_MASK + ") *" + \
-"(?P<IP2>" + IP_MASK + ") *" + \
-"(?P<collection>" + COLLECTION_MASK + ")? *" + \
-"(?P<size>" + SIZE_MASK + ") *" + \
-"(?P<magic_id>" + MAGIC_ID_MASK + ")[\t ]*" + \
-"(?P<trans_id>" + TRANSACTION_ID_MASK + ")[\t ]*" + \
-"-?[\t ]*(?P<query_id>" + REPLY_ID_MASK + ")?"
-headerRegex = re.compile(HEADER_MASK);
+    "(?P<IP1>" + IP_MASK + ") *" + \
+    "(?P<arrow>" + ARROW_MASK + ") *" + \
+    "(?P<IP2>" + IP_MASK + ") *" + \
+    "(?P<collection>" + COLLECTION_MASK + ")? *" + \
+    "(?P<size>" + SIZE_MASK + ") *" + \
+    "(?P<magic_id>" + MAGIC_ID_MASK + ")[\t ]*" + \
+    "(?P<trans_id>" + TRANSACTION_ID_MASK + ")[\t ]*" + \
+    "-?[\t ]*(?P<query_id>" + REPLY_ID_MASK + ")?"
+headerRegex = re.compile(HEADER_MASK)
+
 ### content lines
 CONTENT_REPLY_MASK = "\s*reply +.*"
 CONTENT_INSERT_MASK = "\s*insert: {.*"
@@ -105,6 +148,8 @@ TYPE_DELETE = '$delete'
 TYPE_UPDATE = '$update'
 TYPE_REPLY = '$reply'
 QUERY_TYPES = [TYPE_QUERY, TYPE_INSERT, TYPE_DELETE, TYPE_UPDATE]
+
+## ==============================================
 
 #returns collection where the traces (Session objects) are stored
 def getTracesCollection():
@@ -143,11 +188,11 @@ def addSession(ip_client, ip_server):
     global session_uid
     global workload_db
         
-        #verify a session with the uid does not exist
+    #verify a session with the uid does not exist
     if getTracesCollection().find({'session_id': session_uid}).count() > 0:
-        LOG.error("Error: Session with UID %s already exists." % session_uid)
-        LOG.error("Maybe you want to clean the database / use a different collection?")
-        sys.exit(0)
+        msg = "Session with UID %s already exists.\n" % session_uid
+        msg += "Maybe you want to clean the database / use a different collection?"
+        raise Exception(msg)
 
     session = Session()
     session['ip_client'] = unicode(ip_client)
@@ -197,14 +242,14 @@ def store(transaction):
             op['update_upsert'] = current_transaction['update_upsert']
             op['update_multi'] = current_transaction['update_multi']
         
-        # QUERY - SKIP, LIMIT
+        # QUERY 
         if op['type'] == TYPE_QUERY:
+            # SKIP, LIMIT
             op['query_limit'] = int(current_transaction['ntoreturn']['ntoreturn'])
             op['query_offset'] = int(current_transaction['ntoskip']['ntoskip'])
         
-        # QUERY - aggregates - update collection name, set aggregate type
-        if op['type'] == TYPE_QUERY:
             # check for aggregate
+            # update collection name, set aggregate type
             if op['collection'].find("$cmd") > 0:
                 op['query_aggregate'] = 1
                 # extract the real collection name
@@ -234,7 +279,7 @@ def store(transaction):
             query_op['resp_time'] = float(current_transaction['timestamp'])
             query_op['resp_id'] = int(current_transaction['trans_id'])    
         else:
-            print "SKIPPING RESPONSE (no matching query_id): ", query_id
+            LOG.warn("SKIPPING RESPONSE (no matching query_id): %s" % query_id)
             
     #save the current session
     getTracesCollection().save(session)
@@ -246,8 +291,12 @@ def store(transaction):
 def process_header_line(header):
     global current_transaction
 
-    if (current_transaction):
-        store(current_transaction)
+    if current_transaction:
+        try:
+            store(current_transaction)
+        except:
+            LOG.error("Invalid Session:\n%s" % pformat(current_transaction))
+            raise
 
     current_transaction = header
     current_transaction['content'] = []
@@ -269,15 +318,14 @@ def add_yaml_to_content(yaml_line):
 
     if not yaml_line.startswith("{"):
         # this is not a content line... it can't be yaml
-        print "ERROR: JSON does not start with {:"
-        print yaml_line
+        LOG.warn("JSON does not start with '{'")
+        LOG.debug("Offending Line: %s" % yaml_line)
         return
     
     if not yaml_line.strip().endswith("}"):
-        print "ERROR: JSON does not end with }:"
-        print yaml_line
+        LOG.warn("JSON does not end with '}'")
+        LOG.debug(yaml_line)
         return    
-    
     
     #yaml parser might fail :D
     try:
@@ -287,7 +335,8 @@ def add_yaml_to_content(yaml_line):
         LOG.error("details: " + str(err))
         #print yaml_line
         #exit()
-        return
+        raise
+    
     valid_json = json.dumps(obj)
     obj = yaml.load(valid_json)
     if not obj:
@@ -295,7 +344,7 @@ def add_yaml_to_content(yaml_line):
         return 
     
     #if this is the first time we see this session, add it
-    if ('whatismyuri' in obj):
+    if 'whatismyuri' in obj:
         addSession(current_transaction['ip_client'], current_transaction['ip_server'])
     
     #store the line
@@ -486,37 +535,37 @@ END OF Post-processing: AGGREGATE collection names
 
 
 def parseFile(file):
-    LOG.info("Processing file %s...", file)
-    file = open(file, 'r')
-    line = file.readline()
-    trans_cnt = 0
-    
-    while line:
-        result = headerRegex.match(line)
-        #print line
-        if result:
-            process_header_line(result.groupdict())
-            trans_cnt += 1
-        else:
-            process_content_line(line)
-        line = file.readline()
-
-    if (current_transaction):
+    LOG.info("Processing file %s", file)
+    line_ctr = 0
+    trans_ctr = 0
+    with open(file, 'r') as fd:
+        for line in fd:
+            line_ctr += 1
+            result = headerRegex.match(line)
+            #print line
+            try:
+                if result:
+                    process_header_line(result.groupdict())
+                    trans_ctr += 1
+                else:
+                    process_content_line(line)
+            except:
+                LOG.error("Unexpected error when processing line %d" % line_ctr)
+                raise
+        ## FOR
+    if current_transaction:
         store(current_transaction)
 
     print ""
-    session_cnt = INITIAL_SESSION_UID - session_uid
-    LOG.info("Done. Added [%d traces], [%d sessions] to '%s'" % (trans_cnt, session_cnt, workload_col))
+    session_ctr = INITIAL_SESSION_UID - session_uid
+    LOG.info("Done. Added [%d traces], [%d sessions] to '%s'" % (trans_ctr, session_ctr, workload_col))
         
 
 # STATS - print out some information when parsing finishes
 def print_stats(args):
     workload_info.print_stats(args['host'], args['port'], args['workload_db'], args['workload_col'])
 
-def main():
-    global current_transaction
-    global headerRegex
-
+if __name__ == '__main__':
     aparser = argparse.ArgumentParser(description='MongoDesigner Trace Parser')
     aparser.add_argument('--host',
                          help='hostname of machine running mongo server', default=DEFAULT_HOST)
@@ -548,19 +597,13 @@ def main():
     # parse
     parseFile(args['file'])
     
-    
     # Post-processing: fill in aggregate collection names in plaintext
     infer_aggregate_collections()
     
     # print info
     print_stats(args)
     
-    return
-
-
-if __name__ == '__main__':
-        main()
-
+## MAIN
 
 
     
