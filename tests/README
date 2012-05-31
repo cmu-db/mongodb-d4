@@ -1,0 +1,6 @@
+Testing code for MongoDB-Designer
+The script "runTests.sh" will execute all python scripts
+
+Dependencies:
+python-nose
+
