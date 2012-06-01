@@ -70,84 +70,7 @@ DEFAULT_PORT = "27017"
 ## GLOBAL VARS
 ## ==============================================
 connection = None
-current_transaction = None
-workload_db = None
-workload_col = None
-recreated_db = None
 
-# current session map holds all session objects. Mapping client_id --> Session()
-current_session_map = {} 
-session_uid = INITIAL_SESSION_UID # first session_id
-
-# used to pair up queries & replies by their mongosniff ID
-query_response_map = {} 
-
-# Post-processing global vars. PLAINTEXT Collection Names for AGGREGATES
-# this dictionary is used to figure out the real collection names for aggregate queries
-# the col names are hashed
-# STEP1: during the first pass (the main step of parsing), we store the names of all collections
-# we encounter in the set() known_collections
-# STEP2: we figure out the salt
-# STEP3: we compute the hash. We populate the dict  hashed_collections
-# STEP4: we add the collection names to all aggregate operations
-known_collections = set() # set of known collection names
-hashed_collections = {} # hash --> collection name
-
-### parsing regexp masks
-### parts of header
-TIME_MASK = "[0-9]+\.[0-9]+.*"
-ARROW_MASK = "(-->>|<<--)"
-IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{5,5}"
-COLLECTION_MASK = "[\w+\.]+\$?\w+"
-SIZE_MASK = "\d+ bytes"
-MAGIC_ID_MASK = "id:\w+"
-TRANSACTION_ID_MASK = "\d+"
-REPLY_ID_MASK = "\d+"
-
-## ==============================================
-## PARSING REGEXES
-## ==============================================
-
-### header
-HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
-    "(?P<IP1>" + IP_MASK + ") *" + \
-    "(?P<arrow>" + ARROW_MASK + ") *" + \
-    "(?P<IP2>" + IP_MASK + ") *" + \
-    "(?P<collection>" + COLLECTION_MASK + ")? *" + \
-    "(?P<size>" + SIZE_MASK + ") *" + \
-    "(?P<magic_id>" + MAGIC_ID_MASK + ")[\t ]*" + \
-    "(?P<trans_id>" + TRANSACTION_ID_MASK + ")[\t ]*" + \
-    "-?[\t ]*(?P<query_id>" + REPLY_ID_MASK + ")?"
-headerRegex = re.compile(HEADER_MASK)
-
-### content lines
-CONTENT_REPLY_MASK = "\s*reply +.*"
-CONTENT_INSERT_MASK = "\s*insert: {.*"
-CONTENT_QUERY_MASK = "\s*query: {.*"
-CONTENT_UPDATE_MASK = "\s*update .*"
-CONTENT_DELETE_MASK = "\s*delete .*"
-
-replyRegex = re.compile(CONTENT_REPLY_MASK)
-insertRegex = re.compile(CONTENT_INSERT_MASK)
-queryRegex = re.compile(CONTENT_QUERY_MASK)
-updateRegex = re.compile(CONTENT_UPDATE_MASK)
-deleteRegex = re.compile(CONTENT_DELETE_MASK)
-
-# other masks for parsing
-FLAGS_MASK = ".*flags:(?P<flags>\d).*" #vals: 0,1,2,3
-flagsRegex = re.compile(FLAGS_MASK)
-NTORETURN_MASK = ".*ntoreturn: (?P<ntoreturn>-?\d+).*" # int 
-ntoreturnRegex = re.compile(NTORETURN_MASK)
-NTOSKIP_MASK = ".*ntoskip: (?P<ntoskip>\d+).*" #int
-ntoskipRegex = re.compile(NTOSKIP_MASK)
-
-# op TYPES
-TYPE_QUERY = '$query'
-TYPE_INSERT = '$insert'
-TYPE_DELETE = '$delete'
-TYPE_UPDATE = '$update'
-TYPE_REPLY = '$reply'
-QUERY_TYPES = [TYPE_QUERY, TYPE_INSERT, TYPE_DELETE, TYPE_UPDATE]
 
 ## ==============================================
 
@@ -160,7 +83,7 @@ def initDB(hostname, port, w_db, w_col):
     global workload_db
     global workload_col
 
-    LOG.info("Connecting to MongoDB at %s:%d" % (hostname, port))
+    LOG.debug("Connecting to MongoDB at %s:%d" % (hostname, port))
     
     # Initialize connection to db that stores raw transactions
     connection = Connection(hostname, port)
@@ -205,14 +128,14 @@ def addSession(ip_client, ip_server):
 
 def store(transaction):
     
-    if (current_transaction['arrow'] == '-->>'):
+    if current_transaction['arrow'] == '-->>':
         ip_client = current_transaction['IP1']
         ip_server = current_transaction['IP2']
     else:
         ip_client = current_transaction['IP2']
         ip_server = current_transaction['IP1']
 
-    if (ip_client not in current_session_map):
+    if not ip_client in current_session_map:
         session = addSession(ip_client, ip_server)
     else:
         session = current_session_map[ip_client]
@@ -268,7 +191,7 @@ def store(transaction):
         known_collections.add(col_name)
     
     # RESPONSE - add information to the matching query
-    if current_transaction['type'] == "$reply":
+    elif current_transaction['type'] == "$reply":
         query_id = current_transaction['query_id'];
         # see if the matching query is in the map
         if query_id in query_response_map:
@@ -280,6 +203,10 @@ def store(transaction):
             query_op['resp_id'] = int(current_transaction['trans_id'])    
         else:
             LOG.warn("SKIPPING RESPONSE (no matching query_id): %s" % query_id)
+            
+    # UNKNOWN
+    else:
+        raise Exception("Unexpected message type '%s'" % current_transaction['type'])
             
     #save the current session
     getTracesCollection().save(session)
@@ -539,22 +466,7 @@ def parseFile(file):
     line_ctr = 0
     trans_ctr = 0
     with open(file, 'r') as fd:
-        for line in fd:
-            line_ctr += 1
-            result = headerRegex.match(line)
-            #print line
-            try:
-                if result:
-                    process_header_line(result.groupdict())
-                    trans_ctr += 1
-                else:
-                    process_content_line(line)
-            except:
-                LOG.error("Unexpected error when processing line %d" % line_ctr)
-                raise
-        ## FOR
-    if current_transaction:
-        store(current_transaction)
+        
 
     print ""
     session_ctr = INITIAL_SESSION_UID - session_uid
@@ -565,26 +477,30 @@ def parseFile(file):
 def print_stats(args):
     workload_info.print_stats(args['host'], args['port'], args['workload_db'], args['workload_col'])
 
+## ==============================================
+## main
+## ==============================================
 if __name__ == '__main__':
     aparser = argparse.ArgumentParser(description='MongoDesigner Trace Parser')
-    aparser.add_argument('--host',
-                         help='hostname of machine running mongo server', default=DEFAULT_HOST)
-    aparser.add_argument('--port', type=int,
-                         help='port to connect to', default=DEFAULT_PORT)
-    aparser.add_argument('--file',
-                         help='file to read from', default=INPUT_FILE)
-    aparser.add_argument('--workload_db', help='the database where you want to store the traces', default=WORKLOAD_DB)
-    aparser.add_argument('--workload_col', help='the collection where you want to store the traces', default=WORKLOAD_COLLECTION)
+    aparser.add_argument('--host', default=DEFAULT_HOST,
+                         help='hostname of machine running mongo server')
+    aparser.add_argument('--port', type=int, default=DEFAULT_PORT,
+                         help='port to connect to')
+    aparser.add_argument('--file', default=INPUT_FILE,
+                         help='file to read from')
+    aparser.add_argument('--workload_db', default=WORKLOAD_DB,
+                         help='the database where you want to store the traces')
+    aparser.add_argument('--workload_col', default=WORKLOAD_COLLECTION,
+                         help='The collection where you want to store the traces', )
     aparser.add_argument('--clean', action='store_true',
-                         help='Remove all documents in the workload collection before processing is started')    
+                         help='Remove all documents in the workload collection before processing is started')
+    aparser.add_argument('--debug', action='store_true',
+                         help='Enable debug log messages')
     args = vars(aparser.parse_args())
+    if args['debug']: LOG.setLevel(logging.DEBUG)
 
-    print ""
     LOG.info("..:: MongoDesigner Trace Parser ::..")
-    print ""
-
-    settings = "host: ", args['host'], " port: ", args['port'], " file: ", args['file'], " db: ", args['workload_db'], " col: ", args['workload_col']
-    LOG.info("Settings: %s", settings)
+    LOG.debug("Server: %(host)s:%(port)d / InputFile: %(file)s / Storage: %(workload_db)s.%(workload_col)s" % args)
 
     # initialize connection to MongoDB
     initDB(args['host'], args['port'], args['workload_db'], args['workload_col'])
