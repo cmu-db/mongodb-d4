@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2012
-# Andy Pavlo - http://www.cs.brown.edu/~pavlo/
+# Copyright (C) 2012 by Brown University
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -82,12 +81,12 @@ NTORETURN_MASK = ".*ntoreturn: (?P<ntoreturn>-?\d+).*" # int
 NTOSKIP_MASK = ".*ntoskip: (?P<ntoskip>\d+).*" #int
 
 # op TYPES
-TYPE_QUERY = '$query'
-TYPE_INSERT = '$insert'
-TYPE_DELETE = '$delete'
-TYPE_UPDATE = '$update'
-TYPE_REPLY = '$reply'
-QUERY_TYPES = [TYPE_QUERY, TYPE_INSERT, TYPE_DELETE, TYPE_UPDATE]
+OP_TYPE_QUERY = '$query'
+OP_TYPE_INSERT = '$insert'
+OP_TYPE_DELETE = '$delete'
+OP_TYPE_UPDATE = '$update'
+OP_TYPE_REPLY = '$reply'
+QUERY_TYPES = [OP_TYPE_QUERY, OP_TYPE_INSERT, OP_TYPE_DELETE, OP_TYPE_UPDATE]
 
 class Parser:
     """Mongosniff Trace Parser"""
@@ -97,11 +96,13 @@ class Parser:
         self.fd = fd
         self.line_ctr = 0
         self.sess_ctr = 0
-        self.current_transaction = None
         self.recreated_db = None
+        
+        # The current operation in the session
+        self.currentOp = None
 
         # current session map holds all session objects. Mapping client_id --> Session()
-        self.current_session_map = {} 
+        self.session_map = {} 
         self.session_uid = INITIAL_SESSION_UID # first session_id
 
         # used to pair up queries & replies by their mongosniff ID
@@ -129,27 +130,29 @@ class Parser:
         self.ntoreturnRegex = re.compile(NTORETURN_MASK)
         self.ntoskipRegex = re.compile(NTOSKIP_MASK)
         
-        
         assert self.workload_col
         assert self.fd
         pass
     ## DEF
 
     def getSessionCount(self):
+        """Return the number of sessions extracted from the workload trace"""
         return self.sess_ctr
+    ## DEF
     
     def cleanWorkload(self):
+        """Remove all existing sessions in the workload collection"""
         self.workload_col.remove()
     ## DEF
     
     def getOnlyIP(self, ipAndPort):
         """helper method to split IP and port"""
         # we can be sure that ipAndPort is in the form of IP:port since it was matched by regex...
-        l = self.ipAndPort.rsplit(":") 
-        return l[0]
+        return self.ipAndPort.rsplit(":")[0]
     ## DEF
     
     def parse(self):
+        """Read each line from the input source and extract all of the sessions"""
         for line in self.fd:
             self.line_ctr += 1
             result = self.headerRegex.match(line)
@@ -164,8 +167,8 @@ class Parser:
                 LOG.error("Unexpected error when processing line %d" % self.line_ctr)
                 raise
         ## FOR
-        if self.current_transaction:
-            self.store(current_transaction)
+        if self.currentOp:
+            self.storeCurrentOpInSession()
             
         # Post Processing!
         # If only Emanuel was still alive to see this!
@@ -179,7 +182,7 @@ class Parser:
   
         # ip1 is the key in current_transaction_map
             
-        #verify a session with the uid does not exist
+        # verify a session with the uid does not exist
         if self.workload_col.find({'session_id': self.session_uid}).count() > 0:
             msg = "Session with UID %s already exists.\n" % self.session_uid
             msg += "Maybe you want to clean the database / use a different collection?"
@@ -189,55 +192,57 @@ class Parser:
         session['ip_client'] = unicode(ip_client)
         session['ip_server'] = unicode(ip_server)
         session['session_id'] = self.session_uid
-        self.current_session_map[ip_client] = session
+        self.session_map[ip_client] = session
         self.session_uid += 1
         self.workload_col.save(session)
         return session
     ## DEFAULT
     
-    def store(self, transaction):
-        if self.current_transaction['arrow'] == '-->>':
-            ip_client = self.current_transaction['IP1']
-            ip_server = self.current_transaction['IP2']
+    def storeCurrentOpInSession(self):
+        """Stores the currentOp in a session. We will create a new session if one does not already exist."""
+        
+        if 'type' not in self.currentOp:
+            raise Exception("Current Operation is Incomplete: Missing 'type' field")
+        
+        # Figure out whether this is a outgoing query from the client
+        # Or an incoming response from the server
+        if self.currentOp['arrow'] == '-->>':
+            ip_client = self.currentOp['IP1']
+            ip_server = self.currentOp['IP2']
         else:
-            ip_client = self.current_transaction['IP2']
-            ip_server = self.current_transaction['IP1']
+            ip_client = self.currentOp['IP2']
+            ip_server = self.currentOp['IP1']
 
-        if not ip_client in self.current_session_map:
+        if not ip_client in self.session_map:
             session = self.addSession(ip_client, ip_server)
         else:
-            session = self.current_session_map[ip_client]
-        
-        if 'type' not in self.current_transaction:
-            LOG.error("INCOMPLETE operation:")
-            LOG.error(self.current_transaction)
-            return
+            session = self.session_map[ip_client]
         
         # QUERY: $query, $delete, $insert, $update:
         # Create the operation, add it to the session
-        if self.current_transaction['type'] in QUERY_TYPES:
-            # create the operation -- corresponds to current_transaction
-            query_id = self.current_transaction['trans_id'];
+        if self.currentOp['type'] in QUERY_TYPES:
+            # create the operation -- corresponds to current
+            query_id = self.currentOp['trans_id'];
             op = {
-                    'collection': unicode(self.current_transaction['collection']),
-                    'type': unicode(self.current_transaction['type']),
-                    'query_time': float(self.current_transaction['timestamp']),
-                    'query_size': int(self.current_transaction['size'].replace("bytes", "")),
-                    'query_content': self.current_transaction['content'],
-                    'query_id': int(query_id),
-                    'query_aggregate': 0, # false -not aggregate- by default
+                'collection': unicode(self.currentOp['collection']),
+                'type': unicode(self.currentOp['type']),
+                'query_time': float(self.currentOp['timestamp']),
+                'query_size': int(self.currentOp['size'].replace("bytes", "")),
+                'query_content': self.currentOp['content'],
+                'query_id': int(query_id),
+                'query_aggregate': 0, # false -not aggregate- by default
             }
             
-            # UPDATE flags
-            if op['type'] == TYPE_UPDATE:
-                op['update_upsert'] = self.current_transaction['update_upsert']
-                op['update_multi'] = self.current_transaction['update_multi']
+            # UPDATE Flags
+            if op['type'] == OP_TYPE_UPDATE:
+                op['update_upsert'] = self.currentOp['update_upsert']
+                op['update_multi'] = self.currentOp['update_multi']
             
-            # QUERY 
-            if op['type'] == TYPE_QUERY:
+            # QUERY Flags
+            elif op['type'] == OP_TYPE_QUERY:
                 # SKIP, LIMIT
-                op['query_limit'] = int(self.current_transaction['ntoreturn']['ntoreturn'])
-                op['query_offset'] = int(self.current_transaction['ntoskip']['ntoskip'])
+                op['query_limit'] = int(self.currentOp['ntoreturn']) # ['ntoreturn']?
+                op['query_offset'] = int(self.currentOp['ntoskip']) # ['ntoskip']?
             
                 # check for aggregate
                 # update collection name, set aggregate type
@@ -247,33 +252,38 @@ class Parser:
                     ## --> This has to be done at the end after the first pass, because the collection name is hashed up
             
             self.query_response_map[query_id] = op
-            # append it to the current session
+            # Append it to the current session
+            # TODO: Large traces will cause the sessions to get too big.
+            #       We need to split out the operations into a seperate collection
+            #       Or use multiple sessions
             session['operations'].append(op)
-            LOG.debug("added operation: %s" % op)
+            LOG.debug("Added %s Operation to Session %s:\n%s" % (op['type'], session['session_id'], pformat(op)))
         
             # store the collection name in known_collections. This will be useful later.
             # see the comment at known_collections
+            # HACK: We have to cut off the db name here. We may not want
+            #       to do that if the application is querying multiple databases.
             full_name = op['collection']
-            col_name = full_name[full_name.find(".")+1:] #cut off the db name
+            col_name = full_name[full_name.find(".")+1:] # cut off the db name
             self.known_collections.add(col_name)
         
         # RESPONSE - add information to the matching query
-        elif self.current_transaction['type'] == "$reply":
-            query_id = self.current_transaction['query_id'];
+        elif self.currentOp['type'] == OP_TYPE_REPLY:
+            query_id = self.currentOp['query_id'];
             # see if the matching query is in the map
             if query_id in self.query_response_map:
                 # fill in missing information
                 query_op = self.query_response_map[query_id]
-                query_op['resp_content'] = self.current_transaction['content']
-                query_op['resp_size'] = int(self.current_transaction['size'].replace("bytes", ""))
-                query_op['resp_time'] = float(self.current_transaction['timestamp'])
-                query_op['resp_id'] = int(self.current_transaction['trans_id'])    
+                query_op['resp_content'] = self.currentOp['content']
+                query_op['resp_size'] = int(self.currentOp['size'].replace("bytes", ""))
+                query_op['resp_time'] = float(self.currentOp['timestamp'])
+                query_op['resp_id'] = int(self.currentOp['trans_id'])    
             else:
                 LOG.warn("SKIPPING RESPONSE (no matching query_id): %s" % query_id)
                 
         # UNKNOWN
         else:
-            raise Exception("Unexpected message type '%s'" % self.current_transaction['type'])
+            raise Exception("Unexpected message type '%s'" % self.currentOp['type'])
                 
         #save the current session
         self.workload_col.save(session)
@@ -284,21 +294,21 @@ class Parser:
     
     def process_header_line(self, header):
 
-        if self.current_transaction:
+        if self.currentOp:
             try:
-                self.store(self.current_transaction)
+                self.storeCurrentOpInSession()
             except:
-                LOG.error("Invalid Session:\n%s" % pformat(self.current_transaction))
+                LOG.error("Invalid Session:\n%s" % pformat(self.currentOp))
                 raise
 
-        self.current_transaction = header
-        self.current_transaction['content'] = []
+        self.currentOp = header
+        self.currentOp['content'] = []
         return
     ## DEF
     
     def add_yaml_to_content(self, yaml_line):
         """helper function for process_content_line 
-           takes yaml {...} as input and parses the input to JSON and adds that to current_transaction['content']"""
+           takes yaml {...} as input and parses the input to JSON and adds that to current['content']"""
         yaml_line = yaml_line.strip()
         
         #skip empty lines
@@ -334,10 +344,10 @@ class Parser:
         
         #if this is the first time we see this session, add it
         if 'whatismyuri' in obj:
-            self.addSession(current_transaction['ip_client'], current_transaction['ip_server'])
+            self.addSession(current['ip_client'], current['ip_server'])
         
         #store the line
-        self.current_transaction['content'].append(obj)
+        self.currentOp['content'].append(obj)
         return
     ## DEF
 
@@ -346,33 +356,33 @@ class Parser:
            tries to figure out the transaction type & store the content"""
         
         # ignore content lines before the first transaction is started
-        if not self.current_transaction:
+        if not self.currentOp:
             return
 
         # REPLY
         if self.replyRegex.match(line):
-            self.current_transaction['type'] = TYPE_REPLY
+            self.currentOp['type'] = OP_TYPE_REPLY
         
         #INSERT
         elif self.insertRegex.match(line):
-            self.current_transaction['type'] = TYPE_INSERT
+            self.currentOp['type'] = OP_TYPE_INSERT
             line = line[line.find('{'):line.rfind('}')+1]
             add_yaml_to_content(line)
         
         # QUERY
         elif self.queryRegex.match(line):
-            self.current_transaction['type'] = TYPE_QUERY
+            self.currentOp['type'] = OP_TYPE_QUERY
             
             # extract OFFSET and LIMIT
-            self.current_transaction['ntoskip'] = self.ntoskipRegex.match(line).groupdict()
-            self.current_transaction['ntoreturn'] = self.ntoreturnRegex.match(line).groupdict()
+            self.currentOp['ntoskip'] = self.ntoskipRegex.match(line).groupdict()
+            self.currentOp['ntoreturn'] = self.ntoreturnRegex.match(line).groupdict()
             
             line = line[line.find('{'):line.rfind('}')+1]
             self.add_yaml_to_content(line)
             
         # UPDATE
         elif self.updateRegex.match(line):
-            self.current_transaction['type'] = TYPE_UPDATE
+            self.currentOp['type'] = OP_TYPE_UPDATE
             
             # extract FLAGS
             upsert = False
@@ -387,8 +397,8 @@ class Parser:
             elif flags == '3':
                 upsert = True
                 multi = True
-            self.current_transaction['update_upsert'] = upsert
-            self.current_transaction['update_multi'] = multi
+            self.currentOp['update_upsert'] = upsert
+            self.currentOp['update_multi'] = multi
             
             # extract the CRITERIA and NEW_OBJ
             lines = line[line.find('{'):line.rfind('}')+1].split(" o:")
@@ -402,7 +412,7 @@ class Parser:
         
         # DELETE
         elif self.deleteRegex.match(line):
-            self.current_transaction['type'] = TYPE_DELETE
+            self.currentOp['type'] = OP_TYPE_DELETE
             line = line[line.find('{'):line.rfind('}')+1] 
             self.add_yaml_to_content(line) 
         
