@@ -32,9 +32,6 @@ class Histogram(dict):
     def put(self, x, delta=1):
         self[x] = self.get(x, 0) + delta
     # DEF
-    def get(self, x):
-        return self[x]
-        
     def toJava(self):
         output = ""
         for key in sorted(self.iterkeys()):

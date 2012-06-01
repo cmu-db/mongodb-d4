@@ -16,6 +16,18 @@ def hash_string(s, salt, test=False):
     return output
 
 class Sanitizer:
+    
+    def __init__(self, options, args, test):
+        self.f = None 
+        self.new_command = re.compile("^(.*?) (\-\->>|<<\-\-) (.*?)")
+        if options:
+            self.salt = options.salt        
+            if options.out: 
+                self.f = open(options.out, 'w')
+        else:
+            self.salt = 0
+        self.test = test
+    
 
     def find_quote(self, line, startIndex):
         index = startIndex
@@ -112,16 +124,6 @@ class Sanitizer:
     
         self.f.close()
 
-    def __init__(self, options, args, test):
-        self.f = None 
-        self.new_command = re.compile("^(.*?) (\-\->>|<<\-\-) (.*?)")
-        if options:
-            self.salt = options.salt        
-            if options.out: 
-                self.f = open(options.out, 'w')
-        else:
-            self.salt = 0
-        self.test = test
 
         
 
