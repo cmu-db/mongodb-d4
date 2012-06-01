@@ -54,12 +54,14 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 ## DEFAULT VALUES
 ## you can specify these with args
+## TODO: These should come from util.config
 ## ==============================================
 INPUT_FILE = "sample.txt"
 WORKLOAD_DB = "metadata"
 WORKLOAD_COLLECTION = "workload01"
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = "27017"
+RECREATED_DB = "dataset"
 
 ## ==============================================
 ## main
@@ -76,6 +78,8 @@ if __name__ == '__main__':
                          help='the database where you want to store the traces')
     aparser.add_argument('--workload_col', default=WORKLOAD_COLLECTION,
                          help='The collection where you want to store the traces', )
+    aparser.add_argument('--recreated_db', default=RECREATED_DB,
+                         help='the database of the recreated dataset', )
     aparser.add_argument('--clean', action='store_true',
                          help='Remove all documents in the workload collection before processing is started')
                          
@@ -126,6 +130,9 @@ if __name__ == '__main__':
         if args['clean']:
             LOG.warn("Purging existing sessions in '%s.%s'" % (workload_col.database.name, workload_col.name))
             p.cleanWorkload()
+            
+            # TODO: Clean out reconstructed database
+            # TODO: Clean out schema catalog
         
         
         LOG.info("Processing file %s", args['file'])

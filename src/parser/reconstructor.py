@@ -40,6 +40,7 @@ import mongokit
 sys.path.append("../workload")
 sys.path.append("../sanitizer")
 import anonymize
+import parser
 from traces import Session
 
 LOG = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ LOG = logging.getLogger(__name__)
 
 # Original Code: Emanuel Buzek
 class Reconstructor:
-    """Mongosniff Database Reconstructor"""
+    """MongoDB Database Reconstructor"""
     
     def __init__(self, workload_col, recreated_db):
         self.workload_col = workload_col
@@ -63,18 +64,26 @@ class Reconstructor:
         """Iterates through all operations of all sessions and recreates the dataset..."""
         cnt = self.workload_col.find().count()
         LOG.info("Found %d sessions in the workload collection. Processing... ", cnt)
+        
         for session in self.workload_col.find():
             for op in session["operations"]:
+                # HACK: Skip any operations with invalid collection names
+                #       We will go back later and fix these up
+                if op["collection"] == parser.INVALID_COLLECTION_MARKER:
+                    continue
+                
                 if op["type"] == parser.OP_TYPE_QUERY:
-                    processQuery(op)
+                    self.processQuery(op)
                 elif op["type"] == parser.OP_TYPE_DELETE:
-                    processDelete(op)
+                    self.processDelete(op)
                 elif op["type"] == parser.OP_TYPE_UPDATE:
-                    processUpdate(op)
+                    self.processUpdate(op)
                 elif op["type"] in [parser.OP_TYPE_INSERT, parser.OP_TYPE_ISERT]:
-                    processInsert(op)
+                    self.processInsert(op)
                 else:
                     LOG.warn("Unknown operation type: %s", op["type"])
+            ## FOR (operations)
+        ## FOR (sessions)
         LOG.info("Done.")
     ## DEF
     
@@ -98,12 +107,11 @@ class Reconstructor:
     def processUpdate(op):
         payload = op["query_content"]
         col = op["collection"]
-        upsert = op["update_upsert"]
-        multi = op["update_multi"]
-        LOG.info("Updating collection %s. Upsert: %s, Multi: %s", col,str(upsert), str(multi))
+        
+        LOG.info("Updating Collection '%s' [upsert=%s, multi=%s]" % (col, op["update_upsert"], op["update_multi"]))
         assert len(payload) == 2, 
             "Update operation payload is expected to have exactly 2 entries."
-        self.recreated_db[col].update(payload[0], payload[1], upsert, multi)
+        self.recreated_db[col].update(payload[0], payload[1], op["update_upsert"], op["update_multi"])
     ## DEF
 
     def processQuery(op):
