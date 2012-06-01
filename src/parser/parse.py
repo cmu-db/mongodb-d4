@@ -80,6 +80,8 @@ if __name__ == '__main__':
                          help='Remove all documents in the workload collection before processing is started')
                          
     # Debugging Options
+    aparser.add_argument('--skip', type=int, default=None,
+                         help='Skip the first N lines in the input file')
     aparser.add_argument('--limit', type=int, default=None,
                          help='Limit the number of operations to process')
     aparser.add_argument('--stop-on-error', action='store_true',
@@ -111,6 +113,10 @@ if __name__ == '__main__':
         if args['stop_on_error']:
             LOG.warn("Will stop processing if invalid input is found")
             p.stop_on_error = True
+        # Processing Skip
+        if args['skip']:
+            LOG.warn("Will skip processing the first %d lines" % args['skip'])
+            p.op_skip =  args['skip']
         # Processing Limit
         if args['limit']:
             LOG.warn("Will stop processing after %d operations are processed" % args['limit'])

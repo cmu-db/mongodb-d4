@@ -58,7 +58,10 @@ INITIAL_SESSION_UID = 100 #where to start the incremental session uid
 TIME_MASK = "[0-9]+\.[0-9]+"
 ARROW_MASK = "(?:-->>|<<--)"
 IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{2,}"
-COLLECTION_MASK = "([\w]+\.){1,}\$?[\w]+"
+
+# HACK: The trace from ex.fm has mangled unicode characters for collection
+#       names, so we have to add in a '}'
+COLLECTION_MASK = "([\w]+[\.\}]){1,}\$?[\w]+" 
 SIZE_MASK = "\d+"
 MAGIC_ID_MASK = "id:\w+"
 TRANSACTION_ID_MASK = "\d+"
@@ -70,10 +73,10 @@ HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ")[\s]+[\-][\s]+" + \
     "(?P<arrow>" + ARROW_MASK + ")[\s]*" + \
     "(?P<ip2>" + IP_MASK + ")[\s]+" + \
     "(?P<collection>" + COLLECTION_MASK + ")?[\s]+" + \
-    "(?P<size>" + SIZE_MASK + ") bytes[\s]*" + \
-    "(?P<magic_id>" + MAGIC_ID_MASK + ")[\t ]*" + \
-    "(?P<trans_id>" + TRANSACTION_ID_MASK + ")[\t ]*" + \
-    "-?[\t ]*(?P<query_id>" + REPLY_ID_MASK + ")?"
+    "(?P<size>" + SIZE_MASK + ") bytes[\s]+" + \
+    "(?P<magic_id>" + MAGIC_ID_MASK + ")[\t\s]+" + \
+    "(?P<trans_id>" + TRANSACTION_ID_MASK + ")[\t\s]*" + \
+    "(?:-[\t\s]*(?P<query_id>" + REPLY_ID_MASK + "))?"
 
 ### content lines
 CONTENT_REPLY_MASK = "\s*reply +.*"
@@ -93,6 +96,7 @@ OP_TYPE_INSERT = '$insert'
 OP_TYPE_DELETE = '$delete'
 OP_TYPE_UPDATE = '$update'
 OP_TYPE_REPLY = '$reply'
+OP_TYPE_GETMORE = '$getMore'
 
 # Original Code: Emanuel Buzek
 class Parser:
@@ -103,6 +107,7 @@ class Parser:
         self.fd = fd
         self.line_ctr = 0
         self.op_ctr = 0
+        self.op_skip = None
         self.op_limit = None
         self.recreated_db = None
         self.stop_on_error = False
@@ -128,7 +133,7 @@ class Parser:
         # STEP4: we add the collection names to all aggregate operations
         self.known_collections = set() # set of known collection names
         
-        self.headerRegex = re.compile(HEADER_MASK)
+        self.headerRegex = re.compile(HEADER_MASK, re.UNICODE)
         self.replyRegex = re.compile(CONTENT_REPLY_MASK)
         self.insertRegex = re.compile(CONTENT_INSERT_MASK)
         self.queryRegex = re.compile(CONTENT_QUERY_MASK)
@@ -169,6 +174,11 @@ class Parser:
         """Read each line from the input source and extract all of the sessions"""
         for line in self.fd:
             self.line_ctr += 1
+            if self.op_skip and self.line_ctr < self.op_skip:
+                continue
+            
+            # HACK: Strip out any bad unicode
+            line = unicode(line, errors='ignore')
             
             try:
                 # Parse the current line to decide whether this 
@@ -290,6 +300,11 @@ class Parser:
             else:
                 LOG.warn("Skipping Response - No matching query_id '%s'" % query_id)
                 
+        # GETMORE - These can be safely ignored
+        elif self.currentOp['type'] == OP_TYPE_GETMORE:
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.warn("Skipping '%s' operation" % (self.currentOp['type']))
+            
         # UNKNOWN
         else:
             raise Exception("Unexpected message type '%s'" % self.currentOp['type'])
@@ -339,8 +354,9 @@ class Parser:
                 LOG.error("Invalid Session:\n%s" % pformat(self.currentOp))
                 raise
         
-        LOG.debug("Creating new operation for QueryId: %(query_id)s " % header + \
-                  "[line:%d]" % self.line_ctr)
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("Creating new operation for QueryId: %(query_id)s " % header + \
+                      "[line:%d]\n%s" % (self.line_ctr, pformat(header)))
         self.currentOp = header
         self.currentContent = []
         return
@@ -351,23 +367,28 @@ class Parser:
            takes yaml {...} as input and parses the input to JSON and adds that to currentContent"""
         yaml_line = yaml_line.strip()
         
-        #skip empty lines
+        # Skip empty lines
         if len(yaml_line) == 0:
             return
+            
+        # Check whether this is a "getMore" message
+        elif yaml_line.startswith("getMore"):
+            self.currentOp['type'] = OP_TYPE_GETMORE
+            return
 
-        if not yaml_line.startswith("{"):
-            # this is not a content line... it can't be yaml
+        # this is not a content line... it can't be yaml
+        elif not yaml_line.startswith("{"):
             msg = "Invalid Content on Line %d: JSON does not start with '{'" % self.line_ctr
             LOG.warn(msg)
             LOG.debug("Offending Line: %s" % yaml_line)
-            #if self.stop_on_error: raise Exception(msg)
-            if self.line_ctr == 11: raise Exception(msg)
+            print unicode(yaml_line)
+            if self.stop_on_error: raise Exception(msg)
             return
         elif not yaml_line.endswith("}"):
             msg = "Invalid Content on Line %d: JSON does not end with '}'" % self.line_ctr
             LOG.warn(msg)
             LOG.debug(yaml_line)
-            #if self.stop_on_error: raise Exception(msg)
+            if self.stop_on_error: raise Exception(msg)
             return    
         
         #yaml parser might fail :D
