@@ -28,13 +28,20 @@ import re
 import yaml
 import json
 import hashlib
-import anonymize # just for hash_string()
 import logging
 from pprint import pformat
 
+# Third-Party Dependencies
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../../libs"))
+import mongokit
+
 # MongoDB-Designer
 sys.path.append("../workload")
+sys.path.append("../sanitizer")
+import anonymize
 from traces import Session
+
 
 LOG = logging.getLogger(__name__)
 
@@ -48,22 +55,22 @@ INITIAL_SESSION_UID = 100 #where to start the incremental session uid
 ## ==============================================
 
 ### parts of header
-TIME_MASK = "[0-9]+\.[0-9]+.*"
-ARROW_MASK = "(-->>|<<--)"
-IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{5,5}"
-COLLECTION_MASK = "[\w+\.]+\$?\w+"
-SIZE_MASK = "\d+ bytes"
+TIME_MASK = "[0-9]+\.[0-9]+"
+ARROW_MASK = "(?:-->>|<<--)"
+IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{2,}"
+COLLECTION_MASK = "([\w]+\.){1,}\$?[\w]+"
+SIZE_MASK = "\d+"
 MAGIC_ID_MASK = "id:\w+"
 TRANSACTION_ID_MASK = "\d+"
 REPLY_ID_MASK = "\d+"
 
 ### header
-HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ") *- *" + \
-    "(?P<IP1>" + IP_MASK + ") *" + \
-    "(?P<arrow>" + ARROW_MASK + ") *" + \
-    "(?P<IP2>" + IP_MASK + ") *" + \
-    "(?P<collection>" + COLLECTION_MASK + ")? *" + \
-    "(?P<size>" + SIZE_MASK + ") *" + \
+HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ")[\s]+[\-][\s]+" + \
+    "(?P<ip1>" + IP_MASK + ")[\s]*" + \
+    "(?P<arrow>" + ARROW_MASK + ")[\s]*" + \
+    "(?P<ip2>" + IP_MASK + ")[\s]+" + \
+    "(?P<collection>" + COLLECTION_MASK + ")?[\s]+" + \
+    "(?P<size>" + SIZE_MASK + ") bytes[\s]*" + \
     "(?P<magic_id>" + MAGIC_ID_MASK + ")[\t ]*" + \
     "(?P<trans_id>" + TRANSACTION_ID_MASK + ")[\t ]*" + \
     "-?[\t ]*(?P<query_id>" + REPLY_ID_MASK + ")?"
@@ -86,8 +93,8 @@ OP_TYPE_INSERT = '$insert'
 OP_TYPE_DELETE = '$delete'
 OP_TYPE_UPDATE = '$update'
 OP_TYPE_REPLY = '$reply'
-QUERY_TYPES = [OP_TYPE_QUERY, OP_TYPE_INSERT, OP_TYPE_DELETE, OP_TYPE_UPDATE]
 
+# Original Code: Emanuel Buzek
 class Parser:
     """Mongosniff Trace Parser"""
     
@@ -95,10 +102,13 @@ class Parser:
         self.workload_col = workload_col
         self.fd = fd
         self.line_ctr = 0
-        self.sess_ctr = 0
+        self.op_ctr = 0
+        self.op_limit = None
         self.recreated_db = None
+        self.stop_on_error = False
         
         # The current operation in the session
+        self.currentContent = [ ]
         self.currentOp = None
 
         # current session map holds all session objects. Mapping client_id --> Session()
@@ -117,7 +127,6 @@ class Parser:
         # STEP3: we compute the hash. We populate the dict  hashed_collections
         # STEP4: we add the collection names to all aggregate operations
         self.known_collections = set() # set of known collection names
-        self.hashed_collections = {} # hash --> collection name
         
         self.headerRegex = re.compile(HEADER_MASK)
         self.replyRegex = re.compile(CONTENT_REPLY_MASK)
@@ -137,7 +146,12 @@ class Parser:
 
     def getSessionCount(self):
         """Return the number of sessions extracted from the workload trace"""
-        return self.sess_ctr
+        return len(self.session_map)
+    ## DEF
+    
+    def getOpCount(self):
+        """Return the number of operations extracted from the workload trace"""
+        return self.op_ctr
     ## DEF
     
     def cleanWorkload(self):
@@ -155,82 +169,73 @@ class Parser:
         """Read each line from the input source and extract all of the sessions"""
         for line in self.fd:
             self.line_ctr += 1
-            result = self.headerRegex.match(line)
-            #print line
+            
             try:
+                # Parse the current line to decide whether this 
+                # is the beginning of a new operaton/reply
+                result = self.headerRegex.match(line)
                 if result:
                     self.process_header_line(result.groupdict())
-                    self.sess_ctr += 1
                 else:
                     self.process_content_line(line)
             except:
                 LOG.error("Unexpected error when processing line %d" % self.line_ctr)
                 raise
+            
+            if self.op_limit != None and self.op_ctr >= self.op_limit:
+                LOG.warn("Operation Limit Reached. Halting processing [limit=%d]" % (self.op_limit))
+                break
         ## FOR
         if self.currentOp:
             self.storeCurrentOpInSession()
             
         # Post Processing!
         # If only Emanuel was still alive to see this!
-        self.infer_aggregate_collections()
+        self.postProcess()
         pass
     ## DEF
-    
-    def addSession(self, ip_client, ip_server):
-        """this function initializes a new Session() object (in workload/traces.py)
-           and stores it in the collection"""
-  
-        # ip1 is the key in current_transaction_map
-            
-        # verify a session with the uid does not exist
-        if self.workload_col.find({'session_id': self.session_uid}).count() > 0:
-            msg = "Session with UID %s already exists.\n" % self.session_uid
-            msg += "Maybe you want to clean the database / use a different collection?"
-            raise Exception(msg)
-
-        session = Session()
-        session['ip_client'] = unicode(ip_client)
-        session['ip_server'] = unicode(ip_server)
-        session['session_id'] = self.session_uid
-        self.session_map[ip_client] = session
-        self.session_uid += 1
-        self.workload_col.save(session)
-        return session
-    ## DEFAULT
     
     def storeCurrentOpInSession(self):
         """Stores the currentOp in a session. We will create a new session if one does not already exist."""
         
-        if 'type' not in self.currentOp:
-            raise Exception("Current Operation is Incomplete: Missing 'type' field")
-        
         # Figure out whether this is a outgoing query from the client
         # Or an incoming response from the server
         if self.currentOp['arrow'] == '-->>':
-            ip_client = self.currentOp['IP1']
-            ip_server = self.currentOp['IP2']
+            ip_client = self.currentOp['ip1']
+            ip_server = self.currentOp['ip2']
         else:
-            ip_client = self.currentOp['IP2']
-            ip_server = self.currentOp['IP1']
+            ip_client = self.currentOp['ip2']
+            ip_server = self.currentOp['ip1']
+            
+            # If this doesn't have a type here, then we know that it's a reply
+            if not 'type' in self.currentOp:
+                self.currentOp['type'] = OP_TYPE_REPLY
+        ## IF
 
-        if not ip_client in self.session_map:
-            session = self.addSession(ip_client, ip_server)
-        else:
-            session = self.session_map[ip_client]
+        if not 'type' in self.currentOp:
+            LOG.debug("Incomplete Operation:\n%s" % pformat(self.currentOp))
+            raise Exception("Current Operation is Incomplete: Missing 'type' field")
+        
+        # Get the session to store this operation in
+        session = self.getOrCreateSession(ip_client, ip_server)
         
         # QUERY: $query, $delete, $insert, $update:
         # Create the operation, add it to the session
-        if self.currentOp['type'] in QUERY_TYPES:
+        if self.currentOp['type'] in [OP_TYPE_QUERY, OP_TYPE_INSERT, OP_TYPE_DELETE, OP_TYPE_UPDATE]:
             # create the operation -- corresponds to current
             query_id = self.currentOp['trans_id'];
+            
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.debug("Current Operation Content:\n%s" % pformat(self.currentContent))
+            
             op = {
                 'collection': unicode(self.currentOp['collection']),
                 'type': unicode(self.currentOp['type']),
                 'query_time': float(self.currentOp['timestamp']),
                 'query_size': int(self.currentOp['size'].replace("bytes", "")),
-                'query_content': self.currentOp['content'],
+                'query_content': self.currentContent,
                 'query_id': int(query_id),
-                'query_aggregate': 0, # false -not aggregate- by default
+                'query_aggregate': False, # false -not aggregate- by default
             }
             
             # UPDATE Flags
@@ -241,17 +246,21 @@ class Parser:
             # QUERY Flags
             elif op['type'] == OP_TYPE_QUERY:
                 # SKIP, LIMIT
-                op['query_limit'] = int(self.currentOp['ntoreturn']) # ['ntoreturn']?
-                op['query_offset'] = int(self.currentOp['ntoskip']) # ['ntoskip']?
+                # These values are stored as dicts with redundant nested keys
+                op['query_limit'] = int(self.currentOp['ntoreturn']['ntoreturn'])
+                op['query_offset'] = int(self.currentOp['ntoskip']['ntoskip'])
             
                 # check for aggregate
                 # update collection name, set aggregate type
                 if op['collection'].find("$cmd") > 0:
-                    op['query_aggregate'] = 1
+                    op['query_aggregate'] = True
                     # extract the real collection name
                     ## --> This has to be done at the end after the first pass, because the collection name is hashed up
             
+            # Keep track of operations by their ids so that we can add
+            # the response to it later on
             self.query_response_map[query_id] = op
+            
             # Append it to the current session
             # TODO: Large traces will cause the sessions to get too big.
             #       We need to split out the operations into a seperate collection
@@ -274,41 +283,72 @@ class Parser:
             if query_id in self.query_response_map:
                 # fill in missing information
                 query_op = self.query_response_map[query_id]
-                query_op['resp_content'] = self.currentOp['content']
+                query_op['resp_content'] = self.currentContent
                 query_op['resp_size'] = int(self.currentOp['size'].replace("bytes", ""))
                 query_op['resp_time'] = float(self.currentOp['timestamp'])
                 query_op['resp_id'] = int(self.currentOp['trans_id'])    
             else:
-                LOG.warn("SKIPPING RESPONSE (no matching query_id): %s" % query_id)
+                LOG.warn("Skipping Response - No matching query_id '%s'" % query_id)
                 
         # UNKNOWN
         else:
             raise Exception("Unexpected message type '%s'" % self.currentOp['type'])
                 
-        #save the current session
-        self.workload_col.save(session)
+        # TODO: Decide when to save sessions
+        # self.workload_col.save(session)
+        # LOG.debug("session %d was updated" % session['session_id'])
         
-        LOG.debug("session %d was updated" % session['session_id'])
+        self.op_ctr += 1
+        
         return
     ## DEF
     
-    def process_header_line(self, header):
+    def getOrCreateSession(self, ip_client, ip_server):
+        """this function initializes a new Session() object (in workload/traces.py)
+           and stores it in the collection"""
+  
+        # ip1 is the key in current_transaction_map
+        if ip_client in self.session_map:
+            session = self.session_map[ip_client] 
+        else:
+            # verify a session with the uid does not exist
+            if self.workload_col.find({'session_id': self.session_uid}).count() > 0:
+                msg = "Session with UID %s already exists.\n" % self.session_uid
+                msg += "Maybe you want to clean the database / use a different collection?"
+                raise Exception(msg)
 
+            session = Session()
+            session['ip_client'] = unicode(ip_client)
+            session['ip_server'] = unicode(ip_server)
+            session['session_id'] = self.session_uid
+            self.session_map[ip_client] = session
+            self.session_uid += 1
+        ## IF
+        
+        return session
+    ## DEF
+    
+    def process_header_line(self, header):
+        # If we already have a currentOp, then we know that 
+        # we have finished processing all of its content and we should
+        # store it in a session
         if self.currentOp:
             try:
                 self.storeCurrentOpInSession()
             except:
                 LOG.error("Invalid Session:\n%s" % pformat(self.currentOp))
                 raise
-
+        
+        LOG.debug("Creating new operation for QueryId: %(query_id)s " % header + \
+                  "[line:%d]" % self.line_ctr)
         self.currentOp = header
-        self.currentOp['content'] = []
+        self.currentContent = []
         return
     ## DEF
     
     def add_yaml_to_content(self, yaml_line):
         """helper function for process_content_line 
-           takes yaml {...} as input and parses the input to JSON and adds that to current['content']"""
+           takes yaml {...} as input and parses the input to JSON and adds that to currentContent"""
         yaml_line = yaml_line.strip()
         
         #skip empty lines
@@ -317,37 +357,38 @@ class Parser:
 
         if not yaml_line.startswith("{"):
             # this is not a content line... it can't be yaml
-            LOG.warn("JSON does not start with '{'")
+            msg = "Invalid Content on Line %d: JSON does not start with '{'" % self.line_ctr
+            LOG.warn(msg)
             LOG.debug("Offending Line: %s" % yaml_line)
+            #if self.stop_on_error: raise Exception(msg)
+            if self.line_ctr == 11: raise Exception(msg)
             return
-        
-        if not yaml_line.strip().endswith("}"):
-            LOG.warn("JSON does not end with '}'")
+        elif not yaml_line.endswith("}"):
+            msg = "Invalid Content on Line %d: JSON does not end with '}'" % self.line_ctr
+            LOG.warn(msg)
             LOG.debug(yaml_line)
+            #if self.stop_on_error: raise Exception(msg)
             return    
         
         #yaml parser might fail :D
         try:
             obj = yaml.load(yaml_line)
         except (yaml.scanner.ScannerError, yaml.parser.ParserError, yaml.reader.ReaderError) as err:
-            LOG.error("Parsing yaml to JSON: " + str(yaml_line))
-            LOG.error("details: " + str(err))
-            #print yaml_line
-            #exit()
+            LOG.error("Invalid Content on Line %d: Failed to convert YAML to JSON:\n%s" % (self.line_ctr, yaml_line))
             raise
         
         valid_json = json.dumps(obj)
         obj = yaml.load(valid_json)
         if not obj:
-            LOG.error("Weird error. This line parsed to yaml, not to JSON: " + str(yaml_line))
-            return 
+            raise Exception("Invalid Content on Line %d: Content parsed to YAML, not to JSON\n%s" % (self.line_ctr, yaml_line))
         
-        #if this is the first time we see this session, add it
+        # If this is the first time we see this session, add it
+        # TODO: Do we still need this?
         if 'whatismyuri' in obj:
-            self.addSession(current['ip_client'], current['ip_server'])
+            self.getOrCreateSession(self.currentOp['ip_client'], this.currentOp['ip_server'])
         
-        #store the line
-        self.currentOp['content'].append(obj)
+        # Store the line in the curentContent buffer
+        self.currentContent.append(obj)
         return
     ## DEF
 
@@ -428,21 +469,61 @@ class Parser:
     '''
     Post-processing: infer plaintext collection names for AGGREGATES
     '''
+    
+    def postProcess(self):
+        """Process the operations to fix the collection names used in aggregate queries"""
+        
+        if not self.known_collections:
+            LOG.warn("No plaintext collections were found in operations. Unable to perform post-processing")
+            return
+        
+        LOG.info("Performing post processing on %s sessions with %d operations" % (self.getSessionCount(), self.getOpCount()))
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("-- Aggregate Collection Names --")
+            LOG.debug("Encountered %d collection names in plaintext." % len(self.known_collections))
+            LOG.debug(pformat(self.known_collections))
+        
+        # Find 
+        candidate_hashes = self.get_candidate_hashes()
+        
+        # HACK: Figure out what salt was used so that we can match
+        #       them with our known collection names
+        salt = self.infer_salt(candidate_hashes, self.known_collections)
+        if salt is None:
+            LOG.warn("Failed to find string hashing salt. Unable to fix aggregate collection names")
+            return
+
+        # Now for the given salt value, populate a mapping from
+        # hashes to collection names
+        LOG.debug("Pre-computing hashes for all known collection names...")
+        hashed_collections = {} # hash --> collection name
+        for col_name in self.known_collections:
+            hash = anonymize.hash_string(get_hash_string(col_name), salt)
+            hashed_collections[hash] = col_name
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.debug("hash: %s / col_name: %s / hash_str: %s" % (hash, col_name, get_hash_string(col_name)))
+        ## FOR
+            
+        # Now use our hash xref to fix the collection names in all aggreate operations
+        self.fill_aggregate_collection_names(hashed_collections)
+    ## DEF
      
     def get_candidate_hashes(self):
         """this functions returns a set of some hashed strings, which are most likely hashed collection names"""
         
         candidate_hashes = set()
         LOG.info("Retrieving hashed collection names...")
-        for session in self.workload_col.find():
+        for session in self.workload_col.find({'operations.query_aggregate': True}):
             for op in session['operations']:
-                if op['query_aggregate'] == 1:
+                if op['query_aggregate']:
                     # find the JSON of the query...
                     query = op['query_content'][0] # we care about the first (0th) BSON in the list
-                    # look four count key. This would refer to a collection name
+                    
+                    # The 'count' key corresponds to the target collection name
                     if 'count' in query:
                         #print query
                         candidate_hashes.add(query['count'])
+        ## FOR
         LOG.info("Found %d hashed collection names. " % len(candidate_hashes))
         LOG.debug(candidate_hashes)
         return candidate_hashes
@@ -473,25 +554,14 @@ class Parser:
         return None
     ## DEF
 
-    def precompute_hashes(self, salt):
-        """this function populates the hashed_collections map
-           mapping HASHED_COL_NAME -> PLAIN_TEXT_COL_NAME"""
-        LOG.info("Precomputing hashes for all known collection names...")
-        for col_name in self.known_collections:
-            hash = anonymize.hash_string(get_hash_string(col_name), salt)
-            self.hashed_collections[hash] = col_name
-            LOG.debug("hash: %s / col_name: %s / hash_str: %s" % (hash, col_name, get_hash_string(col_name)))
-        ## FOR
-        LOG.info("Done.")
-    ## DEF
-
-    # now we go through aggregate ops again and fill in the collection name...
-    def fill_aggregate_collection_names(self):
+    def fill_aggregate_collection_names(self, hashed_collections):
+        """now we go through aggregate ops again and fill in the collection name..."""
+        
         LOG.info("Adding plaintext collection names to aggregate operations...")
         cnt = 0
         for session in self.workload_col.find():
             for op in session['operations']:
-                if op['query_aggregate'] == 1:
+                if op['query_aggregate']:
                     query = op['query_content'][0] # first and only JSON from the payload
                     # iterate through the keys in the query JSON
                     # one of the should point to the hashed collection name
@@ -522,19 +592,6 @@ class Parser:
         LOG.info("Done. Updated %d aggregate operations." % cnt)
     ## DEF
 
-    # CALL THIS FUNCTION TO DO THE POST-PROCESSING
-    def infer_aggregate_collections(self):
-        LOG.info("")
-        LOG.info("-- Aggregate Collection Names --")
-        LOG.info("Encountered %d collection names in plaintext." % len(known_collections))
-        LOG.debug(pformat(self.known_collections))
-        candidate_hashes = self.get_candidate_hashes()
-        salt = self.infer_salt(candidate_hashes, self.known_collections)
-        if salt is None:
-            return
-        self.precompute_hashes(salt)
-        self.fill_aggregate_collection_names()
-    ## DEF
 
     '''
     END OF Post-processing: AGGREGATE collection names

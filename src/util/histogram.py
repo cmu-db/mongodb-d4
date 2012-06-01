@@ -23,17 +23,22 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
-class Histogram(object):
-    def __init__(self):
-        self.data = { }
+# TODO: Extend UserDict
+class Histogram(dict):
+    def __init__(self, *args, **kw):
+        super(Histogram, self).__init__(*args, **kw)
+        pass
+    # DEF
     def put(self, x, delta=1):
-        self.data[x] = self.data.get(x, 0) + delta
+        self[x] = self.get(x, 0) + delta
+    # DEF
     def get(self, x):
-        return self.data[x]
+        return self[x]
+        
     def toJava(self):
         output = ""
-        for key in sorted(self.data.keys()):
-            cnt = self.data[key]
+        for key in sorted(self.iterkeys()):
+            cnt = self[key]
             if type(key) == str:
                 key = "\"%s\"" % (key.replace('"', '\\"'))
             output += "this.put(%s, %d);\n" % (key, cnt)
@@ -41,10 +46,10 @@ class Histogram(object):
     ## DEF
     def __str__(self):
         ret = ""
-        ret += "# of Elements: %d\n" % len(self.data)
-        ret += "# of Samples:  %d\n" % sum(self.data.values())
+        ret += "# of Elements: %d\n" % len(self)
+        ret += "# of Samples:  %d\n" % sum(self.itervalues())
         ret += "="*50 + "\n"
-        ret += "\n".join([ "%-25s %d" % (x, y) for x,y in self.data.iteritems() ])
+        ret += "\n".join([ "%-25s %d" % (x, y) for x,y in self.iteritems() ])
         ret += "\n" + "="*50
         return (ret)
 ## CLASS

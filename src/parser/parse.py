@@ -46,7 +46,7 @@ import parser
 from traces import *
 
 logging.basicConfig(level = logging.INFO,
-                    format="%(asctime)s [%(funcName)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
                     datefmt="%m-%d-%Y %H:%M:%S",
                     stream = sys.stdout)
 LOG = logging.getLogger(__name__)
@@ -78,10 +78,19 @@ if __name__ == '__main__':
                          help='The collection where you want to store the traces', )
     aparser.add_argument('--clean', action='store_true',
                          help='Remove all documents in the workload collection before processing is started')
+                         
+    # Debugging Options
+    aparser.add_argument('--limit', type=int, default=None,
+                         help='Limit the number of operations to process')
+    aparser.add_argument('--stop-on-error', action='store_true',
+                         help='Stop processing when an invalid line is reached')
     aparser.add_argument('--debug', action='store_true',
                          help='Enable debug log messages')
+
     args = vars(aparser.parse_args())
-    if args['debug']: LOG.setLevel(logging.DEBUG)
+    if args['debug']:
+        LOG.setLevel(logging.DEBUG)
+        parser.LOG.setLevel(logging.DEBUG)
 
     LOG.info("..:: MongoDesigner Trace Parser ::..")
     LOG.debug("Server: %(host)s:%(port)d / InputFile: %(file)s / Storage: %(workload_db)s.%(workload_col)s" % args)
@@ -98,14 +107,29 @@ if __name__ == '__main__':
     with open(args['file'], 'r') as fd:
         p = parser.Parser(workload_col, fd)
         
+        # Stop on Error
+        if args['stop_on_error']:
+            LOG.warn("Will stop processing if invalid input is found")
+            p.stop_on_error = True
+        # Processing Limit
+        if args['limit']:
+            LOG.warn("Will stop processing after %d operations are processed" % args['limit'])
+            p.op_limit =  args['limit']
+        
         # wipe the collection
         if args['clean']:
-            LOG.warn("Cleaning '%s' collection...", workload_col)
+            LOG.warn("Purging existing sessions in '%s.%s'" % (workload_col.database.name, workload_col.name))
             p.cleanWorkload()
+        
         
         LOG.info("Processing file %s", args['file'])
         p.parse()
-        LOG.info("Done. Added [%d sessions] to '%s'" % (p.getSessionCount(), workload_col))
+        LOG.info("Finishing processing %s" % args['file'])
+        LOG.info("Added %d sessions with %d operations to '%s.%s'" % (\
+            p.getSessionCount(),
+            p.getOpCount(),
+            workload_col.database.name, 
+            workload_col.name))
     ## WITH
     
     # Print out some information when parsing finishes

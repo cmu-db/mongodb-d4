@@ -35,11 +35,11 @@ class Session(Document):
                 
                 # query flags & props
                 # flags: 1==upsert:TRUE, multi:FALSE, 2==upsert:FALSE, multi:TRUE
-                'update_upsert': int,       # T/F from flags
-                'update_multi':  int,       # T/F from flags
+                'update_upsert': bool,       # T/F from flags
+                'update_multi':  bool,       # T/F from flags
                 'query_limit':  int,        # ntoreturn, -1: all
                 'query_offset': int,        # ntoskip
-                'query_aggregate': int,     # T/F aggregate yes or no
+                'query_aggregate': bool,     # T/F aggregate yes or no
                 #'has_related_query': int   # I don't think we've talked about this one - ebuzek
             }
         ],

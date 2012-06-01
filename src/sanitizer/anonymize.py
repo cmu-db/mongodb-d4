@@ -7,9 +7,15 @@ import time
 import re
 import optparse
 
+def hash_string(s, salt, test=False):
+    #print s
+    hash = hashlib.md5(str(salt) + s).hexdigest()
+    if test:
+        hash = "XXX_HASH_XXX"
+    output = "%s/%d" % (hash, len(s))
+    return output
 
 class Sanitizer:
-    
 
     def find_quote(self, line, startIndex):
         index = startIndex
@@ -27,14 +33,6 @@ class Sanitizer:
             isKey = line[index + 2] == ":"
         return (index, isKey)
     
-    def hash_string(self, s, salt):
-        #print s
-        hash = hashlib.md5(str(salt) + s).hexdigest()
-        if self.test:
-            hash = "XXX_HASH_XXX"
-        output = "%s/%d" % (hash, len(s))
-        return output
-        
     def sanitize(self, line, salt):
         startIndex = 0
         endIndex = 0
@@ -64,7 +62,7 @@ class Sanitizer:
             string = line[startIndex: endIndex]
             #print "found string: ", string
             if not isKey:
-                string = self.hash_string(string[1:len(string)-1], salt) #strip surrounding quotes
+                string = hash_string(string[1:len(string)-1], salt, self.test) #strip surrounding quotes
             # append to the result...
             resultLine = resultLine + b + string
         ### END WHILE
