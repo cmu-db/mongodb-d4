@@ -91,6 +91,7 @@ if __name__ == '__main__':
     LOG.debug("Connecting to MongoDB at %s:%d" % (args['host'], args['port']))
     connection = Connection(args['host'], args['port'])
     workload_col = connection[args['workload_db']][args['workload_col']]
+    assert workload_col, "Invalid target collection %s.%s" % (args['workload_db'], args['workload_col'])
 
     # Create the Parser object that will go to town on the input file that we
     # were given

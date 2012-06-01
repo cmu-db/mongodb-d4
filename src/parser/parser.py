@@ -23,6 +23,8 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
+import os
+import sys
 import re
 import yaml
 import json
@@ -30,6 +32,10 @@ import hashlib
 import anonymize # just for hash_string()
 import logging
 from pprint import pformat
+
+# MongoDB-Designer
+sys.path.append("../workload")
+from traces import Session
 
 LOG = logging.getLogger(__name__)
 
@@ -91,10 +97,7 @@ class Parser:
         self.fd = fd
         self.line_ctr = 0
         self.sess_ctr = 0
-        
         self.current_transaction = None
-        self.workload_db = None
-        self.workload_col = None
         self.recreated_db = None
 
         # current session map holds all session objects. Mapping client_id --> Session()
@@ -126,17 +129,20 @@ class Parser:
         self.ntoreturnRegex = re.compile(NTORETURN_MASK)
         self.ntoskipRegex = re.compile(NTOSKIP_MASK)
         
+        
+        assert self.workload_col
+        assert self.fd
         pass
     ## DEF
 
-    def getSessionCount():
+    def getSessionCount(self):
         return self.sess_ctr
     
     def cleanWorkload(self):
         self.workload_col.remove()
     ## DEF
     
-    def getOnlyIP(ipAndPort):
+    def getOnlyIP(self, ipAndPort):
         """helper method to split IP and port"""
         # we can be sure that ipAndPort is in the form of IP:port since it was matched by regex...
         l = self.ipAndPort.rsplit(":") 
@@ -144,18 +150,18 @@ class Parser:
     ## DEF
     
     def parse(self):
-        for line in fd:
+        for line in self.fd:
             self.line_ctr += 1
             result = self.headerRegex.match(line)
             #print line
             try:
                 if result:
                     self.process_header_line(result.groupdict())
-                    trans_ctr += 1
+                    self.sess_ctr += 1
                 else:
                     self.process_content_line(line)
             except:
-                LOG.error("Unexpected error when processing line %d" % line_ctr)
+                LOG.error("Unexpected error when processing line %d" % self.line_ctr)
                 raise
         ## FOR
         if self.current_transaction:
@@ -167,15 +173,15 @@ class Parser:
         pass
     ## DEF
     
-    def addSession(ip_client, ip_server):
+    def addSession(self, ip_client, ip_server):
         """this function initializes a new Session() object (in workload/traces.py)
            and stores it in the collection"""
   
         # ip1 is the key in current_transaction_map
             
         #verify a session with the uid does not exist
-        if self.workload_col.find({'session_id': session_uid}).count() > 0:
-            msg = "Session with UID %s already exists.\n" % session_uid
+        if self.workload_col.find({'session_id': self.session_uid}).count() > 0:
+            msg = "Session with UID %s already exists.\n" % self.session_uid
             msg += "Maybe you want to clean the database / use a different collection?"
             raise Exception(msg)
 
@@ -184,12 +190,12 @@ class Parser:
         session['ip_server'] = unicode(ip_server)
         session['session_id'] = self.session_uid
         self.current_session_map[ip_client] = session
-        self.session_uid = session_uid + 1
+        self.session_uid += 1
         self.workload_col.save(session)
         return session
     ## DEFAULT
     
-    def store(transaction):
+    def store(self, transaction):
         if self.current_transaction['arrow'] == '-->>':
             ip_client = self.current_transaction['IP1']
             ip_server = self.current_transaction['IP2']
@@ -276,7 +282,7 @@ class Parser:
         return
     ## DEF
     
-    def process_header_line(header):
+    def process_header_line(self, header):
 
         if self.current_transaction:
             try:
@@ -290,7 +296,7 @@ class Parser:
         return
     ## DEF
     
-    def add_yaml_to_content(yaml_line):
+    def add_yaml_to_content(self, yaml_line):
         """helper function for process_content_line 
            takes yaml {...} as input and parses the input to JSON and adds that to current_transaction['content']"""
         yaml_line = yaml_line.strip()
@@ -335,7 +341,7 @@ class Parser:
         return
     ## DEF
 
-    def process_content_line(line):
+    def process_content_line(self, line):
         """takes any line which does not pass as header line
            tries to figure out the transaction type & store the content"""
         
@@ -349,13 +355,13 @@ class Parser:
         
         #INSERT
         elif self.insertRegex.match(line):
-            current_transaction['type'] = TYPE_INSERT
+            self.current_transaction['type'] = TYPE_INSERT
             line = line[line.find('{'):line.rfind('}')+1]
             add_yaml_to_content(line)
         
         # QUERY
         elif self.queryRegex.match(line):
-            current_transaction['type'] = TYPE_QUERY
+            self.current_transaction['type'] = TYPE_QUERY
             
             # extract OFFSET and LIMIT
             self.current_transaction['ntoskip'] = self.ntoskipRegex.match(line).groupdict()
@@ -413,7 +419,7 @@ class Parser:
     Post-processing: infer plaintext collection names for AGGREGATES
     '''
      
-    def get_candidate_hashes():
+    def get_candidate_hashes(self):
         """this functions returns a set of some hashed strings, which are most likely hashed collection names"""
         
         candidate_hashes = set()
@@ -432,11 +438,11 @@ class Parser:
         return candidate_hashes
     ## DEF
 
-    def get_hash_string(bare_col_name):
+    def get_hash_string(self, bare_col_name):
         return "\"" + bare_col_name + "\""
     ## DEF
 
-    def infer_salt(candidate_hashes, known_collections):
+    def infer_salt(self, candidate_hashes, known_collections):
         """this is a ridiculous hack. Let's hope the salt is 0. But even if not..."""
         max_salt = 100000
         LOG.info("Trying to brute-force the salt 0-%d..." % max_salt)
@@ -457,7 +463,7 @@ class Parser:
         return None
     ## DEF
 
-    def precompute_hashes(salt):
+    def precompute_hashes(self, salt):
         """this function populates the hashed_collections map
            mapping HASHED_COL_NAME -> PLAIN_TEXT_COL_NAME"""
         LOG.info("Precomputing hashes for all known collection names...")
@@ -470,7 +476,7 @@ class Parser:
     ## DEF
 
     # now we go through aggregate ops again and fill in the collection name...
-    def fill_aggregate_collection_names():
+    def fill_aggregate_collection_names(self):
         LOG.info("Adding plaintext collection names to aggregate operations...")
         cnt = 0
         for session in self.workload_col.find():
@@ -507,7 +513,7 @@ class Parser:
     ## DEF
 
     # CALL THIS FUNCTION TO DO THE POST-PROCESSING
-    def infer_aggregate_collections():
+    def infer_aggregate_collections(self):
         LOG.info("")
         LOG.info("-- Aggregate Collection Names --")
         LOG.info("Encountered %d collection names in plaintext." % len(known_collections))
