@@ -50,6 +50,8 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 INITIAL_SESSION_UID = 100 #where to start the incremental session uid
 
+INVALID_COLLECTION_MARKER = "*INVALID*"
+
 ## ==============================================
 ## PARSING REGEXES
 ## ==============================================
@@ -96,6 +98,7 @@ NTOSKIP_MASK = ".*ntoskip: (?P<ntoskip>\d+).*" #int
 # op TYPES
 OP_TYPE_QUERY = '$query'
 OP_TYPE_INSERT = '$insert'
+OP_TYPE_ISERT = '$isert'
 OP_TYPE_DELETE = '$delete'
 OP_TYPE_UPDATE = '$update'
 OP_TYPE_REPLY = '$reply'
@@ -227,12 +230,15 @@ class Parser:
         """Stores the currentOp in a session. We will create a new session if one does not already exist."""
         
         # Check whether it has a busted collection name
+        # For now we'll just change the name to our marker so that we can figure out
+        # what it really should be after we recreate the schema
         try:
             self.currentOp['collection'].decode('ascii')
         except:
             LOG.warn("Current operation has an invalid collection name '%(collection)s'. Will fix later..." % self.currentOp)
+            self.currentOp['collection'] = INVALID_COLLECTION_MARKER
             self.bustedOps.append(self.currentOp)
-            return
+            pass
         
         # Figure out whether this is a outgoing query from the client
         # Or an incoming response from the server
@@ -282,9 +288,8 @@ class Parser:
             # QUERY Flags
             elif op['type'] == OP_TYPE_QUERY:
                 # SKIP, LIMIT
-                # These values are stored as dicts with redundant nested keys
-                op['query_limit'] = int(self.currentOp['ntoreturn']['ntoreturn'])
-                op['query_offset'] = int(self.currentOp['ntoskip']['ntoskip'])
+                op['query_limit'] = self.currentOp['ntoreturn']
+                op['query_offset'] = self.currentOp['ntoskip']
             
                 # check for aggregate
                 # update collection name, set aggregate type
@@ -389,8 +394,8 @@ class Parser:
         self.currentContent = []
         
         # Fix field types
-        for f in ['size', 'trans_id']:
-            if f in self.currentOp:
+        for f in ['size', 'trans_id', 'query_id']:
+            if f in self.currentOp and self.currentOp[f] != None:
                 self.currentOp[f] = int(self.currentOp[f])
         for f in ['timestamp']:
             if f in self.currentOp:
@@ -422,7 +427,6 @@ class Parser:
             msg = "Invalid Content on Line %d: JSON does not start with '{'" % self.line_ctr
             LOG.warn(msg)
             LOG.debug("Offending Line: %s" % yaml_line)
-            print unicode(yaml_line)
             if self.stop_on_error: raise Exception(msg)
             return
         elif not yaml_line.endswith("}"):
@@ -468,7 +472,7 @@ class Parser:
         if self.replyRegex.match(line):
             self.currentOp['type'] = OP_TYPE_REPLY
         
-        #INSERT
+        # INSERT
         elif self.insertRegex.match(line):
             self.currentOp['type'] = OP_TYPE_INSERT
             line = line[line.find('{'):line.rfind('}')+1]
@@ -479,8 +483,8 @@ class Parser:
             self.currentOp['type'] = OP_TYPE_QUERY
             
             # extract OFFSET and LIMIT
-            self.currentOp['ntoskip'] = self.ntoskipRegex.match(line).groupdict()
-            self.currentOp['ntoreturn'] = self.ntoreturnRegex.match(line).groupdict()
+            self.currentOp['ntoskip'] = int(self.ntoskipRegex.match(line).group(1))
+            self.currentOp['ntoreturn'] = int(self.ntoreturnRegex.match(line).group(1))
             
             line = line[line.find('{'):line.rfind('}')+1]
             self.add_yaml_to_content(line)
@@ -575,7 +579,7 @@ class Parser:
         # Now use our hash xref to fix the collection names in all aggreate operations
         self.fill_aggregate_collection_names(hashed_collections)
     ## DEF
-     
+    
     def get_candidate_hashes(self):
         """this functions returns a set of some hashed strings, which are most likely hashed collection names"""
         
