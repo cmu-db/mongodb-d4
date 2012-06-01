@@ -60,8 +60,10 @@ ARROW_MASK = "(?:-->>|<<--)"
 IP_MASK = "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{2,}"
 
 # HACK: The trace from ex.fm has mangled unicode characters for collection
-#       names, so we have to add in a '}'
-COLLECTION_MASK = "([\w]+[\.\}]){1,}\$?[\w]+" 
+#       names, so we have to add in non-standard characters
+COLLECTION_MASK = ".*?"
+#COLLECTION_MASK = "([\w]+[\.\}]){1,}\$?[\w]+[\)]?" 
+
 SIZE_MASK = "\d+"
 MAGIC_ID_MASK = "id:\w+"
 TRANSACTION_ID_MASK = "\d+"
@@ -72,7 +74,7 @@ HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ")[\s]+[\-][\s]+" + \
     "(?P<ip1>" + IP_MASK + ")[\s]*" + \
     "(?P<arrow>" + ARROW_MASK + ")[\s]*" + \
     "(?P<ip2>" + IP_MASK + ")[\s]+" + \
-    "(?P<collection>" + COLLECTION_MASK + ")?[\s]+" + \
+    "(?P<collection>" + COLLECTION_MASK + ")[\s]+" + \
     "(?P<size>" + SIZE_MASK + ") bytes[\s]+" + \
     "(?P<magic_id>" + MAGIC_ID_MASK + ")[\t\s]+" + \
     "(?P<trans_id>" + TRANSACTION_ID_MASK + ")[\t\s]*" + \
@@ -84,6 +86,7 @@ CONTENT_INSERT_MASK = "\s*insert: {.*"
 CONTENT_QUERY_MASK = "\s*query: {.*"
 CONTENT_UPDATE_MASK = "\s*update .*"
 CONTENT_DELETE_MASK = "\s*delete .*"
+CONTENT_ERROR_MASK = "\s*[A-Z]\w{2} [\w]+ [\d]{1,2} [\d]{2}:[\d]{2}:[\d]{2} Assertion: .*?"
 
 # other masks for parsing
 FLAGS_MASK = ".*flags:(?P<flags>\d).*" #vals: 0,1,2,3
@@ -97,6 +100,7 @@ OP_TYPE_DELETE = '$delete'
 OP_TYPE_UPDATE = '$update'
 OP_TYPE_REPLY = '$reply'
 OP_TYPE_GETMORE = '$getMore'
+OP_TYPE_KILLCURSORS = '$killCursors'
 
 # Original Code: Emanuel Buzek
 class Parser:
@@ -106,16 +110,28 @@ class Parser:
         self.workload_col = workload_col
         self.fd = fd
         self.line_ctr = 0
+        self.resp_ctr = 0
+        self.skip_ctr = 0
         self.op_ctr = 0
         self.op_skip = None
         self.op_limit = None
         self.recreated_db = None
         self.stop_on_error = False
         
+        # If this flag is true, then mongosniff got an invalid message packet
+        # So we'll skip until we find the next matching header
+        self.skip_to_next = False
+        
         # The current operation in the session
         self.currentContent = [ ]
         self.currentOp = None
 
+        # Operations with a busted collection name
+        # Once we get parse all of the operations, we'll go back and
+        # try to figure out what collection that might be referring to
+        # based on the keys that they reference
+        self.bustedOps = [ ]
+        
         # current session map holds all session objects. Mapping client_id --> Session()
         self.session_map = {} 
         self.session_uid = INITIAL_SESSION_UID # first session_id
@@ -139,6 +155,7 @@ class Parser:
         self.queryRegex = re.compile(CONTENT_QUERY_MASK)
         self.updateRegex = re.compile(CONTENT_UPDATE_MASK)
         self.deleteRegex = re.compile(CONTENT_DELETE_MASK)
+        self.errorRegex = re.compile(CONTENT_ERROR_MASK)
         
         self.flagsRegex = re.compile(FLAGS_MASK)
         self.ntoreturnRegex = re.compile(NTORETURN_MASK)
@@ -178,15 +195,16 @@ class Parser:
                 continue
             
             # HACK: Strip out any bad unicode
-            line = unicode(line, errors='ignore')
+            #line = unicode(line, errors='ignore')
             
             try:
                 # Parse the current line to decide whether this 
                 # is the beginning of a new operaton/reply
                 result = self.headerRegex.match(line)
                 if result:
+                    self.skip_to_next = False
                     self.process_header_line(result.groupdict())
-                else:
+                elif not self.skip_to_next:
                     self.process_content_line(line)
             except:
                 LOG.error("Unexpected error when processing line %d" % self.line_ctr)
@@ -207,6 +225,14 @@ class Parser:
     
     def storeCurrentOpInSession(self):
         """Stores the currentOp in a session. We will create a new session if one does not already exist."""
+        
+        # Check whether it has a busted collection name
+        try:
+            self.currentOp['collection'].decode('ascii')
+        except:
+            LOG.warn("Current operation has an invalid collection name '%(collection)s'. Will fix later..." % self.currentOp)
+            self.bustedOps.append(self.currentOp)
+            return
         
         # Figure out whether this is a outgoing query from the client
         # Or an incoming response from the server
@@ -241,10 +267,10 @@ class Parser:
             op = {
                 'collection': unicode(self.currentOp['collection']),
                 'type': unicode(self.currentOp['type']),
-                'query_time': float(self.currentOp['timestamp']),
-                'query_size': int(self.currentOp['size'].replace("bytes", "")),
+                'query_time': self.currentOp['timestamp'],
+                'query_size': self.currentOp['size'],
                 'query_content': self.currentContent,
-                'query_id': int(query_id),
+                'query_id': query_id,
                 'query_aggregate': False, # false -not aggregate- by default
             }
             
@@ -276,7 +302,9 @@ class Parser:
             #       We need to split out the operations into a seperate collection
             #       Or use multiple sessions
             session['operations'].append(op)
-            LOG.debug("Added %s Operation to Session %s:\n%s" % (op['type'], session['session_id'], pformat(op)))
+            self.op_ctr += 1
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.debug("Added %s Operation to Session %s:\n%s" % (op['type'], session['session_id'], pformat(op)))
         
             # store the collection name in known_collections. This will be useful later.
             # see the comment at known_collections
@@ -288,20 +316,23 @@ class Parser:
         
         # RESPONSE - add information to the matching query
         elif self.currentOp['type'] == OP_TYPE_REPLY:
+            self.resp_ctr += 1
             query_id = self.currentOp['query_id'];
             # see if the matching query is in the map
             if query_id in self.query_response_map:
                 # fill in missing information
                 query_op = self.query_response_map[query_id]
                 query_op['resp_content'] = self.currentContent
-                query_op['resp_size'] = int(self.currentOp['size'].replace("bytes", ""))
-                query_op['resp_time'] = float(self.currentOp['timestamp'])
-                query_op['resp_id'] = int(self.currentOp['trans_id'])    
+                query_op['resp_size'] = self.currentOp['size']
+                query_op['resp_time'] = self.currentOp['timestamp']
+                query_op['resp_id'] = self.currentOp['trans_id']
+                del self.query_response_map[query_id]
             else:
-                LOG.warn("Skipping Response - No matching query_id '%s'" % query_id)
+                self.skip_ctr += 1
+                LOG.warn("Skipping Response - No matching query_id '%s' [skipCtr=%d/%d]" % (query_id, self.skip_ctr, self.resp_ctr))
                 
-        # GETMORE - These can be safely ignored
-        elif self.currentOp['type'] == OP_TYPE_GETMORE:
+        # These can be safely ignored
+        elif self.currentOp['type'] in [OP_TYPE_GETMORE, OP_TYPE_KILLCURSORS]:
             if LOG.isEnabledFor(logging.DEBUG):
                 LOG.warn("Skipping '%s' operation" % (self.currentOp['type']))
             
@@ -311,9 +342,6 @@ class Parser:
                 
         # TODO: Decide when to save sessions
         # self.workload_col.save(session)
-        # LOG.debug("session %d was updated" % session['session_id'])
-        
-        self.op_ctr += 1
         
         return
     ## DEF
@@ -354,11 +382,20 @@ class Parser:
                 LOG.error("Invalid Session:\n%s" % pformat(self.currentOp))
                 raise
         
-        if LOG.isEnabledFor(logging.DEBUG):
-            LOG.debug("Creating new operation for QueryId: %(query_id)s " % header + \
-                      "[line:%d]\n%s" % (self.line_ctr, pformat(header)))
+        #if LOG.isEnabledFor(logging.DEBUG):
+            #LOG.debug("Creating new operation for QueryId: %(query_id)s " % header + \
+                      #"[line:%d]\n%s" % (self.line_ctr, pformat(header)))
         self.currentOp = header
         self.currentContent = []
+        
+        # Fix field types
+        for f in ['size', 'trans_id']:
+            if f in self.currentOp:
+                self.currentOp[f] = int(self.currentOp[f])
+        for f in ['timestamp']:
+            if f in self.currentOp:
+                self.currentOp[f] = float(self.currentOp[f])
+        
         return
     ## DEF
     
@@ -374,6 +411,10 @@ class Parser:
         # Check whether this is a "getMore" message
         elif yaml_line.startswith("getMore"):
             self.currentOp['type'] = OP_TYPE_GETMORE
+            return
+        # Check whether this is a "killCursors" message
+        elif yaml_line.startswith("killCursors"):
+            self.currentOp['type'] = OP_TYPE_KILLCURSORS
             return
 
         # this is not a content line... it can't be yaml
@@ -420,6 +461,8 @@ class Parser:
         # ignore content lines before the first transaction is started
         if not self.currentOp:
             return
+            
+        # Ignore anything that looks like an error from mongosniff
 
         # REPLY
         if self.replyRegex.match(line):
@@ -429,7 +472,7 @@ class Parser:
         elif self.insertRegex.match(line):
             self.currentOp['type'] = OP_TYPE_INSERT
             line = line[line.find('{'):line.rfind('}')+1]
-            add_yaml_to_content(line)
+            self.add_yaml_to_content(line)
         
         # QUERY
         elif self.queryRegex.match(line):
@@ -477,6 +520,10 @@ class Parser:
             self.currentOp['type'] = OP_TYPE_DELETE
             line = line[line.find('{'):line.rfind('}')+1] 
             self.add_yaml_to_content(line) 
+        
+        # ERROR
+        elif self.errorRegex.match(line):
+            self.skip_to_next = True
         
         # GENERIC CONTENT LINE
         else:

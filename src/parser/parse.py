@@ -136,6 +136,7 @@ if __name__ == '__main__':
             p.getOpCount(),
             workload_col.database.name, 
             workload_col.name))
+        LOG.info("Skipped Responses: %d" % p.skip_ctr)
     ## WITH
     
     # Print out some information when parsing finishes
