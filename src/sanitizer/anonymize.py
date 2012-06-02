@@ -10,7 +10,7 @@ import optparse
 def hash_string(s, salt, test=False):
     #print s
     hash = hashlib.md5(str(salt) + s).hexdigest()
-    if test:
+    if test:    ## FIXME!!! This should not be here!
         hash = "XXX_HASH_XXX"
     output = "%s/%d" % (hash, len(s))
     return output

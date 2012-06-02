@@ -1,43 +1,46 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import re
 import logging
-import types
+from types import *
 from pprint import pformat
 
 import traces
 
 LOG = logging.getLogger(__name__)
 
-# TODO: This is just for testing that our Sessions object
-# validates correctly. The parser/santizer should be fixed
-# to use the Sessions object directly
-def convertWorkload(conn):
-    old_workload = conn['designer']['mongo_comm']
-    new_workload = ['workload']
+# Regex for extracting anonymized strings
+ANONYMIZED_STR_REGEX = re.compile("([\w]{32}\/([\d]+")
+
+# Mapping from TypeName -> Type
+TYPES_XREF = { (t.__name__, t) for t in [IntType, LongType, FloatType, BooleanType] }
+TYPES_XREF['datetime'] = 
+
+def getStringSize(s):
+    """Returns the length of the string. We will check whether the string
+       is one our special anoymized strings"""
+    match = ANONYMIZED_STR_REGEX.match(s)
+    if match:
+        return int(match.group(2))
+    else:
+        return len(s)
+## DEF
+
+def getEstimatedSize(typeName, value):
+    """Returns the estimated size (in bytes) of the value for the given type"""
     
-    new_sess = conn['designer'].Session()
-    new_sess['ip1'] = u'127.0.0.1:59829'
-    new_sess['ip2'] = u'127.0.0.1:27017'
+    # DATETIME
+    if typeName == 'datetime':
+        return (8) # XXX
+    # STR
+    elif typeName == StringType.__name__:
+        return getStringSize(value)
     
-    for trace in old_workload.find({'IP1': new_sess['ip1'], 'IP2': new_sess['ip2']}):
-        new_sess['uid'] = trace['uid']
-        if not trace['content']: continue
-        
-        assert len(trace['content']) == 1, pformat(trace['content'])
-        #print "CONTENT:", pformat(trace['content'])
-        op = {
-            'collection': trace['collection'],
-            'content':    trace['content'][0],
-            'timestamp':  float(trace['timestamp']),
-            'type':       trace['type'],
-            'size':       int(trace['size'].replace("bytes", "")),
-        }
-        new_sess['operations'].append(op)
-    ## FOR
-    
-    print new_sess
-    new_sess.save()
+    # Everything else
+    realType = TYPES_XREF[typeName]
+    assert realType, "Unexpected type '%s'" % typeName
+    return realType.__sizeof__(value)
 ## DEF
 
 def escapeFieldNames(content):
@@ -95,4 +98,39 @@ def getReferencedFields(op):
         fields = content.keys()
     
     return fields
+## DEF
+
+## ==============================================
+## OLD STUFF
+## ==============================================
+
+# TODO: This is just for testing that our Sessions object
+# validates correctly. The parser/santizer should be fixed
+# to use the Sessions object directly
+def convertWorkload(conn):
+    old_workload = conn['designer']['mongo_comm']
+    new_workload = ['workload']
+    
+    new_sess = conn['designer'].Session()
+    new_sess['ip1'] = u'127.0.0.1:59829'
+    new_sess['ip2'] = u'127.0.0.1:27017'
+    
+    for trace in old_workload.find({'IP1': new_sess['ip1'], 'IP2': new_sess['ip2']}):
+        new_sess['uid'] = trace['uid']
+        if not trace['content']: continue
+        
+        assert len(trace['content']) == 1, pformat(trace['content'])
+        #print "CONTENT:", pformat(trace['content'])
+        op = {
+            'collection': trace['collection'],
+            'content':    trace['content'][0],
+            'timestamp':  float(trace['timestamp']),
+            'type':       trace['type'],
+            'size':       int(trace['size'].replace("bytes", "")),
+        }
+        new_sess['operations'].append(op)
+    ## FOR
+    
+    print new_sess
+    new_sess.save()
 ## DEF

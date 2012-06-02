@@ -104,7 +104,10 @@ if __name__ == '__main__':
     ## Determine tables/columns/indexes of MySQL schema
     ## ----------------------------------------------
     c1 = mysql_conn.cursor()
-    c1.execute("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s", args['name'])
+    c1.execute("""
+        SELECT TABLE_NAME
+          FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = %s""", args['name'])
     quick_look = {}
     for row in c1:
         tbl_name = row[0]
@@ -117,8 +120,9 @@ if __name__ == '__main__':
         
         c2 = mysql_conn.cursor()
         c2.execute("""
-            SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = %s AND TABLE_NAME=%s
+            SELECT COLUMN_NAME, DATA_TYPE
+              FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = %s AND TABLE_NAME=%s
         """, (args['name'], tbl_name))
         
         for col_row in c2:
@@ -196,7 +200,7 @@ if __name__ == '__main__':
     
     c4 = mysql_conn.cursor()
     c4.execute("""
-        SELECT * FROM general_log ORDER BY thread_id, event_time;	
+        SELECT * FROM general_log ORDER BY thread_id, event_time;
     """)
     conn.register([workload.Session])
     metadata_db.drop_collection(constants.COLLECTION_WORKLOAD)

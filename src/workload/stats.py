@@ -145,14 +145,8 @@ class StatsProcessor:
                 if to_use <= sample_rate : 
                     for k, v in row.iteritems() :
                         if k <> '_id' :
-                            if col['fields'][k]['type'] == 'int' :
-                                tuple_sizes[col['name']] += 4
-                            elif col['fields'][k]['type'] == 'str' :
-                                tuple_sizes[col['name']] += len(v)
-                            elif col['fields'][k]['type'] == 'datetime' :
-                                tuple_sizes[col['name']] += 8
-                            elif col['fields'][k]['type'] == 'float' :
-                                tuple_sizes[col['name']] += 8
+                            size = workload.getEstimatedSize(col['fields'][k]['type'], v)
+                            tuple_sizes[col['name']] += size
                             distinct_values[col['name']][k][v] = v
                         else :
                             tuple_sizes[col['name']] += 12
