@@ -48,13 +48,46 @@ def generateCatalogFromDatabase(dataset_db, schema_db):
     #print coll_catalog["name"], "=>", type(coll_catalog)
 ## DEF
 
-def extractFields( doc, fields={ }):
-    """Parse a single document and extract out the keys"""
-    for name,val in doc.items():
+def extractFields(self, fields, doc, nested=False):
+    """Recursively traverse a single document and extract out the field information"""
+    for k,v in doc.iteritems():
+        
         # TODO: Should we always skip '_id'?
-        if name == '_id': continue
+        # if name == '_id': continue
+        
+        f_type = type(v)
+        f_type_str = catalog.fieldTypeToString(f_type)
+        
+        # See catalog.Collection for what is needed here
+        if not k in fields:
+            fields[k] = {
+                'type': f_type_str,
+                'query_use_count': 0,
+                'cardinality' : 0,
+                'selectivity' : 0,
+                'parent_col' : '',
+                'parent_key' : '',
+                'parent_conf' : 0.0,
+            }
+        else:
+            assert fields[k]['type'] == f_type_str, \
+                "Mismatched field types '%s' <> '%s'" % (fields[k]['type'], f_type_str)
+        
+        if f_type is dict:
+            self.extractFields(fields, doc[k], True)
+        elif f_type is list:
+            for i in xrange(0, len(doc[k])):
+                inner = doc[k][i]
+                #if type(doc[k]) is dict:
+    ## FOR
+## DEF
 
-        fields[name] = fields.get(name, { })
+def extractFields( doc, fields={ }):
+    
+    for name,val in doc.items():
+
+
+        
         
         # TODO: What do we do if we get back an existing field 
         # that has a different type? Does it matter? Probably not...

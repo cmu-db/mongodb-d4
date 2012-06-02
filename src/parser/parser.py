@@ -38,10 +38,10 @@ import mongokit
 
 # MongoDB-Designer
 sys.path.append(os.path.join(basedir, ".."))
+import workload
 from sanitizer import anonymize
 from traces import Session
 from util import constants
-from workload import utilmethods
 
 LOG = logging.getLogger(__name__)
 
@@ -269,7 +269,7 @@ class Parser:
         
         # Escape any key that starts with '$'
         for i in xrange(0, len(self.currentContent)):
-            self.currentContent[i] = utilmethods.escapeFieldNames(self.currentContent[i])
+            self.currentContent[i] = workload.escapeFieldNames(self.currentContent[i])
         ## FOR
         
         # QUERY: $query, $delete, $insert, $update:

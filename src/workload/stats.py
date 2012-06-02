@@ -39,6 +39,8 @@ class StatsProcessor:
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
         self.hasher = OpHasher()
+        
+        self.op_limit = None
     ## DEF
     
     def reset(self):
@@ -48,46 +50,68 @@ class StatsProcessor:
                 v['query_use_count'] = 0
                 v['cardinality'] = 0
                 v['selectivity'] = 0
-                col.save()
+            col.save()
     ## DEF
     
     def processWorkload(self):
         """Process Workload Trace"""
-        for rec in self.metadata_db[constants.COLLECTION_WORKLOAD].find().limit(1000) :
+        
+        records = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
+        if self.op_limit: records.limit(self.op_limit)
+        
+        for rec in records:
             for op in rec['operations'] :
-                tuples = []
-                col_info = self.metadata_db.Collection.one({'name':op['collection']})
-                if op['type'] == '$delete' :
+                col_info = self.metadata_db.Collection.one({'name': op['collection']})
+                
+                # We want to update the number times each key is referenced in a query
+                # Set this flag to true if we updated the count
+                dirty = False
+                
+                # DELETE
+                if op['type'] == constants.OP_TYPE_DELETE:
                     for content in op['query_content'] :
                         for k,v in content.iteritems() :
                             tuples.append((k, v))
-                elif op['type'] == '$insert' :
+                            col_info['fields'][k]['query_use_count'] += 1
+                            dirty = True
+                # INSERT
+                elif op['type'] == constants.OP_TYPE_INSERT:
                     for content in op['query_content'] :
                         for k,v in content.iteritems() :
                             tuples.append((k, v))
-                elif op['type'] == '$query' :
+                            col_info['fields'][k]['query_use_count'] += 1
+                            dirty = True
+                # QUERY
+                elif op['type'] == constants.OP_TYPE_QUERY:
                     for content in op['query_content'] :
                         if content['query'] != None :
                             for k, v in content['query'].iteritems() :
                                 tuples.append((k, v))
-                elif op['type'] == '$update' :
+                                col_info['fields'][k]['query_use_count'] += 1
+                                dirty = True
+                # UPDATE
+                elif op['type'] == constants.OP_TYPE_UPDATE:
                     for content in op['query_content'] :
                         try :
                             for k,v in content.iteritems() :
                                 tuples.append((k, v))
+                                col_info['fields'][k]['query_use_count'] += 1
+                                dirty = True
                         except AttributeError :
+                            # Why?
                             pass
-                for t in tuples :
-                    ## Update times the column is referenced in a query
-                    try :
-                        col_info['fields'][t[0]]['query_use_count'] += 1
-                    except KeyError :
-                        pass
-                col_info.save()
+                
+                if dirty: col_info.save()
+                
+            ## FOR (operations)
+        ## FOR (sessions)
     ## DEF
     
     def processQueryIds(self):
-        for rec in self.metadata_db[constants.COLLECTION_WORKLOAD].find().limit(1000):
+        records = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
+        if self.op_limit: records.limit(self.op_limit)
+        
+        for rec in records:
             for op in rec['operations'] :
                 op[u"query_id"] = self.hasher.hash(op)
             self.metadata_db[constants.COLLECTION_WORKLOAD].save(rec)
@@ -114,8 +138,8 @@ class StatsProcessor:
             
             col['tuple_count'] = 0
             tuple_sizes[col['name']] = 0
-            rows = self.dataset_db[col['name']].find()
-            for row in rows :
+            cursor = self.dataset_db[col['name']].find()
+            for row in cursor:
                 col['tuple_count'] += 1
                 to_use = random.randrange(1, 100, 1)
                 if to_use <= sample_rate : 
@@ -136,17 +160,18 @@ class StatsProcessor:
                 col['avg_doc_size'] = 0
             else :
                 col['avg_doc_size'] = int(tuple_sizes[col['name']] / col['tuple_count'])
-            col.save()
-        ## FOR
-        
-        # Calculate cardinality and selectivity
-        for col in self.metadata_db.Collection.find():
+                
+            # Calculate cardinality and selectivity
             for k,v in col['fields'].iteritems() :
                 v['cardinality'] = len(distinct_values[col['name']][k])
                 if col['tuple_count'] == 0 :
                     v['selectivity'] = 0
                 else :
                     v['selectivity'] = v['cardinality'] / col['tuple_count']
+            ## FOR
+            
             col.save()
+        ## FOR
     ## DEF
     
+## CLASS

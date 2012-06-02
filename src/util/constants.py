@@ -13,6 +13,7 @@ CATALOG_FIELDS = 'fields'
 WORKLOAD_SESSIONS = 'sessions'
 
 # List of collection names prefixes that we should ignore
+# when performing various processing tasks
 IGNORED_COLLECTIONS = [ 'system', 'local' ]
 
 # If a query's collection name is mangled when processing traces,

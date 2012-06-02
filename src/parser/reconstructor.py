@@ -39,18 +39,14 @@ import mongokit
 # MongoDB-Designer
 sys.path.append(os.path.join(basedir, ".."))
 import parser
+import workload
 from sanitizer import anonymize
 from catalog import Collection
 from traces import Session
 from util.histogram import Histogram
 from util import constants
-from workload import utilmethods
 
 LOG = logging.getLogger(__name__)
-
-## ==============================================
-## DEFAULT VALUES
-## ==============================================
 
 # Original Code: Emanuel Buzek
 class Reconstructor:
@@ -134,15 +130,21 @@ class Reconstructor:
         self.schema_col.drop()
     ## DEF
     
+    ## ==============================================
+    ## DATABASE RECONSTRUCTION
+    ## ==============================================
+    
     def reconstructDatabase(self):
+        # HACK: Skip any operations with invalid collection names
+        #       We will go back later and fix these up
+        toIgnore = [constants.INVALID_COLLECTION_MARKER] + constants.IGNORED_COLLECTIONS
+        
         for session in self.workload_col.find():
             self.sess_ctr += 1
             for op in session["operations"]:
                 self.op_ctr += 1
                 
-                # HACK: Skip any operations with invalid collection names
-                #       We will go back later and fix these up
-                if op["collection"] == constants.INVALID_COLLECTION_MARKER:
+                if op["collection"] in toIgnore:
                     self.skip_ctr += 1
                     continue
                 
@@ -160,72 +162,6 @@ class Reconstructor:
                 if not ret: self.skip_ctr += 1
             ## FOR (operations)
         ## FOR (sessions)
-    ## DEF
-    
-    def extractSchema(self):
-        """Iterates through all documents and infers the schema..."""
-        cols = self.recreated_db.collection_names()
-        LOG.info("Found %d collections. Processing...", len(cols))
-        
-        for col in cols:
-            # Skip system collection
-            if col.startswith("system."):
-                continue
-            c = Collection()
-            c['name'] = col
-            fields = {}
-            for doc in self.recreated_db[col].find():
-                self.addKeys(fields, doc, False)
-            c['fields'] = fields
-            self.schema[col] = c
-        ## FOR
-    ## DEF
-
-    def fixInvalidCollections(self):
-        for session in self.workload_col.find({"operations.collection": constants.INVALID_COLLECTION_MARKER}):
-            for op in session["operations"]:
-                dirty = False
-                if op["collection"] != constants.INVALID_COLLECTION_MARKER:
-                    continue
-                
-                # For each field referenced in the query, build a histogram of 
-                # which collections have a field with the same name
-                fields = utilmethods.getReferencedFields(op)
-                h = Histogram()
-                for c in self.schema:
-                    for f in c['fields']:
-                        if f in fields:
-                            h.put(c['name'])
-                    ## FOR
-                ## FOR
-                
-                matches = h.getMaxCountKeys()
-                if len(matches) == 0:
-                    LOG.warn("No matching collection was found for corrupted operation\n%s" % pformat(op))
-                    continue
-                elif len(matches) > 1:
-                    LOG.warn("More than one matching collection was found for corrupted operation %s\n%s" % (matches, pformat(op)))
-                    continue
-                else:
-                    op["collection"] = matches[0]
-                    dirty = True
-                    self.fix_ctr += 1
-                    LOG.info("Fix corrupted collection in operation\n%s" % pformat(op))
-                ## IF
-            ## FOR (operations)
-            
-            if dirty:
-                self.workload_col.save(session)
-        ## FOR (sessions)
-        
-    ## DEF
-    
-    def addKeys(self, fields, doc, nested):
-        for k in doc.keys():
-            fields[k] = {}
-            if type(doc[k]) is dict:
-                self.addKeys(fields, doc[k], True)
-        ## FOR
     ## DEF
     
     def processInsert(self, op):
@@ -284,7 +220,74 @@ class Reconstructor:
         return False
     ## DEF
     
+    ## ==============================================
+    ## SCHEMA EXTRACTION
+    ## ==============================================
     
+    def extractSchema(self):
+        """Iterates through all documents and infers the schema..."""
+        cols = self.recreated_db.collection_names()
+        LOG.info("Found %d collections. Processing...", len(cols))
+        
+        for col in cols:
+            # Skip ignored collections
+            if col.split(".")[0] in constants.IGNORED_COLLECTIONS:
+                continue
+            
+            fields = {}
+            for doc in self.recreated_db[col].find():
+                catalog.extractFields(fields, doc)
+            
+            c = Collection()
+            c['name'] = col
+            
+            
+            c['fields'] = fields
+            self.schema[col] = c
+        ## FOR
+    ## DEF
     
+    ## ==============================================
+    ## OPERATION FIXIN'
+    ## ==============================================
+
+    def fixInvalidCollections(self):
+        for session in self.workload_col.find({"operations.collection": constants.INVALID_COLLECTION_MARKER}):
+            for op in session["operations"]:
+                dirty = False
+                if op["collection"] != constants.INVALID_COLLECTION_MARKER:
+                    continue
+                
+                # For each field referenced in the query, build a histogram of 
+                # which collections have a field with the same name
+                fields = workload.getReferencedFields(op)
+                h = Histogram()
+                for c in self.schema:
+                    for f in c['fields']:
+                        if f in fields:
+                            h.put(c['name'])
+                    ## FOR
+                ## FOR
+                
+                matches = h.getMaxCountKeys()
+                if len(matches) == 0:
+                    LOG.warn("No matching collection was found for corrupted operation\n%s" % pformat(op))
+                    continue
+                elif len(matches) > 1:
+                    LOG.warn("More than one matching collection was found for corrupted operation %s\n%s" % (matches, pformat(op)))
+                    continue
+                else:
+                    op["collection"] = matches[0]
+                    dirty = True
+                    self.fix_ctr += 1
+                    LOG.info("Fix corrupted collection in operation\n%s" % pformat(op))
+                ## IF
+            ## FOR (operations)
+            
+            if dirty:
+                self.workload_col.save(session)
+        ## FOR (sessions)
+        
+    ## DEF
     
 ## CLASS
