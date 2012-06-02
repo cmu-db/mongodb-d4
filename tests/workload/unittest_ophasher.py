@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
-sys.path.append("/home/pavlo/Documents/MongoDB/MongoDB-Designer/src")
+import os, sys
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../../src"))
 
 import unittest
 from workload.ophasher import OpHasher

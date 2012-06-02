@@ -236,7 +236,7 @@ class Reconstructor:
             
             fields = {}
             for doc in self.recreated_db[col].find():
-                catalog.extractFields(fields, doc)
+                catalog.extractFields(doc, fields)
             
             c = Collection()
             c['name'] = col

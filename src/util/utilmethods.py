@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import sys
-import re
 import logging
-from types import *
-from pprint import pformat
 
 LOG = logging.getLogger(__name__)
 

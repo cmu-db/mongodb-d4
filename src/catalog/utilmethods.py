@@ -2,19 +2,28 @@
 
 import sys
 import logging
+import re
 import types
+import math
 from datetime import datetime
 from pprint import pformat
 
 import collection
-import math
+from util import constants
 
+#logging.basicConfig(level = logging.DEBUG,
+                    #format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                    #datefmt="%m-%d-%Y %H:%M:%S",
+                    #stream = sys.stdout)
 LOG = logging.getLogger(__name__)
 
-def extractFields(self, fields, doc, nested=False):
+def extractFields(doc, fields, nested=False):
     """Recursively traverse a single document and extract out the field information"""
+    
+    debug = LOG.isEnabledFor(logging.DEBUG)
+    if debug: LOG.debug("Extracting fields for document:\n%s" % pformat(doc))
+    
     for k,v in doc.iteritems():
-        
         # TODO: Should we always skip '_id'?
         # if name == '_id': continue
         
@@ -24,6 +33,7 @@ def extractFields(self, fields, doc, nested=False):
         if not k in fields:
             # This is only subset of what we will compute for each field
             # See catalog.Collection for more information
+            if debug: LOG.debug("Creating new field entry for '%s' [nested=%s]" % (k, nested))
             fields[k] = {
                 'type': f_type_str,
                 'fields': { },
@@ -36,7 +46,8 @@ def extractFields(self, fields, doc, nested=False):
         
         # Nested Fields
         if f_type is dict:
-            self.extractFields(fields[k]['fields'], doc[k], True)
+            if debug: LOG.debug("Extracting keys in nested field for '%s'" % (k))
+            extractFields(doc[k], fields[k]['fields'], True)
         
         # List of Values
         # Could be either scalars or dicts. If it's a dict, then we'll just
@@ -48,18 +59,20 @@ def extractFields(self, fields, doc, nested=False):
                 inner_type = type(doc[k][i])
                 # More nested documents...
                 if inner_type is dict:
-                    self.extractFields(fields[k], doc[k][i], True)
+                    if debug: LOG.debug("Extracting keys in nested field in list position %d for '%s'" % (i, k))
+                    extractFields(doc[k][i], fields[k], True)
                 else:
                     # TODO: We probably should store a list of types here in case
                     #       the list has different types of values
-                    inner = fields[k]['fields'].get(constants.LIST_INNER_FIELD], {})
+                    inner = fields[k]['fields'].get(constants.LIST_INNER_FIELD, {})
                     inner['type'] = fieldTypeToString(inner_type)
+                    fields[k]['fields'][constants.LIST_INNER_FIELD] = inner
             ## FOR (list)
     ## FOR
 ## DEF
 
 # Mapping from TypeName -> Type
-TYPES_XREF = { (t.__name__, t) for t in [IntType, LongType, FloatType, BooleanType] }
+TYPES_XREF = { (t.__name__, t) for t in [types.IntType, types.LongType, types.FloatType, types.BooleanType] }
 def getEstimatedSize(typeName, value):
     """Returns the estimated size (in bytes) of the value for the given type"""
     

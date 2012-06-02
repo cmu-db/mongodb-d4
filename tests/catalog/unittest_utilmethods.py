@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 
+import os, sys
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../../src"))
+
 import unittest
+from datetime import datetime
+from pprint import pprint, pformat
 
 import catalog
 
-class testUtilMethods(unittest.TestCase):
+class TestUtilMethods(unittest.TestCase):
     
     def testFieldTypeSerialization(self):
         for t in [ int, str, unicode, float ]:
@@ -28,7 +34,8 @@ class testUtilMethods(unittest.TestCase):
             #'dict': ....
         }
         
-        fields = catalog.extractFields(doc)
+        fields = { }
+        catalog.extractFields(doc, fields)
         self.assertFalse(fields == None)
         self.assertEquals(dict, type(fields))
         for key, val in doc.items():
@@ -69,7 +76,7 @@ class testUtilMethods(unittest.TestCase):
         }
         
         fields = { }
-        catalog.extractFields(fields, doc)
+        catalog.extractFields(doc, fields)
         self.assertNotEqual(fields, None)
         self.assertNotEqual(len(fields), 0)
         pprint(fields)
@@ -85,3 +92,7 @@ class testUtilMethods(unittest.TestCase):
     ## DEF
     
 ## CLASS
+
+if __name__ == '__main__':
+    unittest.main()
+## MAIN
