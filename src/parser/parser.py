@@ -30,6 +30,7 @@ import json
 import hashlib
 import logging
 from pprint import pformat
+from util import utilmethods
 
 # Third-Party Dependencies
 basedir = os.path.realpath(os.path.dirname(__file__))
@@ -223,6 +224,18 @@ class Parser:
         # Post Processing!
         # If only Emanuel was still alive to see this!
         self.postProcess()
+        
+        # Save all session!
+        for session in self.session_map.itervalues():
+            try:
+                self.workload_col.save(session)
+            except (Exception) as err:
+                dump = pformat(session)
+                if len(dump) > 1024: dump = dump[:1024].strip() + "..."
+                LOG.error("Failed to save session: %s\n%s" % (err.message, dump))
+                pass
+        ## FOR
+        
         pass
     ## DEF
     
@@ -269,6 +282,11 @@ class Parser:
             
             if LOG.isEnabledFor(logging.DEBUG):
                 LOG.debug("Current Operation Content:\n%s" % pformat(self.currentContent))
+            
+            # Escape any key that starts with '$'
+            for i in xrange(0, len(self.currentContent)):
+                self.currentContent[i] = utilmethods.escapeFieldNames(self.currentContent[i])
+            ## FOR
             
             op = {
                 'collection': unicode(self.currentOp['collection']),
@@ -334,7 +352,7 @@ class Parser:
                 del self.query_response_map[query_id]
             else:
                 self.skip_ctr += 1
-                LOG.warn("Skipping Response - No matching query_id '%s' [skipCtr=%d/%d]" % (query_id, self.skip_ctr, self.resp_ctr))
+                LOG.warn("Skipping Response - No matching query_id '%s' [skipCtr=%d/%d, line=%d]" % (query_id, self.skip_ctr, self.resp_ctr, self.line_ctr))
                 
         # These can be safely ignored
         elif self.currentOp['type'] in [OP_TYPE_GETMORE, OP_TYPE_KILLCURSORS]:
@@ -570,7 +588,7 @@ class Parser:
         LOG.debug("Pre-computing hashes for all known collection names...")
         hashed_collections = {} # hash --> collection name
         for col_name in self.known_collections:
-            hash = anonymize.hash_string(get_hash_string(col_name), salt)
+            hash = anonymize.hash_string(self.get_hash_string(col_name), salt)
             hashed_collections[hash] = col_name
             if LOG.isEnabledFor(logging.DEBUG):
                 LOG.debug("hash: %s / col_name: %s / hash_str: %s" % (hash, col_name, get_hash_string(col_name)))
@@ -585,11 +603,12 @@ class Parser:
         
         candidate_hashes = set()
         LOG.info("Retrieving hashed collection names...")
-        for session in self.workload_col.find({'operations.query_aggregate': True}):
+        for session in self.session_map.itervalues():
             for op in session['operations']:
                 if op['query_aggregate']:
                     # find the JSON of the query...
-                    query = op['query_content'][0] # we care about the first (0th) BSON in the list
+                    # we care about the first (0th) BSON in the list
+                    query = op['query_content'][0] 
                     
                     # The 'count' key corresponds to the target collection name
                     if 'count' in query:

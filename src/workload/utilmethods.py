@@ -40,6 +40,19 @@ def convertWorkload(conn):
     new_sess.save()
 ## DEF
 
+def escapeFieldNames(content):
+    copy = dict(content.items())
+    toFix = [ ]
+    for k, v in copy.iteritems():
+        if k.startswith('$'):
+            toFix.append(k)
+        if type(v) == dict:
+            v = escapeFieldNames(v)
+        copy[k] = v
+    ## FOR
+    return copy
+## DEF
+
 def getReferencedFields(op):
     """Get a list of the fields referenced in the given operation"""
     content = op["query_content"]

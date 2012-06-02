@@ -165,7 +165,6 @@ class Reconstructor:
             
             if dirty:
                 self.workload_col.save(session)
-                
         ## FOR (sessions)
         
     ## DEF
