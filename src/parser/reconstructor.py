@@ -37,11 +37,12 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 import mongokit
 
 # MongoDB-Designer
-sys.path.append("../workload")
-sys.path.append("../sanitizer")
 import anonymize
 import parser
+from catalog import Collection
 from traces import Session
+from util.histogram import Histogram
+from util import utilmethods
 
 LOG = logging.getLogger(__name__)
 
@@ -53,9 +54,13 @@ LOG = logging.getLogger(__name__)
 class Reconstructor:
     """MongoDB Database Reconstructor"""
     
-    def __init__(self, workload_col, recreated_db):
+    def __init__(self, workload_col, recreated_db, schema_col):
         self.workload_col = workload_col
         self.recreated_db = recreated_db
+        self.schema_col = schema_col
+        
+        # Name -> Collection
+        self.schema = { }
 
         pass
     ## DEF
@@ -65,6 +70,27 @@ class Reconstructor:
         cnt = self.workload_col.find().count()
         LOG.info("Found %d sessions in the workload collection. Processing... ", cnt)
         
+        self.reconstructDatabase()
+        
+        self.extractSchema()
+        for c in self.collections.values():
+            self.schema_col.insert(c)
+        ## FOR
+        
+        LOG.info("Done.")
+    ## DEF
+    
+    def clean(self):
+        LOG.warn("Purging existing reconstructed database '%s'" % (self.recreated_db.name))
+        db = self.recreated_db.database
+        db.connection.drop_database(db.name)
+        
+        LOG.warn("Purging existing catalog collection '%s.%s'" % (self.schema_col.database.name, self.schema_col.name))
+        db = self.schema_col.database
+        db.connection.drop_database(db.name)
+    ## DEF
+    
+    def reconstructDatabase(self):
         for session in self.workload_col.find():
             for op in session["operations"]:
                 # HACK: Skip any operations with invalid collection names
@@ -84,7 +110,72 @@ class Reconstructor:
                     LOG.warn("Unknown operation type: %s", op["type"])
             ## FOR (operations)
         ## FOR (sessions)
-        LOG.info("Done.")
+    ## DEF
+    
+    def extractSchema(self):
+        """Iterates through all documents and infers the schema..."""
+        cols = self.recreated_db.collection_names()
+        LOG.info("Found %d collections. Processing...", len(cols))
+        
+        for col in cols:
+            # Skip system collection
+            if col.startswith("system."):
+                continue
+            c = Collection()
+            c['name'] = col
+            fields = {}
+            for doc in self.recreated_db[col].find():
+                self.addKeys(fields, doc, False)
+            c['fields'] = fields
+            self.collections[col] = c
+        ## FOR
+    ## DEF
+
+    def fixInvalidCollections(self):
+        for session in self.workload_col.find({"operations.collection": parser.INVALID_COLLECTION_MARKER}):
+            for op in session["operations"]:
+                dirty = False
+                if op["collection"] != parser.INVALID_COLLECTION_MARKER:
+                    continue
+                
+                # For each field referenced in the query, build a histogram of 
+                # which collections have a field with the same name
+                fields = utilmethods.getReferencedFields(op)
+                h = Histogram()
+                for c in self.collections:
+                    for f in c['fields']:
+                        if f in fields:
+                            h.put(c['name'])
+                    ## FOR
+                ## FOR
+                
+                matches = h.getMaxCountKeys()
+                if len(matches) == 0:
+                    LOG.warn("No matching collection was found for corrupted operation\n%s" % pformat(op))
+                    continue
+                elif len(matches) > 1:
+                    LOG.warn("More than one matching collection was found for corrupted operation %s\n%s" % (matches, pformat(op)))
+                    continue
+                else:
+                    op["collection"] = matches[0]
+                    dirty = True
+                    LOG.info("Fix corrupted collection in operation\n%s" % pformat(op))
+                ## IF
+            ## FOR (operations)
+            
+            if dirty:
+                self.workload_col.save(session)
+                
+        ## FOR (sessions)
+        
+    ## DEF
+    
+    def addKeys(self, fields, doc, nested):
+        for k in doc.keys():
+            fields[k] = {}
+            if type(doc[k]) is dict:
+                self.addKeys(fields, doc[k], True)
+        ## FOR
     ## DEF
     
     def processInsert(self, op):
@@ -104,7 +195,7 @@ class Reconstructor:
         self.recreated_db[col].remove(payload)
     ## DEF
 
-    def processUpdate(op):
+    def processUpdate(self, op):
         payload = op["query_content"]
         col = op["collection"]
         
@@ -114,8 +205,8 @@ class Reconstructor:
         self.recreated_db[col].update(payload[0], payload[1], op["update_upsert"], op["update_multi"])
     ## DEF
 
-    def processQuery(op):
-        if op["query_aggregate"] == 1:
+    def processQuery(self, op):
+        if op["query_aggregate"]:
             # This is probably AGGREGATE... disregard it
             return
         
@@ -135,6 +226,8 @@ class Reconstructor:
             #print "doc:", doc
             self.recreated_db[col].update(doc, doc, True, False)
     ## DEF
+    
+    
     
     
 ## CLASS

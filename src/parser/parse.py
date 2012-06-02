@@ -59,9 +59,12 @@ LOG = logging.getLogger(__name__)
 INPUT_FILE = "sample.txt"
 WORKLOAD_DB = "metadata"
 WORKLOAD_COLLECTION = "workload01"
+SCHEMA_DB = "schema"
+SCHEMA_COL = "schema"
+RECREATED_DB = "dataset"
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = "27017"
-RECREATED_DB = "dataset"
+
 
 ## ==============================================
 ## main
@@ -78,6 +81,10 @@ if __name__ == '__main__':
                          help='the database where you want to store the traces')
     aparser.add_argument('--workload_col', default=WORKLOAD_COLLECTION,
                          help='The collection where you want to store the traces', )
+    aparser.add_argument('--schema_db', default=SCHEMA_DB,
+                         help='the database of the schema catalog')
+    aparser.add_argument('--schema_col', default=SCHEMA_COL,
+                         help='the collection of the schema catalog')
     aparser.add_argument('--recreated_db', default=RECREATED_DB,
                          help='the database of the recreated dataset', )
     aparser.add_argument('--clean', action='store_true',
@@ -128,8 +135,7 @@ if __name__ == '__main__':
         
         # wipe the collection
         if args['clean']:
-            LOG.warn("Purging existing sessions in '%s.%s'" % (workload_col.database.name, workload_col.name))
-            p.cleanWorkload()
+            p.clean()
             
             # TODO: Clean out reconstructed database
             # TODO: Clean out schema catalog

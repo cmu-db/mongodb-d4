@@ -37,8 +37,7 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 import mongokit
 
 # MongoDB-Designer
-sys.path.append("../workload")
-sys.path.append("../sanitizer")
+sys.path.append("..")
 import anonymize
 from traces import Session
 
@@ -179,8 +178,9 @@ class Parser:
         return self.op_ctr
     ## DEF
     
-    def cleanWorkload(self):
+    def clean(self):
         """Remove all existing sessions in the workload collection"""
+        LOG.warn("Purging existing sessions collection '%s.%s'" % (self.workload_col.database.name, self.workload_col.name))
         self.workload_col.remove()
     ## DEF
     

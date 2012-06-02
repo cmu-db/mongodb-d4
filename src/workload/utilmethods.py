@@ -39,3 +39,29 @@ def convertWorkload(conn):
     print new_sess
     new_sess.save()
 ## DEF
+
+def getReferencedFields(op):
+    """Get a list of the fields referenced in the given operation"""
+    content = op["query_content"]
+    
+    # QUERY
+    if op["type"] == parser.OP_TYPE_QUERY:
+        if not op["query_aggregate"]: 
+            fields = content[parser.OP_TYPE_QUERY].keys()
+    # DELETE
+    elif op["type"] == parser.OP_TYPE_DELETE:
+        fields = content.keys()
+
+    # UPDATE
+    elif op["type"] == parser.OP_TYPE_UPDATE:
+        fields = set()
+        for data in content:
+            fields |= data.keys()
+        fields = list(fields)
+        
+    # INSERT
+    elif op["type"] in [parser.OP_TYPE_INSERT, parser.OP_TYPE_ISERT]:
+        fields = content.keys()
+    
+    return fields
+## DEF

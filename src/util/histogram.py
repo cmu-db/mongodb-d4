@@ -27,11 +27,43 @@
 class Histogram(dict):
     def __init__(self, *args, **kw):
         super(Histogram, self).__init__(*args, **kw)
+        
+        self.min_keys = [ ]
+        self.min_cnt = None
+        self.max_keys = [ ]
+        self.max_cnt = None
+        
         pass
     # DEF
     def put(self, x, delta=1):
         self[x] = self.get(x, 0) + delta
     # DEF
+    
+    def __computeInternalValues__(self):
+        self.min_cnt = None
+        self.max_cnt = None
+        
+        for key, cnt in self.iteritems():
+            if self.min_cnt == None or cnt <= self.min_cnt:
+                if cnt < self.min_cnt: self.min_keys = []
+                self.min_keys.append(key)
+                self.min_cnt = cnt
+            if self.max_cnt == None or cnt >= self.max_cnt:
+                if cnt > self.max_cnt: self.max_keys = []
+                self.max_keys.append(key)
+                self.max_cnt = cnt
+        ## FOR
+    ## DEF
+    
+    def getMinCountKeys(self):
+        self.__computeInternalValues__()
+        return self.min_keys
+    ## DEF
+    def getMaxCountKeys(self):
+        self.__computeInternalValues__()
+        return self.max_keys
+    ## DEF
+    
     def toJava(self):
         output = ""
         for key in sorted(self.iterkeys()):
