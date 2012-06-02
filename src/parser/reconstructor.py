@@ -38,10 +38,11 @@ import mongokit
 
 # MongoDB-Designer
 sys.path.append(os.path.join(basedir, ".."))
+import catalog
 import parser
 import workload
-from sanitizer import anonymize
 from catalog import Collection
+from sanitizer import anonymize
 from traces import Session
 from util.histogram import Histogram
 from util import constants
@@ -169,7 +170,6 @@ class Reconstructor:
         col = op["collection"]
         LOG.debug("Inserting %d documents into collection %s", len(payload), col)
         for doc in payload:
-            LOG.debug("inserting: ", doc)
             self.recreated_db[col].save(doc)
         return True
     ## DEF
@@ -252,11 +252,14 @@ class Reconstructor:
     ## ==============================================
 
     def fixInvalidCollections(self):
+        
         for session in self.workload_col.find({"operations.collection": constants.INVALID_COLLECTION_MARKER}):
             for op in session["operations"]:
                 dirty = False
                 if op["collection"] != constants.INVALID_COLLECTION_MARKER:
                     continue
+                
+                LOG.info("Attempting to fix corrupted Operation:\n%s" % pformat(op))
                 
                 # For each field referenced in the query, build a histogram of 
                 # which collections have a field with the same name

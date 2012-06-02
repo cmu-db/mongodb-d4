@@ -36,17 +36,19 @@ def extractFields(doc, fields, nested=False):
             if debug: LOG.debug("Creating new field entry for '%s' [nested=%s]" % (k, nested))
             fields[k] = {
                 'type': f_type_str,
-                'fields': { },
             }
         else:
+            pass
             # Sanity check
             # This won't work if the data is not uniform
-            assert fields[k]['type'] == f_type_str, \
-                "Mismatched field types '%s' <> '%s'" % (fields[k]['type'], f_type_str)
+            #if v != None:
+                #assert fields[k]['type'] == f_type_str, \
+                    #"Mismatched field types '%s' <> '%s' for '%s'" % (fields[k]['type'], f_type_str, k)
         
         # Nested Fields
         if f_type is dict:
             if debug: LOG.debug("Extracting keys in nested field for '%s'" % (k))
+            if not 'fields' in fields[k]: fields[k]['fields'] = { }
             extractFields(doc[k], fields[k]['fields'], True)
         
         # List of Values
@@ -55,12 +57,14 @@ def extractFields(doc, fields, nested=False):
         # If it's a list, then we'll use a special marker 'LIST_INNER_FIELD' to
         # store the field information for the inner values.
         elif f_type is list:
+            if not 'fields' in fields[k]: fields[k]['fields'] = { }
+            
             for i in xrange(0, len(doc[k])):
                 inner_type = type(doc[k][i])
                 # More nested documents...
                 if inner_type is dict:
                     if debug: LOG.debug("Extracting keys in nested field in list position %d for '%s'" % (i, k))
-                    extractFields(doc[k][i], fields[k], True)
+                    extractFields(doc[k][i], fields[k]['fields'], True)
                 else:
                     # TODO: We probably should store a list of types here in case
                     #       the list has different types of values
