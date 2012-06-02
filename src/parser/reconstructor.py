@@ -37,11 +37,13 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 import mongokit
 
 # MongoDB-Designer
+sys.path.append(os.path.join(basedir, ".."))
 import parser
 from sanitizer import anonymize
 from catalog import Collection
 from traces import Session
 from util.histogram import Histogram
+from util import constants
 from workload import utilmethods
 
 LOG = logging.getLogger(__name__)
@@ -58,6 +60,11 @@ class Reconstructor:
         self.workload_col = workload_col
         self.recreated_db = recreated_db
         self.schema_col = schema_col
+        
+        self.op_ctr = 0
+        self.sess_ctr = 0
+        self.skip_ctr = 0
+        self.fix_ctr = 0
         
         # Name -> Collection
         self.schema = { }
@@ -82,11 +89,40 @@ class Reconstructor:
         self.fixInvalidCollections()
         
         # Now write the schema out to the database
-        for c in self.collections.values():
+        for c in self.schema.itervalues():
             self.schema_col.insert(c)
         ## FOR
         
         LOG.info("Done.")
+    ## DEF
+    
+    def getSessionCount(self):
+        """Return the number of sessions examined"""
+        return self.sess_ctr
+    ## DEF
+    
+    def getOpCount(self):
+        """Return the number of operations examined"""
+        return self.op_ctr
+    ## DEF
+    
+    def getOpSkipCount(self):
+        """Return the number of operations that were skipped during processing"""
+        return self.skip_ctr
+    ## DEF
+    
+    def getOpFixCount(self):
+        """Return the number of operations that were fixed during processing"""
+        return self.fix_ctr
+    ## DEF
+    
+    def getCollectionCounts(self):
+        """Return a dict of the collections in the recreated database and the number of
+           documents that they contain"""
+        counts = { }
+        for col in self.recreated_db.collection_names():
+            counts[col] = self.recreated_db[col].find().count()
+        return counts
     ## DEF
     
     def clean(self):
@@ -100,22 +136,28 @@ class Reconstructor:
     
     def reconstructDatabase(self):
         for session in self.workload_col.find():
+            self.sess_ctr += 1
             for op in session["operations"]:
+                self.op_ctr += 1
+                
                 # HACK: Skip any operations with invalid collection names
                 #       We will go back later and fix these up
-                if op["collection"] == parser.INVALID_COLLECTION_MARKER:
+                if op["collection"] == constants.INVALID_COLLECTION_MARKER:
+                    self.skip_ctr += 1
                     continue
                 
-                if op["type"] == parser.OP_TYPE_QUERY:
-                    self.processQuery(op)
-                elif op["type"] == parser.OP_TYPE_DELETE:
-                    self.processDelete(op)
-                elif op["type"] == parser.OP_TYPE_UPDATE:
-                    self.processUpdate(op)
-                elif op["type"] in [parser.OP_TYPE_INSERT, parser.OP_TYPE_ISERT]:
-                    self.processInsert(op)
+                if op["type"] == constants.OP_TYPE_QUERY:
+                    ret = self.processQuery(op)
+                elif op["type"] == constants.OP_TYPE_DELETE:
+                    ret = self.processDelete(op)
+                elif op["type"] == constants.OP_TYPE_UPDATE:
+                    ret = self.processUpdate(op)
+                elif op["type"] in [constants.OP_TYPE_INSERT, constants.OP_TYPE_ISERT]:
+                    ret = self.processInsert(op)
                 else:
                     LOG.warn("Unknown operation type: %s", op["type"])
+                    
+                if not ret: self.skip_ctr += 1
             ## FOR (operations)
         ## FOR (sessions)
     ## DEF
@@ -135,22 +177,22 @@ class Reconstructor:
             for doc in self.recreated_db[col].find():
                 self.addKeys(fields, doc, False)
             c['fields'] = fields
-            self.collections[col] = c
+            self.schema[col] = c
         ## FOR
     ## DEF
 
     def fixInvalidCollections(self):
-        for session in self.workload_col.find({"operations.collection": parser.INVALID_COLLECTION_MARKER}):
+        for session in self.workload_col.find({"operations.collection": constants.INVALID_COLLECTION_MARKER}):
             for op in session["operations"]:
                 dirty = False
-                if op["collection"] != parser.INVALID_COLLECTION_MARKER:
+                if op["collection"] != constants.INVALID_COLLECTION_MARKER:
                     continue
                 
                 # For each field referenced in the query, build a histogram of 
                 # which collections have a field with the same name
                 fields = utilmethods.getReferencedFields(op)
                 h = Histogram()
-                for c in self.collections:
+                for c in self.schema:
                     for f in c['fields']:
                         if f in fields:
                             h.put(c['name'])
@@ -167,6 +209,7 @@ class Reconstructor:
                 else:
                     op["collection"] = matches[0]
                     dirty = True
+                    self.fix_ctr += 1
                     LOG.info("Fix corrupted collection in operation\n%s" % pformat(op))
                 ## IF
             ## FOR (operations)
@@ -192,6 +235,7 @@ class Reconstructor:
         for doc in payload:
             LOG.debug("inserting: ", doc)
             self.recreated_db[col].save(doc)
+        return True
     ## DEF
 
     def processDelete(self, op):
@@ -199,6 +243,7 @@ class Reconstructor:
         col = op["collection"]
         LOG.debug("Deleting documents from collection %s..", col)
         self.recreated_db[col].remove(payload)
+        return True
     ## DEF
 
     def processUpdate(self, op):
@@ -209,6 +254,7 @@ class Reconstructor:
         assert len(payload) == 2, \
             "Update operation payload is expected to have exactly 2 entries."
         self.recreated_db[col].update(payload[0], payload[1], op["update_upsert"], op["update_multi"])
+        return True
     ## DEF
 
     def processQuery(self, op):
@@ -231,7 +277,11 @@ class Reconstructor:
             for doc in op["resp_content"]:
                 #print "doc:", doc
                 self.recreated_db[col].update(doc, doc, True, False)
+            
+            return True
         ## IF
+        
+        return False
     ## DEF
     
     

@@ -57,14 +57,12 @@ LOG = logging.getLogger(__name__)
 ## TODO: These should come from util.config
 ## ==============================================
 INPUT_FILE = "sample.txt"
-WORKLOAD_DB = "metadata"
-WORKLOAD_COLLECTION = "workload01"
-SCHEMA_DB = "schema"
-SCHEMA_COL = "schema"
+METADATA_DB = "metadata"
+WORKLOAD_COLLECTION = constants.COLLECTION_WORKLOAD
+SCHEMA_COL = constants.COLLECTION_SCHEMA
 RECREATED_DB = "dataset"
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = "27017"
-
 
 ## ==============================================
 ## main
@@ -77,18 +75,16 @@ if __name__ == '__main__':
                          help='port to connect to')
     aparser.add_argument('--file', default=INPUT_FILE,
                          help='file to read from')
-    aparser.add_argument('--workload-db', default=WORKLOAD_DB,
-                         help='the database where you want to store the traces')
+    aparser.add_argument('--metadata-db', default=METADATA_DB,
+                         help='The database used to store the metadata extracted from the sample workload file.')
     aparser.add_argument('--workload-col', default=WORKLOAD_COLLECTION,
                          help='The collection where you want to store the traces', )
-    aparser.add_argument('--schema-db', default=SCHEMA_DB,
-                         help='the database of the schema catalog')
     aparser.add_argument('--schema-col', default=SCHEMA_COL,
-                         help='the collection of the schema catalog')
+                         help='The collection used for the schema catalog in the metadata database.')
     aparser.add_argument('--recreated-db', default=RECREATED_DB,
-                         help='the database of the recreated dataset', )
+                         help='The database used to stored the recreated database derived from the sample workload.', )
     aparser.add_argument('--clean', action='store_true',
-                         help='Remove all documents in the workload collection before processing is started')
+                         help='Remove all documents in each database before processing is started.')
                          
     aparser.add_argument('--no-load', action='store_true',
                          help='Skip parsing and loading workload from file')
@@ -112,15 +108,15 @@ if __name__ == '__main__':
         reconstructor.LOG.setLevel(logging.DEBUG)
 
     LOG.info("..:: MongoDesigner Trace Parser ::..")
-    LOG.debug("Server: %(host)s:%(port)d / InputFile: %(file)s / Storage: %(workload_db)s.%(workload_col)s" % args)
+    LOG.debug("Server: %(host)s:%(port)d / InputFile: %(file)s / Storage: %(metadata_db)s.%(workload_col)s" % args)
 
     # initialize connection to MongoDB
     LOG.debug("Connecting to MongoDB at %s:%d" % (args['host'], args['port']))
     connection = Connection(args['host'], args['port'])
     
     # The WORKLOAD collection is where we stores sessions+operations
-    workload_col = connection[args['workload_db']][args['workload_col']]
-    assert workload_col, "Invalid WORKLOAD collection %s.%s" % (args['workload_db'], args['workload_col'])
+    workload_col = connection[args['metadata_db']][args['workload_col']]
+    assert workload_col, "Invalid WORKLOAD collection %s.%s" % (args['metadata_db'], args['workload_col'])
     
     # The RECREATED database will contain the database derived from the
     # keys+values used in the sample workload's operations
@@ -129,8 +125,8 @@ if __name__ == '__main__':
 
     # The SCHEMA collection is where we will store the metadata information that
     # we will derive from the RECREATED database
-    schema_col = connection[args['schema_db']][args['schema_col']]
-    assert schema_col, "Invalid SCHEMA collection %s.%s" % (args['schema_db'], args['schema_col'])
+    schema_col = connection[args['metadata_db']][args['schema_col']]
+    assert schema_col, "Invalid SCHEMA collection %s.%s" % (args['metadata_db'], args['schema_col'])
     
     ## ----------------------------------------------
     ## WORKLOAD PARSING + LOADING
@@ -160,12 +156,9 @@ if __name__ == '__main__':
             LOG.info("Processing file %s", args['file'])
             p.process()
             LOG.info("Finishing processing %s" % args['file'])
-            LOG.info("Added %d sessions with %d operations to '%s.%s'" % (\
-                p.getSessionCount(),
-                p.getOpCount(),
-                workload_col.database.name, 
-                workload_col.name))
-            LOG.info("Skipped Responses: %d" % p.skip_ctr)
+            LOG.info("Added %d sessions with %d operations to '%s'" % (\
+                p.getSessionCount(), p.getOpCount(), workload_col.full_name))
+            LOG.info("Skipped Responses: %d" % p.getOpSkipCount())
         ## WITH
     ## IF
     
@@ -182,12 +175,16 @@ if __name__ == '__main__':
         
         # Bombs away!
         r.process()
+        LOG.info("Processed %d sessions with %d operations into '%s'" % (\
+                 r.getSessionCount(), r.getOpCount(), recreated_db.name))
+        LOG.info("Skipped Operations: %d" % r.getOpSkipCount())
+        LOG.info("Fixed Operations: %d" % r.getOpFixCount())
+        LOG.info("Collection Sizes:\n%s" % pformat(r.getCollectionCounts()))
     ## IF
-
     
     # Print out some information when parsing finishes
-    if args['debug']:
-        workload_info.print_stats(args['host'], args['port'], args['workload_db'], args['workload_col'])
+    #if args['debug']:
+        #workload_info.print_stats(args['host'], args['port'], args['metadata_db'], args['workload_col'])
     
 ## MAIN
 

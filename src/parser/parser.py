@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+    # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
 # Copyright (C) 2012 by Brown University
 #
@@ -37,20 +37,13 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 import mongokit
 
 # MongoDB-Designer
-sys.path.append("..")
+sys.path.append(os.path.join(basedir, ".."))
 from sanitizer import anonymize
 from traces import Session
+from util import constants
 from workload import utilmethods
 
-
 LOG = logging.getLogger(__name__)
-
-## ==============================================
-## DEFAULT VALUES
-## ==============================================
-INITIAL_SESSION_UID = 100 #where to start the incremental session uid
-
-INVALID_COLLECTION_MARKER = "*INVALID*"
 
 ## ==============================================
 ## PARSING REGEXES
@@ -95,15 +88,7 @@ FLAGS_MASK = ".*flags:(?P<flags>\d).*" #vals: 0,1,2,3
 NTORETURN_MASK = ".*ntoreturn: (?P<ntoreturn>-?\d+).*" # int 
 NTOSKIP_MASK = ".*ntoskip: (?P<ntoskip>\d+).*" #int
 
-# op TYPES
-OP_TYPE_QUERY = '$query'
-OP_TYPE_INSERT = '$insert'
-OP_TYPE_ISERT = '$isert'
-OP_TYPE_DELETE = '$delete'
-OP_TYPE_UPDATE = '$update'
-OP_TYPE_REPLY = '$reply'
-OP_TYPE_GETMORE = '$getMore'
-OP_TYPE_KILLCURSORS = '$killCursors'
+
 
 # Original Code: Emanuel Buzek
 class Parser:
@@ -137,7 +122,7 @@ class Parser:
         
         # current session map holds all session objects. Mapping client_id --> Session()
         self.session_map = {} 
-        self.session_uid = INITIAL_SESSION_UID # first session_id
+        self.session_uid = constants.INITIAL_SESSION_UID # first session_id
 
         # used to pair up queries & replies by their mongosniff ID
         self.query_response_map = {} 
@@ -177,6 +162,11 @@ class Parser:
     def getOpCount(self):
         """Return the number of operations extracted from the workload trace"""
         return self.op_ctr
+    ## DEF
+    
+    def getOpSkipCount(self):
+        """Return the number of operations that were skipped during processing"""
+        return self.skip_ctr
     ## DEF
     
     def clean(self):
@@ -249,7 +239,7 @@ class Parser:
             self.currentOp['collection'].decode('ascii')
         except:
             LOG.warn("Current operation has an invalid collection name '%(collection)s'. Will fix later..." % self.currentOp)
-            self.currentOp['collection'] = INVALID_COLLECTION_MARKER
+            self.currentOp['collection'] = constants.INVALID_COLLECTION_MARKER
             self.bustedOps.append(self.currentOp)
             pass
         
@@ -264,12 +254,12 @@ class Parser:
             
             # If this doesn't have a type here, then we know that it's a reply
             if not 'type' in self.currentOp:
-                self.currentOp['type'] = OP_TYPE_REPLY
+                self.currentOp['type'] = constants.OP_TYPE_REPLY
         ## IF
 
         if not 'type' in self.currentOp:
-            msg = "Current Operation is Incomplete: Missing 'type' field"
-            LOG.warn("%s\n%s" % (msg, pformat(self.currentOp)))
+            msg = "Current operation is incomplete on line %d: Missing 'type' field"
+            LOG.warn("%s\n%s" % (self.line_ctr, msg, pformat(self.currentOp)))
             if self.stop_on_error: raise Exception(msg)
             return
         ## IF
@@ -284,7 +274,7 @@ class Parser:
         
         # QUERY: $query, $delete, $insert, $update:
         # Create the operation, add it to the session
-        if self.currentOp['type'] in [OP_TYPE_QUERY, OP_TYPE_INSERT, OP_TYPE_DELETE, OP_TYPE_UPDATE]:
+        if self.currentOp['type'] in [constants.OP_TYPE_QUERY, constants.OP_TYPE_INSERT, constants.OP_TYPE_DELETE, constants.OP_TYPE_UPDATE]:
             # create the operation -- corresponds to current
             query_id = self.currentOp['trans_id'];
             
@@ -302,12 +292,12 @@ class Parser:
             }
             
             # UPDATE Flags
-            if op['type'] == OP_TYPE_UPDATE:
+            if op['type'] == constants.OP_TYPE_UPDATE:
                 op['update_upsert'] = self.currentOp['update_upsert']
                 op['update_multi'] = self.currentOp['update_multi']
             
             # QUERY Flags
-            elif op['type'] == OP_TYPE_QUERY:
+            elif op['type'] == constants.OP_TYPE_QUERY:
                 # SKIP, LIMIT
                 op['query_limit'] = self.currentOp['ntoreturn']
                 op['query_offset'] = self.currentOp['ntoskip']
@@ -330,7 +320,7 @@ class Parser:
             session['operations'].append(op)
             self.op_ctr += 1
             if LOG.isEnabledFor(logging.DEBUG):
-                LOG.debug("Added %s Operation to Session %s:\n%s" % (op['type'], session['session_id'], pformat(op)))
+                LOG.debug("Added %s operation to session %s from line %d:\n%s" % (op['type'], session['session_id'], self.line_ctr, pformat(op)))
         
             # store the collection name in known_collections. This will be useful later.
             # see the comment at known_collections
@@ -341,7 +331,7 @@ class Parser:
             self.known_collections.add(col_name)
         
         # RESPONSE - add information to the matching query
-        elif self.currentOp['type'] == OP_TYPE_REPLY:
+        elif self.currentOp['type'] == constants.OP_TYPE_REPLY:
             self.resp_ctr += 1
             query_id = self.currentOp['query_id'];
             # see if the matching query is in the map
@@ -355,12 +345,12 @@ class Parser:
                 del self.query_response_map[query_id]
             else:
                 self.skip_ctr += 1
-                LOG.warn("Skipping Response - No matching query_id '%s' [skipCtr=%d/%d, line=%d]" % (query_id, self.skip_ctr, self.resp_ctr, self.line_ctr))
+                LOG.warn("Skipping response on line %d - No matching query_id '%s' [skipCtr=%d/%d]" % (self.line_ctr, query_id, self.skip_ctr, self.resp_ctr))
                 
         # These can be safely ignored
-        elif self.currentOp['type'] in [OP_TYPE_GETMORE, OP_TYPE_KILLCURSORS]:
+        elif self.currentOp['type'] in [constants.OP_TYPE_GETMORE, constants.OP_TYPE_KILLCURSORS]:
             if LOG.isEnabledFor(logging.DEBUG):
-                LOG.warn("Skipping '%s' operation" % (self.currentOp['type']))
+                LOG.warn("Skipping '%s' operation on line %d" % (self.currentOp['type'], self.line_ctr))
             
         # UNKNOWN
         else:
@@ -436,11 +426,11 @@ class Parser:
             
         # Check whether this is a "getMore" message
         elif yaml_line.startswith("getMore"):
-            self.currentOp['type'] = OP_TYPE_GETMORE
+            self.currentOp['type'] = constants.OP_TYPE_GETMORE
             return
         # Check whether this is a "killCursors" message
         elif yaml_line.startswith("killCursors"):
-            self.currentOp['type'] = OP_TYPE_KILLCURSORS
+            self.currentOp['type'] = constants.OP_TYPE_KILLCURSORS
             return
 
         # this is not a content line... it can't be yaml
@@ -491,17 +481,17 @@ class Parser:
 
         # REPLY
         if self.replyRegex.match(line):
-            self.currentOp['type'] = OP_TYPE_REPLY
+            self.currentOp['type'] = constants.OP_TYPE_REPLY
         
         # INSERT
         elif self.insertRegex.match(line):
-            self.currentOp['type'] = OP_TYPE_INSERT
+            self.currentOp['type'] = constants.OP_TYPE_INSERT
             line = line[line.find('{'):line.rfind('}')+1]
             self.add_yaml_to_content(line)
         
         # QUERY
         elif self.queryRegex.match(line):
-            self.currentOp['type'] = OP_TYPE_QUERY
+            self.currentOp['type'] = constants.OP_TYPE_QUERY
             
             # extract OFFSET and LIMIT
             self.currentOp['ntoskip'] = int(self.ntoskipRegex.match(line).group(1))
@@ -512,7 +502,7 @@ class Parser:
             
         # UPDATE
         elif self.updateRegex.match(line):
-            self.currentOp['type'] = OP_TYPE_UPDATE
+            self.currentOp['type'] = constants.OP_TYPE_UPDATE
             
             # extract FLAGS
             upsert = False
@@ -542,7 +532,7 @@ class Parser:
         
         # DELETE
         elif self.deleteRegex.match(line):
-            self.currentOp['type'] = OP_TYPE_DELETE
+            self.currentOp['type'] = constants.OP_TYPE_DELETE
             line = line[line.find('{'):line.rfind('}')+1] 
             self.add_yaml_to_content(line) 
         
