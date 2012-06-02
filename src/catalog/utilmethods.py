@@ -11,43 +11,6 @@ import math
 
 LOG = logging.getLogger(__name__)
 
-def generateCatalogFromDatabase(dataset_db, schema_db):
-    """Generate a catalog for the given database"""
-    
-    for coll_name in dataset_db.collection_names():
-        if coll_name.startswith("system."): continue
-        LOG.info("Retrieving schema information from %s.%s" % (dataset_db.name, coll_name))
-        
-        # COLLECTION SCHEMA
-        # Grab one document from the collection and pick it apart to see what keys it has
-        # TODO: We should probably sample more than one document per collection
-        doc = dataset_db[coll_name].find_one()
-        if not doc:
-            LOG.warn("Failed to retrieve at least one record from %s.%s" % (dataset_db.name, coll_name))
-            continue
-        
-        coll_catalog = schema_db.Collection()
-        coll_catalog['name'] = coll_name
-        try:
-            coll_catalog["fields"] = extractFields(doc)
-        except:
-            LOG.error("Unexpected error when processing %s.%s" % (dataset_db.name, coll_name))
-            raise
-        
-        # COLLECTION INDEXES
-        coll_catalog["indexes"] = dataset_db[coll_name].index_information()
-        
-        # SHARDING KEYS
-        coll_catalog["shard_keys"] = [ ] # TODO
-
-        coll_catalog.save()
-        #print coll_catalog["name"], "=>", type(coll_catalog)
-    ## FOR
-    #print "-"*100
-    #coll_catalog = schema_db.Collection.find_one({'name': 'CUSTOMER'})
-    #print coll_catalog["name"], "=>", type(coll_catalog)
-## DEF
-
 def extractFields(self, fields, doc, nested=False):
     """Recursively traverse a single document and extract out the field information"""
     for k,v in doc.iteritems():
@@ -56,64 +19,73 @@ def extractFields(self, fields, doc, nested=False):
         # if name == '_id': continue
         
         f_type = type(v)
-        f_type_str = catalog.fieldTypeToString(f_type)
+        f_type_str = fieldTypeToString(f_type)
         
-        # See catalog.Collection for what is needed here
         if not k in fields:
+            # This is only subset of what we will compute for each field
+            # See catalog.Collection for more information
             fields[k] = {
                 'type': f_type_str,
-                'query_use_count': 0,
-                'cardinality' : 0,
-                'selectivity' : 0,
-                'parent_col' : '',
-                'parent_key' : '',
-                'parent_conf' : 0.0,
+                'fields': { },
             }
         else:
+            # Sanity check
+            # This won't work if the data is not uniform
             assert fields[k]['type'] == f_type_str, \
                 "Mismatched field types '%s' <> '%s'" % (fields[k]['type'], f_type_str)
         
+        # Nested Fields
         if f_type is dict:
-            self.extractFields(fields, doc[k], True)
+            self.extractFields(fields[k]['fields'], doc[k], True)
+        
+        # List of Values
+        # Could be either scalars or dicts. If it's a dict, then we'll just
+        # store the nested field information in the 'fields' value
+        # If it's a list, then we'll use a special marker 'LIST_INNER_FIELD' to
+        # store the field information for the inner values.
         elif f_type is list:
             for i in xrange(0, len(doc[k])):
-                inner = doc[k][i]
-                #if type(doc[k]) is dict:
+                inner_type = type(doc[k][i])
+                # More nested documents...
+                if inner_type is dict:
+                    self.extractFields(fields[k], doc[k][i], True)
+                else:
+                    # TODO: We probably should store a list of types here in case
+                    #       the list has different types of values
+                    inner = fields[k]['fields'].get(constants.LIST_INNER_FIELD], {})
+                    inner['type'] = fieldTypeToString(inner_type)
+            ## FOR (list)
     ## FOR
 ## DEF
 
-def extractFields( doc, fields={ }):
+# Mapping from TypeName -> Type
+TYPES_XREF = { (t.__name__, t) for t in [IntType, LongType, FloatType, BooleanType] }
+def getEstimatedSize(typeName, value):
+    """Returns the estimated size (in bytes) of the value for the given type"""
     
-    for name,val in doc.items():
+    # DATETIME
+    if typeName == 'datetime':
+        return (8) # XXX
+    # STR
+    elif typeName == StringType.__name__:
+        return getStringSize(value)
+    
+    # Everything else
+    realType = TYPES_XREF[typeName]
+    assert realType, "Unexpected type '%s'" % typeName
+    return realType.__sizeof__(value)
+## DEF
 
-
-        
-        
-        # TODO: What do we do if we get back an existing field 
-        # that has a different type? Does it matter? Probably not...
-        val_type = type(val)
-        fields[name]['type'] = fieldTypeToString(val_type)
-        
-        # TODO: Build a histogram and keep track of the min/max sizes
-        # for the values of this field
-        fields[name]['min_size'] = None
-        fields[name]['max_size'] = None
-        
-        if val_type == list:
-            # TODO: Build a histogram based on how long the list is
-            fields[name]['fields'] = { }
-            for list_val in val:
-                if isinstance(list_val, dict):
-                    extractFields(list_val, fields[name]['fields'])
-                else:
-                    # TODO: Add support for single values embedded in lists
-                    assert(False)
-            ## FOR
-        elif val_type == dict:
-            fields[name]['fields'] = { }
-            extractFields(val, fields[name]['fields'])
-    ## FOR
-    return (fields)
+# Regex for extracting anonymized strings
+ANONYMIZED_STR_REGEX = re.compile("([\w]{32})\/([\d]+)")
+def getStringSize(s):
+    """Returns the length of the string. We will check whether the string
+       is one our special anoymized strings"""
+    match = ANONYMIZED_STR_REGEX.match(s)
+    if match:
+        return int(match.group(2))
+    else:
+        return len(s)
 ## DEF
 
 def sqlTypeToPython(sqlType):

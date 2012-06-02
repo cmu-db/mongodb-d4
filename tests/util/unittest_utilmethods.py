@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
-sys.path.append("/home/pavlo/Documents/MongoDB/MongoDB-Designer/src")
+import os, sys
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../../src"))
 
 import unittest
-from workload import utilmethods
 from pprint import pprint, pformat
+
+import util 
 
 class TestUtilMethods (unittest.TestCase):
     
@@ -27,18 +29,19 @@ class TestUtilMethods (unittest.TestCase):
             {'$query': {'_id': '1cba73b8a555ba442a3630ccf735dffd/14'}},
             {'$query': {'_id': {'$in': []}}},
             {'count': '107f3bf172abf9dae6458f1dbb0d4ad6/11',
-             'fields': None,
              'query': {'md5': {'$in': ['c3117f341b734d3ce6e71608480de82d/34']}}},
+            {'$query': {'foo.bar': 1234}},
         ]
         
         for i in xrange(0, len(content)):
             orig = content[i]
             
-            escaped = utilmethods.escapeFieldNames(content[i])
+            escaped = util.escapeFieldNames(content[i])
             self.assertNotEqual(escaped, None)
             keys = self.getAllKeys(escaped)
             for k in keys:
                 self.assertFalse(k.startswith('$'), pformat(escaped))
+                self.assertEqual(-1, k.find("."))
             print pformat(escaped)
         ## FOR
     ## DEF

@@ -36,6 +36,7 @@ class Collection(Document):
 Dictionary for fields
 {
     'type': catalog.fieldTypeToString(col_type),
+    'fields': { },
     'query_use_count' : 0,
     'cardinality' : 0,
     'selectivity' : 0,

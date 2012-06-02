@@ -6,7 +6,7 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../libs"))
 
 from utilmethods import *
-from collection import Collection
-
 del utilmethods
+
+from collection import Collection
 del collection

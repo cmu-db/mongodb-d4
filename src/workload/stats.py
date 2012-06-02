@@ -28,6 +28,7 @@ import random
 import logging
 from pprint import pformat
 
+import catalog
 from ophasher import *
 from util import constants
 
@@ -145,7 +146,7 @@ class StatsProcessor:
                 if to_use <= sample_rate : 
                     for k, v in row.iteritems() :
                         if k <> '_id' :
-                            size = workload.getEstimatedSize(col['fields'][k]['type'], v)
+                            size = catalog.getEstimatedSize(col['fields'][k]['type'], v)
                             tuple_sizes[col['name']] += size
                             distinct_values[col['name']][k][v] = v
                         else :

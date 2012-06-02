@@ -22,7 +22,11 @@ INVALID_COLLECTION_MARKER = "*INVALID*"
 
 # The default initial session id. New session ids will
 # start at this value
-INITIAL_SESSION_UID = 100 
+INITIAL_SESSION_UID = 100
+
+# Special marker that represents a 'virtual' field for the
+# inner values of a list type
+LIST_INNER_FIELD = "__INNER__"
 
 ## ==============================================
 ## MONGO OPERATION TYPES
