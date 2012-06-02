@@ -50,6 +50,13 @@ def escapeFieldNames(content):
             v = escapeFieldNames(v)
         copy[k] = v
     ## FOR
+    
+    for k in toFix:
+        v = copy[k]
+        del copy[k]
+        copy['\\' + k] = v
+    ## FOR
+    
     return copy
 ## DEF
 

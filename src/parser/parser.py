@@ -30,7 +30,6 @@ import json
 import hashlib
 import logging
 from pprint import pformat
-from util import utilmethods
 
 # Third-Party Dependencies
 basedir = os.path.realpath(os.path.dirname(__file__))
@@ -41,6 +40,7 @@ import mongokit
 sys.path.append("..")
 import anonymize
 from traces import Session
+import utilmethods
 
 
 LOG = logging.getLogger(__name__)
