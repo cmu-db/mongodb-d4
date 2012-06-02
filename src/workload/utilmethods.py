@@ -48,6 +48,11 @@ def escapeFieldNames(content):
             toFix.append(k)
         if type(v) == dict:
             v = escapeFieldNames(v)
+        elif type(v) == list:
+            for i in xrange(0, len(v)):
+                if type(v[i]) == dict:
+                    v[i] = escapeFieldNames(v[i])
+            ## FOR
         copy[k] = v
     ## FOR
     

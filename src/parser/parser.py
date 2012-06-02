@@ -231,9 +231,9 @@ class Parser:
                 self.workload_col.save(session)
             except (Exception) as err:
                 dump = pformat(session)
-                if len(dump) > 1024: dump = dump[:1024].strip() + "..."
+                #if len(dump) > 1024: dump = dump[:1024].strip() + "..."
                 LOG.error("Failed to save session: %s\n%s" % (err.message, dump))
-                pass
+                raise
         ## FOR
         
         pass
@@ -274,6 +274,11 @@ class Parser:
         # Get the session to store this operation in
         session = self.getOrCreateSession(ip_client, ip_server)
         
+        # Escape any key that starts with '$'
+        for i in xrange(0, len(self.currentContent)):
+            self.currentContent[i] = utilmethods.escapeFieldNames(self.currentContent[i])
+        ## FOR
+        
         # QUERY: $query, $delete, $insert, $update:
         # Create the operation, add it to the session
         if self.currentOp['type'] in [OP_TYPE_QUERY, OP_TYPE_INSERT, OP_TYPE_DELETE, OP_TYPE_UPDATE]:
@@ -282,11 +287,6 @@ class Parser:
             
             if LOG.isEnabledFor(logging.DEBUG):
                 LOG.debug("Current Operation Content:\n%s" % pformat(self.currentContent))
-            
-            # Escape any key that starts with '$'
-            for i in xrange(0, len(self.currentContent)):
-                self.currentContent[i] = utilmethods.escapeFieldNames(self.currentContent[i])
-            ## FOR
             
             op = {
                 'collection': unicode(self.currentOp['collection']),
