@@ -38,9 +38,9 @@ import mongokit
 
 # MongoDB-Designer
 sys.path.append("..")
-import anonymize
+from sanitizer import anonymize
 from traces import Session
-import utilmethods
+from workload import utilmethods
 
 
 LOG = logging.getLogger(__name__)
@@ -191,7 +191,7 @@ class Parser:
         return self.ipAndPort.rsplit(":")[0]
     ## DEF
     
-    def parse(self):
+    def process(self):
         """Read each line from the input source and extract all of the sessions"""
         for line in self.fd:
             self.line_ctr += 1
@@ -268,8 +268,11 @@ class Parser:
         ## IF
 
         if not 'type' in self.currentOp:
-            LOG.debug("Incomplete Operation:\n%s" % pformat(self.currentOp))
-            raise Exception("Current Operation is Incomplete: Missing 'type' field")
+            msg = "Current Operation is Incomplete: Missing 'type' field"
+            LOG.warn("%s\n%s" % (msg, pformat(self.currentOp)))
+            if self.stop_on_error: raise Exception(msg)
+            return
+        ## IF
         
         # Get the session to store this operation in
         session = self.getOrCreateSession(ip_client, ip_server)

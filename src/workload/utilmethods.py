@@ -41,10 +41,12 @@ def convertWorkload(conn):
 ## DEF
 
 def escapeFieldNames(content):
+    """Fix key names so that they can be stored in MongoDB"""
     copy = dict(content.items())
     toFix = [ ]
     for k, v in copy.iteritems():
-        if k.startswith('$'):
+        # Keys can't start with '$' and they can't contain '.'
+        if k.startswith('$') or k.find(".") != -1:
             toFix.append(k)
         if type(v) == dict:
             v = escapeFieldNames(v)
@@ -59,7 +61,11 @@ def escapeFieldNames(content):
     for k in toFix:
         v = copy[k]
         del copy[k]
-        copy['\\' + k] = v
+        
+        if k.startswith('$'):
+            k = '\\' + k
+        k = k.replace(".", "__")
+        copy[k] = v
     ## FOR
     
     return copy

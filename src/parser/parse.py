@@ -39,10 +39,10 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 import mongokit
 
 # MongoDB-Designer
-sys.path.append(os.path.join(basedir, "../workload"))
-sys.path.append(os.path.join(basedir, "../sanitizer"))
+sys.path.append(os.path.join(basedir, ".."))
 import workload_info
 import parser
+import reconstructor
 from traces import *
 
 logging.basicConfig(level = logging.INFO,
@@ -77,18 +77,23 @@ if __name__ == '__main__':
                          help='port to connect to')
     aparser.add_argument('--file', default=INPUT_FILE,
                          help='file to read from')
-    aparser.add_argument('--workload_db', default=WORKLOAD_DB,
+    aparser.add_argument('--workload-db', default=WORKLOAD_DB,
                          help='the database where you want to store the traces')
-    aparser.add_argument('--workload_col', default=WORKLOAD_COLLECTION,
+    aparser.add_argument('--workload-col', default=WORKLOAD_COLLECTION,
                          help='The collection where you want to store the traces', )
-    aparser.add_argument('--schema_db', default=SCHEMA_DB,
+    aparser.add_argument('--schema-db', default=SCHEMA_DB,
                          help='the database of the schema catalog')
-    aparser.add_argument('--schema_col', default=SCHEMA_COL,
+    aparser.add_argument('--schema-col', default=SCHEMA_COL,
                          help='the collection of the schema catalog')
-    aparser.add_argument('--recreated_db', default=RECREATED_DB,
+    aparser.add_argument('--recreated-db', default=RECREATED_DB,
                          help='the database of the recreated dataset', )
     aparser.add_argument('--clean', action='store_true',
                          help='Remove all documents in the workload collection before processing is started')
+                         
+    aparser.add_argument('--no-load', action='store_true',
+                         help='Skip parsing and loading workload from file')
+    aparser.add_argument('--no-reconstruct', action='store_true',
+                         help='Skip reconstructing the database schema after loading')
                          
     # Debugging Options
     aparser.add_argument('--skip', type=int, default=None,
@@ -104,53 +109,81 @@ if __name__ == '__main__':
     if args['debug']:
         LOG.setLevel(logging.DEBUG)
         parser.LOG.setLevel(logging.DEBUG)
+        reconstructor.LOG.setLevel(logging.DEBUG)
 
     LOG.info("..:: MongoDesigner Trace Parser ::..")
     LOG.debug("Server: %(host)s:%(port)d / InputFile: %(file)s / Storage: %(workload_db)s.%(workload_col)s" % args)
 
     # initialize connection to MongoDB
-    # Initialize connection to db that stores raw transactions
     LOG.debug("Connecting to MongoDB at %s:%d" % (args['host'], args['port']))
     connection = Connection(args['host'], args['port'])
+    
+    # The WORKLOAD collection is where we stores sessions+operations
     workload_col = connection[args['workload_db']][args['workload_col']]
-    assert workload_col, "Invalid target collection %s.%s" % (args['workload_db'], args['workload_col'])
+    assert workload_col, "Invalid WORKLOAD collection %s.%s" % (args['workload_db'], args['workload_col'])
+    
+    # The RECREATED database will contain the database derived from the
+    # keys+values used in the sample workload's operations
+    recreated_db = connection[args['recreated_db']]
+    assert recreated_db, "Invalid RECREATED database %s" % (args['recreated_db'])
 
-    # Create the Parser object that will go to town on the input file that we
-    # were given
-    with open(args['file'], 'r') as fd:
-        p = parser.Parser(workload_col, fd)
-        
-        # Stop on Error
-        if args['stop_on_error']:
-            LOG.warn("Will stop processing if invalid input is found")
-            p.stop_on_error = True
-        # Processing Skip
-        if args['skip']:
-            LOG.warn("Will skip processing the first %d lines" % args['skip'])
-            p.op_skip =  args['skip']
-        # Processing Limit
-        if args['limit']:
-            LOG.warn("Will stop processing after %d operations are processed" % args['limit'])
-            p.op_limit =  args['limit']
-        
-        # wipe the collection
-        if args['clean']:
-            p.clean()
+    # The SCHEMA collection is where we will store the metadata information that
+    # we will derive from the RECREATED database
+    schema_col = connection[args['schema_db']][args['schema_col']]
+    assert schema_col, "Invalid SCHEMA collection %s.%s" % (args['schema_db'], args['schema_col'])
+    
+    ## ----------------------------------------------
+    ## WORKLOAD PARSING + LOADING
+    ## ----------------------------------------------
+    if not args['no_load']:
+        with open(args['file'], 'r') as fd:
+            # Create the Parser object that will go to town on our input file 
+            p = parser.Parser(workload_col, fd)
             
-            # TODO: Clean out reconstructed database
-            # TODO: Clean out schema catalog
+            # Stop on Error
+            if args['stop_on_error']:
+                LOG.warn("Will stop processing if invalid input is found")
+                p.stop_on_error = True
+            # Processing Skip
+            if args['skip']:
+                LOG.warn("Will skip processing the first %d lines" % args['skip'])
+                p.op_skip =  args['skip']
+            # Processing Limit
+            if args['limit']:
+                LOG.warn("Will stop processing after %d operations are processed" % args['limit'])
+                p.op_limit =  args['limit']
+            
+            # Clear our existing data
+            if args['clean']: p.clean()
+            
+            # Bombs away!
+            LOG.info("Processing file %s", args['file'])
+            p.process()
+            LOG.info("Finishing processing %s" % args['file'])
+            LOG.info("Added %d sessions with %d operations to '%s.%s'" % (\
+                p.getSessionCount(),
+                p.getOpCount(),
+                workload_col.database.name, 
+                workload_col.name))
+            LOG.info("Skipped Responses: %d" % p.skip_ctr)
+        ## WITH
+    ## IF
+    
+    ## ----------------------------------------------
+    ## DATABASE RECONSTRUCTION
+    ## ----------------------------------------------
+    if not args['no_reconstruct']:
+        # Create a Reconstructor that will use the WORKLOAD_COL to regenerate
+        # the original database and extract a schema catalog.
+        r = reconstructor.Reconstructor(workload_col, recreated_db, schema_col)
         
+        # Clear our existing data
+        if args['clean']: r.clean()
         
-        LOG.info("Processing file %s", args['file'])
-        p.parse()
-        LOG.info("Finishing processing %s" % args['file'])
-        LOG.info("Added %d sessions with %d operations to '%s.%s'" % (\
-            p.getSessionCount(),
-            p.getOpCount(),
-            workload_col.database.name, 
-            workload_col.name))
-        LOG.info("Skipped Responses: %d" % p.skip_ctr)
-    ## WITH
+        # Bombs away!
+        r.process()
+    ## IF
+
     
     # Print out some information when parsing finishes
     if args['debug']:
