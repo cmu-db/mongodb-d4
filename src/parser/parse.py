@@ -43,6 +43,7 @@ sys.path.append(os.path.join(basedir, ".."))
 import workload_info
 import parser
 import reconstructor
+from workload import sessionizer
 from traces import *
 
 logging.basicConfig(level = logging.INFO,
@@ -87,9 +88,11 @@ if __name__ == '__main__':
                          help='Remove all documents in each database before processing is started.')
                          
     aparser.add_argument('--no-load', action='store_true',
-                         help='Skip parsing and loading workload from file')
+                         help='Skip parsing and loading workload from file.')
     aparser.add_argument('--no-reconstruct', action='store_true',
-                         help='Skip reconstructing the database schema after loading')
+                         help='Skip reconstructing the database schema after loading.')
+    aparser.add_argument('--no-sessionizer', action='store_true',
+                         help='Skip splitting the sample workload into separate sessions.')
                          
     # Debugging Options
     aparser.add_argument('--skip', type=int, default=None,
@@ -106,6 +109,7 @@ if __name__ == '__main__':
         LOG.setLevel(logging.DEBUG)
         parser.LOG.setLevel(logging.DEBUG)
         reconstructor.LOG.setLevel(logging.DEBUG)
+        sessionizer.LOG.setLevel(logging.DEBUG)
 
     LOG.info("..:: MongoDesigner Trace Parser ::..")
     LOG.debug("Server: %(host)s:%(port)d / InputFile: %(file)s / Storage: %(metadata_db)s.%(workload_col)s" % args)
@@ -180,6 +184,23 @@ if __name__ == '__main__':
         LOG.info("Skipped Operations: %d" % r.getOpSkipCount())
         LOG.info("Fixed Operations: %d" % r.getOpFixCount())
         LOG.info("Collection Sizes:\n%s" % pformat(r.getCollectionCounts()))
+    ## IF
+    
+    ## ----------------------------------------------
+    ## WORKLOAD SESSIONIZATION
+    ## ----------------------------------------------
+    if not args['no_sessionizer']:
+        LOG.info("Sessionizing sample workload")
+        
+        s = sessionizer.Sessionizer()
+        
+        # We first feed in all of the operations in for each session
+        for sess in workload_col.find():
+            s.process(sess['session_id'], sess['operations'])
+        ## FOR
+        
+        # Then split them into separate sessions
+        s.calculateSessions()
     ## IF
     
     # Print out some information when parsing finishes

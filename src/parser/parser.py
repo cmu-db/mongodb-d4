@@ -107,6 +107,10 @@ class Parser:
         self.recreated_db = None
         self.stop_on_error = False
         
+        # This is used to generate deterministic identifiers
+        # for similar operations
+        self.opHasher = workload.ophasher.OpHasher()
+        
         # If this flag is true, then mongosniff got an invalid message packet
         # So we'll skip until we find the next matching header
         self.skip_to_next = False
@@ -189,9 +193,6 @@ class Parser:
             if self.op_skip and self.line_ctr < self.op_skip:
                 continue
             
-            # HACK: Strip out any bad unicode
-            #line = unicode(line, errors='ignore')
-            
             try:
                 # Parse the current line to decide whether this 
                 # is the beginning of a new operaton/reply
@@ -269,7 +270,11 @@ class Parser:
         session = self.getOrCreateSession(ip_client, ip_server)
         
         # Escape any key that starts with '$'
+        # HACK: Rename the 'query' key to '$query'
         for i in xrange(0, len(self.currentContent)):
+            if 'query' in self.currentContent[i]:
+                self.currentContent[i][constants.OP_TYPE_QUERY] = self.currentContent[i]['query']
+                del self.currentContent[i]['query']
             self.currentContent[i] = util.escapeFieldNames(self.currentContent[i])
         ## FOR
         
@@ -313,6 +318,13 @@ class Parser:
             # Keep track of operations by their ids so that we can add
             # the response to it later on
             self.query_response_map[query_id] = op
+            
+            # Always add the query_hash
+            try:
+                op['query_hash'] = self.opHasher.hash(op)
+            except:
+                LOG.error("Failed to compute hash on operation\n%s" % pformat(op))
+                raise
             
             # Append it to the current session
             # TODO: Large traces will cause the sessions to get too big.
@@ -412,6 +424,16 @@ class Parser:
         for f in ['timestamp']:
             if f in self.currentOp:
                 self.currentOp[f] = float(self.currentOp[f])
+        
+        # Check whether this is an operation on a collection that we're suppose
+        # to ignore
+        if 'collection' in self.currentOp:
+            prefix = self.currentOp['collection'].split('.')[0]
+            if prefix in constants.IGNORED_COLLECTIONS:
+                LOG.warn("Ignoring operation on '%s'" % self.currentOp['collection'])
+                self.skip_to_next = True
+                self.currentOp = None
+        ## IF
         
         return
     ## DEF

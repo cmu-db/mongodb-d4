@@ -34,42 +34,51 @@ from util.histogram import Histogram
 LOG = logging.getLogger(__name__)
 
 class Sessionizer:
-    """Takes a stream of operations and figures out session boundaries"""
+    """Takes a series of operations and figures out session boundaries"""
     
     def __init__(self):
+        self.op_ctr = 0
         self.opHist = Histogram()
         self.prevOpHist = Histogram()
         self.nextOpHist = Histogram()
         self.sessionBoundaries = set()
         
-        self.clientOperations = { }
+        self.sessOps = { }
         pass
     ## DEF
     
-    def process(self, clientId, operations):
+    def process(self, sessId, operations):
         """Process a list of operations from a single connection."""
-        self.clientOperations[clientId] = [ ]
+        self.sessOps[sessId] = [ ]
         lastOp = None
+        ctr = 0
         for op in operations:
-            if lastTimestamp:
+            if not "resp_time" in op: continue
+            
+            if lastOp:
                 assert op["query_time"] >= lastOp["resp_time"]
                 diff = op["query_time"] - lastOp["resp_time"]
-                self.clientOperations.append((lastOp, op, diff))
+                self.sessOps[sessId].append((lastOp, op, diff))
             lastOp = op
+            ctr += 1
         ## FOR
+        self.op_ctr += ctr
+        LOG.debug("Examined %d operations for session %d [total=%d]" % (ctr, sessId, self.op_ctr))
     ## DEF
     
     def calculateSessions(self):
         # First compute the standard deviation for the amount of
         # time between successive operations
+        LOG.info("Calculating time difference for operations in %d sessions" % len(self.sessOps))
         allDiffs = [ ]
-        for clientOps in self.clientOperations.values():
+        for clientOps in self.sessOps.values():
             allDiffs += [x[-1] for x in clientOps]
         stdDev = self.stddev(allDiffs)
+        LOG.info("Operation Time Stddev: %.2f" % stdDev)
         
         # Now go through operations for each client and identify the
         # pairs of operations that are outliers
-        for clientId, clientOps in self.clientOperations.iteritems():
+        for sessId, clientOps in self.sessOps.iteritems():
             for op0, op1, opDiff in clientOps:
                 if opDiff > stdDev:
                     self.prevOpHist.put(op0["query_hash"])
@@ -78,14 +87,17 @@ class Sessionizer:
             ## FOR
         ## FOR
         
+        print pformat(self.opHist)
+        sys.exit(1)
+        
         # TODO: Now that we've populated these histograms, we need a way
         # to determine whether they are truly new sessions or not.
 
         # TODO: Once we have our session boundaries, we need to then
-        # loop through each of the clientOperations again and generate our
+        # loop through each of the sessOps again and generate our
         # boundaries
-        for clientId, clientOps in self.clientOperations.iteritems():
-            ip1, ip2, uid = clientId
+        for sessId, clientOps in self.sessOps.iteritems():
+            ip1, ip2, uid = sessId
             
             lastOp = None
             sess = None
@@ -107,7 +119,7 @@ class Sessionizer:
         pass
     ## FOR
     
-    def stddev(x):
+    def stddev(self, x):
         """FROM: http://www.physics.rutgers.edu/~masud/computing/WPark_recipes_in_python.html"""
         n, mean, std = len(x), 0, 0
         for a in x:

@@ -27,6 +27,7 @@ import logging
 from pprint import pformat
 
 from util.histogram import Histogram
+from util import constants
 
 LOG = logging.getLogger(__name__)
 
@@ -44,19 +45,19 @@ class OpHasher:
         updateFields = None
         
         # QUERY
-        if op["type"] == "$query":
-            # The query field has our where clause
-            fields = op["query_content"][0]["query"]
+        if op["type"] == constants.OP_TYPE_QUERY:
+            # The $query field has our where clause
+            fields = op["query_content"][0]['\\' + constants.OP_TYPE_QUERY]
         # UPDATE
-        elif op["type"] == "$update":
+        elif op["type"] == constants.OP_TYPE_UPDATE:
             # The first element in the content field is the WHERE clause
             fields = op["query_content"][0]
             updateFields = op['query_content'][1]
         # INSERT
-        elif op["type"] == "$insert":
+        elif op["type"] == constants.OP_TYPE_INSERT:
             fields = op["query_content"]
         # DELETE
-        elif op["type"] == "$delete":
+        elif op["type"] == constants.OP_TYPE_DELETE:
             # The first element in the content field is the WHERE clause
             fields = op["query_content"][0]
         # UNKNOWN!
@@ -64,7 +65,11 @@ class OpHasher:
             raise Exception("Unexpected query type: %s" % op["type"])
         
         # Extract the list of fields that are used
-        fieldsHash = self.computeFieldsHash(fields)
+        try:
+            fieldsHash = self.computeFieldsHash(fields)
+        except:
+            LOG.error("Unexpected error when processing operation %d [fields=%s]" % (op["query_id"], str(fields)))
+            raise
         updateHash = self.computeFieldsHash(updateFields) if updateFields else None
         
         t = (op["collection"], op["type"], fieldsHash, updateHash)

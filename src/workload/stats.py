@@ -108,13 +108,13 @@ class StatsProcessor:
         ## FOR (sessions)
     ## DEF
     
-    def processQueryIds(self):
+    def processQueryHashes(self):
         records = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
         if self.op_limit: records.limit(self.op_limit)
         
         for rec in records:
             for op in rec['operations'] :
-                op[u"query_id"] = self.hasher.hash(op)
+                op[u"query_hash"] = self.hasher.hash(op)
             self.metadata_db[constants.COLLECTION_WORKLOAD].save(rec)
         ## FOR
         print("Query Class Histogram:\n%s" % self.hasher.histogram)

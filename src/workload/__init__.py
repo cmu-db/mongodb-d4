@@ -14,7 +14,4 @@ from stats import StatsProcessor
 from sessionizer import Sessionizer
 
 del utilmethods
-del traces
-del workload
 del stats
-del sessionizer
