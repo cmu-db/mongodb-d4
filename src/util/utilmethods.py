@@ -2,6 +2,8 @@
 
 import logging
 
+from util import constants
+
 LOG = logging.getLogger(__name__)
 
 def escapeFieldNames(content):
@@ -27,8 +29,8 @@ def escapeFieldNames(content):
         del copy[k]
         
         if k.startswith('$'):
-            k = '\\' + k
-        k = k.replace(".", "__")
+            k = constants.REPLACE_KEY_DOLLAR_PREFIX + k[1:]
+        k = k.replace(".", constants.REPLACE_KEY_PERIOD)
         copy[k] = v
     ## FOR
     

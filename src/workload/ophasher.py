@@ -46,16 +46,48 @@ class OpHasher:
         
         # QUERY
         if op["type"] == constants.OP_TYPE_QUERY:
-            # The $query field has our where clause
-            fields = op["query_content"][0]['\\' + constants.OP_TYPE_QUERY]
+            # The query field has our where clause
+            if not "#query" in op["query_content"][0]:
+                print pformat(op)
+                sys.exit(1)
+            
+            fields = op["query_content"][0][constants.REPLACE_KEY_DOLLAR_PREFIX + "query"]
+
         # UPDATE
         elif op["type"] == constants.OP_TYPE_UPDATE:
             # The first element in the content field is the WHERE clause
             fields = op["query_content"][0]
+            
+            # We use a separate field for the updated columns so that 
             updateFields = op['query_content'][1]
+
         # INSERT
         elif op["type"] == constants.OP_TYPE_INSERT:
-            fields = op["query_content"]
+            # They could be inserting more than one document here,
+            # which all may have different fields...
+            # So we will need to build a histogram for which keys are referenced
+            # and use the onese that appear the most
+            # XXX: We'll only consider keys in the first-level
+            h = Histogram()
+            for doc in op["query_content"]:
+                assert type(doc) == dict, "Unexpected insert value:\n%s" % pformat(doc)
+                for k in doc.keys():
+                    h.put(k)
+            ## FOR
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.debug("Insert '%s' Keys Histogram:\n%s" % (op["collection"], h))
+            maxKeys = h.getMaxCountKeys()
+            assert len(maxKeys) > 0, \
+                "No keys were found in %d insert documents?" % len(op["query_content"])
+            
+            fields = { }
+            for doc in op["query_content"]:
+                for k, v in doc.iteritems():
+                    if k in maxKeys:
+                        fields[k] = v
+                ## FOR
+            ## FOR
+            
         # DELETE
         elif op["type"] == constants.OP_TYPE_DELETE:
             # The first element in the content field is the WHERE clause

@@ -62,7 +62,7 @@ COLLECTION_MASK = ".*?"
 
 SIZE_MASK = "\d+"
 MAGIC_ID_MASK = "id:\w+"
-TRANSACTION_ID_MASK = "\d+"
+QUERY_ID_MASK = "\d+"
 REPLY_ID_MASK = "\d+"
 
 ### header
@@ -73,8 +73,8 @@ HEADER_MASK = "(?P<timestamp>" + TIME_MASK + ")[\s]+[\-][\s]+" + \
     "(?P<collection>" + COLLECTION_MASK + ")[\s]+" + \
     "(?P<size>" + SIZE_MASK + ") bytes[\s]+" + \
     "(?P<magic_id>" + MAGIC_ID_MASK + ")[\t\s]+" + \
-    "(?P<trans_id>" + TRANSACTION_ID_MASK + ")[\t\s]*" + \
-    "(?:-[\t\s]*(?P<query_id>" + REPLY_ID_MASK + "))?"
+    "(?P<query_id>" + QUERY_ID_MASK + ")[\t\s]*" + \
+    "(?:-[\t\s]*(?P<reply_id>" + REPLY_ID_MASK + "))?"
 
 ### content lines
 CONTENT_REPLY_MASK = "\s*reply +.*"
@@ -240,7 +240,7 @@ class Parser:
         try:
             self.currentOp['collection'].decode('ascii')
         except:
-            LOG.warn("Current operation has an invalid collection name '%(collection)s'. Will fix later..." % self.currentOp)
+            LOG.warn("Operation %(query_id)d has an invalid collection name '%(collection)s'. Will fix later..." % self.currentOp)
             self.currentOp['collection'] = constants.INVALID_COLLECTION_MARKER
             self.bustedOps.append(self.currentOp)
             pass
@@ -269,9 +269,9 @@ class Parser:
         # Get the session to store this operation in
         session = self.getOrCreateSession(ip_client, ip_server)
         
-        # Escape any key that starts with '$'
-        # HACK: Rename the 'query' key to '$query'
+        # Escape any invalid key names
         for i in xrange(0, len(self.currentContent)):
+            # HACK: Rename the 'query' key to '$query'
             if 'query' in self.currentContent[i]:
                 self.currentContent[i][constants.OP_TYPE_QUERY] = self.currentContent[i]['query']
                 del self.currentContent[i]['query']
@@ -282,10 +282,8 @@ class Parser:
         # Create the operation, add it to the session
         if self.currentOp['type'] in [constants.OP_TYPE_QUERY, constants.OP_TYPE_INSERT, constants.OP_TYPE_DELETE, constants.OP_TYPE_UPDATE]:
             # create the operation -- corresponds to current
-            query_id = self.currentOp['trans_id'];
-            
             if LOG.isEnabledFor(logging.DEBUG):
-                LOG.debug("Current Operation Content:\n%s" % pformat(self.currentContent))
+                LOG.debug("Current Operation %d Content:\n%s" % (self.currentOp['query_id'], pformat(self.currentContent)))
             
             op = {
                 'collection': unicode(self.currentOp['collection']),
@@ -293,7 +291,7 @@ class Parser:
                 'query_time': self.currentOp['timestamp'],
                 'query_size': self.currentOp['size'],
                 'query_content': self.currentContent,
-                'query_id': query_id,
+                'query_id': self.currentOp['query_id'],
                 'query_aggregate': False, # false -not aggregate- by default
             }
             
@@ -317,7 +315,7 @@ class Parser:
             
             # Keep track of operations by their ids so that we can add
             # the response to it later on
-            self.query_response_map[query_id] = op
+            self.query_response_map[self.currentOp['query_id']] = op
             
             # Always add the query_hash
             try:
@@ -333,7 +331,7 @@ class Parser:
             session['operations'].append(op)
             self.op_ctr += 1
             if LOG.isEnabledFor(logging.DEBUG):
-                LOG.debug("Added %s operation to session %s from line %d:\n%s" % (op['type'], session['session_id'], self.line_ctr, pformat(op)))
+                LOG.debug("Added %s operation %d to session %s from line %d:\n%s" % (op['type'], self.currentOp['query_id'], session['session_id'], self.line_ctr, pformat(op)))
         
             # store the collection name in known_collections. This will be useful later.
             # see the comment at known_collections
@@ -346,24 +344,25 @@ class Parser:
         # RESPONSE - add information to the matching query
         elif self.currentOp['type'] == constants.OP_TYPE_REPLY:
             self.resp_ctr += 1
-            query_id = self.currentOp['query_id'];
+            reply_id = self.currentOp['reply_id'];
             # see if the matching query is in the map
-            if query_id in self.query_response_map:
+            if reply_id in self.query_response_map:
                 # fill in missing information
-                query_op = self.query_response_map[query_id]
+                query_op = self.query_response_map[reply_id]
                 query_op['resp_content'] = self.currentContent
                 query_op['resp_size'] = self.currentOp['size']
                 query_op['resp_time'] = self.currentOp['timestamp']
-                query_op['resp_id'] = self.currentOp['trans_id']
-                del self.query_response_map[query_id]
+                query_op['resp_id'] = self.currentOp['query_id']
+                del self.query_response_map[reply_id]
             else:
                 self.skip_ctr += 1
-                LOG.warn("Skipping response on line %d - No matching query_id '%s' [skipCtr=%d/%d]" % (self.line_ctr, query_id, self.skip_ctr, self.resp_ctr))
+                if LOG.isEnabledFor(logging.DEBUG):
+                    LOG.warn("Skipping response on line %d - No matching query_id '%s' [skipCtr=%d/%d]" % (self.line_ctr, reply_id, self.skip_ctr, self.resp_ctr))
                 
         # These can be safely ignored
         elif self.currentOp['type'] in [constants.OP_TYPE_GETMORE, constants.OP_TYPE_KILLCURSORS]:
             if LOG.isEnabledFor(logging.DEBUG):
-                LOG.warn("Skipping '%s' operation on line %d" % (self.currentOp['type'], self.line_ctr))
+                LOG.warn("Skipping '%s' operation %d on line %d" % (self.currentOp['type'], self.currentOp['query_id'], self.line_ctr))
             
         # UNKNOWN
         else:
@@ -411,14 +410,11 @@ class Parser:
                 LOG.error("Invalid Session:\n%s" % pformat(self.currentOp))
                 raise
         
-        #if LOG.isEnabledFor(logging.DEBUG):
-            #LOG.debug("Creating new operation for QueryId: %(query_id)s " % header + \
-                      #"[line:%d]\n%s" % (self.line_ctr, pformat(header)))
         self.currentOp = header
         self.currentContent = []
         
         # Fix field types
-        for f in ['size', 'trans_id', 'query_id']:
+        for f in ['size', 'query_id', 'reply_id']:
             if f in self.currentOp and self.currentOp[f] != None:
                 self.currentOp[f] = int(self.currentOp[f])
         for f in ['timestamp']:
@@ -430,7 +426,7 @@ class Parser:
         if 'collection' in self.currentOp:
             prefix = self.currentOp['collection'].split('.')[0]
             if prefix in constants.IGNORED_COLLECTIONS:
-                LOG.warn("Ignoring operation on '%s'" % self.currentOp['collection'])
+                LOG.warn("Ignoring operation %(query_id)d on collection '%(collection)s'" % self.currentOp)
                 self.skip_to_next = True
                 self.currentOp = None
         ## IF

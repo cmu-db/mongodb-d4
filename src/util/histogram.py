@@ -28,9 +28,9 @@ class Histogram(dict):
     def __init__(self, *args, **kw):
         super(Histogram, self).__init__(*args, **kw)
         
-        self.min_keys = [ ]
+        self.min_keys = None
         self.min_cnt = None
-        self.max_keys = [ ]
+        self.max_keys = None
         self.max_cnt = None
         
         pass
@@ -40,7 +40,9 @@ class Histogram(dict):
     # DEF
     
     def __computeInternalValues__(self):
+        self.min_keys = [ ]
         self.min_cnt = None
+        self.max_keys = [ ]
         self.max_cnt = None
         
         for key, cnt in self.iteritems():

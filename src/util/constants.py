@@ -28,6 +28,12 @@ INITIAL_SESSION_UID = 100
 # inner values of a list type
 LIST_INNER_FIELD = "__INNER__"
 
+# Replace any key that starts with a '$' with this string
+REPLACE_KEY_DOLLAR_PREFIX = '#'
+
+# Replace any '.' in a key with this string
+REPLACE_KEY_PERIOD = '__'
+
 ## ==============================================
 ## MONGO OPERATION TYPES
 ## ==============================================
