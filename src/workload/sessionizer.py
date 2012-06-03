@@ -25,7 +25,8 @@
 
 import itertools
 import logging
-from math import sqrt
+import math
+import functools
 from pprint import pformat
 
 from util.histogram import Histogram
@@ -66,12 +67,20 @@ class Sessionizer:
     ## DEF
     
     def calculateSessions(self):
-        # First compute the standard deviation for the amount of
-        # time between successive operations
+        # Calculate outliers using the quartile method
+        # http://en.wikipedia.org/wiki/Quartile#Computing_methods
         LOG.info("Calculating time difference for operations in %d sessions" % len(self.sessOps))
+        
+        # Get the full list of all the time differences
         allDiffs = [ ]
         for clientOps in self.sessOps.values():
             allDiffs += [x[-1] for x in clientOps]
+        allDiffs = sorted(allDiffs)
+        numDiffs = len(allDiffs)
+
+        # Calculate the median
+        median = self.percentile(allDiffs, 0.50)
+            
         stdDev = self.stddev(allDiffs)
         LOG.info("Operation Time Stddev: %.2f" % stdDev)
         
@@ -118,6 +127,31 @@ class Sessionizer:
         pass
     ## FOR
     
+    # Copied from http://code.activestate.com/recipes/511478-finding-the-percentile-of-the-values/
+    def percentile(N, percent, key=lambda x:x):
+        """
+        Find the percentile of a list of values.
+
+        @parameter N - is a list of values. Note N MUST BE already sorted.
+        @parameter percent - a float value from 0.0 to 1.0.
+        @parameter key - optional key function to compute value from each element of N.
+
+        @return - the percentile of the values
+        """
+        if not N:
+            return None
+        k = (len(N)-1) * percent
+        f = math.floor(k)
+        c = math.ceil(k)
+        if f == c:
+            return key(N[int(k)])
+        d0 = key(N[int(f)]) * (c-k)
+        d1 = key(N[int(c)]) * (k-f)
+        return d0+d1
+    ## DEF
+    # median is 50th percentile.
+    median = functools.partial(percentile, percent=0.5)
+    
     def stddev(self, x):
         """FROM: http://www.physics.rutgers.edu/~masud/computing/WPark_recipes_in_python.html"""
         n, mean, std = len(x), 0, 0
@@ -126,7 +160,7 @@ class Sessionizer:
         mean /= float(n)
         for a in x:
             std = std + (a - mean)**2
-        std = sqrt(std / float(n-1))
+        std = math.sqrt(std / float(n-1))
         return std
     
 ## CLASS

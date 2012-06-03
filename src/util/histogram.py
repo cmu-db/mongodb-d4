@@ -57,6 +57,19 @@ class Histogram(dict):
         ## FOR
     ## DEF
     
+    def getValuesForCount(self, count):
+        """Return all the keys that have the same count as the given parameter"""
+        keys = [ ]
+        for key, cnt in self.iteritems():
+            if count == cnt: keys.append(key)
+        return keys
+    ## DEF
+    
+    def getCounts(self):
+        """Return all the unique count values in the histogram"""
+        return set(self.itervalues())
+    ## DEF
+    
     def getMinCountKeys(self):
         self.__computeInternalValues__()
         return self.min_keys

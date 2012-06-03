@@ -424,8 +424,9 @@ class Parser:
         # Check whether this is an operation on a collection that we're suppose
         # to ignore
         if 'collection' in self.currentOp:
-            prefix = self.currentOp['collection'].split('.')[0]
-            if prefix in constants.IGNORED_COLLECTIONS:
+            col_name = self.currentOp['collection']
+            prefix = col_name.split('.')[0]
+            if prefix in constants.IGNORED_COLLECTIONS or col_name.endswith("$cmd"):
                 LOG.warn("Ignoring operation %(query_id)d on collection '%(collection)s'" % self.currentOp)
                 self.skip_to_next = True
                 self.currentOp = None
