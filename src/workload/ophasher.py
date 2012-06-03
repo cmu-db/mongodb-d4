@@ -23,6 +23,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
+import sys
 import logging
 from pprint import pformat
 

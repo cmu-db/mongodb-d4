@@ -23,7 +23,6 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
-
 import itertools
 import logging
 from math import sqrt
@@ -87,7 +86,7 @@ class Sessionizer:
             ## FOR
         ## FOR
         
-        print pformat(self.opHist)
+        print self.opHist
         sys.exit(1)
         
         # TODO: Now that we've populated these histograms, we need a way
