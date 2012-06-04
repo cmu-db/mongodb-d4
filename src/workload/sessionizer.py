@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2012
-# Andy Pavlo - http://www.cs.brown.edu/~pavlo/
+# Copyright (C) 2012 by Brown University
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -23,6 +22,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
+import sys
 import itertools
 import logging
 import math
@@ -30,6 +30,7 @@ import functools
 from pprint import pformat
 
 from util.histogram import Histogram
+from util import mathutil
 
 LOG = logging.getLogger(__name__)
 
@@ -78,8 +79,9 @@ class Sessionizer:
         allDiffs = sorted(allDiffs)
         numDiffs = len(allDiffs)
 
-        # Calculate the median
-        median = self.percentile(allDiffs, 0.50)
+        
+            
+        LOG.info("Calculating stats for %d op pairs:\nMedian: %.2f\nLower: %.2f\nUpper: %.2f" % (median, lowerQuartile, upperQuartile))
             
         stdDev = self.stddev(allDiffs)
         LOG.info("Operation Time Stddev: %.2f" % stdDev)
@@ -127,40 +129,6 @@ class Sessionizer:
         pass
     ## FOR
     
-    # Copied from http://code.activestate.com/recipes/511478-finding-the-percentile-of-the-values/
-    def percentile(N, percent, key=lambda x:x):
-        """
-        Find the percentile of a list of values.
-
-        @parameter N - is a list of values. Note N MUST BE already sorted.
-        @parameter percent - a float value from 0.0 to 1.0.
-        @parameter key - optional key function to compute value from each element of N.
-
-        @return - the percentile of the values
-        """
-        if not N:
-            return None
-        k = (len(N)-1) * percent
-        f = math.floor(k)
-        c = math.ceil(k)
-        if f == c:
-            return key(N[int(k)])
-        d0 = key(N[int(f)]) * (c-k)
-        d1 = key(N[int(c)]) * (k-f)
-        return d0+d1
-    ## DEF
-    # median is 50th percentile.
-    median = functools.partial(percentile, percent=0.5)
     
-    def stddev(self, x):
-        """FROM: http://www.physics.rutgers.edu/~masud/computing/WPark_recipes_in_python.html"""
-        n, mean, std = len(x), 0, 0
-        for a in x:
-            mean = mean + a
-        mean /= float(n)
-        for a in x:
-            std = std + (a - mean)**2
-        std = math.sqrt(std / float(n-1))
-        return std
     
 ## CLASS

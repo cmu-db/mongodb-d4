@@ -240,7 +240,7 @@ class Parser:
         try:
             self.currentOp['collection'].decode('ascii')
         except:
-            LOG.warn("Operation %(query_id)d has an invalid collection name '%(collection)s'. Will fix later..." % self.currentOp)
+            LOG.warn("Operation %(query_id)d has an invalid collection name '%(collection)s'. Will fix later... [opCtr=%(op_ctr)d]" % self.currentOp)
             self.currentOp['collection'] = constants.INVALID_COLLECTION_MARKER
             self.bustedOps.append(self.currentOp)
             pass
@@ -260,8 +260,8 @@ class Parser:
         ## IF
 
         if not 'type' in self.currentOp:
-            msg = "Current operation is incomplete on line %d: Missing 'type' field"
-            LOG.warn("%s\n%s" % (self.line_ctr, msg, pformat(self.currentOp)))
+            msg = "Current operation is incomplete on line %d: Missing 'type' field" % self.line_ctr
+            LOG.warn("%s [opCtr=%d]\n%s" % (msg, self.op_ctr, pformat(self.currentOp)))
             if self.stop_on_error: raise Exception(msg)
             return
         ## IF
@@ -413,6 +413,9 @@ class Parser:
         self.currentOp = header
         self.currentContent = []
         
+        # Add in the op_ctr for debugging purposes
+        self.currentOp["op_ctr"] = self.op_ctr
+        
         # Fix field types
         for f in ['size', 'query_id', 'reply_id']:
             if f in self.currentOp and self.currentOp[f] != None:
@@ -427,7 +430,7 @@ class Parser:
             col_name = self.currentOp['collection']
             prefix = col_name.split('.')[0]
             if prefix in constants.IGNORED_COLLECTIONS or col_name.endswith("$cmd"):
-                LOG.warn("Ignoring operation %(query_id)d on collection '%(collection)s'" % self.currentOp)
+                LOG.warn("Ignoring operation %(query_id)d on collection '%(collection)s' [opCtr=%(op_ctr)d]" % self.currentOp)
                 self.skip_to_next = True
                 self.currentOp = None
         ## IF
