@@ -39,11 +39,14 @@ class Sessionizer:
     
     def __init__(self):
         self.op_ctr = 0
-        self.opHist = Histogram()
-        self.prevOpHist = Histogram()
-        self.nextOpHist = Histogram()
+        
+        # Reverse look-up for op hashes
+        self.op_hash_xref = { }
+        
+        # TODO: Remove?
         self.sessionBoundaries = set()
         
+        # Mapping from SessionId -> Operations
         self.sessOps = { }
         pass
     ## DEF
@@ -55,10 +58,13 @@ class Sessionizer:
         ctr = 0
         for op in operations:
             if not "resp_time" in op: continue
+            assert "query_hash" in op, \
+                "Missing hash in operation %d" % op["query_id"]
             
             if lastOp:
                 assert op["query_time"] >= lastOp["resp_time"]
-                diff = op["query_time"] - lastOp["resp_time"]
+                # Seconds -> Milliseconds
+                diff = (op["query_time"]*1000) - (lastOp["resp_time"]*1000)
                 self.sessOps[sessId].append((lastOp, op, diff))
             lastOp = op
             ctr += 1
@@ -79,25 +85,56 @@ class Sessionizer:
         allDiffs = sorted(allDiffs)
         numDiffs = len(allDiffs)
 
+        #print "\n".join(map(str, allDiffs))
         
-            
-        LOG.info("Calculating stats for %d op pairs:\nMedian: %.2f\nLower: %.2f\nUpper: %.2f" % (median, lowerQuartile, upperQuartile))
-            
-        stdDev = self.stddev(allDiffs)
-        LOG.info("Operation Time Stddev: %.2f" % stdDev)
+        # Lower + Upper Quartiles
+        lowerQuartile, upperQuartile = mathutil.quartiles(allDiffs)
         
-        # Now go through operations for each client and identify the
-        # pairs of operations that are outliers
+        # Interquartile Range
+        iqr = (upperQuartile - lowerQuartile) * 1.5
+        
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("Calculating stats for %d op pairs" % len(allDiffs))
+            LOG.debug("  Lower Quartile: %s" % lowerQuartile)
+            LOG.debug("  Upper Quartile: %s" % upperQuartile)
+            LOG.debug("  IQR: %s" % iqr)
+        
+        # Go through operations for each client and identify the
+        # pairs of operations that are above the IQR in the upperQuartile
+        opHist = Histogram()
+        prevOpHist = Histogram()
+        nextOpHist = Histogram()
+        threshold = upperQuartile + iqr
         for sessId, clientOps in self.sessOps.iteritems():
             for op0, op1, opDiff in clientOps:
-                if opDiff > stdDev:
-                    self.prevOpHist.put(op0["query_hash"])
-                    self.nextOpHist.put(op1["query_hash"])
-                    self.opHist.put((op0["query_hash"], op1["query_hash"]))
+                if opDiff >= threshold:
+                    prevOpHist.put(op0["query_hash"])
+                    nextOpHist.put(op1["query_hash"])
+                    opHist.put((op0["query_hash"], op1["query_hash"]))
             ## FOR
         ## FOR
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("Outlier Op Hashes:\n%s" % opHist)
         
-        print self.opHist
+        # I guess at this point we can just compute the outliers
+        # again for the pairs of operations that have a time difference
+        # outlier. We won't use the IQR. We'll just take the upper quartile
+        # because that seems to give us the right answer
+        outlierCounts = sorted(opHist.getCounts())
+        lowerQuartile, upperQuartile = mathutil.quartiles(outlierCounts)
+        
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("Calculating stats for %d count outliers" % len(outlierCounts))
+            LOG.debug("  Lower Quartile: %s" % lowerQuartile)
+            LOG.debug("  Upper Quartile: %s" % upperQuartile)
+        
+        outlierHashes = set()
+        for cnt in outlierCounts:
+            if cnt >= upperQuartile:
+                outlierHashes |= set(opHist.getValuesForCount(cnt))
+        ## FOR
+        LOG.info("Found %d outlier hashes" % len(outlierHashes))
+        
         sys.exit(1)
         
         # TODO: Now that we've populated these histograms, we need a way

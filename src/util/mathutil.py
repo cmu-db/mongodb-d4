@@ -24,21 +24,37 @@
 
 import math
 import functools
+import logging
 from pprint import pformat
-
-def getOutliers(N):
+    
+LOG = logging.getLogger(__name__)
+    
+def quartiles(N):
+    debug = LOG.isEnabledFor(logging.DEBUG)
+    
     # Calculate the median
-    median = mathutil.percentile(allDiffs, 0.50)
+    median = percentile(N, 0.50)
+    if debug: LOG.debug("Median: %s" % median)
     
-    # Lower Quartile
-    lowerQuartile = mathutil.percentile(allDiffs, 0.25)
+    # Split into two halves
+    # Do not include the median into the halves, or the minimum and maximum
+    lower = []
+    upper = []
+    isUpper = False
+    for i in xrange(1, len(N)-1):
+        if not isUpper and N[i] >= median:
+            isUpper = True
+        if isUpper:
+            upper.append(N[i])
+        else:
+            lower.append(N[i])
+    ## FOR
     
-    # Upper Quartile
-    upperQuartile = mathutil.percentile(allDiffs, 0.75)
-        
-    # Interquartile Range
-    interquartileRange = (upperQuartile - lowerQuartile) * 1.5
+    if debug: LOG.debug("Lower Portion: %d [%s-%s]" % (len(lower), lower[0], lower[-1]))
+    if debug: LOG.debug("Upper Portion: %d [%s-%s]" % (len(upper), upper[0], upper[-1]))
     
+    # Return (lowerQuartile, upperQuartile)
+    return (percentile(lower, 0.50), percentile(upper, 0.50))
 ## DEF
     
 ## Original: http://code.activestate.com/recipes/511478-finding-the-percentile-of-the-values/

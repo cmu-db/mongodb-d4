@@ -27,10 +27,6 @@ class TestMathUtil(unittest.TestCase):
             self.assertEqual(expected, actual)
     ## DEF
     
-    def testGetOutliers(self):
-        pass
-    ## DEF
-    
 ## CLASS
 
 if __name__ == '__main__':
