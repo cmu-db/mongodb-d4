@@ -220,7 +220,7 @@ class Parser:
         # Save all session!
         for session in self.session_map.itervalues():
             if len(session['operations']) == 0: 
-                LOG.warn("Ignoring Session %(session_id)d because it doesn't have an operations" % session)
+                LOG.warn("Ignoring Session %(session_id)d because it doesn't have any operations" % session)
                 continue
             try:
                 self.workload_col.save(session)
@@ -432,7 +432,7 @@ class Parser:
         if 'collection' in self.currentOp:
             col_name = self.currentOp['collection']
             prefix = col_name.split('.')[0]
-            if prefix in constants.IGNORED_COLLECTIONS or col_name.endswith("$cmd"):
+            if prefix in constants.IGNORED_COLLECTIONS:
                 LOG.warn("Ignoring operation %(query_id)d on collection '%(collection)s' [opCtr=%(op_ctr)d]" % self.currentOp)
                 self.skip_to_next = True
                 self.currentOp = None
@@ -614,7 +614,7 @@ class Parser:
         ## FOR
             
         # Now use our hash xref to fix the collection names in all aggreate operations
-        self.fill_aggregate_collection_names(hashed_collections)
+        self.fix_collection_names(hashed_collections)
     ## DEF
     
     def get_candidate_hashes(self):
@@ -664,42 +664,54 @@ class Parser:
         return None
     ## DEF
 
-    def fill_aggregate_collection_names(self, hashed_collections):
+    def fix_collection_names(self, hashed_collections):
         """now we go through aggregate ops again and fill in the collection name..."""
         
-        LOG.info("Adding plaintext collection names to aggregate operations...")
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("Adding plaintext collection names to hashed operations...")
+            LOG.debug("PlainText Hashes:\n%s" % pformat(hashed_collections))
+        
         cnt = 0
-        for session in self.workload_col.find():
+        for session in self.session_map.itervalues():
+            dirty = False
             for op in session['operations']:
-                if op['query_aggregate']:
-                    query = op['query_content'][0] # first and only JSON from the payload
+                query = op['query_content'][0]
+                if op['query_aggregate'] or 'findAndModify' in query:
+                    if LOG.isEnabledFor(logging.DEBUG):
+                        LOG.debug("Fixable Operation Candidate:\n%s" % pformat(op))
+                    
+                    # first and only JSON from the payload
                     # iterate through the keys in the query JSON
                     # one of the should point to the hashed collection name
-                    for key in query:
-                        value = query[key]
-                        #print "value: ", value, " type: ", type(value)
-                        if type(value) is unicode:
-                            #print "candidate val: ", value
-                            if value in hashed_collections:
-                                # YES. We found it!
-                                # contains $cmd. Just to double-check
-                                if op['collection'].find("$cmd") < 0:
-                                    LOG.warn("Aggregate operation does not seem to be aggregate. Skipping.")
-                                    LOG.debug(pformat(op))
-                                    continue
-                                col_name = hashed_collections[value] # the plaintext collection name is restored
-                                db_name = op['collection'].split(".")[0] #extract the db name from db.$cmd
-                                cnt += 1
-                                op['collection'] = db_name + "." + col_name
-                            ### if
-                        ### if
-                    ### for        
-                ### if
-            ### for
-            # save the session
-            self.workload_col.save(session)
-        ### for
-        LOG.info("Done. Updated %d aggregate operations." % cnt)
+                    for key,value in query.iteritems():
+                        if type(value) in [unicode, str] and value in hashed_collections:
+                            # YES. We found it!
+                            # Make sure that the original collection name contains $cmd
+                            if op['collection'].find("$cmd") < 0:
+                                LOG.warn("Unexpected operation")
+                                LOG.debug(pformat(op))
+                                continue
+                            
+                            # the plaintext collection name is restored
+                            orig_name = op['collection']
+                            col_name = hashed_collections[value] 
+                            query[key] = col_name
+                            
+                            # extract the db name from db.$cmd
+                            op['collection'] = "%s.%s" % (orig_name.split(".")[0], col_name)
+                            
+                            LOG.debug("Fixed Operation %d: %s -> %s" % (op['query_id'], value, op['collection']))
+                            dirty = True
+                        ## IF
+                ## IF
+            ## FOR (operations)
+            
+            # save the session if it was changed
+            if dirty: 
+                self.workload_col.save(session)
+                cnt += 1
+        ## FOR (sessions)
+        LOG.info("Done. Fixed %d operations." % cnt)
     ## DEF
 
 
