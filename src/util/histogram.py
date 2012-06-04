@@ -57,6 +57,11 @@ class Histogram(dict):
         ## FOR
     ## DEF
     
+    def getSampleCount(self):
+        """Return the number of samples added to this histogram"""
+        return sum(self.itervalues())
+    ## DEF
+    
     def getValuesForCount(self, count):
         """Return all the keys that have the same count as the given parameter"""
         keys = [ ]
@@ -68,6 +73,11 @@ class Histogram(dict):
     def getCounts(self):
         """Return all the unique count values in the histogram"""
         return set(self.itervalues())
+    ## DEF
+    
+    def getCountMean(self):
+        """Return the mean for the counts in the histograms"""
+        return sum(self.itervalues()) / float(len(self))
     ## DEF
     
     def getMinCountKeys(self):
@@ -91,7 +101,7 @@ class Histogram(dict):
     def __str__(self):
         ret = ""
         ret += "# of Elements: %d\n" % len(self)
-        ret += "# of Samples:  %d\n" % sum(self.itervalues())
+        ret += "# of Samples:  %d\n" % self.getSampleCount()
         ret += "="*50 + "\n"
         ret += "\n".join([ "%-25s %d" % (x, y) for x,y in self.iteritems() ])
         ret += "\n" + "="*50

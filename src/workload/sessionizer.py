@@ -29,6 +29,7 @@ import math
 import functools
 from pprint import pformat
 
+from traces import Session
 from util.histogram import Histogram
 from util import mathutil
 
@@ -42,8 +43,9 @@ class Sessionizer:
         
         # Reverse look-up for op hashes
         self.op_hash_xref = { }
-        
-        # TODO: Remove?
+
+        # Pairs of hashes that correspond to when one
+        # session ends and the next one begins
         self.sessionBoundaries = set()
         
         # Mapping from SessionId -> Operations
@@ -76,7 +78,7 @@ class Sessionizer:
     def calculateSessions(self):
         # Calculate outliers using the quartile method
         # http://en.wikipedia.org/wiki/Quartile#Computing_methods
-        LOG.info("Calculating time difference for operations in %d sessions" % len(self.sessOps))
+        LOG.debug("Calculating time difference for operations in %d sessions" % len(self.sessOps))
         
         # Get the full list of all the time differences
         allDiffs = [ ]
@@ -128,42 +130,44 @@ class Sessionizer:
             LOG.debug("  Lower Quartile: %s" % lowerQuartile)
             LOG.debug("  Upper Quartile: %s" % upperQuartile)
         
-        outlierHashes = set()
+        self.sessionBoundaries = set()
         for cnt in outlierCounts:
             if cnt >= upperQuartile:
-                outlierHashes |= set(opHist.getValuesForCount(cnt))
+                self.sessionBoundaries |= set(opHist.getValuesForCount(cnt))
         ## FOR
-        LOG.info("Found %d outlier hashes" % len(outlierHashes))
-        
-        sys.exit(1)
-        
-        # TODO: Now that we've populated these histograms, we need a way
-        # to determine whether they are truly new sessions or not.
+        LOG.debug("Found %d outlier hashes" % len(self.sessionBoundaries))
 
-        # TODO: Once we have our session boundaries, we need to then
+    ## DEF
+        
+    def sessionize(self, origSess, nextId):
+        # Once we have our session boundaries, we need to then
         # loop through each of the sessOps again and generate our
         # boundaries
-        for sessId, clientOps in self.sessOps.iteritems():
-            ip1, ip2, uid = sessId
-            
-            lastOp = None
-            sess = None
-            for op in clientOps:
-                if lastOp:
-                    sess["operations"].append(lastOp)
-                    if (lastOp["query_hash"], op["query_hash"]) in self.sessionBoundaries:
-                        sess = None
-                if not sess:
-                    sess = Session()
-                    sess["ip_client"] = ip1
-                    sess["ip_server"] = ip2
-                    sess["session_id"] = uid
-                    sess["operations"] = [ ]            
-                lastOp = op
-            ## FOR
-            if lastOp: sess["operations"].append(lastOp)
         
-        pass
+        sess = None
+        newSessions = [ ]
+        lastOp = None
+        
+        # Throw a None at the end of the list so that
+        # we always loop through one extra time in order
+        # to make sure the lastOp is given a home!
+        for op in origSess["operations"] + [ None ]:
+            if not sess:
+                sess = Session()
+                sess["operations"] = [ ]
+                sess["ip_client"] = origSess["ip_client"]
+                sess["ip_server"] = origSess["ip_server"]
+                sess["session_id"] = nextId
+                nextId += 1
+                newSessions.append(sess)
+            if lastOp:
+                sess["operations"].append(lastOp)
+                if op and (lastOp["query_hash"], op["query_hash"]) in self.sessionBoundaries:
+                    sess = None
+            lastOp = op
+        ## FOR
+        
+        return newSessions
     ## FOR
     
     

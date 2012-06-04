@@ -219,6 +219,9 @@ class Parser:
         
         # Save all session!
         for session in self.session_map.itervalues():
+            if len(session['operations']) == 0: 
+                LOG.warn("Ignoring Session %(session_id)d because it doesn't have an operations" % session)
+                continue
             try:
                 self.workload_col.save(session)
             except (Exception) as err:

@@ -43,8 +43,9 @@ sys.path.append(os.path.join(basedir, ".."))
 import workload_info
 import parser
 import reconstructor
-from workload import sessionizer
 from traces import *
+from workload import sessionizer
+from util.histogram import Histogram
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -195,12 +196,50 @@ if __name__ == '__main__':
         s = sessionizer.Sessionizer()
         
         # We first feed in all of the operations in for each session
+        nextSessId = -1
+        origTotal = 0
+        origHistogram = Histogram()
         for sess in workload_col.find():
             s.process(sess['session_id'], sess['operations'])
+            nextSessId = max(nextSessId, sess['session_id'])
+            origHistogram.put(len(sess['operations']))
+            origTotal += len(sess['operations'])
         ## FOR
+        LOG.info("ORIG - Sessions: %d" % origHistogram.getSampleCount())
+        LOG.info("ORIG - Avg Ops per Session: %.2f" % (origTotal / float(origHistogram.getSampleCount())))
         
         # Then split them into separate sessions
         s.calculateSessions()
+        newTotal = 0
+        newHistogram = Histogram()
+        for sess in workload_col.find():
+            newSessions = s.sessionize(sess, nextSessId)
+            nextSessId += len(newSessions)
+            
+            # XXX: Mark the original session as 'deletable'
+            sess['deletable'] = True
+            # sess.save()
+            
+            # And then add all of our new sessions
+            LOG.info("Split Session %d [%d ops] into %d separate sessions" % (sess['session_id'], len(sess['operations']), len(newSessions)))
+            # workload_col.save(newSessions)
+            
+            # Count the number of operations so that can see the change
+            totalOps = 0
+            for newSess in newSessions:
+                newOpCtr = len(newSess['operations'])
+                totalOps += newOpCtr
+                newHistogram.put(newOpCtr)
+                LOG.debug("Session %d -> %d Ops" % (newSess['session_id'], newOpCtr))
+            # Make sure that all of our operations end up in a session
+            assert len(sess['operations']) == totalOps, \
+                "Expected %d operations, but new sessions only had %d" % (len(sess['operations']), totalOps)
+            newTotal += totalOps
+        ## FOR
+        LOG.info("NEW  - Sessions: %d" % newHistogram.getSampleCount())
+        LOG.info("NEW  - Avg Ops per Session: %.2f" % (newTotal / float(newHistogram.getSampleCount())))
+        LOG.info("NEW - Ops per Session\n%s" % newHistogram)
+            
     ## IF
     
     # Print out some information when parsing finishes
