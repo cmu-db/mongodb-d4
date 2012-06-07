@@ -9,11 +9,14 @@ mongosniff, MongoDB-Designer will automatically select the best:
 (2) Indexes
 (3) (De)normalization
 
+For More Information:
+
+http://database.cs.brown.edu/projects/mongodb/
+
 ----------------------------------------------------
 
 DEPENDENCIES:
 
-mongokit (+0.7)
 python-pymongo
 python-yaml
 
@@ -24,4 +27,3 @@ AUTHORS:
 Andy Pavlo
 Emanuel Buzek
 Christopher Keith
-Andy Scheff

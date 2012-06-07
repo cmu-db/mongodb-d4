@@ -89,8 +89,6 @@ FLAGS_MASK = ".*flags:(?P<flags>\d).*" #vals: 0,1,2,3
 NTORETURN_MASK = ".*ntoreturn: (?P<ntoreturn>-?\d+).*" # int 
 NTOSKIP_MASK = ".*ntoskip: (?P<ntoskip>\d+).*" #int
 
-
-
 # Original Code: Emanuel Buzek
 class Parser:
     """Mongosniff Trace Parser"""
@@ -243,7 +241,7 @@ class Parser:
         try:
             self.currentOp['collection'].decode('ascii')
         except:
-            LOG.warn("Operation %(query_id)d has an invalid collection name '%(collection)s'. Will fix later... [opCtr=%(op_ctr)d]" % self.currentOp)
+            LOG.warn("Operation %(query_id)d has an invalid collection name '%(collection)s'. Will fix later... [opCtr=%(op_ctr)d / lineCtr=%(line_ctr)d]" % self.currentOp)
             self.currentOp['collection'] = constants.INVALID_COLLECTION_MARKER
             self.bustedOps.append(self.currentOp)
             pass
@@ -324,8 +322,10 @@ class Parser:
             try:
                 op['query_hash'] = self.opHasher.hash(op)
             except:
-                LOG.error("Failed to compute hash on operation\n%s" % pformat(op))
-                raise
+                msg = "Failed to compute hash on operation\n%s" % pformat(op)
+                LOG.warn(msg)
+                if self.stop_on_error: raise Exception(msg)
+                return
             
             # Append it to the current session
             # TODO: Large traces will cause the sessions to get too big.
@@ -418,6 +418,7 @@ class Parser:
         
         # Add in the op_ctr for debugging purposes
         self.currentOp["op_ctr"] = self.op_ctr
+        self.currentOp["line_ctr"] = self.line_ctr
         
         # Fix field types
         for f in ['size', 'query_id', 'reply_id']:
@@ -433,7 +434,7 @@ class Parser:
             col_name = self.currentOp['collection']
             prefix = col_name.split('.')[0]
             if prefix in constants.IGNORED_COLLECTIONS:
-                LOG.warn("Ignoring operation %(query_id)d on collection '%(collection)s' [opCtr=%(op_ctr)d]" % self.currentOp)
+                LOG.warn("Ignoring operation %(query_id)d on collection '%(collection)s' [opCtr=%(op_ctr)d / lineCtr=%(line_ctr)d]" % self.currentOp)
                 self.skip_to_next = True
                 self.currentOp = None
         ## IF
