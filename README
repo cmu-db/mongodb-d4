@@ -1,28 +1,26 @@
-+ ----------------------------------------------- +
-+ MongoDB-Designer                                +
-+ ----------------------------------------------- +
+================
+MongoDB-Designer
+================
 
 Automatic database designer for MongoDB. For a given sample workload generated using
 mongosniff, MongoDB-Designer will automatically select the best:
 
-(1) Sharding Keys
-(2) Indexes
-(3) (De)normalization
+ * Sharding Keys
+ * Indexes
+ * (De)normalization
 
 For More Information:
 
 http://database.cs.brown.edu/projects/mongodb/
 
-----------------------------------------------------
-
 DEPENDENCIES:
+=============
 
 python-pymongo
 python-yaml
 
-----------------------------------------------------
-
 AUTHORS:
+========
 
 Andy Pavlo
 Emanuel Buzek
