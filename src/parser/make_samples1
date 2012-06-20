@@ -1,1 +1,0 @@
-sudo /Applications/mongodb/bin/mongosniff --source NET lo0 | ../sanitizer/anonymize.py 0 > sample1.txt
