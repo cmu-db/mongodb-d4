@@ -9,3 +9,11 @@ recreates the sample database from the 'workload' and stores it in mongo
 schema.py
 ----------------
 inferes the schmea catalog from the 'recreated' and stores it in mongo
+
+
+
+---------------------------------
+
+Collecting samples on OSX:
+
+sudo /Applications/mongodb/bin/mongosniff --source NET lo0 | ../sanitizer/anonymize.py 0 > sample1.txt
