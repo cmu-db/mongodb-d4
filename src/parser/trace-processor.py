@@ -28,7 +28,6 @@ import os
 import sys
 import fileinput
 import time
-import argparse
 import logging
 from pprint import pformat
 from pymongo import Connection
@@ -36,6 +35,7 @@ from pymongo import Connection
 # Third-Party Dependencies
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../libs"))
+import argparse
 import mongokit
 
 # MongoDB-Designer

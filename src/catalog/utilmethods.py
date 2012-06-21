@@ -76,7 +76,12 @@ def extractFields(doc, fields, nested=False):
 ## DEF
 
 # Mapping from TypeName -> Type
-TYPES_XREF = { (t.__name__, t) for t in [types.IntType, types.LongType, types.FloatType, types.BooleanType] }
+# This won't work on Python 2.6
+# TYPES_XREF = { (t.__name__, t) for t in [types.IntType, types.LongType, types.FloatType, types.BooleanType] }
+TYPES_XREF = { }
+for t in [types.IntType, types.LongType, types.FloatType, types.BooleanType]:
+    TYPES_XREF[t.__name__] = t
+
 def getEstimatedSize(typeName, value):
     """Returns the estimated size (in bytes) of the value for the given type"""
     
