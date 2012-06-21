@@ -58,7 +58,6 @@ LOG = logging.getLogger(__name__)
 ## you can specify these with args
 ## TODO: These should come from util.config
 ## ==============================================
-INPUT_FILE = "sample.txt"
 METADATA_DB = "metadata"
 WORKLOAD_COLLECTION = constants.COLLECTION_WORKLOAD
 SCHEMA_COL = constants.COLLECTION_SCHEMA
@@ -70,13 +69,11 @@ DEFAULT_PORT = "27017"
 ## main
 ## ==============================================
 if __name__ == '__main__':
-    aparser = argparse.ArgumentParser(description='MongoDesigner Trace Parser')
+    aparser = argparse.ArgumentParser(description='MongoSniff Trace Process')
     aparser.add_argument('--host', default=DEFAULT_HOST,
                          help='hostname of machine running mongo server')
     aparser.add_argument('--port', type=int, default=DEFAULT_PORT,
                          help='port to connect to')
-    aparser.add_argument('--file', default=INPUT_FILE,
-                         help='file to read from')
     aparser.add_argument('--metadata-db', default=METADATA_DB,
                          help='The database used to store the metadata extracted from the sample workload file.')
     aparser.add_argument('--workload-col', default=WORKLOAD_COLLECTION,
@@ -112,8 +109,8 @@ if __name__ == '__main__':
         reconstructor.LOG.setLevel(logging.DEBUG)
         sessionizer.LOG.setLevel(logging.DEBUG)
 
-    LOG.info("..:: MongoDesigner Trace Parser ::..")
-    LOG.debug("Server: %(host)s:%(port)d / InputFile: %(file)s / Storage: %(metadata_db)s.%(workload_col)s" % args)
+    LOG.info("..:: MongoSniff Trace Processor ::..")
+    LOG.debug("Server: %(host)s:%(port)d / Storage: %(metadata_db)s.%(workload_col)s" % args)
 
     # initialize connection to MongoDB
     LOG.debug("Connecting to MongoDB at %s:%d" % (args['host'], args['port']))
@@ -137,7 +134,7 @@ if __name__ == '__main__':
     ## WORKLOAD PARSING + LOADING
     ## ----------------------------------------------
     if not args['no_load']:
-        with open(args['file'], 'r') as fd:
+        with sys.stdin as fd:
             # Create the Parser object that will go to town on our input file 
             p = parser.Parser(workload_col, fd)
             
@@ -158,9 +155,9 @@ if __name__ == '__main__':
             if args['clean']: p.clean()
             
             # Bombs away!
-            LOG.info("Processing file %s", args['file'])
+            LOG.info("Processing mongosniff input")
             p.process()
-            LOG.info("Finishing processing %s" % args['file'])
+            LOG.info("Finishing processing")
             LOG.info("Added %d sessions with %d operations to '%s'" % (\
                 p.getSessionCount(), p.getOpCount(), workload_col.full_name))
             LOG.info("Skipped Responses: %d" % p.getOpSkipCount())
