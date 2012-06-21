@@ -203,6 +203,9 @@ class Parser:
             except:
                 LOG.error("Unexpected error when processing line %d" % self.line_ctr)
                 raise
+            finally:
+                # Checkpoint!
+                if self.line_ctr % 10000 == 0: self.saveSessions()
             
             if self.op_limit != None and self.op_ctr >= self.op_limit:
                 LOG.warn("Operation Limit Reached. Halting processing [limit=%d]" % (self.op_limit))
@@ -215,10 +218,17 @@ class Parser:
         # If only Emanuel was still alive to see this!
         self.postProcess()
         
-        # Save all session!
+        self.saveSessions()
+        
+        pass
+    ## DEF
+    
+    def saveSessions(self):
+        """Save all sessions!"""
         for session in self.session_map.itervalues():
             if len(session['operations']) == 0: 
-                LOG.warn("Ignoring Session %(session_id)d because it doesn't have any operations" % session)
+                if LOG.isEnabledFor(logging.DEBUG):
+                    LOG.warn("Ignoring Session %(session_id)d because it doesn't have any operations" % session)
                 continue
             try:
                 self.workload_col.save(session)
@@ -228,9 +238,8 @@ class Parser:
                 LOG.error("Failed to save session: %s\n%s" % (err.message, dump))
                 raise
         ## FOR
-        
-        pass
     ## DEF
+    
     
     def storeCurrentOpInSession(self):
         """Stores the currentOp in a session. We will create a new session if one does not already exist."""
@@ -463,28 +472,33 @@ class Parser:
         # this is not a content line... it can't be yaml
         elif not yaml_line.startswith("{"):
             msg = "Invalid Content on Line %d: JSON does not start with '{'" % self.line_ctr
-            LOG.warn(msg)
             LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
+            LOG.warn(msg)
             return
         elif not yaml_line.endswith("}"):
             msg = "Invalid Content on Line %d: JSON does not end with '}'" % self.line_ctr
-            LOG.warn(msg)
             LOG.debug(yaml_line)
             if self.stop_on_error: raise Exception(msg)
+            LOG.warn(msg)
             return    
         
         #yaml parser might fail :D
         try:
             obj = yaml.load(yaml_line)
         except (yaml.scanner.ScannerError, yaml.parser.ParserError, yaml.reader.ReaderError) as err:
-            LOG.error("Invalid Content on Line %d: Failed to convert YAML to JSON:\n%s" % (self.line_ctr, yaml_line))
-            raise
+            msg = "Invalid Content on Line %d: Failed to convert YAML to JSON:\n%s" % (self.line_ctr, yaml_line)
+            if self.stop_on_error: raise Exception(msg)
+            LOG.warn(msg)
+            return
         
         valid_json = json.dumps(obj)
         obj = yaml.load(valid_json)
         if not obj:
-            raise Exception("Invalid Content on Line %d: Content parsed to YAML, not to JSON\n%s" % (self.line_ctr, yaml_line))
+            msg = "Invalid Content on Line %d: Content parsed to YAML, not to JSON\n%s" % (self.line_ctr, yaml_line)
+            if self.stop_on_error: raise Exception(msg)
+            LOG.warn(msg)
+            return
         
         # If this is the first time we see this session, add it
         # TODO: Do we still need this?
