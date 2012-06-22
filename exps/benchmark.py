@@ -92,26 +92,6 @@ class Benchmark:
 
         return (ret)
     ## DEF
-        
-    def runBenchmark(self):
-        '''Execute the target benchmark!'''
-        self._channels = self.createChannels()
-        
-        # Step 1: Initialize all of the Workers on the client nodes
-        self._coordinator.init(self._config, self._channels) 
-        
-        # Step 2: Load the benchmark database
-        if not self._args['no_load']:
-            self._coordinator.load(self._config, self._channels)            
-            
-        # Step 3: Execute the benchmark workload
-        if not self._args['no_execute']:
-            self._coordinator.execute(self._config, self._channels)
-            self._coordinator.showResult(self._config, self._channels)
-            
-        # Step 4: Clean things up (?)
-        # self._coordinator.moreProcessing(self._config, self._channels)
-    ## DEF
     
     def loadConfig(self):
         '''Load configuration file'''
@@ -166,6 +146,26 @@ class Benchmark:
         
         self._config = config
         logging.info("Configuration File:\n%s" % pformat(self._config))
+    ## DEF
+            
+    def runBenchmark(self):
+        '''Execute the target benchmark!'''
+        self._channels = self.createChannels()
+        
+        # Step 1: Initialize all of the Workers on the client nodes
+        self._coordinator.init(self._config, self._channels) 
+        
+        # Step 2: Load the benchmark database
+        if not self._args['no_load']:
+            self._coordinator.load(self._config, self._channels)            
+            
+        # Step 3: Execute the benchmark workload
+        if not self._args['no_execute']:
+            self._coordinator.execute(self._config, self._channels)
+            self._coordinator.showResult(self._config, self._channels)
+            
+        # Step 4: Clean things up (?)
+        # self._coordinator.moreProcessing(self._config, self._channels)
     ## DEF
         
     def createChannels(self):

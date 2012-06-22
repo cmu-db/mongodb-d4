@@ -58,16 +58,25 @@ class AbstractWorker:
         """Return the total number of workers in this benchmark invocation"""
         return int(self.config['default']['clientprocs'])
     
+    def getScaleFactor(self):
+        return float(self.config['default']['scalefactor'])
+    
     def getBenchmarkName(self):
         return self.name
     
+    ## ---------------------------------------------------------------------------
+    ## WORKER INIT
+    ## ---------------------------------------------------------------------------
+    
     def init(self, config, channel):
-        '''Work Initialization. You always must send a INIT_COMPLETED message back'''
+        '''Worker Initialization. You always must send a INIT_COMPLETED message back'''
         self.config = config
         self.name = config['default']['name']
         self.id = config['default']['id']
         self.stop_on_error = config['default']['stop_on_error']
         self.debug = config['default']['debug']
+        if self.debug:
+            LOG.setLevel(logging.DEBUG)
         
         LOG.info("Initializing %s Worker [clientId=%d]" % (self.name.upper(), self.id))
         if self.debug:
@@ -106,6 +115,10 @@ class AbstractWorker:
     def initImpl(self, config):
         raise NotImplementedError("%s does not implement initImpl" % (self.name))
         
+    ## ---------------------------------------------------------------------------
+    ## LOAD
+    ## ---------------------------------------------------------------------------
+        
     def load(self, config, channel, msg):
         '''Perform actual loading. We will always send back LOAD_COMPLETED message'''
         LOG.info("Invoking %s Loader" % self.name)
@@ -116,6 +129,23 @@ class AbstractWorker:
     
     def loadImpl(self, config, channel, msg):
         raise NotImplementedError("%s does not implement loadImpl" % (self.name))
+        
+    ## ---------------------------------------------------------------------------
+    ## EXECUTION INITIALIZATION
+    ## ---------------------------------------------------------------------------
+        
+    def executeInit(self, config, channel, msg):
+        LOG.info("Initializing %s before benchmark execution" % self.name)
+        self.executeInitImpl(config)
+        sendMessage(MSG_INIT_COMPLETED, None, channel)
+    ## DEF
+    
+    def executeInitImpl(self, config):
+        raise NotImplementedError("%s does not implement executeInitImpl" % (self.name))
+
+    ## ---------------------------------------------------------------------------
+    ## WORKLOAD EXECUTION
+    ## ---------------------------------------------------------------------------
         
     def execute(self, config, channel, msg):
         ''' Actual execution. You might want to send a EXECUTE_COMPLETED message back with the loading time'''
@@ -155,6 +185,7 @@ class AbstractWorker:
         
     def next(self, config):
         raise NotImplementedError("%s does not implement next" % (self.name))
+
         
     def executeImpl(self, config, txn, params):
         raise NotImplementedError("%s does not implement executeImpl" % (self.name))

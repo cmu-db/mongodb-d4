@@ -124,18 +124,17 @@ class Results:
             ret += "Data Loading Time: %d seconds\n\n" % (load_time)
         
         ret += "Execution Results after %d seconds\n%s" % (duration, line)
-        ret += f % ("", "Executed", u"Time (µs)", "Rate")
+        ret += f % ("", "Executed", u"Total Time (µs)", "Rate")
         
         total_time = 0
-        total_cnt = 0
+        total_cnt = self.txn_counters.getSampleCount()
         for txn in sorted(self.txn_counters.keys()):
             txn_time = self.txn_times[txn]
-            txn_cnt = self.txn_counters[txn]
-            rate = u"%.02f txn/s" % ((txn_cnt / txn_time))
-            ret += f % (txn, str(txn_cnt), str(txn_time * 1000000), rate)
+            txn_cnt = "%5d - %4.1f%%" % (self.txn_counters[txn], (self.txn_counters[txn] / float(total_cnt))*100)
+            rate = u"%.02f txn/s" % ((self.txn_counters[txn] / txn_time))
+            ret += f % (txn, txn_cnt, str(txn_time * 1000000), rate)
             
             total_time += txn_time
-            total_cnt += txn_cnt
         ret += "\n" + ("-"*total_width)
         
         rate = 0

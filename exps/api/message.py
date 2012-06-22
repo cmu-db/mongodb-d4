@@ -29,12 +29,13 @@ import pickle
 MSG_EMPTY             = 0
 MSG_CMD_INIT          = 1
 MSG_CMD_LOAD          = 2
-MSG_CMD_EXECUTE       = 3
-MSG_CMD_STOP          = 4
-MSG_INIT_COMPLETED    = 5
-MSG_LOAD_COMPLETED    = 6
-MSG_EXECUTE_COMPLETED = 7
-MSG_CONFIG            = 8
+MSG_CMD_EXECUTE_INIT  = 3
+MSG_CMD_EXECUTE       = 4
+MSG_CMD_STOP          = 5
+MSG_INIT_COMPLETED    = 6
+MSG_LOAD_COMPLETED    = 7
+MSG_EXECUTE_COMPLETED = 8
+MSG_CONFIG            = 9
 
 NAME_MAPPING = { }
 for key in globals().keys():

@@ -62,6 +62,7 @@ class AbstractCoordinator:
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
         self.config = config
         self.name = config['default']['name']
+        config['default']['debug'] = LOG.isEnabledFor(logging.DEBUG)
         LOG.info("Initializing %s Benchmark Coordinator" % self.name.upper())
 
         ## Add in the default configuration values for this benchmark
@@ -127,15 +128,34 @@ class AbstractCoordinator:
         You can collect the execution result from each channel'''
         LOG.info("Executing %s Workload" % self.name.upper())
         
-        self.total_results = Results()
+        # Tell all the workers to get initialize themselves for a new 
+        # round of execution. This will allow them to perform any initialization
+        # that is specific to execution
         for ch in channels:
-            sendMessage(MSG_CMD_EXECUTE, None, ch)
+            sendMessage(MSG_CMD_EXECUTE_INIT, None, ch)
         for ch in channels:
             msg = getMessage(ch.receive())
-            if msg.header == MSG_EXECUTE_COMPLETED :
+            if msg.header == MSG_INIT_COMPLETED:
+                pass
+            else:
+                msg = "Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch)
+                raise Exception(msg)
+        ## FOR
+            
+        # Now tell them to start executing their benchmark
+        for ch in channels:
+            sendMessage(MSG_CMD_EXECUTE, None, ch)
+            
+        # Each channel will return back a Result object
+        # We will append each one to our global results
+        self.total_results = Results()
+        for ch in channels:
+            msg = getMessage(ch.receive())
+            if msg.header == MSG_EXECUTE_COMPLETED:
                 r = msg.data
                 self.total_results.append(r)
             else:
+                LOG.warn("Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch))
                 pass
         
         return None

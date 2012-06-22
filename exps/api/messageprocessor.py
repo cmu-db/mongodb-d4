@@ -54,7 +54,9 @@ class MessageProcessor:
                 self._worker.init(self._config, self._channel)
             elif msg.header == MSG_CMD_LOAD :
                 self._worker.load(self._config, self._channel, msg)
-            elif msg.header == MSG_CMD_EXECUTE :
+            elif msg.header == MSG_CMD_EXECUTE_INIT:
+                self._worker.executeInit(self._config, self._channel, msg)
+            elif msg.header == MSG_CMD_EXECUTE:
                 self._worker.execute(self._config, self._channel, msg)
             elif msg.header == MSG_CMD_STOP :
                 pass
@@ -67,8 +69,7 @@ class MessageProcessor:
             
     def createWorker(self):
         '''Worker factory method'''
-        
-        fullName= self._benchmark.title() + "Worker"
+        fullName = self._benchmark.title() + "Worker"
         moduleName = 'benchmarks.%s.%s' % (self._benchmark.lower(), fullName.lower())
         moduleHandle = __import__(moduleName, globals(), locals(), [fullName])
         klass = getattr(moduleHandle, fullName)

@@ -27,15 +27,12 @@ import random
 import string
 from datetime import timedelta
 
-def randomString(size=6, chars=string.ascii_uppercase + string.digits):
+def randomString(size, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for x in range(size))
 ## DEF
 
 def randomDate(start, end):
-    """
-    This function will return a random datetime between two datetime 
-    objects.
-    """
+    """This returns a random datetime between two datetime objects."""
     delta = end - start
     int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
     random_second = random.randrange(int_delta)

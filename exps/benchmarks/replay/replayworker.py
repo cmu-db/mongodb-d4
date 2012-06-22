@@ -145,6 +145,14 @@ class ReplayWorker(AbstractWorker):
 
     ## DEF
     
+    ## ---------------------------------------------------------------------------
+    ## EXECUTION INITIALIZATION
+    ## ---------------------------------------------------------------------------
+    
+    def executeInitImpl(self, config):
+        pass
+    ## DEF
+    
     def next(self, config):
         assert self.replayCursor
         

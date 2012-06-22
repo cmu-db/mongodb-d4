@@ -98,6 +98,14 @@ class TpccWorker(AbstractWorker):
             raise
     ## DEF
     
+    ## ---------------------------------------------------------------------------
+    ## EXECUTION INITIALIZATION
+    ## ---------------------------------------------------------------------------
+    
+    def executeInitImpl(self, config):
+        pass
+    ## DEF
+    
     def next(self, config):
         assert self._executor != None
         return self._executor.doOne()

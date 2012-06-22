@@ -29,6 +29,7 @@ import re
 import logging
 import traceback
 import pymongo
+from datetime import datetime
 from pprint import pprint, pformat
 
 import constants
@@ -83,11 +84,12 @@ class BlogWorker(AbstractWorker):
             self.workloadWrite.append(True)
         
         # Total number of articles in database
-        self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
+        self.num_articles = int(self.getScaleFactor() * constants.NUM_ARTICLES)
         
         articleOffset = (1 / float(self.getWorkerCount())) * self.num_articles
         self.firstArticle = int(self.getWorkerId() * articleOffset)
         self.lastArticle = self.firstArticle + articleOffset
+        self.lastCommentId = None
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
         
         # Zipfian distribution on the number of comments & their ratings
@@ -110,6 +112,7 @@ class BlogWorker(AbstractWorker):
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
             
             # Initialize sharding configuration
+            self.initIndexes(constants.INDEXEXP_PREDICATE)
             self.initSharding(config)
             
         # Denormalization
@@ -117,15 +120,17 @@ class BlogWorker(AbstractWorker):
             config[self.name]["denormalize"] = (config[self.name]["denormalize"] == "True")
             
             # We need an index on ARTICLE
-            self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
+            self.initIndexes(constants.INDEXEXP_PREDICATE)
+            
             # And if we're not denormalized, on COMMENTS as well
             if not config[self.name]["denormalize"]:
-                self.db[constants.COMMENT_COLL].create_index([("article", pymongo.ASCENDING)])
+                self.db[constants.COMMENT_COLL].create_index([("id", pymongo.ASCENDING), \
+                                                              ("article", pymongo.ASCENDING)])
                 
         # Indexing
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
             config[self.name]["indexes"] = int(config[self.name]["indexes"])
-            self.initIndexes(config)
+            self.initIndexes(config[self.name]["indexes"])
             
         # Busted!
         else:
@@ -173,42 +178,58 @@ class BlogWorker(AbstractWorker):
                   (len(shardingPatterns, self.db.name)))
     ## DEF
     
-    def initIndexes(self, config):
+    def initIndexes(self, optType):
         assert self.db != None
         
         # Nothing
-        if config[self.name]["indexes"] == constants.INDEXEXP_NONE:
+        if optType == constants.INDEXEXP_NONE:
             pass
         # Regular Index
-        elif config[self.name]["indexes"] == constants.INDEXEXP_PREDICATE:
+        elif optType == constants.INDEXEXP_PREDICATE:
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
         # Cover Index
-        elif config[self.name]["indexes"] == constants.INDEXEXP_COVERING:
+        elif optType == constants.INDEXEXP_COVERING:
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING), \
                                                           ("date", pymongo.ASCENDING), \
                                                           ("author", pymongo.ASCENDING)])
         # Busted!
         else:
-            raise Exception("Unexpected indexing configuration type '%d'" % config["indexes"])
+            raise Exception("Unexpected indexing configuration type '%d'" % optType)
     ## DEF
+    
+    def initNextCommentId(self, maxCommentId):
+        idRange = int(250000 * self.getScaleFactor())
+        self.lastCommentId = maxCommentId + (idRange * self.getWorkerId())
+        LOG.info("Initialized NextCommentId for Worker %d: %d" % (self.getWorkerId(), self.lastCommentId))
+    ## DEF
+    
+    def getNextCommentId(self):
+        """Return the next commentId to use at this worker. This is guaranteed to be globally unique across all workers in this benchmark invocation"""
+        assert self.lastCommentId <> None
+        self.lastCommentId += 1
+        return self.lastCommentId
+    ## DEF
+    
+    ## ---------------------------------------------------------------------------
+    ## LOAD
+    ## ---------------------------------------------------------------------------
     
     def loadImpl(self, config, channel, msg):
         assert self.conn != None
+        self.initNextCommentId(-1)
         
         # The message we're given is a tuple that contains
         # the list of author names that we'll generate articles from
         authors = msg.data[0]
-        
         LOG.info("Generating %s data [denormalize=%s]" % (self.getBenchmarkName(), config[self.name]["denormalize"]))
-        articleCtr = 0
-        commentCtr = 0
-        commentId = self.getWorkerId() * 1000000
         
         ## ----------------------------------------------
         ## LOAD ARTICLES
         ## ----------------------------------------------
         articlesBatch = [ ]
+        articleCtr = 0
         commentsBatch = [ ]
+        commentCtr = 0
         for articleId in xrange(self.firstArticle, self.lastArticle+1):
             titleSize = int(random.gauss(constants.MAX_TITLE_SIZE/2, constants.MAX_TITLE_SIZE/4))
             contentSize = int(random.gauss(constants.MAX_CONTENT_SIZE/2, constants.MAX_CONTENT_SIZE/4))
@@ -245,7 +266,7 @@ class BlogWorker(AbstractWorker):
                 commentContent = randomString(int(random.gauss(constants.MAX_COMMENT_SIZE/2, constants.MAX_COMMENT_SIZE/4)))
                 
                 comment = {
-                    "id": commentId,
+                    "id": self.getNextCommentId(),
                     "article": articleId,
                     "date": lastDate, 
                     "author": commentAuthor,
@@ -255,17 +276,17 @@ class BlogWorker(AbstractWorker):
                 commentCtr += 1
                 
                 if config[self.name]["denormalize"]:
-                    LOG.debug("Storing new comment for article %d directly in document" % articleId)
+                    if self.debug: 
+                        LOG.debug("Storing new comment for article %d directly in document" % articleId)
                     if not "comments" in article:
                         article["comments"] = [ ]
                     article["comments"].append(comment)
                 else:
-                    LOG.debug("Storing new comment for article %d in separate batch" % articleId)
+                    if self.debug:
+                        LOG.debug("Storing new comment for article %d in separate batch" % articleId)
                     commentsBatch.append(comment)
-                    
-                commentId += 1
             ## FOR (comments)
-            LOG.debug("Comment Batch: %d" % len(commentsBatch))
+            if self.debug: LOG.debug("Comment Batch: %d" % len(commentsBatch))
 
             # Always insert the article
             articlesBatch.append(article)
@@ -294,8 +315,36 @@ class BlogWorker(AbstractWorker):
         LOG.info("# of COMMENTS: %d" % commentCtr)
     ## DEF
     
+    ## ---------------------------------------------------------------------------
+    ## EXECUTION INITIALIZATION
+    ## ---------------------------------------------------------------------------
+    
+    def executeInitImpl(self, config):
+        # Figure out how many comments already exist in the database
+        if config[self.name]["denormalize"]:
+            assert False
+            pass
+        else:
+            maxCommentId = self.db[constants.COMMENT_COLL].find({}, {"id":1}).sort("id", -1).limit(1)[0]
+        
+        self.initNextCommentId(maxCommentId['id'])
+    ## DEF
+    
+    ## ---------------------------------------------------------------------------
+    ## WORKLOAD EXECUTION
+    ## ---------------------------------------------------------------------------
+    
     def next(self, config):
         assert "experiment" in config[self.name]
+        
+        # Generate skewed target articleId if we're doing the
+        # sharding experiments
+        if config[self.name]["experiment"] == constants.EXP_SHARDING:
+            assert self.articleZipf
+            articleId = int(self.articleZipf.next())
+        # Otherwise pick one at random uniformly
+        else:
+            articleId = random.randint(0, self.num_articles)
         
         # Check wether we're doing a read or a write txn
         if random.choice(self.workloadWrite):
@@ -303,20 +352,7 @@ class BlogWorker(AbstractWorker):
         else:
             txnName = "readArticle"
         
-        # Sharding Key
-        if config[self.name]["experiment"] == constants.EXP_SHARDING:
-            assert self.articleZipf
-            params = [ int(self.articleZipf.next()) ]
-        # Denormalization
-        elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
-            params = [ random.randint(0, self.num_articles) ]
-        # Indexing
-        elif config[self.name]["experiment"] == constants.EXP_INDEXING:
-            params = [ random.randint(0, self.num_articles) ]
-        else:
-            raise Exception("Unexpected experiment type %d" % config[self.name]["experiment"]) 
-        
-        return (txnName, params)
+        return (txnName, (articleId))
     ## DEF
         
     def executeImpl(self, config, txn, params):
@@ -326,18 +362,13 @@ class BlogWorker(AbstractWorker):
         if self.debug:
             LOG.debug("Executing %s / %s" % (txn, str(params)))
         
-        # Sharding Key
-        if config[self.name]["experiment"] == constants.EXP_SHARDING:
-            self.expSharding(params[0])
-        # Denormalization
-        elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
-            self.expDenormalization(config[self.name]["denormalize"], params[0])
-        # Indexing
-        elif config[self.name]["experiment"] == constants.EXP_INDEXING:
-            self.expIndexes(params[0])
-        # Busted!
-        else:
-            pass
+        m = getattr(self, txn)
+        assert m != None, "Invalid transaction name '%s'" % txn
+        try:
+            result = m(config[self.name]["denormalize"], params)
+        except:
+            LOG.warn("Unexpected error when executing %s" % txn)
+            raise
         
         return
     ## DEF
@@ -361,16 +392,16 @@ class BlogWorker(AbstractWorker):
     
     def writeComment(self, denormalize, articleId):
         # Generate a random comment document
-        lastDate = randomDate(lastDate, constants.STOP_DATE)
+        # The commentIds are generated 
         commentAuthor = randomString(int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4)))
         commentContent = randomString(int(random.gauss(constants.MAX_COMMENT_SIZE/2, constants.MAX_COMMENT_SIZE/4)))
         comment = {
-            "id": commentId,
-            "article": articleId,
-            "date": lastDate, 
-            "author": commentAuthor,
-            "comment": commentContent,
-            "rating": int(self.ratingZipf.next())
+            "id":       self.getNextCommentId(),
+            "article":  articleId,
+            "date":     datetime.now(), 
+            "author":   commentAuthor,
+            "comment":  commentContent,
+            "rating":   int(self.ratingZipf.next())
         }
         
         # If we're denormalized, then we need to append our comment
