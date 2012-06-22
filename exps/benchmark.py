@@ -57,10 +57,10 @@ logging.basicConfig(level = logging.INFO,
 ## Benchmark Invocation
 ## ==============================================
 class Benchmark:
-    DEFAULT_CONFIG = {
-        "host":     ("The host name of the MongoDB instance to use in this benchmark", "localhost"),
-        "port":     ("The port number of the MongoDB instance to use in this benchmark", 27017),
-    }
+    DEFAULT_CONFIG = [
+        ("host", "The host name of the MongoDB instance to use in this benchmark", "localhost"),
+        ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
+    ]
     
     '''main class'''
     def __init__(self, benchmark, args):
@@ -212,6 +212,7 @@ class Benchmark:
 ## getBenchmarks
 ## ==============================================
 def getBenchmarks():
+    """Return a list of the valid benchmark handles that can be used in the framework"""
     benchmarks = [ ]
     for f in glob.glob("./benchmarks/*"):
         if os.path.isdir(f): benchmarks.append(os.path.basename(f).strip())
@@ -237,16 +238,14 @@ def setupBenchmarkPath(benchmark):
 ## formatConfig
 ## ==============================================
 def formatConfig(name, config):
-    """Return a formatted version of the config dict that can be used with the --config command line argument"""
+    """Return a formatted version of the config list that can be used with the --config command line argument. See AbstractCoordinator.benchmarkConfigImpl() for what the tuples in this list look like."""
 
+    # Header
     ret = "\n# " + ("="*75) + "\n"
-    
-    # Default Configuration
     ret += "[%s]" % name
     
     # Benchmark Configuration
-    for key in config.keys():
-        desc, default = config[key]
+    for key, desc, default in config:
         if default == None: default = ""
         ret += "\n\n# %s\n%-20s = %s" % (desc, key, default) 
     ret += "\n"
