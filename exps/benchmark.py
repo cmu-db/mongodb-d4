@@ -40,6 +40,7 @@ from api.directchannel import *
 
 # Third-Party Dependencies
 if __name__ == '__channelexec__':
+    # Remote execnet invocations won't have a __file__
     BASEDIR = os.getcwd()
 else:
     BASEDIR = os.path.realpath(os.path.dirname(__file__))
