@@ -39,13 +39,16 @@ from api.messageprocessor import *
 from api.directchannel import *
 
 # Third-Party Dependencies
-basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, "../libs"))
+if __name__ == '__channelexec__':
+    BASEDIR = os.getcwd()
+else:
+    BASEDIR = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(BASEDIR, "../libs"))
 import argparse
 import mongokit
 
 # MongoDB-Designer
-sys.path.append(os.path.join(basedir, "../src"))
+sys.path.append(os.path.join(BASEDIR, "../src"))
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -230,14 +233,7 @@ def getBenchmarks():
 ## setupBenchmarkPath
 ## ==============================================
 def setupBenchmarkPath(benchmark):
-    realpath = os.path.realpath(__file__)
-    basedir = os.path.dirname(realpath)
-    if not os.path.exists(realpath):
-        cwd = os.getcwd()
-        basename = os.path.basename(realpath)
-        if os.path.exists(os.path.join(cwd, basename)):
-            basedir = cwd
-    benchmarkDir = os.path.join(basedir, "benchmarks", benchmark)
+    benchmarkDir = os.path.join(BASEDIR, "benchmarks", benchmark)
     sys.path.append(os.path.realpath(benchmarkDir))
 ## DEF
 
@@ -318,6 +314,7 @@ if __name__=='__main__':
 ## EXECNET PROCESSOR
 ## ==============================================
 if __name__ == '__channelexec__':
+    print "Initializing MessageProcessor channel"
     mp = MessageProcessor(channel)
     mp.processMessage()
 ## EXEC

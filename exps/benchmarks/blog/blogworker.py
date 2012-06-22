@@ -73,8 +73,22 @@ LOG = logging.getLogger(__name__)
 class BlogWorker(AbstractWorker):
     
     def initImpl(self, config):
+        
+        # A list of booleans that we will randomly select
+        # from to tell us whether our txn should be a read or write
+        self.workloadWrite = [ ]
+        for i in xrange(0, constants.WORKLOAD_READ_PERCENT):
+            self.workloadWrite.append(False)
+        for i in xrange(0, constants.WORKLOAD_WRITE_PERCENT):
+            self.workloadWrite.append(True)
+        
         # Total number of articles in database
         self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
+        
+        articleOffset = (1 / float(self.getWorkerCount())) * self.num_articles
+        self.firstArticle = int(self.getWorkerId() * articleOffset)
+        self.lastArticle = self.firstArticle + articleOffset
+        LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
         
         # Zipfian distribution on the number of comments & their ratings
         self.commentsZipf = ZipfGenerator(constants.MAX_NUM_COMMENTS, 1.0)
@@ -167,7 +181,7 @@ class BlogWorker(AbstractWorker):
             pass
         # Regular Index
         elif config[self.name]["indexes"] == constants.INDEXEXP_PREDICATE:
-            self.db[constants.ARTICLE_COLL].create_index([("article", pymongo.ASCENDING)])
+            self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
         # Cover Index
         elif config[self.name]["indexes"] == constants.INDEXEXP_COVERING:
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING), \
@@ -182,9 +196,8 @@ class BlogWorker(AbstractWorker):
         assert self.conn != None
         
         # The message we're given is a tuple that contains
-        # the first and articleIds that we're going to insert, and
         # the list of author names that we'll generate articles from
-        firstArticle, lastArticle, authors = msg.data
+        authors = msg.data[0]
         
         LOG.info("Generating %s data [denormalize=%s]" % (self.getBenchmarkName(), config[self.name]["denormalize"]))
         articleCtr = 0
@@ -196,7 +209,7 @@ class BlogWorker(AbstractWorker):
         ## ----------------------------------------------
         articlesBatch = [ ]
         commentsBatch = [ ]
-        for articleId in xrange(firstArticle, lastArticle+1):
+        for articleId in xrange(self.firstArticle, self.lastArticle+1):
             titleSize = int(random.gauss(constants.MAX_TITLE_SIZE/2, constants.MAX_TITLE_SIZE/4))
             contentSize = int(random.gauss(constants.MAX_CONTENT_SIZE/2, constants.MAX_CONTENT_SIZE/4))
             
@@ -284,23 +297,21 @@ class BlogWorker(AbstractWorker):
     def next(self, config):
         assert "experiment" in config[self.name]
         
-        # It doesn't matter what we pick, so we'll just 
-        # return the name of the experiment
-        
-        params = None
+        # Check wether we're doing a read or a write txn
+        if random.choice(self.workloadWrite):
+            txnName = "writeComment"
+        else:
+            txnName = "readArticle"
         
         # Sharding Key
         if config[self.name]["experiment"] == constants.EXP_SHARDING:
             assert self.articleZipf
-            txnName = "%s-%02d" % (config[self.name]["experiment"][:6], config[self.name]["sharding"])
             params = [ int(self.articleZipf.next()) ]
         # Denormalization
         elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
-            txnName = "%s-%s" % (config[self.name]["experiment"][:6], str(config[self.name]["denormalize"]).lower())
             params = [ random.randint(0, self.num_articles) ]
         # Indexing
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
-            txnName = "%s-%02d" % (config[self.name]["experiment"][:6], config[self.name]["indexes"])
             params = [ random.randint(0, self.num_articles) ]
         else:
             raise Exception("Unexpected experiment type %d" % config[self.name]["experiment"]) 
@@ -331,6 +342,49 @@ class BlogWorker(AbstractWorker):
         return
     ## DEF
     
+    def readArticle(self, denormalize, articleId):
+        article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
+        if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
+        assert article["id"] == articleId, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+            
+        # If we didn't denormalize, then we have to execute a second
+        # query to get all of the comments for this article
+        if not denormalize:
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
+        else:
+            assert "comments" in article, pformat(article)
+            comments = article["comments"]
+    ## DEF
+    
+    def writeComment(self, denormalize, articleId):
+        # Generate a random comment document
+        lastDate = randomDate(lastDate, constants.STOP_DATE)
+        commentAuthor = randomString(int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4)))
+        commentContent = randomString(int(random.gauss(constants.MAX_COMMENT_SIZE/2, constants.MAX_COMMENT_SIZE/4)))
+        comment = {
+            "id": commentId,
+            "article": articleId,
+            "date": lastDate, 
+            "author": commentAuthor,
+            "comment": commentContent,
+            "rating": int(self.ratingZipf.next())
+        }
+        
+        # If we're denormalized, then we need to append our comment
+        # to the article's list of comments
+        if denormalize:
+            #self.db[constants.ARTICLE_COLL].update({"id": articleId}, {"$push": {"comments": comment})
+            pass
+        
+        # Otherwise, we can just insert it into the COMMENTS collection
+        else:
+            self.db[constants.COMMENT_COLL].insert(comment)
+    
+        return
+    ## DEF
     
     def expSharding(self, articleId):
         """
@@ -348,7 +402,7 @@ class BlogWorker(AbstractWorker):
         return
     ## DEF
     
-    def expDenormalization(self, denormalize, articleId):
+    def expDenormalization(self, articleId):
         """
         In our microbenchmark we should have a collection of articles and collection of 
         article comments. The target workload will be to grab an article and grab the 
@@ -364,20 +418,7 @@ class BlogWorker(AbstractWorker):
         nested documents
         """
         
-        article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-        if not article:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            return
-        assert article["id"] == articleId, \
-            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-            
-        # If we didn't denormalize, then we have to execute a second
-        # query to get all of the comments for this article
-        if not denormalize:
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        else:
-            assert "comments" in article, pformat(article)
-            comments = article["comments"]
+        
             
         # TODO: A more interesting experiment might be to insert comments into the database
         # This would explore how the denormalized inserts may get more expensive over time

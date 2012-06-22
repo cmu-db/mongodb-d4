@@ -53,6 +53,10 @@ class AbstractWorker:
     def getWorkerId(self):
         """Return the unique identifier for this worker instance"""
         return self.id
+        
+    def getWorkerCount(self):
+        """Return the total number of workers in this benchmark invocation"""
+        return int(self.config['default']['clientprocs'])
     
     def getBenchmarkName(self):
         return self.name
@@ -146,8 +150,6 @@ class AbstractWorker:
         ## WHILE
             
         r.stopBenchmark()
-        print r.show()
-        
         sendMessage(MSG_EXECUTE_COMPLETED, r, channel)
     ## DEF
         
