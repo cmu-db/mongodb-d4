@@ -60,6 +60,7 @@ class Benchmark:
     DEFAULT_CONFIG = [
         ("host", "The host name of the MongoDB instance to use in this benchmark", "localhost"),
         ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
+        ("clients", "Comma-separated list of machines to use for benchmark clients", "localhost"),
     ]
     
     '''main class'''
@@ -120,12 +121,18 @@ class Benchmark:
             config[s] = dict(cparser.items(s))
         ## FOR
         
+        config['default']['name'] = self._benchmark
+        
         # Extra stuff from the arguments that we want to stash
         # in the 'default' section of the config
         for key,val in args.items():
             if key != 'config' and not key in config['default']:
                 config['default'][key] = val
-        config['default']['name'] = self._benchmark
+                
+        # Default config
+        for key, desc, default in self.DEFAULT_CONFIG:
+            if key != 'config' and not key in config['default']:
+                config['default'][key] = default
         
         # Figure out where the hell we actually are
         realpath = os.path.realpath(__file__)
@@ -136,11 +143,11 @@ class Benchmark:
             if os.path.exists(os.path.join(cwd, basename)):
                 basedir = cwd
         #config['path'] = os.path.join(basedir, "api")
-        config['path'] = os.path.realpath(basedir)
+        config['default']['path'] = os.path.realpath(basedir)
         
         # Fix common problems
         for s in config.keys():
-            for key in ["port", "duration", "experiment"]:
+            for key in ["port", "duration"]:
                 if key in config[s]: config[s][key] = int(config[s][key])
         ## FOR
         
@@ -153,8 +160,8 @@ class Benchmark:
             config["default"]["design"] = None
         ## IF
         
-        logging.info("Configuration File:\n%s" % pformat(config))
-        return config
+        self._config = config
+        logging.info("Configuration File:\n%s" % pformat(self._config))
     ## DEF
         
     def createChannels(self):

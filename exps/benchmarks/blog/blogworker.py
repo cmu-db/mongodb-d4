@@ -121,7 +121,7 @@ class BlogWorker(AbstractWorker):
         # Enable sharding on the entire database
         try:
             result = self.db.command({"enablesharding": self.db.name})
-            assert result["ok"] == 1, "DB Result: %s" pformat(result)
+            assert result["ok"] == 1, "DB Result: %s" % pformat(result)
         except:
             LOG.error("Failed to enable sharding on database '%s'" % self.db.name)
             raise
@@ -145,14 +145,14 @@ class BlogWorker(AbstractWorker):
             LOG.debug("Sharding Collection %s.%s: %s" % (self.db.name, col, pattern))
             try:
                 result = self.db.command({"shardcollection": col, "key": pattern})
-                assert result["ok"] == 1, "DB Result: %s" pformat(result)
+                assert result["ok"] == 1, "DB Result: %s" % pformat(result)
             except:
                 LOG.error("Failed to enable sharding on collection '%s.%s'" % (self.db.name, col))
                 raise
         ## FOR
         
         LOG.debug("Successfully enabled sharding on %d collections in database %s" % \
-                  (len(shardingPatterns, self.db.name))
+                  (len(shardingPatterns, self.db.name)))
     ## DEF
     
     def initIndexes(self, config):

@@ -41,9 +41,9 @@ START_DATE = datetime.strptime('1/1/2008 1:30 PM', '%m/%d/%Y %I:%M %p')
 STOP_DATE = datetime.now()
 
 # Experiment Type Codes
-EXP_SHARDING        = 1
-EXP_DENORMALIZATION = 2
-EXP_INDEXING        = 3
+EXP_SHARDING        = "sharding"
+EXP_DENORMALIZATION = "denormalization"
+EXP_INDEXING        = "indexing"
 EXP_ALL = [ EXP_SHARDING, EXP_DENORMALIZATION, EXP_INDEXING ]
 
 # Sharding Config Types

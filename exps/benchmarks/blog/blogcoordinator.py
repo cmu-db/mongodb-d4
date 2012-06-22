@@ -39,6 +39,7 @@ LOG = logging.getLogger(__name__)
 
 class BlogCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
+        ("experiment", "What type of experiment to execute. Value values = %s" % constants.EXP_ALL, constants.EXP_DENORMALIZATION),
         ("sharding", "Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_SINGLE),
         ("indexes", "Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_ALL, constants.INDEXEXP_NONE),
         ("denormalize", "If set to true, then the COMMENTS are denormalized into ARTICLES", False),
@@ -49,12 +50,12 @@ class BlogCoordinator(AbstractCoordinator):
     ## DEF
     
     def initImpl(self, config, channels):
-        self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
+        self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
         
         # Experiment Type
-        config[self.name]["experiment"] = int(config[self.name]["experiment"])
+        config[self.name]["experiment"] = config[self.name]["experiment"].strip()
         if not config[self.name]["experiment"] in constants.EXP_ALL:
-            raise Exception("Invalid experiment code '%d'" % config[self.name]["experiment"])
+            raise Exception("Invalid experiment code '%s'" % config[self.name]["experiment"])
         
         # Sharding Experiment Configuration
         if config[self.name]["experiment"] == constants.EXP_SHARDING:
@@ -82,8 +83,8 @@ class BlogCoordinator(AbstractCoordinator):
         ## FOR
         
         if LOG.isEnabledFor(logging.DEBUG):
-            LOG.debug("# of Articles: %d" % self.num_articles)
-            LOG.debug("Experiment Type: %d" % config[self.name]["experiment"])
+            LOG.debug("# of Articles:   %d" % self.num_articles)
+            LOG.debug("Experiment Type: %s" % config[self.name]["experiment"])
             LOG.debug("Sharding Type:   %d" % config[self.name]["sharding"])
             LOG.debug("Denormalize:     %s" % config[self.name]["denormalize"])
             LOG.debug("Indexing Type:   %d" % config[self.name]["indexes"])
