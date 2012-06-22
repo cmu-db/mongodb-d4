@@ -146,6 +146,8 @@ class AbstractWorker:
         ## WHILE
             
         r.stopBenchmark()
+        print r.show()
+        
         sendMessage(MSG_EXECUTE_COMPLETED, r, channel)
     ## DEF
         

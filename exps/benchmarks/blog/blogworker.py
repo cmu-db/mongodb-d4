@@ -292,13 +292,15 @@ class BlogWorker(AbstractWorker):
         # Sharding Key
         if config[self.name]["experiment"] == constants.EXP_SHARDING:
             assert self.articleZipf
+            txnName = "%s-%02d" % (config[self.name]["experiment"][:6], config[self.name]["sharding"])
             params = [ int(self.articleZipf.next()) ]
         # Denormalization
         elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
-            txnName = "%s-%s" % (config[self.name]["experiment"], str(config[self.name]["denormalize"]).lower())
+            txnName = "%s-%s" % (config[self.name]["experiment"][:6], str(config[self.name]["denormalize"]).lower())
             params = [ random.randint(0, self.num_articles) ]
         # Indexing
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
+            txnName = "%s-%02d" % (config[self.name]["experiment"][:6], config[self.name]["indexes"])
             params = [ random.randint(0, self.num_articles) ]
         else:
             raise Exception("Unexpected experiment type %d" % config[self.name]["experiment"]) 

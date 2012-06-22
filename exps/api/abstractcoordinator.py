@@ -113,7 +113,7 @@ class AbstractCoordinator:
             else:
                 pass
         self.load_result = time.time() - load_start
-        LOG.info("Loading completed: %s" % self.load_result)
+        LOG.info("Loading completed in %.2f seconds" % self.load_result)
         
         return None
     ## DEF

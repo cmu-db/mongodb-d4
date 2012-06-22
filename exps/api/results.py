@@ -84,16 +84,19 @@ class Results:
         
         # Txn Counter Histogram
         self.txn_counters.put(txn_name)
+        assert self.txn_counters[txn_name] > 0
+    ## DEF
         
     def append(self, r):
         for txn_name in r.txn_counters.keys():
-            orig_cnt = self.txn_counters.get(txn_name, 0)
+            self.txn_counters.put(txn_name, delta=r.txn_counters[txn_name])
+            
             orig_time = self.txn_times.get(txn_name, 0)
-
-            self.txn_counters.put(txn_name, orig_cnt)
             self.txn_times[txn_name] = orig_time + r.txn_times[txn_name]
             #LOG.debug("%s [cnt=%d, time=%d]" % (txn_name, self.txn_counters[txn_name], self.txn_times[txn_name]))
         ## HACK
+        if type(r.completed) == list:
+            self.completed.extend(r.completed)
         self.start = r.start
         self.stop = r.stop
             
@@ -111,7 +114,7 @@ class Results:
         else:
             duration = self.stop - self.start
         
-        col_width = 16
+        col_width = 18
         total_width = (col_width*4)+2
         f = "\n  " + (("%-" + str(col_width) + "s")*4)
         line = "-"*total_width
