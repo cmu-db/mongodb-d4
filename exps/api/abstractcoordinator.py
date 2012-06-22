@@ -41,6 +41,13 @@ class AbstractCoordinator:
         self.total_results = None
         pass
     
+    def benchmarkConfigImpl(self):
+        """This function needs to be implemented by all sub-classes.
+        It should return the items that need to be in your implementation's configuration file.
+        Each item in the list is a triplet containing: ( <PARAMETER NAME>, <DESCRIPTION>, <DEFAULT VALUE> )
+        """
+        raise NotImplementedError("%s does not implement benchmarkConfigImpl" % (self.driver_name))
+    
     def init(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
         self.config = config
@@ -48,9 +55,10 @@ class AbstractCoordinator:
         LOG.info("Initializing %s Benchmark Coordinator" % self.name.upper())
 
         ## Add in the default configuration values for this benchmark
-        for key in self.DEFAULT_CONFIG.keys():
+        benchmarkConfig = self.benchmarkConfigImpl()
+        for key in benchmarkConfig.keys():
             if not key in self.config[self.name]:
-                val = self.DEFAULT_CONFIG[key]
+                val = benchmarkConfig[key]
                 self.config[self.name][key] = val[1]
                 LOG.debug("Setting %s Default Config Parameter: %s" % (self.name.upper(), self.config[self.name][key]))
         ## FOR

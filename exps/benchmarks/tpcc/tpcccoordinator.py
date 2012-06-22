@@ -49,6 +49,10 @@ class TpccCoordinator(AbstractCoordinator) :
         "denormalize":  ("If set to true, then the CUSTOMER data will be denormalized into a single document", True),
     }
     
+    def benchmarkConfigImpl(self):
+        return self.DEFAULT_CONFIG
+    ## DEF
+    
     def initImpl(self, config, channels):
         ## Create our ScaleParameter stuff that we're going to need
         self._scaleParameters = scaleparameters.makeWithScaleFactor(int(config['warehouses']), float(config['scalefactor']))

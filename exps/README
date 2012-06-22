@@ -12,3 +12,7 @@ need for this work.
 TLDR:
 This code is based on: https://github.com/yanglu/BigBenchmark
 which was originally based on: https://github.com/apavlo/py-tpcc
+
+
+DEPENDENCIES:
++ python-execnet

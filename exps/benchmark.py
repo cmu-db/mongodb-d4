@@ -29,7 +29,6 @@ import sys
 import os
 import string
 import re
-import argparse
 import glob
 import execnet
 import logging
@@ -39,32 +38,75 @@ from pprint import pprint, pformat
 from api.messageprocessor import *
 from api.directchannel import *
 
+# Third-Party Dependencies
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../libs"))
+import argparse
+import mongokit
+
+# MongoDB-Designer
+sys.path.append(os.path.join(basedir, "../src"))
+
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
                     datefmt="%m-%d-%Y %H:%M:%S",
                     stream = sys.stdout)
-                    
-# Setup path back to designer framework
-realpath = os.path.realpath(__file__)
-basedir = os.path.realpath(os.path.join(os.path.dirname(realpath), "../src"))
-if not os.path.exists(realpath):
-    cwd = os.getcwd()
-    basename = os.path.basename(realpath)
-    if os.path.exists(os.path.join(cwd, basename)):
-        basedir = cwd
-sys.path.append(os.path.realpath(basedir))
+
 
 ## ==============================================
 ## Benchmark Invocation
 ## ==============================================
 class Benchmark:
+    DEFAULT_CONFIG = {
+        "host":     ("The hostname of MongoDB instance to use in this benchmark", "localhost"),
+        "port":     ("The port number of MongoDB instance to use in this benchmark", 27017),
+    }
+    
     '''main class'''
-    def __init__(self, args):
+    def __init__(self, benchmark, args):
+        self._benchmark = benchmark
         self._args = args
-        self._config = self.loadConfig()
-        self._channels = self.createChannels()
+        self._config = None
+        self._channels = None
         self._coordinator = self.createCoordinator()
+    
+    def makeDefaultConfig(self):
+        """Return a string containing the default configuration file for the target benchmark"""
+
+        from datetime import datetime
+        ret =  "# %s Benchmark Configuration File\n" % (self._benchmark.upper())
+        ret += "# Created %s\n" % (datetime.now())
         
+        # Base Configuration
+        ret += formatConfig("default", self.DEFAULT_CONFIG)
+        
+        # Benchmark Configuration
+        coord = self.createCoordinator()
+        ret += formatConfig(self._benchmark, coord.benchmarkConfigImpl())
+
+        return (ret)
+    ## DEF
+        
+    def runBenchmark(self):
+        '''Execute the target benchmark!'''
+        self._channels = self.createChannels()
+        
+        # Step 1: Initialize all of the Workers on the client nodes
+        self._coordinator.init(self._config, self._channels) 
+        
+        # Step 2: Load the benchmark database
+        if not self._args['no_load']:
+            self._coordinator.load(self._config, self._channels)            
+            
+        # Step 3: Execute the benchmark workload
+        if not self._args['no_execute']:
+            self._coordinator.execute(self._config, self._channels)
+            self._coordinator.showResult(self._config, self._channels)
+            
+        # Step 4: Clean things up (?)
+        # self._coordinator.moreProcessing(self._config, self._channels)
+    ## DEF
+    
     def loadConfig(self):
         '''Load configuration file'''
         assert 'config' in self._args
@@ -77,10 +119,12 @@ class Benchmark:
             config[s] = dict(cparser.items(s))
         ## FOR
         
-        # Extra stuff from the argumetns that we want to stash
+        # Extra stuff from the arguments that we want to stash
+        # in the 'default' section of the config
         for key,val in args.items():
-            if key != 'config': config['default'][key] = val
-        config['default']['name'] = args['benchmark'].lower()
+            if key != 'config' and not key in config['default']:
+                config['default'][key] = val
+        config['default']['name'] = self._benchmark
         
         # Figure out where the hell we actually are
         realpath = os.path.realpath(__file__)
@@ -110,6 +154,7 @@ class Benchmark:
         
         logging.info("Configuration File:\n%s" % pformat(config))
         return config
+    ## DEF
         
     def createChannels(self):
         '''Create a list of channels used for communication between coordinator and worker'''
@@ -144,38 +189,22 @@ class Benchmark:
         # IF
         logging.debug(channels)
         return channels
+    ## DEF
         
     def createCoordinator(self):
         '''Coordinator factory method.'''
-        benchmark = self._config['default']['benchmark']
-        
+
         # First make sure that the benchmark is on our sys.path
-        setupBenchmarkPath(benchmark)
+        setupBenchmarkPath(self._benchmark)
         
         # Then use some black magic to instantiate an instance of the benchmark's coordinator
-        fullName = benchmark.title() + "Coordinator"
-        moduleName = "benchmarks.%s.%s" % (benchmark.lower(), fullName.lower())
+        fullName = self._benchmark.title() + "Coordinator"
+        moduleName = "benchmarks.%s.%s" % (self._benchmark.lower(), fullName.lower())
         moduleHandle = __import__(moduleName, globals(), locals(), [fullName])
         klass = getattr(moduleHandle, fullName)
         return klass()
-    
-    def runBenchmark(self):
-        '''Execute the target benchmark!'''
-        
-        # Step 1: Initialize all of the Workers on the client nodes
-        self._coordinator.init(self._config, self._channels) 
-        
-        # Step 2: Load the benchmark database
-        if not self._args['no_load']:
-            self._coordinator.load(self._config, self._channels)            
-            
-        # Step 3: Execute the benchmark workload
-        if not self._args['no_execute']:
-            self._coordinator.execute(self._config, self._channels)
-            self._coordinator.showResult(self._config, self._channels)
-            
-        # Step 4: Clean things up (?)
-        # self._coordinator.moreProcessing(self._config, self._channels)
+    ## DEF
+
 ## CLASS
         
 ## ==============================================
@@ -204,13 +233,35 @@ def setupBenchmarkPath(benchmark):
 ## DEF
 
 ## ==============================================
+## formatConfig
+## ==============================================
+def formatConfig(name, config):
+    """Return a formatted version of the config dict that can be used with the --config command line argument"""
+
+    ret = "\n# " + ("="*75) + "\n"
+    
+    # Default Configuration
+    ret += "[%s]" % name
+    
+    # Benchmark Configuration
+    for key in config.keys():
+        desc, default = config[key]
+        if default == None: default = ""
+        ret += "\n\n# %s\n%-20s = %s" % (desc, key, default) 
+    ret += "\n"
+    return (ret)
+## DEF
+
+## ==============================================
 ## MAIN
 ## ==============================================
 if __name__=='__main__':
-    #Simplified args
+    allBenchmarks = getBenchmarks()
+    
+    # Simplified args
     aparser = argparse.ArgumentParser(description='MongoDB Benchmark Framework')
-    aparser.add_argument('benchmark', choices = getBenchmarks(),
-                         help='Target benchmark')
+    aparser.add_argument('benchmark', choices=allBenchmarks,
+                         help='The name of the benchmark to execute')
     aparser.add_argument('--config', type=file,
                          help='Path to benchmark configuration file')
     aparser.add_argument('--design', type=str,
@@ -240,8 +291,19 @@ if __name__=='__main__':
     
     if args['debug']: logging.getLogger().setLevel(logging.DEBUG)
     
+    benchmark = args['benchmark'].lower()
+    if not benchmark in allBenchmarks:
+        raise Exception("Invalid benchmark handle '%s'" % benchmark)
+    
     logging.debug("Command Options:\n%s" % args)
-    ben = Benchmark(args)
+    ben = Benchmark(benchmark, args)
+    
+    if args['print_config']:
+        print ben.makeDefaultConfig()
+        sys.exit(0)
+    
+    # Run it!
+    ben.loadConfig()
     ben.runBenchmark()
 ## MAIN
 

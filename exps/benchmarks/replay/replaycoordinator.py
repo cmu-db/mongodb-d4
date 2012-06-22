@@ -49,6 +49,10 @@ class ReplayCoordinator(AbstractCoordinator):
         "ignorecollections": ("If set to true, the worker will ignore operations that attempt to access an unexpected collection", False),
     }
     
+    def benchmarkConfigImpl(self):
+        return self.DEFAULT_CONFIG
+    ## DEF
+    
     def initImpl(self, config, channels):
         # Nothing to do over here...
         pass

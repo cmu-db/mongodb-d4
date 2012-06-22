@@ -39,8 +39,14 @@ LOG = logging.getLogger(__name__)
 
 class BlogCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = {
+        "sharding":     ("Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_SINGLE),
+        "indexes":     ("Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_ALL, constants.INDEXEXP_NONE),
         "denormalize":  ("If set to true, then the COMMENTS are denormalized into ARTICLES", False),
     }
+    
+    def benchmarkConfigImpl(self):
+        return self.DEFAULT_CONFIG
+    ## DEF
     
     def initImpl(self, config, channels):
         self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
