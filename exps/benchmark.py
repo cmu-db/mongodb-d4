@@ -58,17 +58,19 @@ logging.basicConfig(level = logging.INFO,
 ## ==============================================
 class Benchmark:
     DEFAULT_CONFIG = {
-        "host":     ("The hostname of MongoDB instance to use in this benchmark", "localhost"),
-        "port":     ("The port number of MongoDB instance to use in this benchmark", 27017),
+        "host":     ("The host name of the MongoDB instance to use in this benchmark", "localhost"),
+        "port":     ("The port number of the MongoDB instance to use in this benchmark", 27017),
     }
     
     '''main class'''
     def __init__(self, benchmark, args):
         self._benchmark = benchmark
         self._args = args
+        self._coordinator = self.createCoordinator()
         self._config = None
         self._channels = None
-        self._coordinator = self.createCoordinator()
+    ## DEF
+        
     
     def makeDefaultConfig(self):
         """Return a string containing the default configuration file for the target benchmark"""
@@ -81,8 +83,7 @@ class Benchmark:
         ret += formatConfig("default", self.DEFAULT_CONFIG)
         
         # Benchmark Configuration
-        coord = self.createCoordinator()
-        ret += formatConfig(self._benchmark, coord.benchmarkConfigImpl())
+        ret += formatConfig(self._benchmark, self._coordinator.benchmarkConfigImpl())
 
         return (ret)
     ## DEF
