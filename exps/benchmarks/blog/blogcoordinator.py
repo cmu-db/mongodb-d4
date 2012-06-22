@@ -45,19 +45,43 @@ class BlogCoordinator(AbstractCoordinator):
     def initImpl(self, config, channels):
         self.num_articles = int(config["scalefactor"] * constants.NUM_ARTICLES)
         
+        # Experiment Type
+        config[self.name]["experiment"] = int(config[self.name]["experiment"])
+        if not config[self.name]["experiment"] in constants.EXP_ALL:
+            raise Exception("Invalid experiment code '%d'" % config[self.name]["experiment"])
+        
+        # Sharding Experiment Configuration
+        if config[self.name]["experiment"] == constants.EXP_SHARDING:
+            assert "sharding" in config[self.name]
+            config[self.name]["sharding"] = int(config[self.name]["sharding"])
+            if not config[self.name]["sharding"] in constants.SHARDEXP_ALL:
+                raise Exception("Invalid sharding experiment configuration type '%d'" % config[self.name]["sharding"])
+            
+        # Indexing Experiment Configuration
+        if config[self.name]["experiment"] == constants.EXP_INDEXING:
+            assert "indexes" in config[self.name]
+            config[self.name]["indexes"] = int(config[self.name]["indexes"])
+            if not config[self.name]["indexes"] in constants.INDEXEXP_ALL:
+                raise Exception("Invalid indexing experiment configuration type '%d'" % config[self.name]["indexes"])
+        
         # Check whether they set the denormalize flag
         if not "denormalize" in config[self.name]:
             config[self.name]["denormalize"] = False
-        config[self.name]["experiment"] = int(config[self.name]["experiment"])
-        if "indexes" in config[self.name]:
-            config[self.name]["indexes"] = int(config[self.name]["indexes"])
         
-        ## Precompute our blog article authors
+        # Precompute our blog article authors
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
             authorSize = int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4))
             self.authors.append(rand.randomString(authorSize))
         ## FOR
+        
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("# of Articles: %d" % self.num_articles)
+            LOG.debug("Experiment Type: %d" % config[self.name]["experiment"])
+            LOG.debug("Sharding Type:   %d" % config[self.name]["sharding"])
+            LOG.debug("Denormalize:     %s" % config[self.name]["denormalize"])
+            LOG.debug("Indexing Type:   %d" % config[self.name]["indexes"])
+        
         return
     ## DEF
     

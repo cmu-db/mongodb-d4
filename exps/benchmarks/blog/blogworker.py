@@ -90,12 +90,15 @@ class BlogWorker(AbstractWorker):
         self.db[constants.COMMENT_COLL].drop_indexes()
         
         # Sharding Key
-        if config[self.name]["experiment"] == 1:
+        if config[self.name]["experiment"] == constants.EXP_SHARDING:
             self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
             
+            # Initialize sharding configuration
+            self.initSharding(config)
+            
         # Denormalization
-        elif config[self.name]["experiment"] == 2:
+        elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
             # We need an index on ARTICLE
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
             # And if we're not denormalized, on COMMENTS as well
@@ -103,23 +106,72 @@ class BlogWorker(AbstractWorker):
                 self.db[constants.COMMENT_COLL].create_index([("article", pymongo.ASCENDING)])
                 
         # Indexing
-        elif config[self.name]["experiment"] == 3:
-            # Nothing
-            if config[self.name]["indexes"] == 0:
-                pass
-            # Regular Index
-            elif config[self.name]["indexes"] == 1:
-                self.db[constants.ARTICLE_COLL].create_index([("article", pymongo.ASCENDING)])
-            # Cover Index
-            elif config[self.name]["indexes"] == 2:
-                self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING), \
-                                                              ("date", pymongo.ASCENDING), \
-                                                              ("author", pymongo.ASCENDING)])
-            else:
-                raise Exception("Unexpected index configuration type %d" % config["indexes"])
+        elif config[self.name]["experiment"] == constants.EXP_INDEXING:
+            self.initIndexes(config)
+            
+        # Busted!
         else:
             raise Exception("Unexpected experiment type %d" % config["experiment"])
         
+    ## DEF
+    
+    def initSharding(self, config):
+        assert self.db != None
+        
+        # Enable sharding on the entire database
+        try:
+            result = self.db.command({"enablesharding": self.db.name})
+            assert result["ok"] == 1, "DB Result: %s" pformat(result)
+        except:
+            LOG.error("Failed to enable sharding on database '%s'" % self.db.name)
+            raise
+        
+        # Generate sharding key patterns
+        # CollectionName -> Pattern
+        # http://www.mongodb.org/display/DOCS/Configuring+Sharding#ConfiguringSharding-ShardingaCollection
+        shardingPatterns = { }
+        
+        if config[self.name]["sharding"] == constants.SHARDEXP_SINGLE:
+            pass
+        
+        elif config[self.name]["sharding"] == constants.SHARDEXP_COMPOUND:
+            pass
+        
+        else:
+            raise Exception("Unexpected sharding configuration type '%d'" % config["sharding"])
+        
+        # Then enable sharding on each of these collections
+        for col,pattern in shardingPatterns.iteritems():
+            LOG.debug("Sharding Collection %s.%s: %s" % (self.db.name, col, pattern))
+            try:
+                result = self.db.command({"shardcollection": col, "key": pattern})
+                assert result["ok"] == 1, "DB Result: %s" pformat(result)
+            except:
+                LOG.error("Failed to enable sharding on collection '%s.%s'" % (self.db.name, col))
+                raise
+        ## FOR
+        
+        LOG.debug("Successfully enabled sharding on %d collections in database %s" % \
+                  (len(shardingPatterns, self.db.name))
+    ## DEF
+    
+    def initIndexes(self, config):
+        assert self.db != None
+        
+        # Nothing
+        if config[self.name]["indexes"] == constants.INDEXEXP_NONE:
+            pass
+        # Regular Index
+        elif config[self.name]["indexes"] == constants.INDEXEXP_PREDICATE:
+            self.db[constants.ARTICLE_COLL].create_index([("article", pymongo.ASCENDING)])
+        # Cover Index
+        elif config[self.name]["indexes"] == constants.INDEXEXP_COVERING:
+            self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING), \
+                                                          ("date", pymongo.ASCENDING), \
+                                                          ("author", pymongo.ASCENDING)])
+        # Busted!
+        else:
+            raise Exception("Unexpected indexing configuration type '%d'" % config["indexes"])
     ## DEF
     
     def loadImpl(self, config, channel, msg):
@@ -219,14 +271,14 @@ class BlogWorker(AbstractWorker):
         params = None
         
         # Sharding Key
-        if config[self.name]["experiment"] == 1:
+        if config[self.name]["experiment"] == constants.EXP_SHARDING:
             assert self.articleZipf
             params = [ int(self.articleZipf.next()) ]
         # Denormalization
-        elif config[self.name]["experiment"] == 2:
+        elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
             params = [ random.randint(0, self.num_articles) ]
         # Indexing
-        elif config[self.name]["experiment"] == 3:
+        elif config[self.name]["experiment"] == constants.EXP_INDEXING:
             params = [ random.randint(0, self.num_articles) ]
         else:
             raise Exception("Unexpected experiment type %d" % config["experiment"]) 
@@ -242,13 +294,13 @@ class BlogWorker(AbstractWorker):
             LOG.debug("Executing %s / %s [denormalize=%s]" % (txn, str(params), config["denormalize"]))
         
         # Sharding Key
-        if config[self.name]["experiment"] == 1:
+        if config[self.name]["experiment"] == constants.EXP_SHARDING:
             self.expSharding(params[0])
         # Denormalization
-        elif config[self.name]["experiment"] == 2:
+        elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
             self.expDenormalization(config["denormalize"], params[0])
         # Indexing
-        elif config[self.name]["experiment"] == 3:
+        elif config[self.name]["experiment"] == constants.EXP_INDEXING:
             self.expIndexes(params[0])
         # Busted!
         else:
