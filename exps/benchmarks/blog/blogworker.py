@@ -91,6 +91,7 @@ class BlogWorker(AbstractWorker):
         
         # Sharding Key
         if config[self.name]["experiment"] == constants.EXP_SHARDING:
+            config[self.name]["sharding"] = int(config[self.name]["sharding"])
             self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
             
@@ -107,6 +108,7 @@ class BlogWorker(AbstractWorker):
                 
         # Indexing
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
+            config[self.name]["indexes"] = int(config[self.name]["indexes"])
             self.initIndexes(config)
             
         # Busted!
@@ -263,11 +265,11 @@ class BlogWorker(AbstractWorker):
     ## DEF
     
     def next(self, config):
-        assert "experiment" in config
+        assert "experiment" in config[self.name]
         
         # It doesn't matter what we pick, so we'll just 
         # return the name of the experiment
-        txnName = "exp%02d" % config[self.name]["experiment"]
+        
         params = None
         
         # Sharding Key
@@ -276,29 +278,30 @@ class BlogWorker(AbstractWorker):
             params = [ int(self.articleZipf.next()) ]
         # Denormalization
         elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
+            txnName = "%s-%s" % (config[self.name]["experiment"], str(config[self.name]["denormalize"]).lower())
             params = [ random.randint(0, self.num_articles) ]
         # Indexing
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
             params = [ random.randint(0, self.num_articles) ]
         else:
-            raise Exception("Unexpected experiment type %d" % config["experiment"]) 
+            raise Exception("Unexpected experiment type %d" % config[self.name]["experiment"]) 
         
         return (txnName, params)
     ## DEF
         
     def executeImpl(self, config, txn, params):
         assert self.conn != None
-        assert "experiment" in config
+        assert "experiment" in config[self.name]
         
         if self.debug:
-            LOG.debug("Executing %s / %s [denormalize=%s]" % (txn, str(params), config["denormalize"]))
+            LOG.debug("Executing %s / %s [denormalize=%s]" % (txn, str(params), config[self.name]["denormalize"]))
         
         # Sharding Key
         if config[self.name]["experiment"] == constants.EXP_SHARDING:
             self.expSharding(params[0])
         # Denormalization
         elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
-            self.expDenormalization(config["denormalize"], params[0])
+            self.expDenormalization(config[self.name]["denormalize"], params[0])
         # Indexing
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
             self.expIndexes(params[0])

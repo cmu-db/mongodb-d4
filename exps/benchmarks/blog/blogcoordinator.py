@@ -85,9 +85,9 @@ class BlogCoordinator(AbstractCoordinator):
         if LOG.isEnabledFor(logging.DEBUG):
             LOG.debug("# of Articles:   %d" % self.num_articles)
             LOG.debug("Experiment Type: %s" % config[self.name]["experiment"])
-            LOG.debug("Sharding Type:   %d" % config[self.name]["sharding"])
+            LOG.debug("Sharding Type:   %s" % config[self.name]["sharding"])
             LOG.debug("Denormalize:     %s" % config[self.name]["denormalize"])
-            LOG.debug("Indexing Type:   %d" % config[self.name]["indexes"])
+            LOG.debug("Indexing Type:   %s" % config[self.name]["indexes"])
         
         return
     ## DEF
