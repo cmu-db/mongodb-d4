@@ -26,6 +26,8 @@
 import logging
 import time
 
+from util.histogram import Histogram
+
 LOG = logging.getLogger(__name__)
 
 class Results:
@@ -35,7 +37,8 @@ class Results:
         self.stop = None
         self.txn_id = 0
         
-        self.txn_counters = { }
+        self.completed = [ ]
+        self.txn_counters = Histogram()
         self.txn_times = { }
         self.running = { }
         
@@ -68,22 +71,26 @@ class Results:
     def stopTransaction(self, id):
         """Record that the benchmark completed an invocation of the given transaction"""
         assert id in self.running
+        
+        timestamp = time.time()
+        
         txn_name, txn_start = self.running[id]
         del self.running[id]
+        self.completed.append((txn_name, timestamp))
         
-        duration = time.time() - txn_start
+        duration = timestamp - txn_start
         total_time = self.txn_times.get(txn_name, 0)
         self.txn_times[txn_name] = total_time + duration
         
-        total_cnt = self.txn_counters.get(txn_name, 0)
-        self.txn_counters[txn_name] = total_cnt + 1
+        # Txn Counter Histogram
+        self.txn_counters.put(txn_name)
         
     def append(self, r):
         for txn_name in r.txn_counters.keys():
             orig_cnt = self.txn_counters.get(txn_name, 0)
             orig_time = self.txn_times.get(txn_name, 0)
 
-            self.txn_counters[txn_name] = orig_cnt + r.txn_counters[txn_name]
+            self.txn_counters.put(txn_name, orig_cnt)
             self.txn_times[txn_name] = orig_time + r.txn_times[txn_name]
             #LOG.debug("%s [cnt=%d, time=%d]" % (txn_name, self.txn_counters[txn_name], self.txn_times[txn_name]))
         ## HACK
@@ -95,7 +102,9 @@ class Results:
         
     def show(self, load_time = None):
         if self.start == None:
-            LOG.warn("Attempting to get benchmark results before it was started")
+            msg = "Attempting to get benchmark results before it was started"
+            raise Exception(msg)
+            LOG.warn(msg)
             return "Benchmark not started"
         if self.stop == None:
             duration = time.time() - self.start

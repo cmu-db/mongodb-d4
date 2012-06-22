@@ -100,6 +100,8 @@ class BlogWorker(AbstractWorker):
             
         # Denormalization
         elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
+            config[self.name]["denormalize"] = (config[self.name]["denormalize"] == "True")
+            
             # We need an index on ARTICLE
             self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
             # And if we're not denormalized, on COMMENTS as well
@@ -184,7 +186,7 @@ class BlogWorker(AbstractWorker):
         # the list of author names that we'll generate articles from
         firstArticle, lastArticle, authors = msg.data
         
-        LOG.info("Generating %s data" % self.getBenchmarkName())
+        LOG.info("Generating %s data [denormalize=%s]" % (self.getBenchmarkName(), config[self.name]["denormalize"]))
         articleCtr = 0
         commentCtr = 0
         commentId = self.getWorkerId() * 1000000
@@ -194,7 +196,7 @@ class BlogWorker(AbstractWorker):
         ## ----------------------------------------------
         articlesBatch = [ ]
         commentsBatch = [ ]
-        for articleId in xrange(firstArticle, lastArticle):
+        for articleId in xrange(firstArticle, lastArticle+1):
             titleSize = int(random.gauss(constants.MAX_TITLE_SIZE/2, constants.MAX_TITLE_SIZE/4))
             contentSize = int(random.gauss(constants.MAX_CONTENT_SIZE/2, constants.MAX_CONTENT_SIZE/4))
             
@@ -221,6 +223,8 @@ class BlogWorker(AbstractWorker):
             ## LOAD COMMENTS
             ## ----------------------------------------------
             numComments = self.commentsZipf.next()
+            LOG.debug("Comments for article %d: %d" % (articleId, numComments))
+            
             lastDate = articleDate
             for ii in xrange(0, numComments):
                 lastDate = randomDate(lastDate, constants.STOP_DATE)
@@ -236,29 +240,42 @@ class BlogWorker(AbstractWorker):
                     "rating": int(self.ratingZipf.next())
                 }
                 commentCtr += 1
-                if not config[self.name]["denormalize"]:
-                    commentsBatch.append(comment)
-                else:
+                
+                if config[self.name]["denormalize"]:
+                    LOG.debug("Storing new comment for article %d directly in document" % articleId)
                     if not "comments" in article:
                         article["comments"] = [ ]
                     article["comments"].append(comment)
+                else:
+                    LOG.debug("Storing new comment for article %d in separate batch" % articleId)
+                    commentsBatch.append(comment)
+                    
                 commentId += 1
             ## FOR (comments)
+            LOG.debug("Comment Batch: %d" % len(commentsBatch))
 
             # Always insert the article
             articlesBatch.append(article)
             articleCtr += 1
-            if self.debug and articleCtr % 100 == 0 :
-                LOG.debug("ARTICLE: %6d / %d" % (articleCtr, (lastArticle - firstArticle)))
+            if articleCtr % 100 == 0 :
+                if articleCtr % 1000 == 0 :
+                    LOG.info("ARTICLE: %6d / %d" % (articleCtr, (lastArticle - firstArticle)))
+                    if len(commentsBatch) > 0:
+                        LOG.debug("COMMENTS: %6d" % (commentCtr))
                 self.db[constants.ARTICLE_COLL].insert(articlesBatch)
+                articlesBatch = [ ]
+                
                 if len(commentsBatch) > 0:
                     self.db[constants.COMMENT_COLL].insert(commentsBatch)
-                articlesBatch = [ ]
-                commentsBatch = [ ]
+                    commentsBatch = [ ]
+            ## IF
+                
         ## FOR (articles)
         if len(articlesBatch) > 0:
+            LOG.info("ARTICLE: %6d / %d" % (articleCtr, (lastArticle - firstArticle)))
             self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-            self.db[constants.COMMENT_COLL].insert(commentsBatch)
+            if len(commentsBatch) > 0:
+                self.db[constants.COMMENT_COLL].insert(commentsBatch)
         
         LOG.info("# of ARTICLES: %d" % articleCtr)
         LOG.info("# of COMMENTS: %d" % commentCtr)
@@ -294,7 +311,7 @@ class BlogWorker(AbstractWorker):
         assert "experiment" in config[self.name]
         
         if self.debug:
-            LOG.debug("Executing %s / %s [denormalize=%s]" % (txn, str(params), config[self.name]["denormalize"]))
+            LOG.debug("Executing %s / %s" % (txn, str(params)))
         
         # Sharding Key
         if config[self.name]["experiment"] == constants.EXP_SHARDING:
@@ -325,7 +342,7 @@ class BlogWorker(AbstractWorker):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId}, {"comments": 0})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            pass
+            return
         return
     ## DEF
     
@@ -348,13 +365,21 @@ class BlogWorker(AbstractWorker):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            pass
-        assert article["id"] == articleId
-        if denormalize:
+            return
+        assert article["id"] == articleId, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+            
+        # If we didn't denormalize, then we have to execute a second
+        # query to get all of the comments for this article
+        if not denormalize:
             comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
         else:
             assert "comments" in article, pformat(article)
             comments = article["comments"]
+            
+        # TODO: A more interesting experiment might be to insert comments into the database
+        # This would explore how the denormalized inserts may get more expensive over time
+            
         return
     ## DEF
     
@@ -370,6 +395,7 @@ class BlogWorker(AbstractWorker):
         article = self.db[constants.ARTICLE_COLL].find({"id": articleId}, {"id", "date", "author"})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
         
         return
 ## CLASS
