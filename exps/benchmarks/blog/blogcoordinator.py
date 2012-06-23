@@ -52,6 +52,8 @@ class BlogCoordinator(AbstractCoordinator):
     def initImpl(self, config, channels):
         self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
         
+        config[self.name]["denormalize"] = (config[self.name]["denormalize"] == "True")
+        
         # Experiment Type
         config[self.name]["experiment"] = config[self.name]["experiment"].strip()
         if not config[self.name]["experiment"] in constants.EXP_ALL:
@@ -82,12 +84,28 @@ class BlogCoordinator(AbstractCoordinator):
             self.authors.append(rand.randomString(authorSize))
         ## FOR
         
+        # Get the current max commentId
+        # Figure out how many comments already exist in the database
+        config[self.name]["maxCommentId"] = -1
+        
+        if not config['default']["reset"] and config[self.name]["denormalize"]:
+            assert False
+            pass
+        elif not config['default']["reset"]:
+            LOG.info("Calculating maxCommentId for %s" % constants.COMMENT_COLL)
+            db = self.conn[constants.DB_NAME]
+            if db[constants.COMMENT_COLL].count() > 0:
+                result = db[constants.COMMENT_COLL].find({}, {"id":1}).sort("id", -1).limit(1)[0]
+                config[self.name]["maxCommentId"] = result["id"]
+        ## IF
+        
         if LOG.isEnabledFor(logging.DEBUG):
             LOG.debug("# of Articles:   %d" % self.num_articles)
             LOG.debug("Experiment Type: %s" % config[self.name]["experiment"])
             LOG.debug("Sharding Type:   %s" % config[self.name]["sharding"])
             LOG.debug("Denormalize:     %s" % config[self.name]["denormalize"])
             LOG.debug("Indexing Type:   %s" % config[self.name]["indexes"])
+            LOG.debug("MaxCommentId:     %s" % config[self.name]["maxCommentId"])
         
         return
     ## DEF
@@ -100,7 +118,7 @@ class BlogCoordinator(AbstractCoordinator):
         for i in range(len(channels)):
             last = first + articlesPerChannel
             LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
-            sendMessage(MSG_CMD_LOAD, (self.authors), channels[i])
+            sendMessage(MSG_CMD_LOAD, (self.authors, self.maxCommentId), channels[i])
             first = last
     ## DEF
 

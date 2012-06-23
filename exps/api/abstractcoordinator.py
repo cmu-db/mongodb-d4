@@ -25,6 +25,7 @@
 # -----------------------------------------------------------------------
 import time
 import logging
+import pymongo
 
 from .results import *
 from .message import *
@@ -74,10 +75,28 @@ class AbstractCoordinator:
                 LOG.debug("Setting %s Default Config Parameter: %s" % (self.name.upper(), self.config[self.name][key]))
         ## FOR
         
-        ## First initialize our local coordinator
+        ## ----------------------------------------------
+        ## TARGET CONNECTION
+        ## ----------------------------------------------
+        self.conn = None
+        targetHost = config['default']['host']
+        targetPort = config['default']['port']
+        LOG.debug("Connecting MongoDB database at %s:%d" % (targetHost, targetPort))
+        try:
+            self.conn = pymongo.Connection(targetHost, targetPort)
+        except:
+            LOG.error("Failed to connect to target MongoDB at %s:%s" % (targetHost, targetPort))
+            raise
+        assert self.conn
+        
+        ## ----------------------------------------------
+        ## COORDINATOR INITIALIZATION
+        ## ----------------------------------------------
+        
+        # First initialize our local coordinator
         self.initImpl(self.config, channels)
         
-        ## Invoke the workers for this benchmark invocation
+        # Invoke the workers for this benchmark invocation
         workerId = 0
         for ch in channels:
             workerConfig = dict(self.config.items())
@@ -86,7 +105,7 @@ class AbstractCoordinator:
             sendMessage(MSG_CMD_INIT, workerConfig, ch)
         ## FOR
             
-        ## Block until they all respond with an acknowledgement
+        # Block until they all respond with an acknowledgement
         for ch in channels :
             msg = getMessage(ch.receive())
             if msg.header == MSG_INIT_COMPLETED :

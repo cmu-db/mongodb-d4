@@ -98,23 +98,17 @@ class BlogWorker(AbstractWorker):
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.0)
         self.db = self.conn[constants.DB_NAME]
         
-        if self.getWorkerId() == 0 and config['default']["reset"]:
-            LOG.info("Resetting database '%s'" % constants.DB_NAME)
-            self.conn.drop_database(constants.DB_NAME)
+        if self.getWorkerId() == 0:
+            if config['default']["reset"]:
+                LOG.info("Resetting database '%s'" % constants.DB_NAME)
+                self.conn.drop_database(constants.DB_NAME)
             
-        ## SHARDING
-        if config[self.name]["experiment"] == constants.EXP_SHARDING:
-            config[self.name]["sharding"] = int(config[self.name]["sharding"])
-            if self.getWorkerId() == 0: self.initSharding(config)
-        # DENORMALIZATION
-        elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
-            config[self.name]["denormalize"] = (config[self.name]["denormalize"] == "True")
-        # INDEXING
-        elif config[self.name]["experiment"] == constants.EXP_INDEXING:
-            config[self.name]["indexes"] = int(config[self.name]["indexes"])
-        # BUSTED!
-        else:
-            raise Exception("Unexpected experiment type %s" % config[self.name]["experiment"])
+            ## SHARDING
+            if config[self.name]["experiment"] == constants.EXP_SHARDING:
+                self.initSharding(config)
+        ## IF
+        
+        self.initNextCommentId(config[self.name]["maxCommentId"])
     ## DEF
     
     def initSharding(self, config):
@@ -215,7 +209,6 @@ class BlogWorker(AbstractWorker):
     
     def loadImpl(self, config, channel, msg):
         assert self.conn != None
-        self.initNextCommentId(-1)
         
         # The message we're given is a tuple that contains
         # the list of author names that we'll generate articles from
@@ -337,14 +330,7 @@ class BlogWorker(AbstractWorker):
     ## ---------------------------------------------------------------------------
     
     def executeInitImpl(self, config):
-        # Figure out how many comments already exist in the database
-        if config[self.name]["denormalize"]:
-            assert False
-            pass
-        else:
-            maxCommentId = self.db[constants.COMMENT_COLL].find({}, {"id":1}).sort("id", -1).limit(1)[0]
-        
-        self.initNextCommentId(maxCommentId['id'])
+        pass
     ## DEF
     
     ## ---------------------------------------------------------------------------
@@ -361,7 +347,8 @@ class BlogWorker(AbstractWorker):
             articleId = int(self.articleZipf.next())
         # Otherwise pick one at random uniformly
         else:
-            articleId = random.randint(0, self.num_articles)
+            articleId = int(self.articleZipf.next())
+            # HACK articleId = random.randint(0, self.num_articles)
         
         # Check wether we're doing a read or a write txn
         if random.choice(self.workloadWrite):
@@ -433,47 +420,7 @@ class BlogWorker(AbstractWorker):
     
         return
     ## DEF
-    
-    def expSharding(self, articleId):
-        """
-        For this experiment, we will shard articles by their autoinc id and then 
-        by their id+timestamp. This will show that sharding on just the id won't
-        work because of skew, but by adding the timestamp the documents are spread out
-        more evenly. If we shard on the id+timestamp, will queries that only use the 
-        timestamp get redirected to a mininal number of nodes?
-        Not sure if this is a good experiment to show this. Might be too trivial.
-        """
-        article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId}, {"comments": 0})
-        if not article:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            return
-        return
-    ## DEF
-    
-    def expDenormalization(self, articleId):
-        """
-        In our microbenchmark we should have a collection of articles and collection of 
-        article comments. The target workload will be to grab an article and grab the 
-        top 10 comments for that article sorted by a user rating. In the first experiment,
-        we will store the articles and comments in separate collections.
-        In the second experiment, we'll embedded the comments inside of the articles.
-        Not sure if we can do that in a single query... 
-        What we should see is that the system is really fast when it can use a single 
-        query for documents that contain a small number of embedded documents. But 
-        then as the size of the comments list for each article increases, the two query
-        approach is faster. We may want to also have queries that append to the comments
-        list to show that it gets expensive to write to documents with a long list of 
-        nested documents
-        """
-        
-        
-            
-        # TODO: A more interesting experiment might be to insert comments into the database
-        # This would explore how the denormalized inserts may get more expensive over time
-            
-        return
-    ## DEF
-    
+
     def expIndexes(self, articleId):
         """
         In our final benchmark, we compared the performance difference between a query on 
