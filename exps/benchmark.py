@@ -33,6 +33,7 @@ import glob
 import subprocess
 import execnet
 import logging
+import time
 from ConfigParser import SafeConfigParser
 from pprint import pprint, pformat
 
@@ -199,10 +200,11 @@ class Benchmark:
             
         # Otherwise create SSH channels to client nodes
         else:
+            totalClients = len(clients) * self._config['default']['clientprocs']
+            start = time.time()
             for node in clients:
                 cmd = 'ssh='+ node
-                cmd += r"//chdir="
-                cmd += self._config['default']['path']
+                cmd += r"//chdir=" + self._config['default']['path']
                 logging.debug(cmd)
                 logging.debug("# of Client Processes: %s" % self._config['default']['clientprocs'])
                 for i in range(int(self._config['default']['clientprocs'])):
@@ -210,6 +212,10 @@ class Benchmark:
                     gw = execnet.makegateway(cmd)
                     ch = gw.remote_exec(remoteCall)
                     channels.append(ch)
+                    now = time.time()
+                    if (now - start) > 10 and int((len(channels) / float(totalClients))*100) % 25 == 0:
+                        logging.info("Started Client Threads %d / %d" % (len(channels), totalClients))
+                    
         # IF
         logging.info("Created %d client processes on %d hosts" % (len(channels), len(clients)))
         logging.debug(channels)

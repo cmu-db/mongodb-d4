@@ -22,13 +22,16 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
-
+import time
 import execnet
+import logging
 try:
    import cPickle as pickle
 except:
    import pickle
 
+LOG = logging.getLogger(__name__)
+   
 # All of the strings in this list will become
 # status codes that are prefixed with "MSG_"
 # The values of these codes will all be unique
@@ -52,6 +55,30 @@ for code in xrange(0, len(MSG_STATUS_CODES)):
     globals()[name] = code
     MSG_NAME_MAPPING[code] = name
 ## FOR
+
+def sendMessagesLimited(queue, limit):
+    responses = [ ]
+    outstanding = [ ]
+    start = time.time()
+    while len(queue) > 0 or len(outstanding) > 0:
+        while len(queue) > 0 and len(outstanding) < limit:
+            msg, data, channel = queue.pop(0)
+            sendMessage(msg, data, channel)
+            outstanding.append(channel)
+        # WHILE
+        while len(outstanding) > 0:
+            channel = outstanding.pop(0)
+            msg = getMessage(channel.receive())
+            responses.append(msg)
+            break
+        ## WHILE
+        LOG.debug("Queue:%d / Outstanding:%d / Responses:%d" % \
+                  (len(queue), len(outstanding), len(responses)))
+    # WHILE
+    duration = time.time() - start
+    LOG.info("Sent & recieved %d messages in %.2f seconds" % (len(responses), duration))
+    return (responses)
+## DEF    
 
 def sendMessage(msg, data, channel):
     '''serialize the data and send the msg through channel'''

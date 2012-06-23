@@ -77,11 +77,10 @@ class AbstractWorker:
         self.id = config['default']['id']
         self.stop_on_error = config['default']['stop_on_error']
         self.debug = config['default']['debug']
-        if self.debug:
-            LOG.setLevel(logging.DEBUG)
         
         LOG.info("Initializing %s Worker [clientId=%d]" % (self.name.upper(), self.id))
         if self.debug:
+            LOG.setLevel(logging.DEBUG)
             LOG.debug("%s Configuration:\n%s" % (self.name.upper(), pformat(self.config[self.name])))
         
         ## ----------------------------------------------
@@ -111,7 +110,7 @@ class AbstractWorker:
         assert self.conn
         
         self.initImpl(config)
-        sendMessage(MSG_INIT_COMPLETED, None, channel)
+        sendMessage(MSG_INIT_COMPLETED, self.id, channel)
     ## DEF
     
     def initImpl(self, config):
@@ -159,7 +158,7 @@ class AbstractWorker:
         self.lastChannel = channel
         LOG.info("Initializing %s before benchmark execution" % self.name)
         self.executeInitImpl(config)
-        sendMessage(MSG_INIT_COMPLETED, None, channel)
+        sendMessage(MSG_INIT_COMPLETED, self.getWorkerId(), channel)
     ## DEF
     
     def executeInitImpl(self, config):

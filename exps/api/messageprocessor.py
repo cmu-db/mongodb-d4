@@ -43,7 +43,9 @@ class MessageProcessor:
         for item in self._channel:
             msg = getMessage(item)
             LOG.debug("Incoming Message: %s" % getMessageName(msg.header))
-            if msg.header == MSG_CMD_INIT :
+            
+            # MSG_CMD_INIT
+            if msg.header == MSG_CMD_INIT:
                 self._config = msg.data
                 self._benchmark = self._config['default']['benchmark']
                 if 'debug' in self._config['default'] and self._config['default']['debug']:
@@ -52,6 +54,8 @@ class MessageProcessor:
                 setupPath(self._benchmark)
                 self._worker = self.createWorker()
                 self._worker.init(self._config, self._channel)
+                
+            # MSG_CMD_LOAD
             elif msg.header == MSG_CMD_LOAD:
                 self._worker.load(self._config, self._channel, msg)
             elif msg.header == MSG_CMD_STATUS:

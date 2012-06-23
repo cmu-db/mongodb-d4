@@ -97,22 +97,34 @@ class AbstractCoordinator:
         self.initImpl(self.config, channels)
         
         # Invoke the workers for this benchmark invocation
+        LOG.debug("Sending MSG_CMD_INIT to %d workers" % len(channels))
         workerId = 0
+        queue = [ ]
         for ch in channels:
             workerConfig = dict(self.config.items())
             workerConfig['default']["id"] = workerId
             workerId += 1
-            sendMessage(MSG_CMD_INIT, workerConfig, ch)
+            #LOG.debug("Sending MSG_CMD_INIT to worker #%d" % (workerId-1))
+            queue.append((MSG_CMD_INIT, workerConfig, ch))
+            # sendMessage(MSG_CMD_INIT, workerConfig, ch)
+            # time.sleep(10)
         ## FOR
+        responses = sendMessagesLimited(queue, 8)
             
         # Block until they all respond with an acknowledgement
-        for ch in channels :
-            msg = getMessage(ch.receive())
-            if msg.header == MSG_INIT_COMPLETED :
-                pass
-            else:
-                pass
-        LOG.debug("%s Initialization Completed!" % self.name.upper())
+        #LOG.debug("Waiting for MSG_INIT_COMPLETED responses from %d workers" % len(channels))
+        #for ch in channels :
+            #msg = getMessage(ch.receive())
+            #if msg.header == MSG_INIT_COMPLETED:
+                #LOG.info("Initialization on worker #%d is finished" % msg.data)
+                #continue
+            ## INVALID!
+            #else:
+                #msg = "Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch)
+                #raise Exception(msg)
+        ### FOR
+        
+        LOG.info("%s Initialization Completed!" % self.name.upper())
     ## DEF
         
     def loadImpl(self, config, channels):
@@ -168,10 +180,6 @@ class AbstractCoordinator:
         return None
     ## DEF
         
-    def executeImpl(self, config, channels):
-        '''Distribute loading to a list of channels by sending command message to each of them'''
-        raise NotImplementedError("%s does not implement loadImpl" % (self.name.upper()))
-        
     def execute(self, config, channels):
         '''distribute execution to a list of channels by send command message to each of them.\
         You can collect the execution result from each channel'''
@@ -180,18 +188,21 @@ class AbstractCoordinator:
         # Tell all the workers to get initialize themselves for a new 
         # round of execution. This will allow them to perform any initialization
         # that is specific to execution
+        LOG.debug("Sending MSG_CMD_EXECUTE_INIT to %d workers" % len(channels))
         for ch in channels:
             sendMessage(MSG_CMD_EXECUTE_INIT, None, ch)
         for ch in channels:
             msg = getMessage(ch.receive())
             if msg.header == MSG_INIT_COMPLETED:
-                pass
+                LOG.info("Initialization on worker #%d is finished" % msg.data)
+                continue
             else:
                 msg = "Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch)
                 raise Exception(msg)
         ## FOR
             
         # Now tell them to start executing their benchmark
+        LOG.debug("Sending MSG_CMD_EXECUTE to %d workers" % len(channels))
         for ch in channels:
             sendMessage(MSG_CMD_EXECUTE, None, ch)
             
@@ -203,11 +214,16 @@ class AbstractCoordinator:
             if msg.header == MSG_EXECUTE_COMPLETED:
                 r = msg.data
                 self.total_results.append(r)
+                continue
             else:
                 LOG.warn("Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch))
                 pass
         
         return None
+        
+    def executeImpl(self, config, channels):
+        '''Distribute loading to a list of channels by sending command message to each of them'''
+        raise NotImplementedError("%s does not implement loadImpl" % (self.name.upper()))
         
     def showResult(self, config, channels):
         print self.total_results.show(self.load_result)
