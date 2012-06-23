@@ -293,7 +293,7 @@ class BlogWorker(AbstractWorker):
             articleCtr += 1
             if articleCtr % 100 == 0 :
                 if articleCtr % 1000 == 0 :
-                    LOG.info("ARTICLE: %6d / %d" % (articleCtr, (lastArticle - firstArticle)))
+                    LOG.info("ARTICLE: %6d / %d" % (articleCtr, (self.lastArticle - self.firstArticle)))
                     if len(commentsBatch) > 0:
                         LOG.debug("COMMENTS: %6d" % (commentCtr))
                 self.db[constants.ARTICLE_COLL].insert(articlesBatch)
@@ -306,7 +306,7 @@ class BlogWorker(AbstractWorker):
                 
         ## FOR (articles)
         if len(articlesBatch) > 0:
-            LOG.info("ARTICLE: %6d / %d" % (articleCtr, (lastArticle - firstArticle)))
+            LOG.info("ARTICLE: %6d / %d" % (articleCtr, (self.lastArticle - self.firstArticle)))
             self.db[constants.ARTICLE_COLL].insert(articlesBatch)
             if len(commentsBatch) > 0:
                 self.db[constants.COMMENT_COLL].insert(commentsBatch)
