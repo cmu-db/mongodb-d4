@@ -64,7 +64,11 @@ class Benchmark:
     DEFAULT_CONFIG = [
         ("host", "The host name of the MongoDB instance to use in this benchmark", "localhost"),
         ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
+        ("scalefactor", "Benchmark database scale factor", 1.0),
+        ("duration", "Benchmark execution time in seconds", 60),
         ("clients", "Comma-separated list of machines to use for benchmark clients", "localhost"),
+        ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
+        ("design", "Path to database design file (must be supported by benchmark).", None),
     ]
     
     '''main class'''
@@ -268,27 +272,39 @@ if __name__=='__main__':
                          help='The name of the benchmark to execute')
     aparser.add_argument('--config', type=file,
                          help='Path to benchmark configuration file')
-    aparser.add_argument('--design', type=str,
-                         help='Path to benchmark design file')
-    aparser.add_argument('--reset', action='store_true',
-                         help='Instruct the driver to reset the contents of the database')
-    aparser.add_argument('--scalefactor', default = 1, type=float, metavar='SF',
-                         help='Benchmark scale factor')
-    aparser.add_argument('--duration', default = 60, type=int, metavar='D',
-                         help='Benchmark execution time in seconds')
+    aparser.add_argument('--print-config', action='store_true',
+                         help='Print out the default configuration file for the benchmark and exit')
+                         
+    # Config Override Parameters
+    override = {
+        "scalefactor": ("SF", float),
+        "duration":    ("D", int),
+        "clients":     ("C", str),
+        "clientprocs": ("N", int),
+    }
+    for key,desc,default in Benchmark.DEFAULT_CONFIG:
+        if not key in override: continue
+        
+        argMeta, argType = override[key]
+        aparser.add_argument('--' + key, \
+                             default=default, \
+                             type=argType, \
+                             metavar=argMeta, \
+                             help=desc)
+    ## FOR
+                
+    ## Execution Parameters
     aparser.add_argument('--direct', action='store_true',
                          help='Execute the workers directly in this process')                            
-    aparser.add_argument('--clientprocs', default = 1, type=int, metavar='N',
-                         help='Number of processes on each client node.')
-                         
+    aparser.add_argument('--reset', action='store_true',
+                         help='Instruct the driver to reset the contents of the database')
     aparser.add_argument('--stop-on-error', action='store_true',
                          help='Stop the transaction execution when the driver throws an exception.')
     aparser.add_argument('--no-load', action='store_true',
                          help='Disable loading the benchmark data')
     aparser.add_argument('--no-execute', action='store_true',
                          help='Disable executing the benchmark workload')
-    aparser.add_argument('--print-config', action='store_true',
-                         help='Print out the default configuration file for the benchmark and exit')
+
     aparser.add_argument('--debug', action='store_true',
                          help='Enable debug log messages')                       
     args = vars(aparser.parse_args())
