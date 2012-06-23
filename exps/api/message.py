@@ -24,7 +24,10 @@
 # -----------------------------------------------------------------------
 
 import execnet
-import pickle
+try:
+   import cPickle as pickle
+except:
+   import pickle
 
 # All of the strings in this list will become
 # status codes that are prefixed with "MSG_"
