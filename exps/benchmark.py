@@ -30,6 +30,7 @@ import os
 import string
 import re
 import glob
+import subprocess
 import execnet
 import logging
 from ConfigParser import SafeConfigParser
@@ -68,7 +69,7 @@ class Benchmark:
         ("duration", "Benchmark execution time in seconds", 60),
         ("clients", "Comma-separated list of machines to use for benchmark clients", "localhost"),
         ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
-        ("design", "Path to database design file (must be supported by benchmark).", None),
+        ("design", "Path to database design file (must be supported by benchmark).", ""),
     ]
     
     '''main class'''
@@ -135,8 +136,10 @@ class Benchmark:
         
         # Fix common problems
         for s in config.keys():
-            for key in ["port", "duration"]:
+            for key in ["port", "duration", "clientprocs"]:
                 if key in config[s]: config[s][key] = int(config[s][key])
+            for key in ["scalefactor"]:
+                if key in config[s]: config[s][key] = float(config[s][key])
         ## FOR
         
         # Read in the serialized design file and ship that over the wire
@@ -155,6 +158,10 @@ class Benchmark:
     def runBenchmark(self):
         '''Execute the target benchmark!'''
         self._channels = self.createChannels()
+        
+        # Step 0: Flush the cache on the MongoDB host
+        if not self._args['no_flush']:
+            flushBuffer(self._config["default"]["host"])
         
         # Step 1: Initialize all of the Workers on the client nodes
         self._coordinator.init(self._config, self._channels) 
@@ -186,6 +193,7 @@ class Benchmark:
         # Create fake channel that invokes the worker directly in
         # the same process
         if self._config['default']['direct']:
+            self._config['default']['clientprocs'] = 1
             ch = DirectChannel()
             channels.append(ch)
             
@@ -203,6 +211,7 @@ class Benchmark:
                     ch = gw.remote_exec(remoteCall)
                     channels.append(ch)
         # IF
+        logging.info("Created %d client processes on %d hosts" % (len(channels), len(clients)))
         logging.debug(channels)
         return channels
     ## DEF
@@ -220,7 +229,7 @@ class Benchmark:
         klass = getattr(moduleHandle, fullName)
         return klass()
     ## DEF
-
+    
 ## CLASS
         
 ## ==============================================
@@ -240,6 +249,18 @@ def getBenchmarks():
 def setupBenchmarkPath(benchmark):
     benchmarkDir = os.path.join(BASEDIR, "benchmarks", benchmark)
     sys.path.append(os.path.realpath(benchmarkDir))
+## DEF
+
+## ==============================================
+## flushBuffer
+## ==============================================
+def flushBuffer(host):
+    remoteCmd = "sudo sh -c \"sync; echo 3 > /proc/sys/vm/drop_caches\""
+    sshOpts = "-o \"UserKnownHostsFile /dev/null\" " + \
+              "-o \"StrictHostKeyChecking no\""
+    
+    LOG.info("Flushing OS cache on host '%s'" % host)
+    subprocess.check_call("ssh %s %s %s" % (host, sshOpts, remoteCmd), shell=True)
 ## DEF
 
 ## ==============================================
@@ -300,6 +321,8 @@ if __name__=='__main__':
                          help='Instruct the driver to reset the contents of the database')
     aparser.add_argument('--stop-on-error', action='store_true',
                          help='Stop the transaction execution when the driver throws an exception.')
+    aparser.add_argument('--no-flush', action='store_true',
+                        help="Disable flushing the OS cache on the MongoDB host before executing the benchmark.")
     aparser.add_argument('--no-load', action='store_true',
                          help='Disable loading the benchmark data')
     aparser.add_argument('--no-execute', action='store_true',

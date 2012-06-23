@@ -209,7 +209,20 @@ class BlogWorker(AbstractWorker):
         self.lastCommentId += 1
         return self.lastCommentId
     ## DEF
+ 
+    ## ---------------------------------------------------------------------------
+    ## STATUS
+    ## ---------------------------------------------------------------------------
     
+    def statusImpl(self, config, channel, msg):
+        result = { }
+        for col in self.db.collection_names():
+            stats = self.db.validate_collection(col)
+            result[self.db.name + "." + col] = (stats.datasize, stats.nrecords)
+        ## FOR
+        return (result)
+    ## DEF
+ 
     ## ---------------------------------------------------------------------------
     ## LOAD
     ## ---------------------------------------------------------------------------
@@ -228,6 +241,7 @@ class BlogWorker(AbstractWorker):
         ## ----------------------------------------------
         articlesBatch = [ ]
         articleCtr = 0
+        articleTotal = self.lastArticle - self.firstArticle
         commentsBatch = [ ]
         commentCtr = 0
         for articleId in xrange(self.firstArticle, self.lastArticle+1):
@@ -293,7 +307,8 @@ class BlogWorker(AbstractWorker):
             articleCtr += 1
             if articleCtr % 100 == 0 :
                 if articleCtr % 1000 == 0 :
-                    LOG.info("ARTICLE: %6d / %d" % (articleCtr, (self.lastArticle - self.firstArticle)))
+                    self.loadStatusUpdate(articleCtr / articleTotal)
+                    LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
                     if len(commentsBatch) > 0:
                         LOG.debug("COMMENTS: %6d" % (commentCtr))
                 self.db[constants.ARTICLE_COLL].insert(articlesBatch)
@@ -306,7 +321,7 @@ class BlogWorker(AbstractWorker):
                 
         ## FOR (articles)
         if len(articlesBatch) > 0:
-            LOG.info("ARTICLE: %6d / %d" % (articleCtr, (self.lastArticle - self.firstArticle)))
+            LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
             self.db[constants.ARTICLE_COLL].insert(articlesBatch)
             if len(commentsBatch) > 0:
                 self.db[constants.COMMENT_COLL].insert(commentsBatch)

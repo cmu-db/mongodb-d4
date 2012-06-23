@@ -103,18 +103,48 @@ class AbstractCoordinator:
     def load(self, config, channels):
         ''' distribute loading to a list of channels by sending command message to each of them.\
         You can collect the load time from each channel and returns the total loading time'''
-        LOG.info("Loading %s Database" % self.name)
+        LOG.info("Loading %s Database" % self.name.upper())
         
         load_start = time.time()
         self.loadImpl(config, channels)
-        for ch in channels :
+        waiting = channels[:]
+        completed = 0.0
+        statusIncrease = 0.1
+        statusNext = statusIncrease
+        while len(waiting) > 0:
+            ch = waiting.pop(0)
             msg = getMessage(ch.receive())
-            if msg.header == MSG_LOAD_COMPLETED :
-                pass
+            # COMPLETED
+            if msg.header == MSG_LOAD_COMPLETED:
+                LOG.info("Loading on worker #%d finished" % msg.data)
+                continue
+            # STATUS UPDATE
+            elif msg.header == MSG_LOAD_STATUS:
+                workerId, completePercent = msg.data
+                completed += completePercent * (1 / float(len(channels)))
+                if completed >= statusNext:
+                    LOG.info("Loading Complete: %3d%%" % (completed * 100))
+                    statusNext += statusIncrease
+                # Make sure that we put the channel back on our waiting list
+                # because it's not done yet!
+                waiting.append(ch)
+                continue
+            # INVALID!
             else:
-                pass
+                msg = "Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch)
+                raise Exception(msg)
+        ## FOR
         self.load_result = time.time() - load_start
         LOG.info("Loading completed in %.2f seconds" % self.load_result)
+        
+        # Get the database status from the first channel and print it
+        #msg = self.blockingSendMessage(MSG_CMD_STATUS, None, channels[0])
+        #dbStatus = ""
+        #for col in msg.data.keys():
+            #bytes, count = msg.data[col]
+            #dbStatus += "\n  %-10s %10d docs / %10d bytes" % (col+":", count, bytes)
+        
+        #LOG.info("Database Status:" + dbStatus)
         
         return None
     ## DEF
@@ -167,4 +197,10 @@ class AbstractCoordinator:
     def moreProcessing(self, config, channels):
         '''hook'''
         return None
+        
+    def blockingSendMessage(self, cmd, data, ch):
+        """Send a message to a channel and block until we get a response"""
+        sendMessage(cmd, data, ch)
+        return getMessage(ch.receive())
+    ## DEF
  

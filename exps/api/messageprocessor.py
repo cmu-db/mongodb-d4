@@ -52,15 +52,17 @@ class MessageProcessor:
                 setupPath(self._benchmark)
                 self._worker = self.createWorker()
                 self._worker.init(self._config, self._channel)
-            elif msg.header == MSG_CMD_LOAD :
+            elif msg.header == MSG_CMD_LOAD:
                 self._worker.load(self._config, self._channel, msg)
+            elif msg.header == MSG_CMD_STATUS:
+                self._worker.status(self._config, self._channel, msg)
             elif msg.header == MSG_CMD_EXECUTE_INIT:
                 self._worker.executeInit(self._config, self._channel, msg)
             elif msg.header == MSG_CMD_EXECUTE:
                 self._worker.execute(self._config, self._channel, msg)
-            elif msg.header == MSG_CMD_STOP :
+            elif msg.header == MSG_CMD_STOP:
                 pass
-            elif msg.header == MSG_EMPTY :
+            elif msg.header == MSG_EMPTY:
                 pass
             else:
                 LOG.warn("Unexpected message type")

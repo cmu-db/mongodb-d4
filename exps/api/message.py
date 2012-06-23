@@ -26,22 +26,28 @@
 import execnet
 import pickle
 
-MSG_EMPTY             = 0
-MSG_CMD_INIT          = 1
-MSG_CMD_LOAD          = 2
-MSG_CMD_EXECUTE_INIT  = 3
-MSG_CMD_EXECUTE       = 4
-MSG_CMD_STOP          = 5
-MSG_INIT_COMPLETED    = 6
-MSG_LOAD_COMPLETED    = 7
-MSG_EXECUTE_COMPLETED = 8
-MSG_CONFIG            = 9
-
-NAME_MAPPING = { }
-for key in globals().keys():
-    if key.startswith("MSG_"):
-        val = globals()[key]
-        NAME_MAPPING[val] = key
+# All of the strings in this list will become
+# status codes that are prefixed with "MSG_"
+# The values of these codes will all be unique
+MSG_STATUS_CODES = [
+    "EMPTY",
+    "CMD_INIT",
+    "CMD_LOAD",
+    "CMD_STATUS",
+    "CMD_EXECUTE_INIT",
+    "CMD_EXECUTE",
+    "CMD_STOP",
+    "INIT_COMPLETED",
+    "LOAD_STATUS",
+    "LOAD_COMPLETED",
+    "EXECUTE_COMPLETED",
+    "CONFIG"
+]
+MSG_NAME_MAPPING = { }
+for code in xrange(0, len(MSG_STATUS_CODES)):
+    name = "MSG_%s" % MSG_STATUS_CODES[code]
+    globals()[name] = code
+    MSG_NAME_MAPPING[code] = name
 ## FOR
 
 def sendMessage(msg, data, channel):
@@ -56,7 +62,7 @@ def getMessage(item):
     
 def getMessageName(msg):
     '''Return the name of the given message id'''
-    return NAME_MAPPING[msg]
+    return MSG_NAME_MAPPING[msg]
 
     
 class Message:
