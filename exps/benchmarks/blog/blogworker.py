@@ -90,6 +90,7 @@ class BlogWorker(AbstractWorker):
         self.firstArticle = int(self.getWorkerId() * articleOffset)
         self.lastArticle = int(self.firstArticle + articleOffset)
         self.lastCommentId = None
+        self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
         
         # Zipfian distribution on the number of comments & their ratings
@@ -97,45 +98,23 @@ class BlogWorker(AbstractWorker):
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.0)
         self.db = self.conn[constants.DB_NAME]
         
-        if config['default']["reset"]:
+        if self.getWorkerId() == 0 and config['default']["reset"]:
             LOG.info("Resetting database '%s'" % constants.DB_NAME)
             self.conn.drop_database(constants.DB_NAME)
-        
-        # Always drop the indexes
-        self.db[constants.ARTICLE_COLL].drop_indexes()
-        self.db[constants.COMMENT_COLL].drop_indexes()
-        
-        # Sharding Key
+            
+        ## SHARDING
         if config[self.name]["experiment"] == constants.EXP_SHARDING:
             config[self.name]["sharding"] = int(config[self.name]["sharding"])
-            self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
-            self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
-            
-            # Initialize sharding configuration
-            self.initIndexes(constants.INDEXEXP_PREDICATE)
-            self.initSharding(config)
-            
-        # Denormalization
+            if self.getWorkerId() == 0: self.initSharding(config)
+        # DENORMALIZATION
         elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
             config[self.name]["denormalize"] = (config[self.name]["denormalize"] == "True")
-            
-            # We need an index on ARTICLE
-            self.initIndexes(constants.INDEXEXP_PREDICATE)
-            
-            # And if we're not denormalized, on COMMENTS as well
-            if not config[self.name]["denormalize"]:
-                self.db[constants.COMMENT_COLL].create_index([("id", pymongo.ASCENDING), \
-                                                              ("article", pymongo.ASCENDING)])
-                
-        # Indexing
+        # INDEXING
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
             config[self.name]["indexes"] = int(config[self.name]["indexes"])
-            self.initIndexes(config[self.name]["indexes"])
-            
-        # Busted!
+        # BUSTED!
         else:
-            raise Exception("Unexpected experiment type %d" % config["experiment"])
-        
+            raise Exception("Unexpected experiment type %s" % config[self.name]["experiment"])
     ## DEF
     
     def initSharding(self, config):
@@ -178,7 +157,7 @@ class BlogWorker(AbstractWorker):
                   (len(shardingPatterns, self.db.name)))
     ## DEF
     
-    def initIndexes(self, optType):
+    def initIndexes(self, optType, denormalize=False):
         assert self.db != None
         
         # Nothing
@@ -195,6 +174,13 @@ class BlogWorker(AbstractWorker):
         # Busted!
         else:
             raise Exception("Unexpected indexing configuration type '%d'" % optType)
+        
+        if not denormalize:
+            LOG.info("Creating indexes for %s" % self.db[constants.COMMENT_COLL].full_name)
+            self.db[constants.COMMENT_COLL].create_index([("id", pymongo.ASCENDING), \
+                                                          ("article", pymongo.ASCENDING)])
+        ## IF
+        
     ## DEF
     
     def initNextCommentId(self, maxCommentId):
@@ -235,6 +221,22 @@ class BlogWorker(AbstractWorker):
         # the list of author names that we'll generate articles from
         authors = msg.data[0]
         LOG.info("Generating %s data [denormalize=%s]" % (self.getBenchmarkName(), config[self.name]["denormalize"]))
+        
+        # HACK: Setup the indexes if we're the first client
+        if self.getWorkerId() == 0:
+            self.db[constants.ARTICLE_COLL].drop_indexes()
+            self.db[constants.COMMENT_COLL].drop_indexes()
+            
+            # SHARDING KEY + DENORMALIZATION
+            if config[self.name]["experiment"] in [constants.EXP_SHARDING, constants.EXP_DENORMALIZATION]:
+                self.initIndexes(constants.INDEXEXP_PREDICATE, config[self.name]["denormalize"])
+            # INDEXING
+            elif config[self.name]["experiment"] == constants.EXP_INDEXING:
+                self.initIndexes(config[self.name]["indexes"])
+            # BUSTED!
+            else:
+                raise Exception("Unexpected experiment type %s" % config[self.name]["experiment"])
+        ## IF
         
         ## ----------------------------------------------
         ## LOAD ARTICLES

@@ -97,8 +97,15 @@ class Results:
         ## HACK
         if type(r.completed) == list:
             self.completed.extend(r.completed)
-        self.start = r.start
-        self.stop = r.stop
+        if not self.start:
+            self.start = r.start
+        else:
+            self.start = min(self.start, r.start)
+        if not self.stop:
+            self.stop = r.stop
+        else:
+            self.stop = max(self.stop, r.stop)
+    ## DEF
             
     def __str__(self):
         return self.show()

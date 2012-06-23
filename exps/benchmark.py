@@ -255,12 +255,12 @@ def setupBenchmarkPath(benchmark):
 ## flushBuffer
 ## ==============================================
 def flushBuffer(host):
-    remoteCmd = "sudo sh -c \"sync; echo 3 > /proc/sys/vm/drop_caches\""
+    remoteCmd = "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'"
     sshOpts = "-o \"UserKnownHostsFile /dev/null\" " + \
               "-o \"StrictHostKeyChecking no\""
     
     LOG.info("Flushing OS cache on host '%s'" % host)
-    subprocess.check_call("ssh %s %s %s" % (host, sshOpts, remoteCmd), shell=True)
+    subprocess.check_call("ssh %s %s \"%s\"" % (host, sshOpts, remoteCmd), shell=True)
 ## DEF
 
 ## ==============================================
