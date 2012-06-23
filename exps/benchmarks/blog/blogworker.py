@@ -88,7 +88,7 @@ class BlogWorker(AbstractWorker):
         
         articleOffset = (1 / float(self.getWorkerCount())) * self.num_articles
         self.firstArticle = int(self.getWorkerId() * articleOffset)
-        self.lastArticle = self.firstArticle + articleOffset
+        self.lastArticle = int(self.firstArticle + articleOffset)
         self.lastCommentId = None
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
         
