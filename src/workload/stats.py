@@ -40,6 +40,8 @@ class Stats(Document):
     default_values = {
         'workload_queries':     0,
         'workload_percent':     0.0,
+        'interesting':          [ ],
+        'fields':               { },
     }
 
 ## CLASS

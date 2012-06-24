@@ -30,6 +30,7 @@ from pprint import pformat
 
 import catalog
 from ophasher import *
+from stats import Stats
 from util import constants
 
 LOG = logging.getLogger(__name__)
@@ -56,6 +57,35 @@ class Processor:
                 v['selectivity'] = 0
             col.save()
     ## DEF
+    
+    def processWorkloadStats(self, collectionsIterable) :
+        '''Gather statistics from an iterable of collections for using in 
+           instantiation of the cost model and for determining the initial
+           design solution'''
+           
+        collectionStats = { }
+        for col in collectionsIterable :
+            stats = Stats()
+            stats.name = col['name']
+            stats.tuple_count = col['tuple_count']
+            stats.avg_doc_size = col['avg_doc_size']
+            
+            for field, data in col['fields'].iteritems() :
+                if data['query_use_count'] > 0:
+                    stats.interesting.append(field)
+                field = {
+                    'query_use_count': data['query_use_count'],
+                    'cardinality': data['cardinality'],
+                    'selectivity': data['selectivity'],
+                }
+                stats.fields.append(field)
+            ## FOR
+            
+            stats.save()
+            collectionStats[stats.name] = stats
+        ## FOR
+        return (collectionStats)
+    ## FOR
     
     def processWorkload(self):
         """Process Workload Trace"""

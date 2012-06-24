@@ -139,32 +139,6 @@ def fieldTypeToPython(strType):
         if strType == t.__name__: return t
     return eval("types.%sType" % strType.title())
     
-def gatherStatisticsFromCollections(collectionsIterable) :
-    '''
-    Gather statistics from an iterable of collections for using in instantiation of
-    the cost model and for determining the initial design solution
-    '''
-    statistics = {}
-    statistics['total_queries'] = 0
-    for col in collectionsIterable :
-        statistics[col['name']] = {
-            'fields' : {},
-            'tuple_count' : col['tuple_count'],
-            'workload_queries' : 0,
-            'workload_percent' : 0.0,
-            'avg_doc_size' : col['avg_doc_size'],
-            'interesting' : [],
-        }
-        for field, data in col['fields'].iteritems() :
-            if data['query_use_count'] > 0 :
-               statistics[col['name']]['interesting'].append(field)
-            statistics[col['name']]['fields'][field] = {
-                'query_use_count' : data['query_use_count'],
-                'cardinality' : data['cardinality'],
-                'selectivity' : data['selectivity']
-            }
-    return statistics
-    
 def variance_factor(list, norm):
     n, mean, std = len(list), 0, 0
     if n <= 1 or norm == 0 :
