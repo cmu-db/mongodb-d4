@@ -57,16 +57,31 @@ class StatsProcessor:
     def processWorkload(self):
         """Process Workload Trace"""
         
-        records = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
-        if self.op_limit: records.limit(self.op_limit)
+        sessions = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
+        if self.op_limit: sessions.limit(self.op_limit)
         
-        for rec in records:
-            for op in rec['operations'] :
+        for sess in sessions:
+            start_time = None
+            end_time = None
+            
+            for op in sess['operations']:
+                # The start_time is the timestamp of when the first query occurs
+                if start_time == None: start_time = op.query_time
+                start_time = min(start_time, op.query_time)
+    
+                # The end_time is the timestamp of when the last response arrives                
+                if op.resp_time: end_time = max(end_time, op.resp_time)
+                
+                # Get the collection information object
+                # We will use this to store the number times each key is referenced in a query
                 col_info = self.metadata_db.Collection.one({'name': op['collection']})
                 
-                # We want to update the number times each key is referenced in a query
-                # Set this flag to true if we updated the count
-                dirty = False
+                if op.predicates == None: op.predicates = { }
+                
+                # FIXME - We ware suppose to update these counters somewhere
+                # FIXME - Where is this suppose to be stored?
+                # statistics[op['collection']]['workload_queries'] += 1
+                # statistics['total_queries'] += 1
                 
                 # DELETE
                 if op['type'] == constants.OP_TYPE_DELETE:
@@ -74,14 +89,21 @@ class StatsProcessor:
                         for k,v in content.iteritems() :
                             tuples.append((k, v))
                             col_info['fields'][k]['query_use_count'] += 1
-                            dirty = True
+                            if type(v) == dict:
+                                op.predicates[k] = constants.PRED_TYPE_RANGE
+                            else:
+                                op.predicates[k] = constants.PRED_TYPE_EQUALITY
+                    ## FOR
                 # INSERT
                 elif op['type'] == constants.OP_TYPE_INSERT:
                     for content in op['query_content'] :
                         for k,v in content.iteritems() :
                             tuples.append((k, v))
                             col_info['fields'][k]['query_use_count'] += 1
-                            dirty = True
+
+                    # No predicate for insert operations
+                    # No projections for insert operations
+                            
                 # QUERY
                 elif op['type'] == constants.OP_TYPE_QUERY:
                     for content in op['query_content'] :
@@ -89,7 +111,12 @@ class StatsProcessor:
                             for k, v in content['query'].iteritems() :
                                 tuples.append((k, v))
                                 col_info['fields'][k]['query_use_count'] += 1
-                                dirty = True
+                                if type(v) == dict:
+                                    op.predicates[k] = constants.PRED_TYPE_RANGE
+                                else:
+                                    op.predicates[k] = constants.PRED_TYPE_EQUALITY
+                    ## FOR
+                    
                 # UPDATE
                 elif op['type'] == constants.OP_TYPE_UPDATE:
                     for content in op['query_content'] :
@@ -97,25 +124,37 @@ class StatsProcessor:
                             for k,v in content.iteritems() :
                                 tuples.append((k, v))
                                 col_info['fields'][k]['query_use_count'] += 1
-                                dirty = True
+                                if type(v) == dict:
+                                    op.predicates[k] = constants.PRED_TYPE_RANGE
+                                else:
+                                    op.predicates[k] = constants.PRED_TYPE_EQUALITY
                         except AttributeError :
                             # Why?
                             pass
+                    ## FOR
                 
-                if dirty: col_info.save()
+                col_info.save()
                 
             ## FOR (operations)
+            
+            if start_time != None and end_time != None:
+                sess.start_time = start_time
+                sess.end_time = end_time
+            
+            LOG.debug("Updating Session #%d" % sess.session_id)
+            sess.save()
+            
         ## FOR (sessions)
     ## DEF
     
     def processQueryHashes(self):
-        records = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
-        if self.op_limit: records.limit(self.op_limit)
+        sessions = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
+        if self.op_limit: sessions.limit(self.op_limit)
         
-        for rec in records:
-            for op in rec['operations'] :
+        for sess in sessions:
+            for op in sess['operations'] :
                 op[u"query_hash"] = self.hasher.hash(op)
-            self.metadata_db[constants.COLLECTION_WORKLOAD].save(rec)
+            self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
         ## FOR
         print("Query Class Histogram:\n%s" % self.hasher.histogram)
     ## DEF

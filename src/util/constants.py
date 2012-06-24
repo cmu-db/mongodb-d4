@@ -45,3 +45,9 @@ OP_TYPE_UPDATE = '$update'
 OP_TYPE_REPLY = '$reply'
 OP_TYPE_GETMORE = '$getMore'
 OP_TYPE_KILLCURSORS = '$killCursors'
+
+## ==============================================
+## PREDICATE TYPES
+## ==============================================
+PRED_TYPE_RANGE    = 'range'
+PRED_TYPE_EQUALITY = 'eq'
