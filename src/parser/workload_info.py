@@ -27,7 +27,7 @@ import argparse
 import logging
 from pymongo import Connection
 
-# MongoDB-Designer
+# mongodb-d4
 sys.path.append("../workload")
 sys.path.append("../util")
 import parser

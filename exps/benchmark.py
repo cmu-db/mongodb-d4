@@ -50,7 +50,7 @@ sys.path.append(os.path.join(BASEDIR, "../libs"))
 import argparse
 import mongokit
 
-# MongoDB-Designer
+# mongodb-d4
 sys.path.append(os.path.join(BASEDIR, "../src"))
 
 ## ==============================================

@@ -40,7 +40,7 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../libs"))
 import mongokit
 
-# MongoDB-Designer
+# mongodb-d4
 import catalog
 import designer
 import workload
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         LOG.error("Failed to connect to MongoDB at %s:%s" % (hostname, port))
         raise
     ## Register our objects with MongoKit
-    conn.register([ catalog.Collection, workload.Session, workload.Stats ])
+    conn.register([ catalog.Collection, workload.Session ])
 
     ## Make sure that the databases that we need are there
     db_names = conn.database_names()

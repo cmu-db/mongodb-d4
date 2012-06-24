@@ -3,7 +3,7 @@
 #from workload import *
 import logging
 
-# MongoDB-Designer
+# mongodb-d4
 import catalog
 import sql2mongo
 from search import InitialDesigner
@@ -23,9 +23,7 @@ class Designer():
         ('no-mongo-parse', 'Skip parsing and loading MongoDB workload from file.', False),
         ('no-mongo-reconstruct', 'Skip reconstructing the MongoDB database schema after loading.', False),
         ('no-mongo-sessionizer', 'Skip splitting the MongoDB workload into separate sessions.', False),
-        
 
-        
         # General Options
         ('stop-on-error', 'Stop processing when an invalid line is reached', False),
     ]

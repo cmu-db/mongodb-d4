@@ -37,7 +37,7 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 import argparse
 import mongokit
 
-# MongoDB-Designer
+# mongodb-d4
 sys.path.append(os.path.join(basedir, ".."))
 import workload_info
 import parser

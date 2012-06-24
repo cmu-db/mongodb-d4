@@ -33,7 +33,7 @@ import MySQLdb as mdb
 from datetime import datetime
 from pprint import pprint,pformat
 
-# MongoDB-Designer
+# mongodb-d4
 import catalog
 import sql2mongo
 import workload

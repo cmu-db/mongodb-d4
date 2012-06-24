@@ -37,7 +37,7 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../libs"))
 import mongokit
 
-# MongoDB-Designer
+# mongodb-d4
 import catalog
 import workload
 import search
