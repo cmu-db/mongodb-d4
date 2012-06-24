@@ -76,13 +76,12 @@ def sendMessagesLimited(queue, limit):
     threads = [ ]
     
     # Split the queue by channel host
-    hostChannels = getChannelsByHost([ch[-1] for ch in channels])
-    hostQueues = { }
+    hostChannels = getChannelsByHost([x[-1] for x in queue])
     for key in hostChannels.keys():
         hostQueue = [ ]
-        for msg, data, channel in queue:
-            if channel in hostChannels[key]:
-                hostQueues[key].append(msg, data, channel)
+        for i in xrange(0, len(queue)):
+            if queue[i][-1] in hostChannels[key]:
+                hostQueue.append(queue[i])
         ## FOR
         t = threading.Thread(target=sendMessagesLimitedThread, args=(hostQueue, limit, responses))
         t.start()

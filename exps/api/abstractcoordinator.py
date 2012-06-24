@@ -110,18 +110,22 @@ class AbstractCoordinator:
             # time.sleep(10)
         ## FOR
         responses = sendMessagesLimited(queue, 8)
+        
+        for msg in responses:
+            if msg.header == MSG_INIT_COMPLETED:
+                LOG.info("Initialization on worker #%d is finished" % msg.data)
+                continue
+            # INVALID!
+            else:
+                errorMsg = "Unexpected return result %s from remote worker" % (getMessageName(msg.header))
+                raise Exception(errorMsg)
+        ## FOR
             
         # Block until they all respond with an acknowledgement
         #LOG.debug("Waiting for MSG_INIT_COMPLETED responses from %d workers" % len(channels))
         #for ch in channels :
             #msg = getMessage(ch.receive())
-            #if msg.header == MSG_INIT_COMPLETED:
-                #LOG.info("Initialization on worker #%d is finished" % msg.data)
-                #continue
-            ## INVALID!
-            #else:
-                #msg = "Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch)
-                #raise Exception(msg)
+            #
         ### FOR
         
         LOG.info("%s Initialization Completed!" % self.name.upper())
