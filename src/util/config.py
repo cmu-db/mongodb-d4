@@ -8,10 +8,11 @@ import constants
 ## DEFAULT CONFIGURATION
 ## ==============================================
 
-SECT_MONGODB = "mongodb"
-SECT_CLUSTER = "cluster"
-SECT_DESIGNER = "designer"
+SECT_MONGODB   = "mongodb"
+SECT_CLUSTER   = "cluster"
+SECT_DESIGNER  = "designer"
 SECT_COSTMODEL = "costmodel"
+SECT_MYSQL     = "mysql"
 
 DEFAULT_CONFIG = {
     # MongoDB Configuration
@@ -46,7 +47,16 @@ DEFAULT_CONFIG = {
         "weight_disk": ("Coefficient for the Disk cost function", 1.0),
         "time_intervals" : ("Number of intervals over which to examine the workload skew", 10),
         "address_size" : ("Size of an address for an index node in bits", 64),
-    }
+    },
+    
+    # MySQL Conversion Configuration
+    SECT_MYSQL: {
+        "host":    ("MySQL host name", "localhost"),
+        "port":    ("MySQL port number", 3306),
+        "name":    ("The name of the MySQL database containing the sample data set", None),
+        "user":    ("MySQL user name", None),
+        "pass" :   ("MySQL user password", None),
+    },
 }
 
 def makeDefaultConfig():

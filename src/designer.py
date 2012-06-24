@@ -112,6 +112,8 @@ if __name__ == '__main__':
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
 
+    processor = workload.Processor(metadata_db, dataset_db)
+    
     ## ----------------------------------------------
     ## STEP 1
     ## Generate an initial solution
