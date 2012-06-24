@@ -136,15 +136,15 @@ class Results:
         ret += "Execution Results after %d seconds\n%s" % (duration, line)
         ret += f % ("", "Executed", u"Total Time (µs)", "Rate")
         
-        total_time = 0
+        total_time = duration
         total_cnt = self.txn_counters.getSampleCount()
         for txn in sorted(self.txn_counters.keys()):
             txn_time = self.txn_times[txn]
-            txn_cnt = "%5d - %4.1f%%" % (self.txn_counters[txn], (self.txn_counters[txn] / float(total_cnt))*100)
+            txn_cnt = "%6d - %4.1f%%" % (self.txn_counters[txn], (self.txn_counters[txn] / float(total_cnt))*100)
             rate = u"%.02f txn/s" % ((self.txn_counters[txn] / txn_time))
             ret += f % (txn, txn_cnt, str(txn_time * 1000000), rate)
             
-            total_time += txn_time
+            # total_time += txn_time
         ret += "\n" + ("-"*total_width)
         
         rate = 0
