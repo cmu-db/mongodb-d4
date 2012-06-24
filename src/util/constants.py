@@ -3,9 +3,16 @@
 PROJECT_NAME = "MongoDB-Designer"
 PROJECT_URL = "https://github.com/apavlo/MongoDB-Designer"
 
-# Metadata DB Collections
+## ==============================================
+## METADATA DB COLLECTIONS
+## ==============================================
+
+# The schema catalog information about the application
 COLLECTION_SCHEMA = "schema"
 COLLECTION_WORKLOAD = "sessions"
+
+# The stats catalog computed about the workload
+COLLECTION_STATS = "stats"
 
 CATALOG_COLL = "catalog"
 CATALOG_FIELDS = 'fields'

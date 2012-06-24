@@ -47,7 +47,7 @@ class InitialDesigner(Designer):
             col_fields = []
             for field, data in col['fields'].iteritems() :
                 col_fields.append(field)
-                results[col['name']][field] = calc_stats(params, statistics[col['name']]['fields'][field])
+                results[col['name']][field] = self.calc_stats(params, statistics[col['name']]['fields'][field])
             attr = None
             value = 0
             for field, data in results[col['name']].iteritems() :
@@ -58,6 +58,13 @@ class InitialDesigner(Designer):
             starting_design.addIndex(col['name'], [attr])
             
         return (starting_design)
+    
+    def calc_stats(params, stats):
+        output = 0.0
+        for k,v in params.iteritems():
+            output += v * stats[k]
+        return output
+    ## DEF 
     
     
 ## CLASS
