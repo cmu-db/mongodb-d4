@@ -58,13 +58,40 @@ class Processor:
             col.save()
     ## DEF
     
-    def processWorkloadStats(self, collectionsIterable) :
+    def process(self):
+        # STEP 1: Add query hashes
+        self.addQueryHashes()
+        
+        # STEP 2: Compute statistics about collections
+        self.computeCollectionStats()
+        
+        # STEP 3: Process workload
+        self.processWorkload()
+        
+        # STEP 4: Process dataset
+        self.processDataset()
+        
+    ## DEF
+    
+    def addQueryHashes(self):
+        sessions = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
+        if self.op_limit: sessions.limit(self.op_limit)
+        
+        for sess in sessions:
+            for op in sess['operations'] :
+                op[u"query_hash"] = self.hasher.hash(op)
+            self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
+        ## FOR
+        print("Query Class Histogram:\n%s" % self.hasher.histogram)
+    ## DEF
+    
+    def computeCollectionStats(self):
         '''Gather statistics from an iterable of collections for using in 
            instantiation of the cost model and for determining the initial
            design solution'''
            
-        collectionStats = { }
-        for col in collectionsIterable :
+        collections = self.metadata_db[constants.COLLECTION_SCHEMA].find()
+        for col in collections:
             stats = Stats()
             stats.name = col['name']
             stats.tuple_count = col['tuple_count']
@@ -82,9 +109,8 @@ class Processor:
             ## FOR
             
             stats.save()
-            collectionStats[stats.name] = stats
         ## FOR
-        return (collectionStats)
+        return
     ## FOR
     
     def processWorkload(self):
@@ -180,19 +206,7 @@ class Processor:
         ## FOR (sessions)
     ## DEF
     
-    def processQueryHashes(self):
-        sessions = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
-        if self.op_limit: sessions.limit(self.op_limit)
-        
-        for sess in sessions:
-            for op in sess['operations'] :
-                op[u"query_hash"] = self.hasher.hash(op)
-            self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
-        ## FOR
-        print("Query Class Histogram:\n%s" % self.hasher.histogram)
-    ## DEF
-    
-    def processDataset(self, sample_rate):
+    def processDataset(self, sample_rate = 100):
         """Process Sample Dataset"""
         tuple_sizes = {}
         distinct_values = {}

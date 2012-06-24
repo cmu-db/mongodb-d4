@@ -62,6 +62,7 @@ class Designer():
                 self.metadata_db, \
                 self.dataset_db, \
             )
+            convertor.process()
         
         # MySQL Trace
         else:
@@ -86,6 +87,8 @@ class Designer():
                 
         # Now at this point both the metadata and workload collections are populated
         # We can then perform whatever post-processing that we need on them
+        processor = workload.Processor(self.metadata_db, self.dataset_db)
+        processor.process()
         
     ## FOR
         

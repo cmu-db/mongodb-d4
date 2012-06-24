@@ -49,6 +49,7 @@ class MySQLConvertor(AbstractConvertor):
     
     def __init__(self, dbHost, dbPort, dbName, dbUser, dbPass):
         super(MySQLConvertor, self).__init__()
+        
         self.dbHost = dbHost
         self.dbPort = dbPort
         self.dbName = dbName
