@@ -20,6 +20,9 @@ class Designer():
         self.collections = collections
         
     ## DEF
+    
+    def generate(self):
+        raise NotImplementedError("Missing %s.generate()" % str(self.__init__.im_class))
         
         
     def generateShardingCandidates(self, collection):

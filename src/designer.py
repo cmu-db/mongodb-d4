@@ -125,30 +125,11 @@ if __name__ == '__main__':
     ## Generate an initial solution
     ## ----------------------------------------------
     solutions = {'initial' : [], 'final' : [] }
-    params = {
-        'query_use_count' : 1.0,
-    }
+
     collections = metadata_db.Collection.find()
     statistics = catalog.gatherStatisticsFromCollections(metadata_db.Collection.find())
-    results = {}
-    
-    starting_design = design.Design()
-    for col in collections :
-        starting_design.addCollection(col['name'])
-        results[col['name']] = {}
-        col_fields = []
-        for field, data in col['fields'].iteritems() :
-            col_fields.append(field)
-            results[col['name']][field] = calc_stats(params, statistics[col['name']]['fields'][field])
-        attr = None
-        value = 0
-        for field, data in results[col['name']].iteritems() :
-            if data >= value :
-                value = data
-                attr = field
-        starting_design.addShardKey(col['name'], [attr])
-        starting_design.addIndex(col['name'], [attr])
-    solutions['initial'] = starting_design.toDICT()
+    initialDesigner = search.InitialDesigner(collections, statistics)
+    solutions['initial'] = initialDesigner.generate().toDICT()
     
     ## ----------------------------------------------
     ## STEP 2

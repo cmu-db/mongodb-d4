@@ -27,4 +27,4 @@ For More Information: http://database.cs.brown.edu/projects/mongodb/
 
 ## Acknowledgements
 This work is supported (in part) by an [Amazon AWS Research Grant](http://aws.amazon.com/education/).
-Additional assistance was also provided by [10gen, Inc.](http://10gen.com)
+Additional assistance is also provided by [10gen, Inc.](http://10gen.com)
