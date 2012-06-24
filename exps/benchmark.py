@@ -183,7 +183,7 @@ class Benchmark:
     def createChannels(self):
         '''Create a list of channels used for communication between coordinator and worker'''
         assert 'clients' in self._config['default']
-        clients = re.split(r"\s+", str(self._config['default']['clients']))
+        clients = re.split(r"[\s,]+", str(self._config['default']['clients']))
         assert len(clients) > 0
         logging.info("Invoking benchmark framework on %d clients" % len(clients))
 
@@ -215,6 +215,7 @@ class Benchmark:
                     now = time.time()
                     if (now - start) > 10 and int((len(channels) / float(totalClients))*100) % 25 == 0:
                         logging.info("Started Client Threads %d / %d" % (len(channels), totalClients))
+                    
                     
         # IF
         logging.info("Created %d client processes on %d hosts" % (len(channels), len(clients)))

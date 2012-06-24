@@ -194,7 +194,7 @@ class AbstractCoordinator:
         for ch in channels:
             msg = getMessage(ch.receive())
             if msg.header == MSG_INIT_COMPLETED:
-                LOG.info("Initialization on worker #%d is finished" % msg.data)
+                LOG.debug("Execution initialization on worker #%d is finished" % msg.data)
                 continue
             else:
                 msg = "Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch)

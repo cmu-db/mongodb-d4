@@ -24,7 +24,9 @@
 # -----------------------------------------------------------------------
 import time
 import execnet
+import random
 import logging
+import threading
 try:
    import cPickle as pickle
 except:
@@ -56,10 +58,45 @@ for code in xrange(0, len(MSG_STATUS_CODES)):
     MSG_NAME_MAPPING[code] = name
 ## FOR
 
+    
+def getChannelsByHost(channels):
+    ret = { }
+    for ch in channels:
+        remoteaddress = ch.gateway.remoteaddress
+        if not remoteaddress in ret:
+            ret[remoteaddress] = [ ]
+        ret[remoteaddress].append(ch)
+    ## FOR
+    return (ret)
+## DEF
+
 def sendMessagesLimited(queue, limit):
-    responses = [ ]
-    outstanding = [ ]
     start = time.time()
+    responses = [ ]
+    threads = [ ]
+    
+    # Split the queue by channel host
+    hostChannels = getChannelsByHost([ch[-1] for ch in channels])
+    hostQueues = { }
+    for key in hostChannels.keys():
+        hostQueue = [ ]
+        for msg, data, channel in queue:
+            if channel in hostChannels[key]:
+                hostQueues[key].append(msg, data, channel)
+        ## FOR
+        t = threading.Thread(target=sendMessagesLimitedThread, args=(hostQueue, limit, responses))
+        t.start()
+        threads.append(t)
+    ## FOR
+    for t in threads: t.join()
+
+    duration = time.time() - start
+    LOG.info("Sent & recieved %d messages in %.2f seconds" % (len(responses), duration))
+    return (responses)
+    
+    
+def sendMessagesLimitedThread(queue, limit, responses):
+    outstanding = [ ]
     while len(queue) > 0 or len(outstanding) > 0:
         while len(queue) > 0 and len(outstanding) < limit:
             msg, data, channel = queue.pop(0)
@@ -75,9 +112,7 @@ def sendMessagesLimited(queue, limit):
         LOG.debug("Queue:%d / Outstanding:%d / Responses:%d" % \
                   (len(queue), len(outstanding), len(responses)))
     # WHILE
-    duration = time.time() - start
-    LOG.info("Sent & recieved %d messages in %.2f seconds" % (len(responses), duration))
-    return (responses)
+
 ## DEF    
 
 def sendMessage(msg, data, channel):
