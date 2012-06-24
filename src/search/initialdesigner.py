@@ -38,15 +38,22 @@ class InitialDesigner():
     ## DEF
     
     def generate(self):
+        # XXX: Why is this suppose to be?
+        params = {
+            'query_use_count' : 1.0,
+        }
+
         starting_design = design.Design()
         results = {}
         for col in self.collections :
+            collectionStats = statistics[col['name']]
+
             starting_design.addCollection(col['name'])
             results[col['name']] = {}
             col_fields = []
             for field, data in col['fields'].iteritems() :
                 col_fields.append(field)
-                results[col['name']][field] = self.calc_stats(params, statistics[col['name']]['fields'][field])
+                results[col['name']][field] = self.calc_stats(params, collectionStats['fields'][field])
             attr = None
             value = 0
             for field, data in results[col['name']].iteritems() :

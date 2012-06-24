@@ -17,6 +17,10 @@ COLLECTION_STATS = "stats"
 CATALOG_COLL = "catalog"
 CATALOG_FIELDS = 'fields'
 
+## ==============================================
+## WORKLOAD PROCESSING OPTIONS
+## ==============================================
+
 # List of collection names prefixes that we should ignore
 # when performing various processing tasks
 IGNORED_COLLECTIONS = [ 'system', 'local', 'admin' ]

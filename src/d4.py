@@ -42,9 +42,10 @@ import mongokit
 
 # MongoDB-Designer
 import catalog
+import designer
 import workload
 import costmodel
-from search import *
+
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -63,7 +64,15 @@ if __name__ == '__main__':
                          help='Path to %s configuration file' % constants.PROJECT_NAME)
     aparser.add_argument('--print-config', action='store_true',
                          help='Print out the default configuration file used by %s' % constants.PROJECT_NAME)
-    
+
+    # MongoSniff Input File
+    aparser.add_argument('--mongosniff', type=str,
+                         help='Path to the MongoSniff file with the sample workload')
+
+    # MySQL Processing Options
+    aparser.add_argument('--mysql', action='store_true',
+                         help='mysql', 'Whether to process inputs from MySQL'),
+
     # Designer Options
     for key,desc,default in Designer.DEFAULT_CONFIG:
         if type(default) == bool:
@@ -120,49 +129,22 @@ if __name__ == '__main__':
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
 
-    processor = workload.Processor(metadata_db, dataset_db)
+    designer = Designer(cparser, metadata_db, dataset_db)
+    designer.setOptionsFromArguments(args)
     
     ## ----------------------------------------------
     ## STEP 1: INPUT PROCESSING
     ## ----------------------------------------------
-    
-    
-    ## IF
-        
-    
-    ## ----------------------------------------------
-    ## STEP 2: STATISTICS GENERATION
-    ## ----------------------------------------------
-    
-    
-    ## ----------------------------------------------
-    ## STEP 1
-    ## Generate an initial solution
-    ## ----------------------------------------------
-    solutions = {'initial' : [], 'final' : [] }
+    if not args['mysql']:
+        designer.processMongoInput()
+    else:
+        designer.processMySQLInput()
 
-    collections = metadata_db.Collection.find()
-    statistics = catalog.gatherStatisticsFromCollections(metadata_db.Collection.find())
-    initialDesigner = search.InitialDesigner(collections, statistics)
-    solutions['initial'] = initialDesigner.generate().toDICT()
-    
     ## ----------------------------------------------
-    ## STEP 2
-    ## Create Workload for passing into cost function
+    ## STEP 2: INITIAL SOLUTION
     ## ----------------------------------------------
-    wrkld = metadata_db[constants.COLLECTION_WORKLOAD].find()
-    
-    ## -------------------------------------------------
-    ## STEP 3
-    ## Finalize workload percentage statistics for each collection
-    ## -------------------------------------------------
-    collections = metadata_db.Collection.find()
-    col_names = []
-    page_size = cparser.getint(config.SECT_CLUSTER, 'page_size')
-    for col in collections :
-        col_names.append(col['name']) # for step 5
-        statistics[col['name']]['workload_percent'] = statistics[col['name']]['workload_queries'] / statistics['total_queries']
-        statistics[col['name']]['max_pages'] = statistics[col['name']]['tuple_count'] * statistics[col['name']]['avg_doc_size'] /  (page_size * 1024)
+    designer.generateInitialSolution()
+
     
     ## -------------------------------------------------
     ## STEP 4
