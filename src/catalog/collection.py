@@ -10,13 +10,15 @@ from util import *
 class Collection(Document):
     __collection__ = constants.COLLECTION_SCHEMA
     structure = {
-        'name':         unicode,    # The name of the collection
-        'shard_key':    unicode,    # TODO(ckeith)
-        'shard_keys':   dict,       # TODO(ckeith)
-        'indexes':      dict,       # TODO(ckeith)
-        'tuple_count':  int,        # TODO(ckeith)
-        'avg_doc_size': int,        # The average size of the documents in the collection (bytes)
-        'interesting':  [unicode],  # TODO(ckeith)
+        'name':             unicode,   # The name of the collection
+        'shard_key':        unicode,   # TODO(ckeith)
+        'shard_keys':       dict,      # TODO(ckeith)
+        'indexes':          dict,      # TODO(ckeith)
+        'tuple_count':      int,       # TODO(ckeith)
+        'avg_doc_size':     int,       # The average size of the documents in the collection (bytes)
+        'workload_queries': int,       #
+        'workload_percent': float,     # The percentage of the total workload that touch this collection
+        'interesting':      [unicode], # TODO(ckeith)
 
         'fields': {
             unicode: {

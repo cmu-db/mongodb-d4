@@ -23,16 +23,14 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 from __future__ import division
+from __future__ import with_statement
 
 import os
 import sys
 import argparse
 import logging
-import pymongo
-import math
 import itertools
 import json
-from pprint import pprint
 from ConfigParser import SafeConfigParser
 
 # Third-Party Dependencies
@@ -42,7 +40,7 @@ import mongokit
 
 # mongodb-d4
 import catalog
-import designer
+from designer import Designer
 import workload
 import costmodel
 
@@ -66,12 +64,12 @@ if __name__ == '__main__':
                          help='Print out the default configuration file used by %s' % constants.PROJECT_NAME)
 
     # MongoSniff Input File
-    aparser.add_argument('--mongosniff', type=str,
-                         help='Path to the MongoSniff file with the sample workload')
+    aparser.add_argument('--mongosniff', type=str, metavar='FILE',
+                         help="Path to the MongoSniff file with the sample workload. Use '-' if you would like to read from stdin")
 
     # MySQL Processing Options
     aparser.add_argument('--mysql', action='store_true',
-                         help='mysql', 'Whether to process inputs from MySQL'),
+                         help='Whether to process inputs from MySQL'),
 
     # Designer Options
     for key,desc,default in Designer.DEFAULT_CONFIG:
@@ -136,7 +134,13 @@ if __name__ == '__main__':
     ## STEP 1: INPUT PROCESSING
     ## ----------------------------------------------
     if not args['mysql']:
-        designer.processMongoInput()
+        # If the user passed in '-', then we'll read from stdin
+        inputFile = args['mongosniff']
+        if not inputFile:
+            LOG.warn("A monognsiff trace file was not provided. Reading from standard input")
+            inputFile = "-"
+        with open(inputFile, 'r') if inputFile != '-' else sys.stdin as fd:
+            designer.processMongoInput(fd)
     else:
         designer.processMySQLInput()
 
@@ -150,14 +154,7 @@ if __name__ == '__main__':
     ## STEP 4
     ## Instantiate cost model, determine upper bound from starting design
     ## -------------------------------------------------
-    alpha = cparser.getfloat(config.SECT_COSTMODEL, 'weight_network')
-    beta = cparser.getfloat(config.SECT_COSTMODEL, 'weight_disk')
-    gamma = cparser.getfloat(config.SECT_COSTMODEL, 'weight_skew')
-    cluster_nodes = cparser.getint(config.SECT_CLUSTER, 'nodes')
-    memory = cparser.getint(config.SECT_CLUSTER, 'node_memory')
-    skews = cparser.getint(config.SECT_COSTMODEL, 'time_intervals')
-    address_size = cparser.getint(config.SECT_COSTMODEL, 'address_size')
-    config_params = {'alpha' : alpha, 'beta' : beta, 'gamma' : gamma, 'nodes' : cluster_nodes, 'max_memory' : memory, 'skew_intervals' : skews, 'address_size' : address_size}
+
     cm = costmodel.CostModel(wrkld, config_params, statistics)
     upper_bound = cm.overallCost(starting_design)
     

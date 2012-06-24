@@ -70,9 +70,9 @@ class MongoSniffConvertor(AbstractConvertor):
         pass
     ## DEF
         
-    def process(self):
+    def process(self, fd):
         if not self.no_load:
-            self.parseWorkload(sys.stdin)
+            self.parseWorkload(fd)
             
         if not self.no_reconstruct:
             self.reconstructDatabase()

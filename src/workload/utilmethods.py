@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import sys
-import re
 import logging
-from types import *
+from util import constants
 from pprint import pformat
-
-import traces
 
 LOG = logging.getLogger(__name__)
 
@@ -15,22 +11,22 @@ def getReferencedFields(op):
     content = op["query_content"]
     
     # QUERY
-    if op["type"] == parser.OP_TYPE_QUERY:
+    if op["type"] == constants.OP_TYPE_QUERY:
         if not op["query_aggregate"]: 
             fields = content[parser.OP_TYPE_QUERY].keys()
     # DELETE
-    elif op["type"] == parser.OP_TYPE_DELETE:
+    elif op["type"] == constants.OP_TYPE_DELETE:
         fields = content.keys()
 
     # UPDATE
-    elif op["type"] == parser.OP_TYPE_UPDATE:
+    elif op["type"] == constants.OP_TYPE_UPDATE:
         fields = set()
         for data in content:
             fields |= data.keys()
         fields = list(fields)
         
     # INSERT
-    elif op["type"] in [parser.OP_TYPE_INSERT, parser.OP_TYPE_ISERT]:
+    elif op["type"] in [constants.OP_TYPE_INSERT, constants.OP_TYPE_ISERT]:
         fields = content.keys()
     
     return fields

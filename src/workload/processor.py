@@ -23,14 +23,11 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
-import sys
 import random
 import logging
-from pprint import pformat
 
 import catalog
 from ophasher import *
-from stats import Stats
 from util import constants
 
 LOG = logging.getLogger(__name__)
@@ -46,6 +43,7 @@ class Processor:
         self.hasher = OpHasher()
         
         self.op_limit = None
+        self.total_queries = 0
     ## DEF
     
     def reset(self):
@@ -58,7 +56,7 @@ class Processor:
             col.save()
     ## DEF
     
-    def process(self):
+    def process(self, page_size):
         # STEP 1: Add query hashes
         self.addQueryHashes()
         
@@ -70,6 +68,13 @@ class Processor:
         
         # STEP 4: Process dataset
         self.processDataset()
+
+        # Finalize workload percentage statistics for each collection
+        page_size *= 1024
+        for col in self.metadata_db.Collection.find():
+            col['workload_percent'] = col['workload_queries'] / float(self.total_queries)
+            col['max_pages'] = col['tuple_count'] * col['avg_doc_size'] / page_size
+        ## FOR
         
     ## DEF
     

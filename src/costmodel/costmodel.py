@@ -41,9 +41,9 @@ combination
 workload : Workload abstraction class
 
 config {
-    'alpha' : Network cost coefficient,
-    'beta' : Disk cost coefficient,
-    'gamma' : Skew cost coefficient,
+    'weight_network' : Network cost coefficient,
+    'weight_disk' : Disk cost coefficient,
+    'weight_skew' : Skew cost coefficient,
     'nodes' : Number of nodes in the Mongo DB instance,
     'max_memory' : Amount of memory per node in MB,
     'address_size' : Amount of memory required to index 1 document,
@@ -74,9 +74,9 @@ class CostModel(object):
     
     def __init__(self, workload, config, statistics = {}) :
         self.workload = workload
-        self.alpha = config['alpha']
-        self.beta = config['beta']
-        self.gamma = config['gamma']
+        self.weight_network = config['weight_network']
+        self.weight_disk = config['weight_disk']
+        self.weight_skew = config['weight_skew']
         self.nodes = config['nodes']
         self.stats = statistics
         self.rg = random.Random()
@@ -89,10 +89,10 @@ class CostModel(object):
     
     def overallCost(self, design) :
         cost = 0
-        cost += self.alpha * self.networkCost(design)
-        cost += self.beta * self.diskCost(design)
-        cost += self.gamma * self.skewCost(design)
-        return cost / (self.alpha + self.beta + self.gamma)
+        cost += self.weight_network * self.networkCost(design)
+        cost += self.weight_disk * self.diskCost(design)
+        cost += self.weight_skew * self.skewCost(design)
+        return cost / (self.weight_network + self.weight_disk + self.weight_skew)
     ## end def ##
     
     def networkCost(self, design) :

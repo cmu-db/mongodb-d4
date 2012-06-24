@@ -5,6 +5,7 @@ import logging
 
 # mongodb-d4
 import catalog
+from costmodel import costmodel
 import sql2mongo
 from search import InitialDesigner
 from util import *
@@ -68,14 +69,17 @@ class Designer():
         return collectionStats
     ## DEF
 
+    ## -------------------------------------------------------------------------
+    ## INPUT PROCESSING
+    ## -------------------------------------------------------------------------
 
-    def processMongoInput(self):
+    def processMongoInput(self, fd):
         # MongoDB Trace
         convertor = parser.MongoSniffConvertor( \
             self.metadata_db, \
             self.dataset_db, \
         )
-        convertor.process()
+        convertor.process(fd)
         self.__postProcessInput()
     ## DEF
 
@@ -106,24 +110,38 @@ class Designer():
     def __postProcessInput(self):
         # Now at this point both the metadata and workload collections are populated
         # We can then perform whatever post-processing that we need on them
-        processor = workload.Processor(metadata_db, dataset_db)
+        processor = workload.Processor(self.metadata_db, self.dataset_db)
         processor.process()
 
-        # Finalize workload percentage statistics for each collection
-        collections = metadata_db.Collection.find()
-        col_names = []
-        page_size = cparser.getint(config.SECT_CLUSTER, 'page_size')
-        for col in collections :
-            col_names.append(col['name']) # for step 5
-            statistics[col['name']]['workload_percent'] = statistics[col['name']]['workload_queries'] / statistics['total_queries']
-            statistics[col['name']]['max_pages'] = statistics[col['name']]['tuple_count'] * statistics[col['name']]['avg_doc_size'] /  (page_size * 1024)
+    ## DEF
 
+    ## -------------------------------------------------------------------------
+    ## DESIGNER EXECUTION
+    ## -------------------------------------------------------------------------
 
     def generateInitialSolution(self):
-        initialDesigner = search.InitialDesigner(collections, statistics)
+        initialDesigner = search.InitialDesigner(self.metadata_db[constants.COLLECTION_SCHEMA].find())
         self.initialSolution = initialDesigner.generate()
     ## DEF
-        
+
+    def search(self):
+        cmConfig = {
+            'weight_network': self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_network'),
+            'weight_disk':    self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_disk'),
+            'weight_skew':    self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_skew'),
+            'nodes':          self.cparser.getint(config.SECT_CLUSTER, 'nodes'),
+            'max_memory':     self.cparser.getint(config.SECT_CLUSTER, 'node_memory'),
+            'skew_intervals': self.cparser.getint(config.SECT_COSTMODEL, 'time_intervals'),
+            'address_size':   self.cparser.getint(config.SECT_COSTMODEL, 'address_size')
+        }
+
+        collections = self.metadata_db[constants.COLLECTION_SCHEMA].find()
+        workload = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
+        cm = costmodel.CostModel(collections, workload, cmParams)
+
+
+
+    ## DEF
         
     def generateShardingCandidates(self, collection):
         """Generate the list of sharding candidates for the given collection"""

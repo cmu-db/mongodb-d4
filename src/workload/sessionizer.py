@@ -22,14 +22,8 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
-import sys
-import itertools
 import logging
-import math
-import functools
-from pprint import pformat
 
-from traces import Session
 from util.histogram import Histogram
 from util import mathutil
 

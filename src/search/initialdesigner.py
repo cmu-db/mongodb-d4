@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2011 by Brown University
+# Copyright (C) 2012 by Brown University
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -29,12 +29,8 @@ import design
 ## ==============================================
 class InitialDesigner():
     
-    def __init__(self, collections, statistics):
+    def __init__(self, collections):
         self.collections = collections
-        self.statistics = statistics
-        print self
-        print dir(self)
-    
     ## DEF
     
     def generate(self):
@@ -46,18 +42,16 @@ class InitialDesigner():
         starting_design = design.Design()
         results = {}
         for col in self.collections :
-            collectionStats = statistics[col['name']]
-
             starting_design.addCollection(col['name'])
             results[col['name']] = {}
             col_fields = []
             for field, data in col['fields'].iteritems() :
                 col_fields.append(field)
-                results[col['name']][field] = self.calc_stats(params, collectionStats['fields'][field])
+                results[col['name']][field] = self.calc_stats(params, col['fields'][field])
             attr = None
             value = 0
             for field, data in results[col['name']].iteritems() :
-                if data >= value :
+                if data >= value:
                     value = data
                     attr = field
             starting_design.addShardKey(col['name'], [attr])
