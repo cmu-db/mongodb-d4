@@ -46,12 +46,13 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class MySQLConvertor():
     
-    def __init__(self, dbHost, dbName, dbUser, dbPass):
+    def __init__(self, dbHost, dbPort, dbName, dbUser, dbPass):
         self.dbHost = dbHost
+        self.dbPort = dbPort
         self.dbName = dbName
         self.dbUser = dbUser
         self.dbPass = dbPass
-        self.mysql_conn = mdb.connect(host=dbHost, db=dbName, user=dbUser, passwd=dbPass)
+        self.mysql_conn = mdb.connect(host=dbHost, port=dbPort, db=dbName, user=dbUser, passwd=dbPass)
         
         self.collectionCatalogs = { }
         self.collectionDatasets = { }
@@ -78,10 +79,10 @@ class MySQLConvertor():
         self.extractWorkload()
             
         ## ---------------------------------------------
-        ## Generate Query IDs for the Workload
+        ## FIXME Generate Query IDs for the Workload
         ## ---------------------------------------------
-        stats = workload.StatsProcessor(metadata_db, dataset_db)
-        stats.processQueryIds()
+        #stats = workload.StatsProcessor(metadata_db, dataset_db)
+        #stats.processQueryIds()
     
     ## DEF
     
@@ -139,8 +140,8 @@ class MySQLConvertor():
             coll_catalog.validate()
             self.collectionCatalogs[tbl_name] = coll_catalog
             
-            coll_data = self.collectionDatasets.get(tbl_name, { })
-            coll_data.remove()
+            coll_data = self.collectionDatasets.get(tbl_name, [])
+            # FIXME? coll_data.remove()
             sql = 'SELECT * FROM ' + args['name'] + '.' + tbl_name
             c4 = self.mysql_conn.cursor()
             c4.execute(sql)
@@ -151,7 +152,7 @@ class MySQLConvertor():
                     mongo_record[column] = data_row[i]
                     i += 1
                 ## ENDFOR
-                coll_data.insert(mongo_record)
+                coll_data.append(mongo_record)
             ## ENDFOR
         ## ENDFOR
     ## DEF

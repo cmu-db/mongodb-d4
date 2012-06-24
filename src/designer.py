@@ -3,9 +3,10 @@
 #from workload import *
 import logging
 
+# MongoDB-Designer
 import catalog
+import sql2mongo
 from util import *
-
 
 LOG = logging.getLogger(__name__)
 
@@ -16,6 +17,19 @@ LOG = logging.getLogger(__name__)
 ## execute the design search
 ## ==============================================
 class Designer():
+    DEFAULT_CONFIG = [
+        # MongoDB Trace Processing Options
+        ('no-mongo-parse', 'Skip parsing and loading MongoDB workload from file.', False),
+        ('no-mongo-reconstruct', 'Skip reconstructing the MongoDB database schema after loading.', False),
+        ('no-mongo-sessionizer', 'Skip splitting the MongoDB workload into separate sessions.', False),
+        
+        # MySQL Processing Options
+        ('mysql', 'Whether to process inputs from MySQL', False),
+        
+        # General Options
+        ('stop-on-error', 'Stop processing when an invalid line is reached', False),
+    ]
+    
 
     def __init__(self, cparser, metadata_db, dataset_db):
         # SafeConfigParser
@@ -36,10 +50,40 @@ class Designer():
         self.initialSolution = None
         self.finalSolution = None
         
+        for key,desc,default in Designer.DEFAULT_CONFIG:
+            self.__dict__[key.replace("-", "_")] = default
+        ## FOR
     ## DEF
     
-    def generate(self):
-        raise NotImplementedError("Missing %s.generate()" % str(self.__init__.im_class))
+
+    def processInput(self):
+        # MongoDB Trace
+        if not self.mysql:
+        
+        # MySQL Trace
+        else:
+            convertor = sql2mongo.MySQLConvertor( \
+                dbHost=self.cparser.get(config.SECT_MYSQL, 'host'), \
+                dbPort=self.cparser.getInt(config.SECT_MYSQL, 'port'), \
+                dbName=self.cparser.get(config.SECT_MYSQL, 'name'), \
+                dbUser=self.cparser.get(config.SECT_MYSQL, 'user'), \
+                dbPass=self.cparser.get(config.SECT_MYSQL, 'pass'))
+                
+            # Process the inputs and then save the results in mongodb
+            convertor.process()
+            for collCatalog in convertor.collectionCatalogs():
+                self.metadata_db[constants.COLLECTION_SCHEMA].save(collCatalog)
+            for collName, collData in convertor.collectionDatasets.iteritems():
+                for doc in collData: self.dataset_db[collName].insert(doc)
+            for sess in convertor.sessions:
+                self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
+                
+        # Now at this point both the metadata and workload collections are populated
+        # We can then perform whatever post-processing that we need on them
+        
+    ## FOR
+        
+    
         
         
     def generateShardingCandidates(self, collection):
