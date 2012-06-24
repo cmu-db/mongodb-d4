@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2011 by Brown University
+# Copyright (C) 2012 by Brown University
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -44,7 +43,9 @@ import workload_info
 import parser
 import reconstructor
 from traces import *
+from workload import AbstractConvertor
 from workload import sessionizer
+from util import *
 from util.histogram import Histogram
 
 LOG = logging.getLogger(__name__)
@@ -52,18 +53,34 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 ## MongoSniff Trace Convertor
 ## ==============================================
-class MongoSniffConvertor():
+class MongoSniffConvertor(AbstractConvertor):
     
-    def __init__(self):
+    def __init__(self, metadata_db, dataset_db):
+        super(MongoSniffConvertor, self).__init__()
+        self.metadata_db = metadata_db
+        self.dataset_db = dataset_db
         
+        # The WORKLOAD collection is where we stores sessions+operations
+        self.workload_col = self.metadata_db[constants.COLLECTION_WORKLOAD]
+        
+        # The SCHEMA collection is where we will store the metadata information that
+        # we will derive from the RECREATED database
+        self.schema_col = self.metadata_db[constants.COLLECTION_SCHEMA]
+        
+        pass
     ## DEF
         
     def process(self):
-        if not args['no_load']:
+        if not self.no_load:
             self.parseWorkload(sys.stdin)
+            
+        if not self.no_reconstruct:
+            self.reconstructDatabase()
+            
+        if not self.no_sessionizer:
+            self.sessionizeWorkload()
     ## DEF
-
-
+    
     ## ----------------------------------------------
     ## WORKLOAD PARSING + LOADING
     ## ----------------------------------------------
@@ -72,20 +89,20 @@ class MongoSniffConvertor():
         p = parser.Parser(workload_col, fd)
         
         # Stop on Error
-        if args['stop_on_error']:
+        if self.stop_on_error:
             LOG.warn("Will stop processing if invalid input is found")
             p.stop_on_error = True
         # Processing Skip
-        if args['skip']:
-            LOG.warn("Will skip processing the first %d lines" % args['skip'])
-            p.op_skip =  args['skip']
+        if self.skip:
+            LOG.warn("Will skip processing the first %d lines" % self.skip)
+            p.op_skip =  self.skip
         # Processing Limit
-        if args['limit']:
-            LOG.warn("Will stop processing after %d operations are processed" % args['limit'])
-            p.op_limit =  args['limit']
+        if self.limit:
+            LOG.warn("Will stop processing after %d operations are processed" % self.limit)
+            p.op_limit =  self.limit
         
         # Clear our existing data
-        if args['clean']: p.clean()
+        if self.clean: p.clean()
         
         # Bombs away!
         LOG.info("Processing mongosniff input")
@@ -99,27 +116,27 @@ class MongoSniffConvertor():
     ## ----------------------------------------------
     ## DATABASE RECONSTRUCTION
     ## ----------------------------------------------
-    if not args['no_reconstruct']:
+    def reconstructDatabase(self):
         # Create a Reconstructor that will use the WORKLOAD_COL to regenerate
         # the original database and extract a schema catalog.
-        r = reconstructor.Reconstructor(workload_col, recreated_db, schema_col)
+        r = reconstructor.Reconstructor(self.workload_col, self.dataset_db, self.schema_col)
         
         # Clear our existing data
-        if args['clean']: r.clean()
+        if self.clean: r.clean()
         
         # Bombs away!
         r.process()
         LOG.info("Processed %d sessions with %d operations into '%s'" % (\
-                 r.getSessionCount(), r.getOpCount(), recreated_db.name))
+                 r.getSessionCount(), r.getOpCount(), self.dataset_db.name))
         LOG.info("Skipped Operations: %d" % r.getOpSkipCount())
         LOG.info("Fixed Operations: %d" % r.getOpFixCount())
         LOG.info("Collection Sizes:\n%s" % pformat(r.getCollectionCounts()))
-    ## IF
+    ## DEF
     
     ## ----------------------------------------------
     ## WORKLOAD SESSIONIZATION
     ## ----------------------------------------------
-    if not args['no_sessionizer']:
+    def sessionizeWorkload(self):
         LOG.info("Sessionizing sample workload")
         
         s = sessionizer.Sessionizer()
@@ -128,7 +145,7 @@ class MongoSniffConvertor():
         nextSessId = -1
         origTotal = 0
         origHistogram = Histogram()
-        for sess in workload_col.find():
+        for sess in self.workload_col.find():
             s.process(sess['session_id'], sess['operations'])
             nextSessId = max(nextSessId, sess['session_id'])
             origHistogram.put(len(sess['operations']))
@@ -141,7 +158,7 @@ class MongoSniffConvertor():
         s.calculateSessions()
         newTotal = 0
         newHistogram = Histogram()
-        for sess in workload_col.find():
+        for sess in self.workload_col.find():
             newSessions = s.sessionize(sess, nextSessId)
             nextSessId += len(newSessions)
             
@@ -151,7 +168,7 @@ class MongoSniffConvertor():
             
             # And then add all of our new sessions
             LOG.info("Split Session %d [%d ops] into %d separate sessions" % (sess['session_id'], len(sess['operations']), len(newSessions)))
-            # workload_col.save(newSessions)
+            # self.workload_col.save(newSessions)
             
             # Count the number of operations so that can see the change
             totalOps = 0
@@ -168,14 +185,10 @@ class MongoSniffConvertor():
         LOG.info("NEW  - Sessions: %d" % newHistogram.getSampleCount())
         LOG.info("NEW  - Avg Ops per Session: %.2f" % (newTotal / float(newHistogram.getSampleCount())))
         LOG.info("NEW - Ops per Session\n%s" % newHistogram)
-            
-    ## IF
-    
-    # Print out some information when parsing finishes
-    #if args['debug']:
-        #workload_info.print_stats(args['host'], args['port'], args['metadata_db'], args['workload_col'])
-    
-## MAIN
+          
+        return
+    ## DEF
+## CLASS
 
 
     

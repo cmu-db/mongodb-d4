@@ -13,5 +13,6 @@ from stats import Stats
 from utilmethods import *
 from processor import Processor
 from sessionizer import Sessionizer
+from abstractconvertor import AbstractConvertor
 
 del utilmethods

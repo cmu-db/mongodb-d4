@@ -29,7 +29,6 @@ class Designer():
         # General Options
         ('stop-on-error', 'Stop processing when an invalid line is reached', False),
     ]
-    
 
     def __init__(self, cparser, metadata_db, dataset_db):
         # SafeConfigParser
@@ -59,6 +58,10 @@ class Designer():
     def processInput(self):
         # MongoDB Trace
         if not self.mysql:
+            convertor = parser.MongoSniffConvertor( \
+                self.metadata_db, \
+                self.dataset_db, \
+            )
         
         # MySQL Trace
         else:
@@ -73,6 +76,9 @@ class Designer():
             convertor.process()
             for collCatalog in convertor.collectionCatalogs():
                 self.metadata_db[constants.COLLECTION_SCHEMA].save(collCatalog)
+            # TODO: This probably is a bad idea if the sample database
+            # is huge. We will probably want to read tuples one at a time
+            # from MySQL and then write them out immediately to MongoDB
             for collName, collData in convertor.collectionDatasets.iteritems():
                 for doc in collData: self.dataset_db[collName].insert(doc)
             for sess in convertor.sessions:
@@ -82,8 +88,6 @@ class Designer():
         # We can then perform whatever post-processing that we need on them
         
     ## FOR
-        
-    
         
         
     def generateShardingCandidates(self, collection):

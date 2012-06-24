@@ -37,6 +37,7 @@ from pprint import pprint,pformat
 import catalog
 import sql2mongo
 import workload
+from workload import AbstractConvertor
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -44,9 +45,10 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 ## MySQLConvertor
 ## ==============================================
-class MySQLConvertor():
+class MySQLConvertor(AbstractConvertor):
     
     def __init__(self, dbHost, dbPort, dbName, dbUser, dbPass):
+        super(MySQLConvertor, self).__init__()
         self.dbHost = dbHost
         self.dbPort = dbPort
         self.dbName = dbName
