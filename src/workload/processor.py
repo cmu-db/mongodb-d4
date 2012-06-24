@@ -82,7 +82,7 @@ class Processor:
                 op[u"query_hash"] = self.hasher.hash(op)
             self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
         ## FOR
-        print("Query Class Histogram:\n%s" % self.hasher.histogram)
+        LOG.debug("Query Class Histogram:\n%s" % self.hasher.histogram)
     ## DEF
     
     def computeCollectionStats(self):
