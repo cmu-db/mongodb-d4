@@ -95,7 +95,7 @@ if __name__ == '__main__':
         LOG.error("Failed to connect to MongoDB at %s:%s" % (hostname, port))
         raise
     ## Register our objects with MongoKit
-    conn.register([ catalog.Collection, workload.Session ])
+    conn.register([ catalog.Collection, workload.Session, workload.Stats ])
 
     ## Make sure that the databases that we need are there
     db_names = conn.database_names()
