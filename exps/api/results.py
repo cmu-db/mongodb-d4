@@ -85,6 +85,9 @@ class Results:
         # Txn Counter Histogram
         self.txn_counters.put(txn_name)
         assert self.txn_counters[txn_name] > 0
+        
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("Completed %s in %f sec" % (txn_name, duration))
     ## DEF
         
     def append(self, r):

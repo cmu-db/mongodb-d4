@@ -102,10 +102,12 @@ class AbstractCoordinator:
         queue = [ ]
         for ch in channels:
             workerConfig = dict(self.config.items())
-            workerConfig['default']["id"] = workerId
-            workerId += 1
+            workerConfig["default"] = dict(self.config["default"].items())
+            assert not 'id' in workerConfig['default'], "Dupe workerId #%d" % workerConfig['default']['id']
+            workerConfig['default']['id'] = workerId
             #LOG.debug("Sending MSG_CMD_INIT to worker #%d" % (workerId-1))
             queue.append((MSG_CMD_INIT, workerConfig, ch))
+            workerId += 1
             # sendMessage(MSG_CMD_INIT, workerConfig, ch)
             # time.sleep(10)
         ## FOR
@@ -113,7 +115,7 @@ class AbstractCoordinator:
         
         for msg in responses:
             if msg.header == MSG_INIT_COMPLETED:
-                LOG.info("Initialization on worker #%d is finished" % msg.data)
+                LOG.debug("Initialization on worker #%d is finished" % msg.data)
                 continue
             # INVALID!
             else:

@@ -92,7 +92,7 @@ class BlogCoordinator(AbstractCoordinator):
             assert False
             pass
         elif not config['default']["reset"]:
-            LOG.info("Calculating maxCommentId for %s" % constants.COMMENT_COLL)
+            LOG.debug("Calculating maxCommentId for %s" % constants.COMMENT_COLL)
             db = self.conn[constants.DB_NAME]
             if db[constants.COMMENT_COLL].count() > 0:
                 result = db[constants.COMMENT_COLL].find({}, {"id":1}).sort("id", -1).limit(1)[0]

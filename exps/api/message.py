@@ -90,15 +90,17 @@ def sendMessagesLimited(queue, limit):
     for t in threads: t.join()
 
     duration = time.time() - start
-    LOG.info("Sent & recieved %d messages in %.2f seconds" % (len(responses), duration))
+    LOG.debug("Sent and recieved %d messages in %.2f seconds" % (len(responses), duration))
     return (responses)
     
     
 def sendMessagesLimitedThread(queue, limit, responses):
     outstanding = [ ]
+    debug = LOG.isEnabledFor(logging.DEBUG)
     while len(queue) > 0 or len(outstanding) > 0:
         while len(queue) > 0 and len(outstanding) < limit:
             msg, data, channel = queue.pop(0)
+            if debug: LOG.info("Sending %s to %s" % (str(data), str(channel)))
             sendMessage(msg, data, channel)
             outstanding.append(channel)
         # WHILE
@@ -108,8 +110,8 @@ def sendMessagesLimitedThread(queue, limit, responses):
             responses.append(msg)
             break
         ## WHILE
-        LOG.debug("Queue:%d / Outstanding:%d / Responses:%d" % \
-                  (len(queue), len(outstanding), len(responses)))
+        if debug: LOG.debug("Queue:%d / Outstanding:%d / Responses:%d" % \
+                            (len(queue), len(outstanding), len(responses)))
     # WHILE
 
 ## DEF    

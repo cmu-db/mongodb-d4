@@ -78,7 +78,7 @@ class AbstractWorker:
         self.stop_on_error = config['default']['stop_on_error']
         self.debug = config['default']['debug']
         
-        LOG.info("Initializing %s Worker [clientId=%d]" % (self.name.upper(), self.id))
+        LOG.info("Initializing %s worker #%d" % (self.name.upper(), self.id))
         if self.debug:
             LOG.setLevel(logging.DEBUG)
             LOG.debug("%s Configuration:\n%s" % (self.name.upper(), pformat(self.config[self.name])))
@@ -111,6 +111,7 @@ class AbstractWorker:
         
         self.initImpl(config)
         sendMessage(MSG_INIT_COMPLETED, self.id, channel)
+        LOG.info("Finished initializing %s worker #%d" % (self.name.upper(), self.id))
     ## DEF
     
     def initImpl(self, config):
@@ -184,9 +185,10 @@ class AbstractWorker:
             txn, params = self.next(config)
             txn_id = r.startTransaction(txn)
             
-            logging.debug("Executing '%s' transaction" % txn)
+            if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:
                 val = self.executeImpl(config, txn, params)
+                r.stopTransaction(txn_id)
             except KeyboardInterrupt:
                 return -1
             except (Exception, AssertionError), ex:
@@ -194,11 +196,7 @@ class AbstractWorker:
                 if debug: traceback.print_exc(file=sys.stdout)
                 if self.stop_on_error: raise
                 r.abortTransaction(txn_id)
-                continue
-
-            #if debug: logging.debug("%s\nParameters:\n%s\nResult:\n%s" % (txn, pformat(params), pformat(val)))
-            
-            r.stopTransaction(txn_id)
+                pass
         ## WHILE
             
         r.stopBenchmark()

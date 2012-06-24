@@ -53,12 +53,6 @@ import mongokit
 # MongoDB-Designer
 sys.path.append(os.path.join(BASEDIR, "../src"))
 
-logging.basicConfig(level = logging.INFO,
-                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-                    datefmt="%m-%d-%Y %H:%M:%S",
-                    stream = sys.stdout)
-
-
 ## ==============================================
 ## Benchmark Invocation
 ## ==============================================
@@ -292,6 +286,11 @@ def formatConfig(name, config):
 ## MAIN
 ## ==============================================
 if __name__=='__main__':
+    logging.basicConfig(level = logging.INFO,
+                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                    datefmt="%m-%d-%Y %H:%M:%S",
+                    stream = sys.stdout)
+    
     allBenchmarks = getBenchmarks()
     
     # Simplified args
@@ -361,7 +360,10 @@ if __name__=='__main__':
 ## EXECNET PROCESSOR
 ## ==============================================
 if __name__ == '__channelexec__':
-    print "Initializing MessageProcessor channel"
+    logging.basicConfig(level = logging.DEBUG,
+                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                    datefmt="%m-%d-%Y %H:%M:%S",
+                    filename="/tmp/benchmark.log")
     mp = MessageProcessor(channel)
     mp.processMessage()
 ## EXEC
