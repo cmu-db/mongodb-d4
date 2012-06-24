@@ -1,11 +1,13 @@
 # mongodb-d4
 
 **D4** is an automated tool for a generating **d**istributed **d**ocument **d**atabase **d**esigns for applications
-running on MongoDB. These tool specifically targets applications running highly concurrent workloads, and thus its
-designs are tailored to the unique properties of large-scale, Web-based applications. Using a sample workload trace from
-a either a document-oriented or relational database application, **D4** will compute the best a database design that
-optimizes the throughput and latency of a document DBMS.
-The three design elements that D4 can select are:
+running on MongoDB. This tool specifically targets applications running highly concurrent workloads, and thus its
+designs are tailored to the unique properties of large-scale, Web-based applications. It can also be used to assist
+in porting MySQL-based applications to MongoDB.
+
+Using a sample workload trace from a either a document-oriented or relational database application, **D4** will compute
+the best a database design that optimizes the throughput and latency of a document DBMS. The three design elements that
+D4 can select are:
 
 + Sharding Keys
 + Indexes
