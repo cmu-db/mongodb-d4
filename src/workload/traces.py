@@ -9,7 +9,7 @@ from util import *
 ## Session
 ## ==============================================
 class Session(Document):
-    __collection__ = constants.WORKLOAD_SESSIONS
+    __collection__ = constants.COLLECTION_WORKLOAD
     structure = {
         'ip_client':   unicode,  # IP:port of the client
         'ip_server':   unicode,  # IP:port of the mongo server
