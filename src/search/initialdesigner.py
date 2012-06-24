@@ -23,12 +23,11 @@
 # -----------------------------------------------------------------------
 
 import design
-from designer import *
 
 ## ==============================================
 ## InitialDesigner
 ## ==============================================
-class InitialDesigner(Designer):
+class InitialDesigner():
     
     def __init__(self, collections, statistics):
         self.collections = collections

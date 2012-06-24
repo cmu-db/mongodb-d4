@@ -8,7 +8,7 @@ import yaml
 @todo: Handle nested queries?
 '''
 
-class Sql2mongo (object) :
+class Sql2Mongo (object) :
 
     query_id = 0
     

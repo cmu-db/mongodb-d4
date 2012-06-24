@@ -6,6 +6,6 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../libs"))
 
 from utilmethods import *
-from sql2mongo import Sql2mongo
+from sql2mongo import Sql2Mongo
 
 del utilmethods

@@ -6,7 +6,7 @@ sys.path.append("../")
 from util import *
 
 ## ==============================================
-## Workload Statistics
+## Collection Statistics
 ## ==============================================
 class Stats(Document):
     __collection__ = constants.COLLECTION_STATS

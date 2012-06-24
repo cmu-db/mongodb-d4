@@ -11,13 +11,30 @@ LOG = logging.getLogger(__name__)
 
 ## ==============================================
 ## Designer
+## This is the central object that will have all of the
+## methods needed to pre-compute the catalog and then
+## execute the design search
 ## ==============================================
 class Designer():
 
-    def __init__(self, cparser, workload_db, collections):
+    def __init__(self, cparser, metadata_db, dataset_db):
+        # SafeConfigParser
         self.cparser = cparser
-        self.workload_db = workload_db
-        self.collections = collections
+        
+        # The metadata database will contain:
+        #   (1) Collection catalog
+        #   (2) Workload sessions
+        #   (3) Workload stats
+        self.metadata_db = metadata_db
+        
+        # The dataset database will contain a reconstructed
+        # invocation of the database.
+        # We need this because the main script will need to
+        # compute whatever stuff that it needs
+        self.dataset_db = dataset_db
+        
+        self.initialSolution = None
+        self.finalSolution = None
         
     ## DEF
     
