@@ -1,5 +1,9 @@
 __author__ = 'pavlo'
 
-from parser import Parser
-from reconstructor import Reconstructor
-from sessionizer import Sessionizer
+# Third-Party Dependencies
+import os, sys
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../"))
+
+from abstractconvertor import AbstractConvertor
+from mongosniffconvertor import MongoSniffConvertor

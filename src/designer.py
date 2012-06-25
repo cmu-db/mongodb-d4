@@ -6,8 +6,6 @@ import logging
 # mongodb-d4
 import catalog
 from costmodel import costmodel
-from inputs.mysql import MySQLConvertor
-from parser import MongoSniffConvertor
 from workload import PostProcessor
 from util import *
 
@@ -63,6 +61,8 @@ class Designer():
     ## -------------------------------------------------------------------------
 
     def processMongoInput(self, fd):
+        from inputs.mongodb.mongosniffconvertor import MongoSniffConvertor
+
         # MongoDB Trace
         convertor = MongoSniffConvertor( \
             self.metadata_db, \
@@ -80,6 +80,8 @@ class Designer():
     ## DEF
 
     def processMySQLInput(self):
+        from inputs.mysql import MySQLConvertor
+
         # MySQL Trace
         convertor = MySQLConvertor( \
             self.metadata_db,\
