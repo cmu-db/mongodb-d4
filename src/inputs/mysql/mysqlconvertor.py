@@ -56,7 +56,7 @@ class MySQLConvertor(AbstractConvertor):
         self.sessions = [ ]
     ## DEF
 
-    def process(self):
+    def processImpl(self):
         ## ----------------------------------------------
         ## Step 1:
         ## Determine tables/columns/indexes of MySQL schema

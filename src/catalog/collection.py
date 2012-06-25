@@ -43,7 +43,23 @@ class Collection(Document):
         'interesting':          [ ],
         'fields':               { },
     }
-    
+
+    @staticmethod
+    def makeField(fieldName, fieldType):
+        """Return an uninitialized field dict that can then be inserted into this collection"""
+        field = {
+            'type':             fieldType,
+            'fields':           { },
+            'query_use_count':  0,
+            'cardinality':      0,
+            'selectivity':      0,
+            'parent_col':       None,
+            'parent_key':       None,
+            'parent_conf':      None
+        }
+        return (field)
+    ## DEF
+
     def getEmbeddedKeys(self):
         """Return all the keys that contain embedded documents"""
         ret = [ ]

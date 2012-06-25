@@ -8,7 +8,7 @@ import math
 from datetime import datetime
 from pprint import pformat
 
-import collection
+from collection import Collection
 from util import constants
 
 #logging.basicConfig(level = logging.DEBUG,
@@ -34,9 +34,7 @@ def extractFields(doc, fields, nested=False):
             # This is only subset of what we will compute for each field
             # See catalog.Collection for more information
             if debug: LOG.debug("Creating new field entry for '%s' [nested=%s]" % (k, nested))
-            fields[k] = {
-                'type': f_type_str,
-            }
+            fields[k] = Collection.makeField(k, f_type_str)
         else:
             pass
             # Sanity check

@@ -180,7 +180,7 @@ if __name__ == '__main__':
             # If the user passed in '-', then we'll read from stdin
             inputFile = args['mongo']
             if not inputFile:
-                LOG.warn("A monognsiff trace file was not provided. Reading from standard input...")
+                LOG.warn("A mongonsiff trace file was not provided. Reading from standard input...")
                 inputFile = "-"
             with open(inputFile, 'r') if inputFile != '-' else sys.stdin as fd:
                 designer.processMongoInput(fd)

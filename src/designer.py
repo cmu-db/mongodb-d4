@@ -58,6 +58,9 @@ class Designer():
         
         self.initialSolution = None
         self.finalSolution = None
+
+        self.page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
+        self.sample_rate = self.cparser.getint(config.SECT_DESIGNER, 'sample_rate')
         
     ## DEF
 
@@ -88,6 +91,7 @@ class Designer():
         convertor = inputs.mongodb.MongoSniffConvertor( \
             self.metadata_db, \
             self.dataset_db, \
+            fd \
         )
         convertor.stop_on_error = self.stop_on_error
         convertor.no_mongo_parse = self.no_mongo_parse
@@ -96,8 +100,7 @@ class Designer():
         convertor.mongo_skip = self.mongo_skip
         convertor.mongo_limit = self.mongo_limit
 
-        convertor.process(fd)
-        self.__postProcessInput()
+        convertor.process(self.page_size)
     ## DEF
 
     def processMySQLInput(self):
@@ -114,18 +117,7 @@ class Designer():
             dbPass=self.cparser.get(config.SECT_MYSQL, 'pass'))
 
         # Process the inputs and then save the results in mongodb
-        convertor.process()
-        self.__postProcessInput()
-    ## DEF
-
-    def __postProcessInput(self):
-        """At this point both the metadata and workload collections are populated
-           We can then perform whatever post-processing that we need on them"""
-        processor = PostProcessor(self.metadata_db, self.dataset_db)
-        page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
-        sample_rate = self.cparser.getint(config.SECT_DESIGNER, 'sample_rate')
-        processor.process(page_size)
-
+        convertor.process(self.page_size)
     ## DEF
 
     ## -------------------------------------------------------------------------

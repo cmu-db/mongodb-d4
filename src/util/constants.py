@@ -4,8 +4,11 @@ PROJECT_NAME = "mongodb-d4"
 PROJECT_URL = "https://github.com/apavlo/mongodb-d4"
 
 ## ==============================================
-## METADATA DB COLLECTIONS
+## METADATA DB
 ## ==============================================
+
+# The default name of the metadata database
+METADATA_DB_NAME = "metadata"
 
 # The schema catalog information about the application
 COLLECTION_SCHEMA = "schema"
@@ -13,6 +16,13 @@ COLLECTION_WORKLOAD = "sessions"
 
 CATALOG_COLL = "catalog"
 CATALOG_FIELDS = 'fields'
+
+## ==============================================
+## DATASET DB
+## ==============================================
+
+# The default name of the reconstructed database
+DATASET_DB_NAME = "dataset"
 
 ## ==============================================
 ## WORKLOAD PROCESSING OPTIONS

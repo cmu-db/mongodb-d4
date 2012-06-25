@@ -18,6 +18,7 @@ For More Information: http://database.cs.brown.edu/projects/mongodb/
 ## Dependencies
 + python-pymongo
 + python-yaml
++ python-MySQLdb (optional)
 
 ## Authors
 + [Andy Pavlo](http://www.cs.brown.edu/~pavlo)

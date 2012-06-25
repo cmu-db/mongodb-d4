@@ -51,9 +51,10 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class MongoSniffConvertor(AbstractConvertor):
     
-    def __init__(self, metadata_db, dataset_db):
+    def __init__(self, metadata_db, dataset_db, fd):
         AbstractConvertor.__init__(self, metadata_db, dataset_db)
 
+        self.fd = fd
         self.no_mongo_parse = False
         self.no_mongo_reconstruct = False
         self.no_mongo_sessionizer = False
@@ -63,9 +64,9 @@ class MongoSniffConvertor(AbstractConvertor):
         pass
     ## DEF
         
-    def process(self, fd):
+    def processImpl(self):
         if not self.no_mongo_parse:
-            self.parseWorkload(fd)
+            self.parseWorkload(self.fd)
             
         if not self.no_mongo_reconstruct:
             self.reconstructDatabase()
@@ -112,7 +113,7 @@ class MongoSniffConvertor(AbstractConvertor):
     def reconstructDatabase(self):
         # Create a Reconstructor that will use the WORKLOAD_COL to regenerate
         # the original database and extract a schema catalog.
-        r = reconstructor.Reconstructor(self.workload_col, self.dataset_db, self.schema_col)
+        r = reconstructor.Reconstructor(self.metadata_db, self.dataset_db)
         
         # Clear our existing data
         if self.clean: r.clean()

@@ -49,39 +49,38 @@ class Reconstructor:
     def __init__(self, metadata_db, dataset_db):
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
-        self.schema_col = schema_col
-        
+
         self.op_ctr = 0
         self.sess_ctr = 0
         self.skip_ctr = 0
         self.fix_ctr = 0
         
         # Name -> Collection
-        self.schema = { }
+#        self.schema = { }
 
         pass
     ## DEF
 
     def process(self):
         """Iterates through all operations of all sessions and recreates the dataset..."""
-        cnt = self.workload_col.find().count()
+        cnt = self.metadata_db.Session.find().count()
         LOG.info("Found %d sessions in the workload collection. Processing... ", cnt)
-        
-        # Reconstruct the original database
+
+        ## ----------------------------------------------
+        ## Step 1: Reconstruct the original database
+        ## ----------------------------------------------
         self.reconstructDatabase()
-        
-        # Now use that database to populate the schema catalog
-        # Note that extractSchema() doesn't write anything to the database
-        # We will do that separately so that we can use our in-memory copy
-        # to fix invalid operations
+
+        ## ----------------------------------------------
+        ## Step 2: Extract Collection Catalog
+        ## Now use that database to populate the schema catalog
+        ## ----------------------------------------------
         self.extractSchema()
-        
+
+        ## ----------------------------------------------
+        ## Step 3: Fix invalid collection names
+        ## ----------------------------------------------
         self.fixInvalidCollections()
-        
-        # Now write the schema out to the database
-        for c in self.schema.itervalues():
-            self.schema_col.insert(c)
-        ## FOR
         
         LOG.debug("Done.")
     ## DEF
@@ -114,16 +113,7 @@ class Reconstructor:
             counts[col] = self.dataset_db[col].find().count()
         return counts
     ## DEF
-    
-    def clean(self):
-        LOG.warn("Purging existing reconstructed database '%s'" % (self.dataset_db.name))
-        #print pformat(dir(db))
-        self.dataset_db.connection.drop_database(self.dataset_db)
-        
-        LOG.warn("Purging existing catalog collection '%s'" % (self.schema_col.full_name))
-        self.schema_col.drop()
-    ## DEF
-    
+
     ## ==============================================
     ## DATABASE RECONSTRUCTION
     ## ==============================================
@@ -133,7 +123,7 @@ class Reconstructor:
         #       We will go back later and fix these up
         toIgnore = [constants.INVALID_COLLECTION_MARKER] + constants.IGNORED_COLLECTIONS
         
-        for session in self.workload_col.find():
+        for session in self.metadata_db.Session.find():
             self.sess_ctr += 1
             for op in session["operations"]:
                 self.op_ctr += 1
@@ -233,10 +223,11 @@ class Reconstructor:
             for doc in self.dataset_db[col].find():
                 catalog.extractFields(doc, fields)
             
-            c = Collection()
+            c = self.metadata_db.Collection()
             c['name'] = col
             c['fields'] = fields
             c.save()
+            LOG.info("Saved new catalog entry for collection '%s'" % col)
         ## FOR
     ## DEF
     
@@ -258,7 +249,7 @@ class Reconstructor:
                 # which collections have a field with the same name
                 fields = workload.getReferencedFields(op)
                 h = Histogram()
-                for c in self.schema:
+                for c in self.metadata_db.Collection.find():
                     for f in c['fields']:
                         if f in fields:
                             h.put(c['name'])
