@@ -64,34 +64,44 @@ if __name__ == '__main__':
                          help='Path to %s configuration file' % constants.PROJECT_NAME)
     aparser.add_argument('--print-config', action='store_true',
                          help='Print out the default configuration file.')
-    aparser.add_argument('--reset', action='store_true',
-                         help='Reset the metadata and workload database before processing.')
+
+    # General Processing Options
+    agroup = aparser.add_argument_group('General Control')
+    agroup.add_argument('--reset', action='store_true',
+                         help='Reset the internal catalog databases before processing. ' +
+                              'Warning: This will delete all of the collections in the ' +
+                              'metadata and workload databases. Use with caution.')
+    agroup.add_argument('--skip-load', action='store_true',
+                        help='Skip loading input files into system. ' +
+                             'Use this option if schema statistics and the workload have ' +
+                             'already been loaded into the catalog database.')
+    agroup.add_argument('--stop-on-error', action='store_true',
+                        help='Stop processing when an invalid record is encountered.')
 
     # MongoDB Trace Processing Options
     agroup = aparser.add_argument_group('MongoDB Processing')
     agroup.add_argument('--mongo', type=str, metavar='FILE',
                         help="Path to the MongoSniff file with the sample workload. Use '-' if you would like to read from stdin")
     agroup.add_argument('--no-mongo-parse', action='store_true',
-                        help='Skip parsing and loading MongoDB workload from file.'),
+                        help='Skip parsing and loading MongoSniff workload trace file into the internal catalog.'),
     agroup.add_argument('--no-mongo-reconstruct', action='store_true',
                         help='Skip reconstructing the MongoDB database schema after loading.')
     agroup.add_argument('--no-mongo-sessionizer', action='store_true',
-                        help='Skip splitting the MongoDB workload into separate sessions.')
+                        help='Skip splitting the MongoSniff workload into separate sessions.')
     agroup.add_argument('--mongo-skip', type=int, metavar='N', default=None,
-                         help='Skip the first N lines in the MongoSniff input file.')
+                        help='Skip the first N lines in the MongoSniff input file.')
     agroup.add_argument('--mongo-limit', type=int, metavar='N', default=None,
-                         help='Limit the number of operations to process in the MongoSniff input file.')
+                        help='Limit the number of operations to process in the MongoSniff input file.')
 
     # MySQL Processing Options
     agroup = aparser.add_argument_group('MySQL Processing')
     agroup.add_argument('--mysql', action='store_true',
-                         help='Whether to process inputs from MySQL. Use must also define ' +
-                              'the database connection parameters in the config file.'),
+                        help='Whether to process inputs from MySQL. Use must also define ' +
+                             'the database connection parameters in the config file.'),
 
     # Debugging Options
     agroup = aparser.add_argument_group('Debugging Options')
-    agroup.add_argument('--stop-on-error', action='store_true',
-                         help='Stop processing when an invalid input trace is reached.')
+
     agroup.add_argument('--debug', action='store_true',
                          help='Enable debug log messages.')
     args = vars(aparser.parse_args())
@@ -160,16 +170,18 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     ## STEP 1: INPUT PROCESSING
     ## ----------------------------------------------
-    if not args['mysql']:
-        # If the user passed in '-', then we'll read from stdin
-        inputFile = args['mongo']
-        if not inputFile:
-            LOG.warn("A monognsiff trace file was not provided. Reading from standard input...")
-            inputFile = "-"
-        with open(inputFile, 'r') if inputFile != '-' else sys.stdin as fd:
-            designer.processMongoInput(fd)
-    else:
-        designer.processMySQLInput()
+    if not args['skip_load']:
+        if not args['mysql']:
+            # If the user passed in '-', then we'll read from stdin
+            inputFile = args['mongo']
+            if not inputFile:
+                LOG.warn("A monognsiff trace file was not provided. Reading from standard input...")
+                inputFile = "-"
+            with open(inputFile, 'r') if inputFile != '-' else sys.stdin as fd:
+                designer.processMongoInput(fd)
+        else:
+            designer.processMySQLInput()
+    ## IF
 
     ## ----------------------------------------------
     ## STEP 2: INITIAL SOLUTION

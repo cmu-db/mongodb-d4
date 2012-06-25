@@ -174,14 +174,14 @@ class MongoSniffConvertor(AbstractConvertor):
             
             # And then add all of our new sessions
             # Count the number of operations so that can see the change
-            LOG.debug("Split Session %d [%d ops] into %d separate sessions" % (sess['session_id'], len(sess['operations']), len(newSessions)))
+            LOG.info("Split Session %d [%d ops] into %d separate sessions" % (sess['session_id'], len(sess['operations']), len(newSessions)))
             totalOps = 0
             for newSess in newSessions:
                 self.workload_col.save(newSess)
                 newOpCtr = len(newSess['operations'])
                 totalOps += newOpCtr
                 newHistogram.put(newOpCtr)
-                LOG.debug("Session %d -> %d Ops" % (newSess['session_id'], newOpCtr))
+                LOG.info("Session %d -> %d Ops" % (newSess['session_id'], newOpCtr))
             # Make sure that all of our operations end up in a session
             assert len(sess['operations']) == totalOps, \
                 "Expected %d operations, but new sessions only had %d" % (len(sess['operations']), totalOps)

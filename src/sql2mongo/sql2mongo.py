@@ -66,7 +66,7 @@ class Sql2Mongo (object) :
             op['query_size'] = 0
             op['resp_size'] = 0
             
-            op['query_group'] = Sql2mongo.query_id
+            op['query_group'] = Sql2Mongo.query_id
             op['query_id'] = -1
             op['resp_id'] = -1
             op['query_hash'] = None
@@ -544,7 +544,7 @@ class Sql2Mongo (object) :
     ## End process_query_update()
     
     def process_sql(self, sql, reset=True) :
-        Sql2mongo.query_id += 1
+        Sql2Mongo.query_id += 1
         if reset == True :
             self.reset()
         parsed = sqlparse.parse(sql)
@@ -900,4 +900,4 @@ class Sql2Mongo (object) :
                 newlist.append(token)
         return newlist
     ## End strip_whitespace()
-## End Sql2mongo class definition
+## End Sql2Mongo class definition
