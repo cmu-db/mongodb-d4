@@ -61,6 +61,9 @@ OP_TYPE_UPDATE = '$update'
 OP_TYPE_REPLY = '$reply'
 OP_TYPE_GETMORE = '$getMore'
 OP_TYPE_KILLCURSORS = '$killCursors'
+OP_TYPE_ALL = [ ]
+for k in locals().keys():
+    if k.startswith("OP_TYPE_"):  OP_TYPE_ALL.append(locals()[k])
 
 ## ==============================================
 ## PREDICATE TYPES

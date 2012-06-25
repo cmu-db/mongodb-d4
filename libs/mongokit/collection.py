@@ -43,11 +43,11 @@ class Collection(PymongoCollection):
         if key in self._registered_documents:
             if not key in self._documents:
                 self._documents[key] = self._registered_documents[key](collection=self)
-                if self._documents[key].indexes:
-                    warn('%s: Be careful, index generation is not automatic anymore.'
-                      'You have to generate your index youself' % self._documents[key]._obj_class.__name__,
-                      DeprecationWarning)
-                #self._documents[key].generate_index(self)
+                #if self._documents[key].indexes:
+                    #warn('%s: Be careful, index generation is not automatic anymore.'
+                      #'You have to generate your index youself' % self._documents[key]._obj_class.__name__,
+                      #DeprecationWarning)
+                self._documents[key].generate_index(self)
             return self._documents[key]
         else:
             newkey = u"%s.%s" % (self.name, key)

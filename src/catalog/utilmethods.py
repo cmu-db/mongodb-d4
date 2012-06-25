@@ -34,7 +34,7 @@ def extractFields(doc, fields, nested=False):
             # This is only subset of what we will compute for each field
             # See catalog.Collection for more information
             if debug: LOG.debug("Creating new field entry for '%s' [nested=%s]" % (k, nested))
-            fields[k] = Collection.makeField(k, f_type_str)
+            fields[k] = Collection.fieldFactory(k, f_type_str)
         else:
             pass
             # Sanity check

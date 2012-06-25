@@ -122,7 +122,8 @@ class Reconstructor:
         # HACK: Skip any operations with invalid collection names
         #       We will go back later and fix these up
         toIgnore = [constants.INVALID_COLLECTION_MARKER] + constants.IGNORED_COLLECTIONS
-        
+
+        LOG.info("Reconstructing dataset from %d Sessions" % self.metadata_db.Session.find().count())
         for session in self.metadata_db.Session.find():
             self.sess_ctr += 1
             for op in session["operations"]:
@@ -146,6 +147,8 @@ class Reconstructor:
                 if not ret: self.skip_ctr += 1
             ## FOR (operations)
         ## FOR (sessions)
+        LOG.info("Processed %d sessions with %d operations [skipped=%d]",
+                 self.sess_ctr, self.op_ctr, self.skip_ctr)
     ## DEF
     
     def processInsert(self, op):
@@ -210,7 +213,12 @@ class Reconstructor:
     ## ==============================================
     
     def extractSchema(self):
-        """Iterates through all documents and infers the schema..."""
+        """
+            Iterates through all documents and infers the schema.
+            This only needs to extract the schema skeleton. The
+            post-processing stuff in the AbstractConvertor will populate
+            the statistics information for each collection
+        """
         cols = self.dataset_db.collection_names()
         LOG.info("Found %d collections. Processing...", len(cols))
         
@@ -226,7 +234,11 @@ class Reconstructor:
             c = self.metadata_db.Collection()
             c['name'] = col
             c['fields'] = fields
-            c.save()
+            try:
+                c.save()
+            except:
+                LOG.error("Failed to save new catalog entry for collection '%s'\n%s", col, pformat(c))
+                raise
             LOG.info("Saved new catalog entry for collection '%s'" % col)
         ## FOR
     ## DEF

@@ -296,16 +296,15 @@ class Parser:
             if LOG.isEnabledFor(logging.DEBUG):
                 LOG.debug("Current Operation %d Content:\n%s" % (self.currentOp['query_id'], pformat(self.currentContent)))
             
-            op = {
-                'collection': unicode(self.currentOp['collection']),
-                'type': unicode(self.currentOp['type']),
-                'query_time': self.currentOp['timestamp'],
-                'query_size': self.currentOp['size'],
-                'query_content': self.currentContent,
-                'query_id': self.currentOp['query_id'],
-                'query_aggregate': False, # false -not aggregate- by default
-            }
-            
+            op = Session.operationFactory()
+            op['collection']        = self.currentOp['collection']
+            op['type']              = self.currentOp['type']
+            op['query_time']        = self.currentOp['timestamp']
+            op['query_size']        = self.currentOp['size']
+            op['query_content']     = self.currentContent
+            op['query_id']          = self.currentOp['query_id']
+            op['query_aggregate']   = False # false -not aggregate- by default
+
             # UPDATE Flags
             if op['type'] == constants.OP_TYPE_UPDATE:
                 op['update_upsert'] = self.currentOp['update_upsert']

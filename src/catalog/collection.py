@@ -13,22 +13,22 @@ class Collection(Document):
         'name':             unicode,   # The name of the collection
         'shard_key':        unicode,   # TODO(ckeith)
         'shard_keys':       dict,      # TODO(ckeith)
-        'indexes':          dict,      # TODO(ckeith)
+        'indexes':          [dict],    # TODO(ckeith)
         'tuple_count':      int,       # TODO(ckeith)
         'avg_doc_size':     int,       # The average size of the documents in the collection (bytes)
         'workload_queries': int,       #
         'workload_percent': float,     # The percentage of the total workload that touch this collection
-        'interesting':      [unicode], # TODO(ckeith)
+        'interesting':      [basestring], # TODO(ckeith)
 
         'fields': {
             unicode: {
-                'type':             unicode,    # catalog.fieldTypeToString(col_type),
-                'fields':           { },        # nested fields
+                'type':             basestring, # catalog.fieldTypeToString(col_type),
+                'fields':           dict,       # nested fields
                 'query_use_count':  int,        # The number of times this field is referenced in queries
                 'cardinality':      int,        # Value Cardinality
                 'selectivity':      int,        # Value Selectivity
-                'parent_col':       unicode,    # TODO(ckeith)
-                'parent_key':       unicode,    # TODO(ckeith)
+                'parent_col':       basestring, # TODO(ckeith)
+                'parent_key':       basestring, # TODO(ckeith)
                 'parent_conf':      float,      # TODO(ckeith)
             }
         }
@@ -38,6 +38,10 @@ class Collection(Document):
         'name', 'tuple_count'
     ]
     default_values = {
+        'shard_key':            None,
+        'shard_keys':           { },
+        'indexes':              [ ],
+        'tuple_count':          0,
         'workload_queries':     0,
         'workload_percent':     0.0,
         'interesting':          [ ],
@@ -45,7 +49,7 @@ class Collection(Document):
     }
 
     @staticmethod
-    def makeField(fieldName, fieldType):
+    def fieldFactory(fieldName, fieldType):
         """Return an uninitialized field dict that can then be inserted into this collection"""
         field = {
             'type':             fieldType,
