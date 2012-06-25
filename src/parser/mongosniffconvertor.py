@@ -66,18 +66,24 @@ class MongoSniffConvertor(AbstractConvertor):
         # The SCHEMA collection is where we will store the metadata information that
         # we will derive from the RECREATED database
         self.schema_col = self.metadata_db[constants.COLLECTION_SCHEMA]
-        
+
+        self.no_mongo_parse = False
+        self.no_mongo_reconstruct = False
+        self.no_mongo_sessionizer = False
+        self.mongo_skip = None
+        self.mongo_limit = None
+
         pass
     ## DEF
         
     def process(self, fd):
-        if not self.no_load:
+        if not self.no_mongo_parse:
             self.parseWorkload(fd)
             
-        if not self.no_reconstruct:
+        if not self.no_mongo_reconstruct:
             self.reconstructDatabase()
             
-        if not self.no_sessionizer:
+        if not self.no_mongo_sessionizer:
             self.sessionizeWorkload()
     ## DEF
     
@@ -93,13 +99,13 @@ class MongoSniffConvertor(AbstractConvertor):
             LOG.warn("Will stop processing if invalid input is found")
             p.stop_on_error = True
         # Processing Skip
-        if self.skip:
-            LOG.warn("Will skip processing the first %d lines" % self.skip)
-            p.op_skip =  self.skip
+        if self.mongo_skip:
+            LOG.warn("Will skip processing the first %d lines" % self.mongo_skip)
+            p.op_skip =  self.mongo_skip
         # Processing Limit
-        if self.limit:
-            LOG.warn("Will stop processing after %d operations are processed" % self.limit)
-            p.op_limit =  self.limit
+        if self.mongo_limit:
+            LOG.warn("Will stop processing after %d operations are processed" % self.mongo_limit)
+            p.op_limit =  self.mongo_limit
         
         # Clear our existing data
         if self.clean: p.clean()

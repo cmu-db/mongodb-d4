@@ -68,7 +68,6 @@ if __name__ == '__main__':
     aparser.add_argument('--reset', action='store_true',
                          help='Reset the metadata and workload database before processing.')
 
-
     # MongoDB Trace Processing Options
     agroup = aparser.add_argument_group('MongoDB Processing')
     agroup.add_argument('--mongo', type=str, metavar='FILE',
@@ -164,7 +163,7 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     if not args['mysql']:
         # If the user passed in '-', then we'll read from stdin
-        inputFile = args['mongosniff']
+        inputFile = args['mongo']
         if not inputFile:
             LOG.warn("A monognsiff trace file was not provided. Reading from standard input")
             inputFile = "-"

@@ -41,9 +41,6 @@ class Designer():
         self.initialSolution = None
         self.finalSolution = None
         
-        for key,desc,default in Designer.DEFAULT_CONFIG:
-            self.__dict__[key.replace("-", "_")] = default
-        ## FOR
     ## DEF
 
     def setOptionsFromArguments(self, args):
@@ -73,9 +70,11 @@ class Designer():
             self.dataset_db, \
         )
         convertor.stop_on_error = self.stop_on_error
-        convertor.no_load = self.no_mongo_parse
-        convertor.no_reconstruct = self.no_mongo_reconstruct
-        convertor.no_sessionizer = self.no_mongo_sessionizer
+        convertor.no_mongo_parse = self.no_mongo_parse
+        convertor.no_mongo_reconstruct = self.no_mongo_reconstruct
+        convertor.no_mongo_sessionizer = self.no_mongo_sessionizer
+        convertor.mongo_skip = self.mongo_skip
+        convertor.mongo_limit = self.mongo_limit
 
         convertor.process(fd)
         self.__postProcessInput()
