@@ -87,7 +87,7 @@ def getEstimatedSize(typeName, value):
     if typeName == 'datetime':
         return (8) # XXX
     # STR
-    elif typeName == StringType.__name__:
+    elif typeName in [types.StringType.__name__, types.UnicodeType.__name__]:
         return getStringSize(value)
     
     # Everything else

@@ -24,6 +24,7 @@
 
 import random
 import logging
+from pprint import pformat
 
 import catalog
 from util import constants
@@ -105,7 +106,7 @@ class AbstractConverter():
 
     def addQueryHashes(self):
         sessions = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
-        if self.op_limit: sessions.limit(self.op_limit)
+        if self.limit: sessions.limit(self.limit)
 
         for sess in sessions:
             for op in sess['operations'] :
@@ -133,10 +134,7 @@ class AbstractConverter():
     def computeWorkloadStats(self):
         """Process Workload Trace"""
 
-        sessions = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
-        if self.op_limit: sessions.limit(self.op_limit)
-
-        for sess in sessions:
+        for sess in self.metadata_db.Session.fetch():
             start_time = None
             end_time = None
 
@@ -145,7 +143,7 @@ class AbstractConverter():
                 self.total_queries += 1
 
                 # The start_time is the timestamp of when the first query occurs
-                if start_time == None: start_time = op['query_time']
+                if not start_time: start_time = op['query_time']
                 start_time = min(start_time, op['query_time'])
 
                 # The end_time is the timestamp of when the last response arrives
@@ -154,72 +152,87 @@ class AbstractConverter():
                 # Get the collection information object
                 # We will use this to store the number times each key is referenced in a query
                 col_info = self.metadata_db.Collection.one({'name': op['collection']})
+                if not col_info:
+                    col_info = self.metadata_db.Collection()
+                    col_info['name'] = op['collection']
                 col_info['workload_queries'] += 1
 
-                if 'predicates' in op and op['predicates'] == None: op['predicates'] = { }
+                if not 'predicates' in op or not op['predicates']:
+                    op['predicates'] = { }
 
-                # DELETE
-                if op['type'] == constants.OP_TYPE_DELETE:
-                    for content in op['query_content'] :
-                        for k,v in content.iteritems() :
-                            # tuples.append((k, v))
-                            col_info['fields'][k]['query_use_count'] += 1
-                            if type(v) == dict:
-                                op['predicates'][k] = constants.PRED_TYPE_RANGE
-                            else:
-                                op['predicates'][k] = constants.PRED_TYPE_EQUALITY
-                                ## FOR
-                # INSERT
-                elif op['type'] == constants.OP_TYPE_INSERT:
-                    for content in op['query_content'] :
-                        for k,v in content.iteritems() :
-                            # tuples.append((k, v))
-                            col_info['fields'][k]['query_use_count'] += 1
+                try:
+                    # QUERY
+                    if op['type'] == constants.OP_TYPE_QUERY:
+                        for content in op['query_content'] :
+                            if '#query' in content and content['#query'] is not None:
+                                self.processOpFields(col_info, op, content['#query'])
 
-                            # No predicate for insert operations
-                            # No projections for insert operations
+                    # DELETE
+                    elif op['type'] == constants.OP_TYPE_DELETE:
+                        for content in op['query_content']:
+                            self.processOpFields(col_info, op, content)
 
-                # QUERY
-                elif op['type'] == constants.OP_TYPE_QUERY:
-                    for content in op['query_content'] :
-                        if content['query'] is not None :
-                            for k, v in content['query'].iteritems() :
-                                # tuples.append((k, v))
-                                col_info['fields'][k]['query_use_count'] += 1
-                                if type(v) == dict:
-                                    op['predicates'][k] = constants.PRED_TYPE_RANGE
-                                else:
-                                    op['predicates'][k] = constants.PRED_TYPE_EQUALITY
-                                    ## FOR
+                    # INSERT
+                    elif op['type'] == constants.OP_TYPE_INSERT:
+                        for content in op['query_content']:
+                            for k,v in content.iteritems():
+                                self.processOpFields(col_info, op, content)
 
-                # UPDATE
-                elif op['type'] == constants.OP_TYPE_UPDATE:
-                    for content in op['query_content'] :
-                        try :
-                            for k,v in content.iteritems() :
-                                # tuples.append((k, v))
-                                col_info['fields'][k]['query_use_count'] += 1
-                                if type(v) == dict:
-                                    op['predicates'][k] = constants.PRED_TYPE_RANGE
-                                else:
-                                    op['predicates'][k] = constants.PRED_TYPE_EQUALITY
-                        except AttributeError :
-                            # Why?
-                            pass
-                            ## FOR
+                    # UPDATE
+                    elif op['type'] == constants.OP_TYPE_UPDATE:
+                        for content in op['query_content']:
+                            self.processOpFields(col_info, op, content)
+                except:
+                    LOG.error("Unexpected error for operation #%d in Session #%d\n%s", \
+                              op['query_id'], sess['session_id'], pformat(op))
+                    raise
 
-                col_info.save()
-
+                try:
+                    col_info.save() # self.metadata_db.Collection.save()
+                except:
+                    col_info['fields'] = None
+                    LOG.error("\n" + pformat(col_info))
+                    raise
             ## FOR (operations)
 
-            if start_time != None and end_time != None:
-                sess.start_time = start_time
-                sess.end_time = end_time
+            if start_time and end_time:
+                sess['start_time'] = start_time
+                sess['end_time'] = end_time
 
-            LOG.debug("Updating Session #%d" % sess.session_id)
+            LOG.debug("Updating Session #%d" % sess['session_id'])
             sess.save()
+        ## FOR (sessions)
+    ## DEF
 
-            ## FOR (sessions)
+    def processOpFields(self, col_info, op, content):
+        for k,v in content.iteritems():
+            # Skip anything that starts with our special char
+            # Those are flag markers used by MongoDB's queries
+            if k.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                continue
+
+            # We need to add the field to the collection if it doesn't
+            # already exist. This will occur if this op was an aggregate,
+            # which we ignore when recreating the schema
+            if not k in col_info['fields']:
+                fieldType = catalog.fieldTypeToString(type(v))
+                col_info['fields'][k] = catalog.Collection.fieldFactory(k, fieldType)
+
+            f = col_info['fields'][k]
+            f['query_use_count'] += 1
+
+            # No predicate for insert operations
+            # No projections for insert operations
+            if op['type'] != constants.OP_TYPE_INSERT:
+                # Update how this key was used with predicates
+                # TODO: This doesn't seem right because it will overwrite whatever we had there last?
+                if type(v) == dict:
+                    op['predicates'][k] = constants.PRED_TYPE_RANGE
+                else:
+                    op['predicates'][k] = constants.PRED_TYPE_EQUALITY
+        ## FOR
+
+        return
     ## DEF
 
     def computeDatasetStats(self, sample_rate = 100):
@@ -241,11 +254,9 @@ class AbstractConverter():
 
             col['tuple_count'] = 0
             tuple_sizes[col['name']] = 0
-            cursor = self.dataset_db[col['name']].find()
-            for row in cursor:
+            for row in self.dataset_db[col['name']].find():
                 col['tuple_count'] += 1
-                to_use = random.randrange(1, 100, 1)
-                if to_use <= sample_rate :
+                if random.randint(0, 100) <= sample_rate :
                     for k, v in row.iteritems() :
                         if k <> '_id' :
                             size = catalog.getEstimatedSize(col['fields'][k]['type'], v)

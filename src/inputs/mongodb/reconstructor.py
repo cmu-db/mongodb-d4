@@ -234,11 +234,7 @@ class Reconstructor:
             c = self.metadata_db.Collection()
             c['name'] = col
             c['fields'] = fields
-            try:
-                c.save()
-            except:
-                LOG.error("Failed to save new catalog entry for collection '%s'\n%s", col, pformat(c))
-                raise
+            c.save()
             LOG.info("Saved new catalog entry for collection '%s'" % col)
         ## FOR
     ## DEF
