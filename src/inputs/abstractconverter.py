@@ -34,7 +34,7 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 ## Abstract Convertor
 ## ==============================================
-class AbstractConvertor():
+class AbstractConverter():
     
     def __init__(self, metadata_db, dataset_db):
         self.metadata_db = metadata_db

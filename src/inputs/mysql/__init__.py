@@ -6,6 +6,6 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../../libs"))
 sys.path.append(os.path.join(basedir, ".."))
 
-from abstractconvertor import AbstractConvertor
-from mysqlconvertor import MySQLConvertor
+from abstractconverter import AbstractConverter
+from mysqlconverter import MySQLConverter
 from sql2mongo import Sql2Mongo

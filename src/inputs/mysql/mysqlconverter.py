@@ -30,19 +30,19 @@ import MySQLdb as mdb
 # mongodb-d4
 import catalog
 import workload
-from abstractconvertor import AbstractConvertor
+from abstractconvertor import AbstractConverter
 from mysql import sql2mongo
 from util import *
 
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
-## MySQLConvertor
+## MySQLConverter
 ## ==============================================
-class MySQLConvertor(AbstractConvertor):
+class MySQLConverter(AbstractConverter):
     
     def __init__(self, metadata_db, dataset_db, dbHost, dbPort, dbName, dbUser, dbPass):
-        AbstractConvertor.__init__(self, metadata_db, dataset_db)
+        AbstractConverter.__init__(self, metadata_db, dataset_db)
 
         self.dbHost = dbHost
         self.dbPort = dbPort

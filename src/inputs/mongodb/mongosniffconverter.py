@@ -36,7 +36,7 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 
 # mongodb-d4
 sys.path.append(os.path.join(basedir, ".."))
-from abstractconvertor import AbstractConvertor
+from abstractconverter import AbstractConverter
 
 import parser
 import reconstructor
@@ -47,9 +47,9 @@ from util import Histogram
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
-## MongoSniff Trace Convertor
+## MongoSniff Trace Converter
 ## ==============================================
-class MongoSniffConvertor(AbstractConvertor):
+class MongoSniffConverter(AbstractConverter):
     
     def __init__(self, metadata_db, dataset_db, fd):
         AbstractConvertor.__init__(self, metadata_db, dataset_db)

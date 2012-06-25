@@ -6,5 +6,5 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../../libs"))
 sys.path.append(os.path.join(basedir, ".."))
 
-from abstractconvertor import AbstractConvertor
-from mongosniffconvertor import MongoSniffConvertor
+from abstractconverter import AbstractConverter
+from mongosniffconverter import MongoSniffConverter

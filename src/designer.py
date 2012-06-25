@@ -87,7 +87,7 @@ class Designer():
         import inputs.mongodb
 
         # MongoDB Trace
-        convertor = inputs.mongodb.MongoSniffConvertor( \
+        convertor = inputs.mongodb.MongoSniffConverter( \
             self.metadata_db, \
             self.dataset_db, \
             fd \
@@ -103,10 +103,10 @@ class Designer():
     ## DEF
 
     def processMySQLInput(self):
-        from inputs.mysql import MySQLConvertor
+        from inputs.mysql import MySQLConverter
 
         # MySQL Trace
-        convertor = MySQLConvertor( \
+        convertor = MySQLConverter( \
             self.metadata_db,\
             self.dataset_db, \
             dbHost=self.cparser.get(config.SECT_MYSQL, 'host'), \
