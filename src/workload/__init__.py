@@ -10,6 +10,6 @@ from session import Session
 
 # Regular Classes
 from utilmethods import *
-from processor import Processor
+from postprocessor import PostProcessor
 from sessionizer import Sessionizer
 from abstractconvertor import AbstractConvertor

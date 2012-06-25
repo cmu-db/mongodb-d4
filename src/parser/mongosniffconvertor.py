@@ -56,16 +56,7 @@ LOG = logging.getLogger(__name__)
 class MongoSniffConvertor(AbstractConvertor):
     
     def __init__(self, metadata_db, dataset_db):
-        AbstractConvertor.__init__(self)
-        self.metadata_db = metadata_db
-        self.dataset_db = dataset_db
-        
-        # The WORKLOAD collection is where we stores sessions+operations
-        self.workload_col = self.metadata_db[constants.COLLECTION_WORKLOAD]
-        
-        # The SCHEMA collection is where we will store the metadata information that
-        # we will derive from the RECREATED database
-        self.schema_col = self.metadata_db[constants.COLLECTION_SCHEMA]
+        AbstractConvertor.__init__(self, (metadata_db, dataset_db))
 
         self.no_mongo_parse = False
         self.no_mongo_reconstruct = False

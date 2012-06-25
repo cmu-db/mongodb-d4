@@ -22,12 +22,24 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
+from util import constants
+
 ## ==============================================
 ## Abstract Convertor
 ## ==============================================
 class AbstractConvertor():
     
-    def __init__(self):
+    def __init__(self, metadata_db, dataset_db):
+        self.metadata_db = metadata_db
+        self.dataset_db = dataset_db
+
+        # The WORKLOAD collection is where we stores sessions+operations
+        self.workload_col = self.metadata_db[constants.COLLECTION_WORKLOAD]
+
+        # The SCHEMA collection is where we will store the metadata information that
+        # we will derive from the RECREATED database
+        self.schema_col = self.metadata_db[constants.COLLECTION_SCHEMA]
+
         self.stop_on_error = False
         self.limit = None
         self.skip = None

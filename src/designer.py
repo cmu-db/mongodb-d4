@@ -6,11 +6,11 @@ import logging
 # mongodb-d4
 import catalog
 from costmodel import costmodel
-import sql2mongo
+from sql2mongo import MySQLConvertor
 from parser import MongoSniffConvertor
 from search import InitialDesigner
 from search import DesignCandidate
-from workload import Processor
+from workload import PostProcessor
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -83,7 +83,9 @@ class Designer():
 
     def processMySQLInput(self):
         # MySQL Trace
-        convertor = sql2mongo.MySQLConvertor( \
+        convertor = MySQLConvertor( \
+            self.metadata_db,\
+            self.dataset_db, \
             dbHost=self.cparser.get(config.SECT_MYSQL, 'host'), \
             dbPort=self.cparser.getint(config.SECT_MYSQL, 'port'), \
             dbName=self.cparser.get(config.SECT_MYSQL, 'name'), \
@@ -92,23 +94,13 @@ class Designer():
 
         # Process the inputs and then save the results in mongodb
         convertor.process()
-        for collCatalog in convertor.collectionCatalogs():
-            self.metadata_db[constants.COLLECTION_SCHEMA].save(collCatalog)
-        # TODO: This probably is a bad idea if the sample database
-        #       is huge. We will probably want to read tuples one at a time
-        #       from MySQL and then write them out immediately to MongoDB
-        for collName, collData in convertor.collectionDatasets.iteritems():
-            for doc in collData: self.dataset_db[collName].insert(doc)
-        for sess in convertor.sessions:
-            self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
-
         self.__postProcessInput()
     ## DEF
 
     def __postProcessInput(self):
-        # Now at this point both the metadata and workload collections are populated
-        # We can then perform whatever post-processing that we need on them
-        processor = Processor(self.metadata_db, self.dataset_db)
+        """At this point both the metadata and workload collections are populated
+           We can then perform whatever post-processing that we need on them"""
+        processor = PostProcessor(self.metadata_db, self.dataset_db)
         page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
         processor.process(page_size)
 

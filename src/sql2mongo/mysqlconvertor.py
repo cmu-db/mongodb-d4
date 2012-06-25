@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2011 by Brown University
+# Copyright (C) 2012 by Brown University
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -24,14 +23,9 @@
 # -----------------------------------------------------------------------
 from __future__ import division
 
-import os
-import sys
-import types
 import re
 import logging
 import MySQLdb as mdb
-from datetime import datetime
-from pprint import pprint,pformat
 
 # mongodb-d4
 import catalog
@@ -47,9 +41,9 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class MySQLConvertor(AbstractConvertor):
     
-    def __init__(self, dbHost, dbPort, dbName, dbUser, dbPass):
-        super(MySQLConvertor, self).__init__()
-        
+    def __init__(self, metadata_db, dataset_db, dbHost, dbPort, dbName, dbUser, dbPass):
+        AbstractConvertor.__init__(self, (metadata_db, dataset_db))
+
         self.dbHost = dbHost
         self.dbPort = dbPort
         self.dbName = dbName
@@ -80,7 +74,17 @@ class MySQLConvertor(AbstractConvertor):
         ## Process MySQL query log for conversion to workload.Session objects
         ## ----------------------------------------------
         self.extractWorkload()
-            
+
+        for collCatalog in convertor.collectionCatalogs():
+            self.metadata_db[constants.COLLECTION_SCHEMA].save(collCatalog)
+            # TODO: This probably is a bad idea if the sample database
+        #       is huge. We will probably want to read tuples one at a time
+        #       from MySQL and then write them out immediately to MongoDB
+        for collName, collData in convertor.collectionDatasets.iteritems():
+            for doc in collData: self.dataset_db[collName].insert(doc)
+        for sess in convertor.sessions:
+            self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
+
         ## ---------------------------------------------
         ## FIXME Generate Query IDs for the Workload
         ## ---------------------------------------------
@@ -140,7 +144,7 @@ class MySQLConvertor(AbstractConvertor):
                     index_name = ind_row[2]
                 coll_catalog['indexes'][ind_row[2]].append(ind_row[4])
             ## FOR
-            coll_catalog.validate()
+            coll_catalog.save()
             self.collectionCatalogs[tbl_name] = coll_catalog
             
             coll_data = self.collectionDatasets.get(tbl_name, [])

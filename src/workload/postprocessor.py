@@ -35,7 +35,11 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 ## Workload Processor
 ## ==============================================
-class Processor:
+class PostProcessor:
+    """The PostProcessor performs final calculations on an already loaded metadata
+       and workload database. These calculations can be computed regardless of whether
+       the catalog information came from MongoSniff or MySQL.
+       This should only be invoked once after do the initial loading."""
 
     def __init__(self, metadata_db, dataset_db):
         self.metadata_db = metadata_db
@@ -64,10 +68,10 @@ class Processor:
         self.computeCollectionStats()
         
         # STEP 3: Process workload
-        self.processWorkload()
+        self.computeWorkloadStats()
         
         # STEP 4: Process dataset
-        self.processDataset()
+        self.computeDatasetStats()
 
         # Finalize workload percentage statistics for each collection
         page_size *= 1024
@@ -84,41 +88,28 @@ class Processor:
         
         for sess in sessions:
             for op in sess['operations'] :
-                op[u"query_hash"] = self.hasher.hash(op)
+                op["query_hash"] = self.hasher.hash(op)
             self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
         ## FOR
-        LOG.debug("Query Class Histogram:\n%s" % self.hasher.histogram)
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("Query Class Histogram:\n%s" % self.hasher.histogram)
     ## DEF
     
     def computeCollectionStats(self):
-        '''Gather statistics from an iterable of collections for using in 
+        """Gather statistics from an iterable of collections for using in
            instantiation of the cost model and for determining the initial
-           design solution'''
+           design solution"""
            
-        collections = self.metadata_db[constants.COLLECTION_SCHEMA].find()
-        for col in collections:
-            stats = Stats()
-            stats.name = col['name']
-            stats.tuple_count = col['tuple_count']
-            stats.avg_doc_size = col['avg_doc_size']
-            
+        for col in self.metadata_db[constants.COLLECTION_SCHEMA].find():
             for field, data in col['fields'].iteritems() :
-                if data['query_use_count'] > 0:
-                    stats.interesting.append(field)
-                field = {
-                    'query_use_count': data['query_use_count'],
-                    'cardinality': data['cardinality'],
-                    'selectivity': data['selectivity'],
-                }
-                stats.fields.append(field)
+                if data['query_use_count'] > 0 and not field in col['interesting']:
+                    col['interesting'].append(field)
             ## FOR
-            
-            stats.save()
         ## FOR
         return
     ## FOR
     
-    def processWorkload(self):
+    def computeWorkloadStats(self):
         """Process Workload Trace"""
         
         sessions = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
@@ -129,40 +120,39 @@ class Processor:
             end_time = None
             
             for op in sess['operations']:
+                # We need to know the total number of queries that we've seen
+                self.total_queries += 1
+
                 # The start_time is the timestamp of when the first query occurs
-                if start_time == None: start_time = op.query_time
-                start_time = min(start_time, op.query_time)
+                if start_time == None: start_time = op['query_time']
+                start_time = min(start_time, op['query_time'])
     
                 # The end_time is the timestamp of when the last response arrives                
-                if op.resp_time: end_time = max(end_time, op.resp_time)
+                if op['resp_time']: end_time = max(end_time, op['resp_time'])
                 
                 # Get the collection information object
                 # We will use this to store the number times each key is referenced in a query
                 col_info = self.metadata_db.Collection.one({'name': op['collection']})
-                
-                if op.predicates == None: op.predicates = { }
-                
-                # FIXME - We ware suppose to update these counters somewhere
-                # FIXME - Where is this suppose to be stored?
-                # statistics[op['collection']]['workload_queries'] += 1
-                # statistics['total_queries'] += 1
+                col_info['workload_queries'] += 1
+
+                if op['predicates'] == None: op['predicates'] = { }
                 
                 # DELETE
                 if op['type'] == constants.OP_TYPE_DELETE:
                     for content in op['query_content'] :
                         for k,v in content.iteritems() :
-                            tuples.append((k, v))
+                            # tuples.append((k, v))
                             col_info['fields'][k]['query_use_count'] += 1
                             if type(v) == dict:
-                                op.predicates[k] = constants.PRED_TYPE_RANGE
+                                op['predicates'][k] = constants.PRED_TYPE_RANGE
                             else:
-                                op.predicates[k] = constants.PRED_TYPE_EQUALITY
+                                op['predicates'][k] = constants.PRED_TYPE_EQUALITY
                     ## FOR
                 # INSERT
                 elif op['type'] == constants.OP_TYPE_INSERT:
                     for content in op['query_content'] :
                         for k,v in content.iteritems() :
-                            tuples.append((k, v))
+                            # tuples.append((k, v))
                             col_info['fields'][k]['query_use_count'] += 1
 
                     # No predicate for insert operations
@@ -171,14 +161,14 @@ class Processor:
                 # QUERY
                 elif op['type'] == constants.OP_TYPE_QUERY:
                     for content in op['query_content'] :
-                        if content['query'] != None :
+                        if content['query'] is not None :
                             for k, v in content['query'].iteritems() :
-                                tuples.append((k, v))
+                                # tuples.append((k, v))
                                 col_info['fields'][k]['query_use_count'] += 1
                                 if type(v) == dict:
-                                    op.predicates[k] = constants.PRED_TYPE_RANGE
+                                    op['predicates'][k] = constants.PRED_TYPE_RANGE
                                 else:
-                                    op.predicates[k] = constants.PRED_TYPE_EQUALITY
+                                    op['predicates'][k] = constants.PRED_TYPE_EQUALITY
                     ## FOR
                     
                 # UPDATE
@@ -186,12 +176,12 @@ class Processor:
                     for content in op['query_content'] :
                         try :
                             for k,v in content.iteritems() :
-                                tuples.append((k, v))
+                                # tuples.append((k, v))
                                 col_info['fields'][k]['query_use_count'] += 1
                                 if type(v) == dict:
-                                    op.predicates[k] = constants.PRED_TYPE_RANGE
+                                    op['predicates'][k] = constants.PRED_TYPE_RANGE
                                 else:
-                                    op.predicates[k] = constants.PRED_TYPE_EQUALITY
+                                    op['predicates'][k] = constants.PRED_TYPE_EQUALITY
                         except AttributeError :
                             # Why?
                             pass
@@ -211,13 +201,13 @@ class Processor:
         ## FOR (sessions)
     ## DEF
     
-    def processDataset(self, sample_rate = 100):
+    def computeDatasetStats(self, sample_rate = 100):
         """Process Sample Dataset"""
         tuple_sizes = {}
         distinct_values = {}
         first = {}
         
-        # Compute per-column statistics
+        # Compute per-collection statistics
         for col in self.metadata_db.Collection.find():
             if not col['name'] in distinct_values:
                 distinct_values[col['name']] = {}
@@ -242,7 +232,7 @@ class Processor:
                             distinct_values[col['name']][k][v] = v
                         else :
                             tuple_sizes[col['name']] += 12
-            if col['tuple_count'] == 0 :
+            if not col['tuple_count']:
                 col['avg_doc_size'] = 0
             else :
                 col['avg_doc_size'] = int(tuple_sizes[col['name']] / col['tuple_count'])
@@ -250,7 +240,7 @@ class Processor:
             # Calculate cardinality and selectivity
             for k,v in col['fields'].iteritems() :
                 v['cardinality'] = len(distinct_values[col['name']][k])
-                if col['tuple_count'] == 0 :
+                if not col['tuple_count']:
                     v['selectivity'] = 0
                 else :
                     v['selectivity'] = v['cardinality'] / col['tuple_count']
