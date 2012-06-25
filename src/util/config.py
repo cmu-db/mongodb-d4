@@ -33,8 +33,8 @@ DEFAULT_CONFIG = {
     # Designer Configuration
     SECT_DESIGNER: {
         "enable_sharding": ("Enable the designer to look for sharding keys.", True),
-        "enable_indexes":  ("Enable the designer to look for indexing keys.", False),
-        "enable_denormalization":  ("Enable the designer to look for denormalization candidates.", False),
+        "enable_indexes":  ("Enable the designer to look for indexing keys.", True),
+        "enable_denormalization":  ("Enable the designer to look for denormalization candidates.", True),
         "enable_local_search_increase": ("Enable increasing local search parameters after a restart", True),
         "sample_rate": ("Integer Percentage of dataset values to sample while gathering statistics.", 100),
     },

@@ -191,6 +191,3 @@ class MongoSniffConvertor(AbstractConvertor):
         return
     ## DEF
 ## CLASS
-
-
-    
