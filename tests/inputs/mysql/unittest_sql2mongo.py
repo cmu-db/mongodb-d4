@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-import sql2mongo
+from inputs.mysql import sql2mongo
 
 class TestConversions (unittest.TestCase) :
     

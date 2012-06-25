@@ -1,3 +1,3 @@
 #!/bin/sh -x
 
-nosetests --verbose --nocapture *.py */*.py
+nosetests --verbose --nocapture $(find . -name "*.py" -type f)
