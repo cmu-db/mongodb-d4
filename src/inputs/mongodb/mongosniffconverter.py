@@ -52,7 +52,7 @@ LOG = logging.getLogger(__name__)
 class MongoSniffConverter(AbstractConverter):
     
     def __init__(self, metadata_db, dataset_db, fd):
-        AbstractConvertor.__init__(self, metadata_db, dataset_db)
+        AbstractConverter.__init__(self, metadata_db, dataset_db)
 
         self.fd = fd
         self.no_mongo_parse = False

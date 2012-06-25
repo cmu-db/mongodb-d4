@@ -61,8 +61,10 @@ class Sessionizer:
             if lastOp:
                 assert op["query_time"] >= lastOp["resp_time"]
                 # Seconds -> Milliseconds
-                diff = (op["query_time"]*1000) - (lastOp["resp_time"]*1000)
-                self.sessOps[sessId].append((lastOp, op, diff))
+                if lastOp["resp_time"]:
+                    diff = (op["query_time"]*1000) - (lastOp["resp_time"]*1000)
+                    self.sessOps[sessId].append((lastOp, op, diff))
+                ## IF
             lastOp = op
             ctr += 1
         ## FOR
