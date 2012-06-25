@@ -135,9 +135,9 @@ class Sessionizer:
     ## DEF
         
     def sessionize(self, origSess, nextId):
-        # Once we have our session boundaries, we need to then
-        # loop through each of the sessOps again and generate our
-        # boundaries
+        """Once we have our session boundaries, we need to then
+        loop through each of the sessOps again and generate our
+         boundaries"""
         
         sess = None
         newSessions = [ ]
@@ -148,7 +148,7 @@ class Sessionizer:
         # to make sure the lastOp is given a home!
         for op in origSess["operations"] + [ None ]:
             if not sess:
-                sess = session.Session()
+                sess = Session()
                 sess["operations"] = [ ]
                 sess["ip_client"] = origSess["ip_client"]
                 sess["ip_server"] = origSess["ip_server"]

@@ -36,11 +36,12 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 
 # mongodb-d4
 sys.path.append(os.path.join(basedir, ".."))
-
-import workload_info
-from workload import Session
 from abstractconvertor import AbstractConvertor
-from reconstructor import Reconstructor
+
+import parser
+import reconstructor
+import sessionizer
+from workload import Session
 from util import Histogram
 
 LOG = logging.getLogger(__name__)

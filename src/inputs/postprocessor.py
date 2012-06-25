@@ -128,14 +128,14 @@ class PostProcessor:
                 start_time = min(start_time, op['query_time'])
     
                 # The end_time is the timestamp of when the last response arrives                
-                if op['resp_time']: end_time = max(end_time, op['resp_time'])
+                if 'resp_time' in op and op['resp_time']: end_time = max(end_time, op['resp_time'])
                 
                 # Get the collection information object
                 # We will use this to store the number times each key is referenced in a query
                 col_info = self.metadata_db.Collection.one({'name': op['collection']})
                 col_info['workload_queries'] += 1
 
-                if op['predicates'] == None: op['predicates'] = { }
+                if 'predicates' in op and op['predicates'] == None: op['predicates'] = { }
                 
                 # DELETE
                 if op['type'] == constants.OP_TYPE_DELETE:

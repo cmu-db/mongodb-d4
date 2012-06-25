@@ -46,9 +46,9 @@ LOG = logging.getLogger(__name__)
 class Reconstructor:
     """MongoDB Database Reconstructor"""
     
-    def __init__(self, workload_col, recreated_db, schema_col):
-        self.workload_col = workload_col
-        self.recreated_db = recreated_db
+    def __init__(self, metadata_db, dataset_db):
+        self.metadata_db = metadata_db
+        self.dataset_db = dataset_db
         self.schema_col = schema_col
         
         self.op_ctr = 0
@@ -110,15 +110,15 @@ class Reconstructor:
         """Return a dict of the collections in the recreated database and the number of
            documents that they contain"""
         counts = { }
-        for col in self.recreated_db.collection_names():
-            counts[col] = self.recreated_db[col].find().count()
+        for col in self.dataset_db.collection_names():
+            counts[col] = self.dataset_db[col].find().count()
         return counts
     ## DEF
     
     def clean(self):
-        LOG.warn("Purging existing reconstructed database '%s'" % (self.recreated_db.name))
+        LOG.warn("Purging existing reconstructed database '%s'" % (self.dataset_db.name))
         #print pformat(dir(db))
-        self.recreated_db.connection.drop_database(self.recreated_db)
+        self.dataset_db.connection.drop_database(self.dataset_db)
         
         LOG.warn("Purging existing catalog collection '%s'" % (self.schema_col.full_name))
         self.schema_col.drop()
@@ -163,7 +163,7 @@ class Reconstructor:
         col = op["collection"]
         LOG.debug("Inserting %d documents into collection %s", len(payload), col)
         for doc in payload:
-            self.recreated_db[col].save(doc)
+            self.dataset_db[col].save(doc)
         return True
     ## DEF
 
@@ -171,7 +171,7 @@ class Reconstructor:
         payload = op["query_content"]
         col = op["collection"]
         LOG.debug("Deleting documents from collection %s..", col)
-        self.recreated_db[col].remove(payload)
+        self.dataset_db[col].remove(payload)
         return True
     ## DEF
 
@@ -182,7 +182,7 @@ class Reconstructor:
         LOG.debug("Updating Collection '%s' [upsert=%s, multi=%s]" % (col, op["update_upsert"], op["update_multi"]))
         assert len(payload) == 2, \
             "Update operation payload is expected to have exactly 2 entries."
-        self.recreated_db[col].update(payload[0], payload[1], op["update_upsert"], op["update_multi"])
+        self.dataset_db[col].update(payload[0], payload[1], op["update_upsert"], op["update_multi"])
         return True
     ## DEF
 
@@ -207,7 +207,7 @@ class Reconstructor:
             # Note that this is an upsert operation: insert if not present
             for doc in op["resp_content"]:
                 #print "doc:", doc
-                self.recreated_db[col].update(doc, doc, True, False)
+                self.dataset_db[col].update(doc, doc, True, False)
             
             return True
         ## IF
@@ -221,7 +221,7 @@ class Reconstructor:
     
     def extractSchema(self):
         """Iterates through all documents and infers the schema..."""
-        cols = self.recreated_db.collection_names()
+        cols = self.dataset_db.collection_names()
         LOG.info("Found %d collections. Processing...", len(cols))
         
         for col in cols:
@@ -230,15 +230,13 @@ class Reconstructor:
                 continue
             
             fields = {}
-            for doc in self.recreated_db[col].find():
+            for doc in self.dataset_db[col].find():
                 catalog.extractFields(doc, fields)
             
             c = Collection()
             c['name'] = col
-            
-            
             c['fields'] = fields
-            self.schema[col] = c
+            c.save()
         ## FOR
     ## DEF
     
@@ -248,7 +246,7 @@ class Reconstructor:
 
     def fixInvalidCollections(self):
         
-        for session in self.workload_col.find({"operations.collection": constants.INVALID_COLLECTION_MARKER}):
+        for session in self.metadata_db.Session.find({"operations.collection": constants.INVALID_COLLECTION_MARKER}):
             for op in session["operations"]:
                 dirty = False
                 if op["collection"] != constants.INVALID_COLLECTION_MARKER:
@@ -282,8 +280,7 @@ class Reconstructor:
                 ## IF
             ## FOR (operations)
             
-            if dirty:
-                self.workload_col.save(session)
+            if dirty: session.save()
         ## FOR (sessions)
         
     ## DEF

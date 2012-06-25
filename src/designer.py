@@ -123,7 +123,7 @@ class Designer():
            We can then perform whatever post-processing that we need on them"""
         processor = PostProcessor(self.metadata_db, self.dataset_db)
         page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
-        sample_rate = cparser.getint(config.SECT_DESIGNER, 'sample_rate')
+        sample_rate = self.cparser.getint(config.SECT_DESIGNER, 'sample_rate')
         processor.process(page_size)
 
     ## DEF

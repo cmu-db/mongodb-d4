@@ -243,7 +243,7 @@ class MySQLConvertor(AbstractConvertor):
                             session.save()
                             uid += 1
                         ## ENDIF
-                        session = metadata_db.Session()
+                        session = self.metadata_db.Session()
                         session['ip_client'] = sql2mongo.stripIPtoUnicode(row[1])
                         session['ip_server'] = hostIP
                         session['session_id'] = uid
