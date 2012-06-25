@@ -80,5 +80,11 @@ class Session(Document):
         #'operations.collection', 'operations.timestamp', 'operations.content',
         #'operations.type', 'opreations.size',
     ]
+    indexes = [
+        {
+            'fields': ['session_id'],
+            'unique': True,
+        },
+    ]
 
 ## CLASS

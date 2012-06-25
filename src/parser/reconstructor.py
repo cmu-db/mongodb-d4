@@ -198,11 +198,13 @@ class Reconstructor:
         
         # We have to skip aggregates since the response contains computed values
         if op["query_aggregate"]:
-            LOG.warn("Skipping operation #%d on '%s' because it is an aggregate function" % (op['query_id'], col))
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.warn("Skipping operation #%d on '%s' because it is an aggregate function" % (op['query_id'], col))
         
         # Skip anything that doesn't have a response
         elif 'resp_content' not in op:
-            LOG.warn("Skipping operation #%d on '%s' because it does not have a response" % (op['query_id'], col))
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.warn("Skipping operation #%d on '%s' because it does not have a response" % (op['query_id'], col))
         
         # The query is irrelevant, we simply add the content of the reply...
         elif len(op["resp_content"]) > 0:

@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = [ "constants", "config", ]
-
+from constants import *
+from config import *
 from utilmethods import *
 from histogram import Histogram
-
-del utilmethods

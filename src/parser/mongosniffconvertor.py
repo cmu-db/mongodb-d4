@@ -96,15 +96,15 @@ class MongoSniffConvertor(AbstractConvertor):
         
         # Stop on Error
         if self.stop_on_error:
-            LOG.warn("Will stop processing if invalid input is found")
+            LOG.info("Will stop processing if invalid input is found")
             p.stop_on_error = True
         # Processing Skip
         if self.mongo_skip:
-            LOG.warn("Will skip processing the first %d lines" % self.mongo_skip)
+            LOG.info("Will skip processing the first %d lines" % self.mongo_skip)
             p.op_skip =  self.mongo_skip
         # Processing Limit
         if self.mongo_limit:
-            LOG.warn("Will stop processing after %d operations are processed" % self.mongo_limit)
+            LOG.info("Will stop reading workload trace after %d operations are processed" % self.mongo_limit)
             p.op_limit =  self.mongo_limit
         
         # Clear our existing data
@@ -143,6 +143,9 @@ class MongoSniffConvertor(AbstractConvertor):
     ## WORKLOAD SESSIONIZATION
     ## ----------------------------------------------
     def sessionizeWorkload(self):
+        """
+
+        """
         LOG.info("Sessionizing sample workload")
         
         s = sessionizer.Sessionizer()
@@ -164,24 +167,28 @@ class MongoSniffConvertor(AbstractConvertor):
         s.calculateSessions()
         newTotal = 0
         newHistogram = Histogram()
-        for sess in self.workload_col.find():
+
+        # We have to do this because otherwise we will start to process
+        # the new sessions that we just inserted... I know...
+        for sess in [sess for sess in self.workload_col.find()]:
             newSessions = s.sessionize(sess, nextSessId)
             nextSessId += len(newSessions)
             
-            # XXX: Mark the original session as 'deletable'
+            # Mark the original session as deletable
             sess['deletable'] = True
             self.workload_col.save(sess)
             
             # And then add all of our new sessions
             # Count the number of operations so that can see the change
-            LOG.info("Split Session %d [%d ops] into %d separate sessions" % (sess['session_id'], len(sess['operations']), len(newSessions)))
+            LOG.debug("Split Session %d [%d ops] into %d separate sessions",
+                     sess['session_id'], len(sess['operations']), len(newSessions))
             totalOps = 0
             for newSess in newSessions:
                 self.workload_col.save(newSess)
                 newOpCtr = len(newSess['operations'])
                 totalOps += newOpCtr
                 newHistogram.put(newOpCtr)
-                LOG.info("Session %d -> %d Ops" % (newSess['session_id'], newOpCtr))
+                LOG.debug("Session %d -> %d Ops" % (newSess['session_id'], newOpCtr))
             # Make sure that all of our operations end up in a session
             assert len(sess['operations']) == totalOps, \
                 "Expected %d operations, but new sessions only had %d" % (len(sess['operations']), totalOps)
@@ -189,9 +196,10 @@ class MongoSniffConvertor(AbstractConvertor):
         ## FOR
         LOG.info("NEW  - Sessions: %d" % newHistogram.getSampleCount())
         LOG.info("NEW  - Avg Ops per Session: %.2f" % (newTotal / float(newHistogram.getSampleCount())))
-        LOG.info("NEW - Ops per Session\n%s" % newHistogram)
 
-        # TODO: Delete all of the old sessions that are marked deletable
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("NEW - Ops per Session\n%s" % newHistogram)
+
         self.workload_col.remove({"deletable": True})
 
         return

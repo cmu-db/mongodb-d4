@@ -71,10 +71,12 @@ if __name__ == '__main__':
                          help='Reset the internal catalog databases before processing. ' +
                               'Warning: This will delete all of the collections in the ' +
                               'metadata and workload databases. Use with caution.')
-    agroup.add_argument('--skip-load', action='store_true',
+    agroup.add_argument('--no-load', action='store_true',
                         help='Skip loading input files into system. ' +
                              'Use this option if schema statistics and the workload have ' +
                              'already been loaded into the catalog database.')
+    agroup.add_argument('--no-search', action='store_true',
+                        help='Do not perform a search for a database design.')
     agroup.add_argument('--stop-on-error', action='store_true',
                         help='Stop processing when an invalid record is encountered.')
 
@@ -154,13 +156,16 @@ if __name__ == '__main__':
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
     if args['reset']:
+        LOG.warn("Dropping collections from %s and %s databases" % (metadata_db.name, dataset_db.name))
         for col in metadata_db.collection_names():
             if col.startswith("system"): continue
-            LOG.warn("Dropping %s.%s" % (metadata_db.name, col))
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.warn("Dropping %s.%s" % (metadata_db.name, col))
             metadata_db.drop_collection(col)
         for col in dataset_db.collection_names():
             if col.startswith("system"): continue
-            LOG.warn("Dropping %s.%s" % (dataset_db.name, col))
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.warn("Dropping %s.%s" % (dataset_db.name, col))
             dataset_db.drop_collection(col)
     ## IF
 
@@ -170,7 +175,7 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     ## STEP 1: INPUT PROCESSING
     ## ----------------------------------------------
-    if not args['skip_load']:
+    if not args['no_load']:
         if not args['mysql']:
             # If the user passed in '-', then we'll read from stdin
             inputFile = args['mongo']
@@ -182,6 +187,10 @@ if __name__ == '__main__':
         else:
             designer.processMySQLInput()
     ## IF
+
+    if not args['no_search']:
+        LOG.warn("Not performing design search. Halting")
+        sys.exit(0)
 
     ## ----------------------------------------------
     ## STEP 2: INITIAL SOLUTION

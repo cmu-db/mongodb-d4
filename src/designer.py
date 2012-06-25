@@ -85,7 +85,7 @@ class Designer():
         # MySQL Trace
         convertor = sql2mongo.MySQLConvertor( \
             dbHost=self.cparser.get(config.SECT_MYSQL, 'host'), \
-            dbPort=self.cparser.getInt(config.SECT_MYSQL, 'port'), \
+            dbPort=self.cparser.getint(config.SECT_MYSQL, 'port'), \
             dbName=self.cparser.get(config.SECT_MYSQL, 'name'), \
             dbUser=self.cparser.get(config.SECT_MYSQL, 'user'), \
             dbPass=self.cparser.get(config.SECT_MYSQL, 'pass'))
@@ -109,7 +109,8 @@ class Designer():
         # Now at this point both the metadata and workload collections are populated
         # We can then perform whatever post-processing that we need on them
         processor = Processor(self.metadata_db, self.dataset_db)
-        processor.process()
+        page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
+        processor.process(page_size)
 
     ## DEF
 
