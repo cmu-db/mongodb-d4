@@ -24,7 +24,7 @@
 
 import logging
 
-import session
+from workload import Session
 from util import Histogram
 from util import mathutil
 

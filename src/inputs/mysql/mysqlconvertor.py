@@ -42,7 +42,7 @@ LOG = logging.getLogger(__name__)
 class MySQLConvertor(AbstractConvertor):
     
     def __init__(self, metadata_db, dataset_db, dbHost, dbPort, dbName, dbUser, dbPass):
-        AbstractConvertor.__init__(self, (metadata_db, dataset_db))
+        AbstractConvertor.__init__(self, metadata_db, dataset_db)
 
         self.dbHost = dbHost
         self.dbPort = dbPort

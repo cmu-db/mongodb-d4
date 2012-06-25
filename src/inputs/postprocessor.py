@@ -27,7 +27,7 @@ import random
 import logging
 
 import catalog
-from ophasher import *
+from workload import OpHasher
 from util import constants
 
 LOG = logging.getLogger(__name__)

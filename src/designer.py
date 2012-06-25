@@ -6,7 +6,7 @@ import logging
 # mongodb-d4
 import catalog
 from costmodel import costmodel
-from workload import PostProcessor
+from inputs import PostProcessor
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -61,10 +61,10 @@ class Designer():
     ## -------------------------------------------------------------------------
 
     def processMongoInput(self, fd):
-        from inputs.mongodb.mongosniffconvertor import MongoSniffConvertor
+        import inputs.mongodb
 
         # MongoDB Trace
-        convertor = MongoSniffConvertor( \
+        convertor = inputs.mongodb.MongoSniffConvertor( \
             self.metadata_db, \
             self.dataset_db, \
         )
