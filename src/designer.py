@@ -10,6 +10,7 @@ import sql2mongo
 from parser import MongoSniffConvertor
 from search import InitialDesigner
 from search import DesignCandidate
+from workload import Processor
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -107,7 +108,7 @@ class Designer():
     def __postProcessInput(self):
         # Now at this point both the metadata and workload collections are populated
         # We can then perform whatever post-processing that we need on them
-        processor = workload.Processor(self.metadata_db, self.dataset_db)
+        processor = Processor(self.metadata_db, self.dataset_db)
         processor.process()
 
     ## DEF
@@ -160,10 +161,8 @@ class Designer():
         workload = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
 
         # Instantiate cost model, determine upper bound from starting design
-        cm = costmodel.CostModel(collections, workload, cmParams)
+        cm = costmodel.CostModel(collections, workload, cmConfig)
         upper_bound = cm.overallCost(self.initialSolution)
-
-
     ## DEF
         
     def generateShardingCandidates(self, collection):
@@ -182,9 +181,9 @@ class Designer():
             for op in sess["operations"]:
                 for field in op["content"]:
                     if not field in op["content"]: op["content"] = { "reads": 0, "writes": 0}
-                    if op["type"] == "query":
+                    if op["type"] == constants.OP_TYPE_QUERY:
                         field_counters[field]["reads"] += 1
-                    elif op["type"] == "insert":
+                    elif op["type"] == constants.OP_TYPE_INSERT:
                         # TODO: Should we ignore _id?
                         field_counters[field]["writes"] += 1
                     else:

@@ -24,7 +24,8 @@
 
 import logging
 
-from util.histogram import Histogram
+import session
+from util import Histogram
 from util import mathutil
 
 LOG = logging.getLogger(__name__)
@@ -147,7 +148,7 @@ class Sessionizer:
         # to make sure the lastOp is given a home!
         for op in origSess["operations"] + [ None ]:
             if not sess:
-                sess = Session()
+                sess = session.Session()
                 sess["operations"] = [ ]
                 sess["ip_client"] = origSess["ip_client"]
                 sess["ip_server"] = origSess["ip_server"]
@@ -163,7 +164,5 @@ class Sessionizer:
         
         return newSessions
     ## FOR
-    
-    
-    
+
 ## CLASS

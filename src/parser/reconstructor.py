@@ -44,7 +44,7 @@ import workload
 from catalog import Collection
 from sanitizer import anonymize
 from workload import Session
-from util.histogram import Histogram
+from util import Histogram
 from util import constants
 
 LOG = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ class Reconstructor:
             self.schema_col.insert(c)
         ## FOR
         
-        LOG.info("Done.")
+        LOG.debug("Done.")
     ## DEF
     
     def getSessionCount(self):

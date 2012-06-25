@@ -42,9 +42,8 @@ import mongokit
 import catalog
 from designer import Designer
 import workload
-import costmodel
-
-from util import *
+from util import config
+from util import constants
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -165,7 +164,7 @@ if __name__ == '__main__':
         # If the user passed in '-', then we'll read from stdin
         inputFile = args['mongo']
         if not inputFile:
-            LOG.warn("A monognsiff trace file was not provided. Reading from standard input")
+            LOG.warn("A monognsiff trace file was not provided. Reading from standard input...")
             inputFile = "-"
         with open(inputFile, 'r') if inputFile != '-' else sys.stdin as fd:
             designer.processMongoInput(fd)

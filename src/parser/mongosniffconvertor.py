@@ -46,7 +46,7 @@ from workload import Session
 from workload import AbstractConvertor
 from workload import sessionizer
 from util import constants
-from util.histogram import Histogram
+from util import Histogram
 
 LOG = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ class MongoSniffConvertor(AbstractConvertor):
         if self.clean: p.clean()
         
         # Bombs away!
-        LOG.info("Processing mongosniff input")
+        LOG.info("Processing mongosniff trace input")
         p.process()
         LOG.info("Finishing processing")
         LOG.info("Added %d sessions with %d operations to '%s'" % (\
@@ -170,15 +170,14 @@ class MongoSniffConvertor(AbstractConvertor):
             
             # XXX: Mark the original session as 'deletable'
             sess['deletable'] = True
-            # sess.save()
+            self.workload_col.save(sess)
             
             # And then add all of our new sessions
-            LOG.info("Split Session %d [%d ops] into %d separate sessions" % (sess['session_id'], len(sess['operations']), len(newSessions)))
-            # self.workload_col.save(newSessions)
-            
             # Count the number of operations so that can see the change
+            LOG.debug("Split Session %d [%d ops] into %d separate sessions" % (sess['session_id'], len(sess['operations']), len(newSessions)))
             totalOps = 0
             for newSess in newSessions:
+                self.workload_col.save(newSess)
                 newOpCtr = len(newSess['operations'])
                 totalOps += newOpCtr
                 newHistogram.put(newOpCtr)
@@ -191,7 +190,10 @@ class MongoSniffConvertor(AbstractConvertor):
         LOG.info("NEW  - Sessions: %d" % newHistogram.getSampleCount())
         LOG.info("NEW  - Avg Ops per Session: %.2f" % (newTotal / float(newHistogram.getSampleCount())))
         LOG.info("NEW - Ops per Session\n%s" % newHistogram)
-          
+
+        # TODO: Delete all of the old sessions that are marked deletable
+        self.workload_col.remove({"deletable": True})
+
         return
     ## DEF
 ## CLASS
