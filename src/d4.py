@@ -46,40 +46,56 @@ import costmodel
 
 from util import *
 
+logging.basicConfig(level = logging.INFO,
+                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                    datefmt="%m-%d-%Y %H:%M:%S",
+                    stream = sys.stdout)
+
 LOG = logging.getLogger(__name__)
 
-   
-    
 ## ==============================================
 ## main
 ## ==============================================
 if __name__ == '__main__':
     aparser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-                                      description="%s\n%s" % (constants.PROJECT_NAME, constants.PROJECT_URL))
+                                      description="%s - Distributed Document Database Designer" % (constants.PROJECT_NAME))
                                       
     # Configuration File Options
     aparser.add_argument('--config', type=file,
                          help='Path to %s configuration file' % constants.PROJECT_NAME)
     aparser.add_argument('--print-config', action='store_true',
-                         help='Print out the default configuration file used by %s' % constants.PROJECT_NAME)
+                         help='Print out the default configuration file.')
+    aparser.add_argument('--reset', action='store_true',
+                         help='Reset the metadata and workload database before processing.')
 
-    # MongoSniff Input File
-    aparser.add_argument('--mongosniff', type=str, metavar='FILE',
-                         help="Path to the MongoSniff file with the sample workload. Use '-' if you would like to read from stdin")
+
+    # MongoDB Trace Processing Options
+    agroup = aparser.add_argument_group('MongoDB Processing')
+    agroup.add_argument('--mongo', type=str, metavar='FILE',
+                        help="Path to the MongoSniff file with the sample workload. Use '-' if you would like to read from stdin")
+    agroup.add_argument('--no-mongo-parse', action='store_true',
+                        help='Skip parsing and loading MongoDB workload from file.'),
+    agroup.add_argument('--no-mongo-reconstruct', action='store_true',
+                        help='Skip reconstructing the MongoDB database schema after loading.')
+    agroup.add_argument('--no-mongo-sessionizer', action='store_true',
+                        help='Skip splitting the MongoDB workload into separate sessions.')
+    agroup.add_argument('--mongo-skip', type=int, metavar='N', default=None,
+                         help='Skip the first N lines in the MongoSniff input file.')
+    agroup.add_argument('--mongo-limit', type=int, metavar='N', default=None,
+                         help='Limit the number of operations to process in the MongoSniff input file.')
 
     # MySQL Processing Options
-    aparser.add_argument('--mysql', action='store_true',
-                         help='Whether to process inputs from MySQL'),
-
-    # Designer Options
-    for key,desc,default in Designer.DEFAULT_CONFIG:
-        if type(default) == bool:
-            aparser.add_argument('--%s' % key, action='store_true', help=desc)
-    ## FOR
+    agroup = aparser.add_argument_group('MySQL Processing')
+    agroup.add_argument('--mysql', action='store_true',
+                         help='Whether to process inputs from MySQL. Use must also define ' +
+                              'the database connection parameters in the config file.'),
 
     # Debugging Options
-    aparser.add_argument('--debug', action='store_true',
-                         help='Enable debug log messages')
+    agroup = aparser.add_argument_group('Debugging Options')
+    agroup.add_argument('--stop-on-error', action='store_true',
+                         help='Stop processing when an invalid input trace is reached.')
+    agroup.add_argument('--debug', action='store_true',
+                         help='Enable debug log messages.')
     args = vars(aparser.parse_args())
 
     if args['debug']: LOG.setLevel(logging.DEBUG)
@@ -88,9 +104,9 @@ if __name__ == '__main__':
         sys.exit(0)
     
     if not args['config']:
-        logging.error("Missing configuration file")
+        LOG.error("Missing configuration file")
         print
-        aparser.print_help()
+        aparser.print_usage()
         sys.exit(1)
     LOG.debug("Loading configuration file '%s'" % args['config'])
     cparser = SafeConfigParser()
@@ -123,9 +139,22 @@ if __name__ == '__main__':
         if not db_name in db_names:
             raise Exception("The %s database '%s' does not exist" % (key.upper(), db_name))
     ## FOR
-    
+
+    ## ----------------------------------------------
+    ## MONGODB DATABASE RESET
+    ## ----------------------------------------------
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
+    if args['reset']:
+        for col in metadata_db.collection_names():
+            if col.startswith("system"): continue
+            LOG.warn("Dropping %s.%s" % (metadata_db.name, col))
+            metadata_db.drop_collection(col)
+        for col in dataset_db.collection_names():
+            if col.startswith("system"): continue
+            LOG.warn("Dropping %s.%s" % (dataset_db.name, col))
+            dataset_db.drop_collection(col)
+    ## IF
 
     designer = Designer(cparser, metadata_db, dataset_db)
     designer.setOptionsFromArguments(args)
@@ -149,40 +178,11 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     designer.generateInitialSolution()
 
-    
-    ## -------------------------------------------------
-    ## STEP 4
-    ## Instantiate cost model, determine upper bound from starting design
-    ## -------------------------------------------------
-
-    cm = costmodel.CostModel(wrkld, config_params, statistics)
-    upper_bound = cm.overallCost(starting_design)
-    
     ## ----------------------------------------------
     ## STEP 5
     ## Instantiate and populate the design candidates
     ## ----------------------------------------------
-    dc = designcandidate.DesignCandidate()
-    collections = metadata_db.Collection.find()
-    for col in collections :
-        # addCollection(self, collection, indexKeys, shardKeys, denorm)
-        
-        # deal with shards
-        shardKeys = statistics[col['name']]['interesting']
-        
-        # deal with indexes
-        indexKeys = [[]]
-        for o in range(1, len(statistics[col['name']]['interesting']) + 1) :
-            for i in itertools.combinations(statistics[col['name']]['interesting'], o) :
-                indexKeys.append(i)
-                    
-        # deal with de-normalization
-        denorm = []
-        for k,v in col['fields'].iteritems() :
-            if v['parent_col'] <> '' :
-                if v['parent_col'] not in denorm :
-                    denorm.append(v['parent_col'])
-        dc.addCollection(col['name'], indexKeys, shardKeys, denorm)
+
     
     ## ----------------------------------------------
     ## STEP 6

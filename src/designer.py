@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-#from workload import *
+import itertools
 import logging
 
 # mongodb-d4
 import catalog
 from costmodel import costmodel
 import sql2mongo
+from parser import MongoSniffConvertor
 from search import InitialDesigner
+from search import DesignCandidate
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -19,15 +21,6 @@ LOG = logging.getLogger(__name__)
 ## execute the design search
 ## ==============================================
 class Designer():
-    DEFAULT_CONFIG = [
-        # MongoDB Trace Processing Options
-        ('no-mongo-parse', 'Skip parsing and loading MongoDB workload from file.', False),
-        ('no-mongo-reconstruct', 'Skip reconstructing the MongoDB database schema after loading.', False),
-        ('no-mongo-sessionizer', 'Skip splitting the MongoDB workload into separate sessions.', False),
-
-        # General Options
-        ('stop-on-error', 'Stop processing when an invalid line is reached', False),
-    ]
 
     def __init__(self, cparser, metadata_db, dataset_db):
         # SafeConfigParser
@@ -56,8 +49,8 @@ class Designer():
     def setOptionsFromArguments(self, args):
         """Set the internal parameters of the Designer based on command-line arguments"""
         for key in args:
-            if key in self.__dict__:
-                self.__dict__[key] = args[key]
+            LOG.debug("%s => %s" % (key, args[key]))
+            self.__dict__[key] = args[key]
         ## FOR
     ## DEF
 
@@ -75,10 +68,15 @@ class Designer():
 
     def processMongoInput(self, fd):
         # MongoDB Trace
-        convertor = parser.MongoSniffConvertor( \
+        convertor = MongoSniffConvertor( \
             self.metadata_db, \
             self.dataset_db, \
         )
+        convertor.stop_on_error = self.stop_on_error
+        convertor.no_load = self.no_mongo_parse
+        convertor.no_reconstruct = self.no_mongo_reconstruct
+        convertor.no_sessionizer = self.no_mongo_sessionizer
+
         convertor.process(fd)
         self.__postProcessInput()
     ## DEF
@@ -122,6 +120,30 @@ class Designer():
     def generateInitialSolution(self):
         initialDesigner = search.InitialDesigner(self.metadata_db[constants.COLLECTION_SCHEMA].find())
         self.initialSolution = initialDesigner.generate()
+        return self.initialSolution
+    ## DEF
+
+    def generateDesignCandidate(self):
+        dc = search.DesignCandidate()
+
+        for col in self.metadata_db[constants.COLLECTION_SCHEMA].find():
+            # deal with shards
+            shardKeys = col['interesting']
+
+            # deal with indexes
+            indexKeys = [[]]
+            for o in xrange(1, len(col['interesting']) + 1) :
+                for i in itertools.combinations(col['interesting'], o) :
+                    indexKeys.append(i)
+
+            # deal with de-normalization
+            denorm = []
+            for k,v in col['fields'].iteritems() :
+                if v['parent_col'] <> '' and v['parent_col'] not in denorm :
+                    denorm.append(v['parent_col'])
+            dc.addCollection(col['name'], indexKeys, shardKeys, denorm)
+        ## FOR
+        return (dc)
     ## DEF
 
     def search(self):
@@ -137,8 +159,10 @@ class Designer():
 
         collections = self.metadata_db[constants.COLLECTION_SCHEMA].find()
         workload = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
-        cm = costmodel.CostModel(collections, workload, cmParams)
 
+        # Instantiate cost model, determine upper bound from starting design
+        cm = costmodel.CostModel(collections, workload, cmParams)
+        upper_bound = cm.overallCost(self.initialSolution)
 
 
     ## DEF

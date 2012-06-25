@@ -31,7 +31,6 @@ from pymongo import Connection
 sys.path.append("../workload")
 sys.path.append("../util")
 import parser
-from traces import *
 from util.histogram import Histogram
 
 logging.basicConfig(level = logging.INFO,

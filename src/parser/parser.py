@@ -41,7 +41,7 @@ sys.path.append(os.path.join(basedir, ".."))
 import util
 import workload
 from sanitizer import anonymize
-from traces import Session
+from workload import Session
 from util import constants
 
 LOG = logging.getLogger(__name__)
@@ -250,7 +250,8 @@ class Parser:
         try:
             self.currentOp['collection'].decode('ascii')
         except:
-            LOG.warn("Operation %(query_id)d has an invalid collection name '%(collection)s'. Will fix later... [opCtr=%(op_ctr)d / lineCtr=%(line_ctr)d]" % self.currentOp)
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.warn("Operation %(query_id)d has an invalid collection name '%(collection)s'. Will fix later... [opCtr=%(op_ctr)d / lineCtr=%(line_ctr)d]" % self.currentOp)
             self.currentOp['collection'] = constants.INVALID_COLLECTION_MARKER
             self.bustedOps.append(self.currentOp)
             pass
@@ -443,7 +444,8 @@ class Parser:
             col_name = self.currentOp['collection']
             prefix = col_name.split('.')[0]
             if prefix in constants.IGNORED_COLLECTIONS:
-                LOG.warn("Ignoring operation %(query_id)d on collection '%(collection)s' [opCtr=%(op_ctr)d / lineCtr=%(line_ctr)d]" % self.currentOp)
+                if LOG.isEnabledFor(logging.DEBUG):
+                    LOG.debug("Ignoring operation %(query_id)d on collection '%(collection)s' [opCtr=%(op_ctr)d / lineCtr=%(line_ctr)d]" % self.currentOp)
                 self.skip_to_next = True
                 self.currentOp = None
         ## IF

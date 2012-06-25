@@ -43,7 +43,7 @@ import parser
 import workload
 from catalog import Collection
 from sanitizer import anonymize
-from traces import Session
+from workload import Session
 from util.histogram import Histogram
 from util import constants
 

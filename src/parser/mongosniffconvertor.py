@@ -42,10 +42,10 @@ sys.path.append(os.path.join(basedir, ".."))
 import workload_info
 import parser
 import reconstructor
-from traces import *
+from workload import Session
 from workload import AbstractConvertor
 from workload import sessionizer
-from util import *
+from util import constants
 from util.histogram import Histogram
 
 LOG = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ LOG = logging.getLogger(__name__)
 class MongoSniffConvertor(AbstractConvertor):
     
     def __init__(self, metadata_db, dataset_db):
-        super(MongoSniffConvertor, self).__init__()
+        AbstractConvertor.__init__(self)
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
         
@@ -86,7 +86,7 @@ class MongoSniffConvertor(AbstractConvertor):
     ## ----------------------------------------------
     def parseWorkload(self, fd):
         # Create the Parser object that will go to town on our input file 
-        p = parser.Parser(workload_col, fd)
+        p = parser.Parser(self.workload_col, fd)
         
         # Stop on Error
         if self.stop_on_error:
@@ -109,7 +109,7 @@ class MongoSniffConvertor(AbstractConvertor):
         p.process()
         LOG.info("Finishing processing")
         LOG.info("Added %d sessions with %d operations to '%s'" % (\
-            p.getSessionCount(), p.getOpCount(), workload_col.full_name))
+            p.getSessionCount(), p.getOpCount(), self.workload_col.full_name))
         LOG.info("Skipped Responses: %d" % p.getOpSkipCount())
     ## IF
     
