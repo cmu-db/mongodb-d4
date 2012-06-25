@@ -117,7 +117,7 @@ class CostModel(object):
         working_set = self.estimateWorkingSets(design, self.max_memory - index_memory)
         
         # 3. Iterate over workload, foreach query:
-        for s in self.workload.sessions :
+        for s in self.workload:
             for q in s.queries :
                 # is the collection in the design - if not ignore
                 if design.hasCollection(q.collection) == False :
