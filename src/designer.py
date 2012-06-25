@@ -27,7 +27,6 @@ import logging
 # mongodb-d4
 import catalog
 from costmodel import costmodel
-from inputs import PostProcessor
 from util import *
 
 LOG = logging.getLogger(__name__)
