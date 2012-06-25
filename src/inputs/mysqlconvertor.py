@@ -29,7 +29,7 @@ import MySQLdb as mdb
 
 # mongodb-d4
 import catalog
-import sql2mongo
+from inputs.mysql import sql2mongo
 import workload
 from workload import AbstractConvertor
 from util import *

@@ -30,7 +30,6 @@ from pymongo import Connection
 # mongodb-d4
 sys.path.append("../workload")
 sys.path.append("../util")
-import parser
 from util import Histogram
 
 logging.basicConfig(level = logging.INFO,

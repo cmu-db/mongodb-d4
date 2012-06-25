@@ -24,25 +24,18 @@
 
 import os
 import sys
-import re
-import yaml
-import json
-import hashlib
 import logging
 from pprint import pformat
 
 # Third-Party Dependencies
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../libs"))
-import mongokit
 
 # mongodb-d4
 sys.path.append(os.path.join(basedir, ".."))
 import catalog
-import parser
 import workload
 from catalog import Collection
-from sanitizer import anonymize
 from workload import Session
 from util import Histogram
 from util import constants

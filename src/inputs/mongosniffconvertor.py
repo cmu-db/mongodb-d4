@@ -25,27 +25,21 @@ from __future__ import with_statement
 
 import os
 import sys
-import fileinput
-import time
 import logging
 from pprint import pformat
-from pymongo import Connection
 
 # Third-Party Dependencies
+from inputs.mongodb import parser, sessionizer
+
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../libs"))
-import argparse
-import mongokit
 
 # mongodb-d4
 sys.path.append(os.path.join(basedir, ".."))
 import workload_info
-import parser
 import reconstructor
 from workload import Session
 from workload import AbstractConvertor
-from workload import sessionizer
-from util import constants
 from util import Histogram
 
 LOG = logging.getLogger(__name__)

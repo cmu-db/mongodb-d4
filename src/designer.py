@@ -6,10 +6,8 @@ import logging
 # mongodb-d4
 import catalog
 from costmodel import costmodel
-from sql2mongo import MySQLConvertor
+from inputs.mysql import MySQLConvertor
 from parser import MongoSniffConvertor
-from search import InitialDesigner
-from search import DesignCandidate
 from workload import PostProcessor
 from util import *
 
@@ -102,6 +100,7 @@ class Designer():
            We can then perform whatever post-processing that we need on them"""
         processor = PostProcessor(self.metadata_db, self.dataset_db)
         page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
+        sample_rate = cparser.getint(config.SECT_DESIGNER, 'sample_rate')
         processor.process(page_size)
 
     ## DEF

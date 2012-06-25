@@ -55,8 +55,8 @@ class Session(Document):
                 # See workload/ophasher.py
                 'query_hash':   int,        
                 
-                # sql2mongo
-                'query_group':  int,        # sql2mongo split join
+                # mysql
+                'query_group':  int,        # mysql split join
                 
                 # query flags & props
                 # flags: 1==upsert:TRUE, multi:FALSE, 2==upsert:FALSE, multi:TRUE
