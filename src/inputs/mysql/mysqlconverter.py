@@ -30,8 +30,8 @@ import MySQLdb as mdb
 # mongodb-d4
 import catalog
 import workload
-from abstractconvertor import AbstractConverter
-from mysql import sql2mongo
+from abstractconverter import AbstractConverter
+import sql2mongo
 from util import *
 
 LOG = logging.getLogger(__name__)
