@@ -302,7 +302,7 @@ class Parser:
             op['query_time']        = self.currentOp['timestamp']
             op['query_size']        = self.currentOp['size']
             op['query_content']     = self.currentContent
-            op['query_id']          = self.currentOp['query_id']
+            op['query_id']          = long(self.currentOp['query_id'])
             op['query_aggregate']   = False # false -not aggregate- by default
 
             # UPDATE Flags
@@ -364,7 +364,7 @@ class Parser:
                 query_op['resp_content'] = self.currentContent
                 query_op['resp_size'] = self.currentOp['size']
                 query_op['resp_time'] = self.currentOp['timestamp']
-                query_op['resp_id'] = self.currentOp['query_id']
+                query_op['resp_id'] = long(self.currentOp['query_id'])
                 del self.query_response_map[reply_id]
             else:
                 self.skip_ctr += 1

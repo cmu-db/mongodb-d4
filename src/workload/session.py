@@ -43,7 +43,7 @@ class Session(Document):
                 'query_size':       int,
                 # Unique identifier of this query invocation
                 # query_id and resp_id are used to pair up queries & responses
-                'query_id':         int,
+                'query_id':         long,
 
                 # A hash code compute from this query's payload signature. Different
                 # invocations of queries that reference the same keys in this collection
@@ -73,7 +73,7 @@ class Session(Document):
                 # Response payload size [bytes]
                 'resp_size':        int,
                 # Unique identifier of the response packet
-                'resp_id':          int,
+                'resp_id':          long,
 
                 ## ----------------------------------------------
                 ## INTERNAL DATA
