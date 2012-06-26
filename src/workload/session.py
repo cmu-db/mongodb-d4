@@ -49,7 +49,7 @@ class Session(Document):
                 # invocations of queries that reference the same keys in this collection
                 # but have different input parameters will have the same hash
                 # See workload/ophasher.py
-                'query_hash':       int,
+                'query_hash':       long,
 
                 # mysql
                 'query_group':      int,        # mysql split join

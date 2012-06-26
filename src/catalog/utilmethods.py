@@ -33,10 +33,13 @@ def getEstimatedSize(typeName, value):
     # STR
     elif typeName in [types.StringType.__name__, types.UnicodeType.__name__]:
         return getStringSize(value)
-    
+    # NONE
+    elif not typeName or typeName == types.NoneType.__name__:
+        return (0)
+
     # Everything else
+    assert typeName in TYPES_XREF, "Unexpected type '%s'" % typeName
     realType = TYPES_XREF[typeName]
-    assert realType, "Unexpected type '%s'" % typeName
     return realType.__sizeof__(value)
 ## DEF
 

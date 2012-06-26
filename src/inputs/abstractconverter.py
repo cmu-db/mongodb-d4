@@ -114,12 +114,20 @@ class AbstractConverter():
 
     def addQueryHashes(self):
         total = self.metadata_db.Session.find().count()
-        LOG.info("Adding query hashes to sessions")
+        LOG.info("Adding query hashes to %d sessions" % total)
         for sess in self.metadata_db.Session.fetch():
-            for op in sess['operations'] :
-                op["query_hash"] = self.hasher.hash(op)
+            for op in sess['operations']:
+                # For some reason even though the hash is an int, it
+                # gets converted into a long when it shows up in MongoDB
+                # I don't know why and frankly, I don't really care
+                # So we'll just cast everything to a long and make sure that
+                # the Session schema expects it to be a long
+                op["query_hash"] = long(self.hasher.hash(op))
+                if self.debug:
+                    LOG.debug("  %d.%d -> Hash:%d", sess["session_id"], op["query_id"], op["query_hash"])
             sess.save()
-            ## FOR
+            if self.debug: LOG.debug("Updated Session #%d", sess["session_id"])
+        ## FOR
         if self.debug:
             LOG.debug("Query Class Histogram:\n%s" % self.hasher.histogram)
     ## DEF
@@ -195,7 +203,11 @@ class AbstractConverter():
                 sess['end_time'] = end_time
 
             if self.debug: LOG.debug("Updating Session #%d" % sess['session_id'])
-            sess.save()
+            try:
+                sess.save()
+            except:
+                LOG.error("Failed to update Session #%d", sess['session_id'])
+                raise
         ## FOR (sessions)
 
         # Save off all our skanky stink boxes right here...
@@ -271,7 +283,13 @@ class AbstractConverter():
             for doc in self.dataset_db[colName].find():
                 col_info['doc_count'] += 1
                 if random.randint(0, 100) <= sample_rate:
-                    self.processDataFields(col_info, col_info['fields'], doc)
+                    try:
+                        self.processDataFields(col_info, col_info['fields'], doc)
+                    except:
+                        msg = "Unexpected error when processing %s data fields" % colName
+                        msg += "\n" + pformat(doc)
+                        LOG.error(msg)
+                        raise
             ## FOR
 
             # Calculate average tuple size (if we have at least one)
@@ -348,7 +366,7 @@ class AbstractConverter():
                     # More nested documents...
                     if inner_type == dict:
                         if self.debug: LOG.debug("Extracting keys in nested field in list position %d for '%s'" % (i, k))
-                        self.processDataFields(doc[k][i], fields[k]['fields'], True)
+                        self.processDataFields(col_info, fields[k]['fields'], doc[k][i])
                     else:
                         # TODO: We probably should store a list of types here in case
                         #       the list has different types of values
@@ -381,7 +399,8 @@ class AbstractConverter():
                 else :
                     field['selectivity'] = field['cardinality'] / col_info['doc_count']
                 del field['distinct_values']
-            if field['fields']: self.calculateCardinalities(col_info, field['fields'])
+            if 'fields' in field and field['fields']:
+                self.calculateCardinalities(col_info, field['fields'])
         ## FOR
     ## DEF
 
