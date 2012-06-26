@@ -56,7 +56,7 @@ class TestAbstractConverter(unittest.TestCase):
             sess['end_time'] = time.time() + 5
             for j in xrange(0, NUM_OPS_PER_SESSION):
                 _id = str(random.random())
-                queryId = (i<<16) + j
+                queryId = long((i<<16) + j)
 
                 responseContent = {"_id": _id}
                 responseId = (queryId<<8)

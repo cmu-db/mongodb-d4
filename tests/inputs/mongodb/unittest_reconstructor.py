@@ -84,7 +84,7 @@ class TestReconstructor(unittest.TestCase):
             sess['end_time'] = time.time() + 5
             for j in xrange(0, NUM_OPS_PER_SESSION):
                 _id = str(random.random())
-                queryId = (i<<16) + j
+                queryId = long((i<<16) + j)
                 queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query":
                                  { "_id": [ _id ] } }
 

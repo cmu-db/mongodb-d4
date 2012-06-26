@@ -50,10 +50,6 @@ class MySQLConverter(AbstractConverter):
         self.dbUser = dbUser
         self.dbPass = dbPass
         self.mysql_conn = mdb.connect(host=dbHost, port=dbPort, db=dbName, user=dbUser, passwd=dbPass)
-        
-        self.collectionCatalogs = { }
-        self.collectionDatasets = { }
-        self.sessions = [ ]
     ## DEF
 
     def processImpl(self):
@@ -104,7 +100,7 @@ class MySQLConverter(AbstractConverter):
         quick_look = {}
         for row in c1:
             tbl_name = row[0]
-            coll_catalog = Collection()
+            coll_catalog = self.metadata_db.Collection()
             coll_catalog['name'] = unicode(tbl_name)
             coll_catalog['shard_keys'] = { }
             coll_catalog['fields'] = { }
@@ -122,15 +118,8 @@ class MySQLConverter(AbstractConverter):
                 col_name = col_row[0]
                 quick_look[coll_catalog['name']].append(col_name)
                 col_type = catalog.sqlTypeToPython(col_row[1])
-                coll_catalog["fields"][col_name] = {
-                    'type': catalog.fieldTypeToString(col_type),
-                    'query_use_count' : 0,
-                    'cardinality' : 0,
-                    'selectivity' : 0,
-                    'parent_col' : '',
-                    'parent_field' : '',
-                    'parent_conf' : 0.0
-                }
+                col_type_str = catalog.fieldTypeToString(col_type)
+                coll_catalog["fields"][col_name] = catalog.Collection.fieldFactory(col_name, col_type_str)
             ## FOR
             
             # Get the index information from MySQL for this table
@@ -145,9 +134,8 @@ class MySQLConverter(AbstractConverter):
                 coll_catalog['indexes'][ind_row[2]].append(ind_row[4])
             ## FOR
             coll_catalog.save()
-            self.collectionCatalogs[tbl_name] = coll_catalog
-            
-            coll_data = self.collectionDatasets.get(tbl_name, [])
+
+            coll_data = self.dataset_db[tbl_name]
             # FIXME? coll_data.remove()
             sql = 'SELECT * FROM ' + args['name'] + '.' + tbl_name
             c4 = self.mysql_conn.cursor()
