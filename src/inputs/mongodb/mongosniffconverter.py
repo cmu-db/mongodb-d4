@@ -64,7 +64,7 @@ class MongoSniffConverter(AbstractConverter):
         pass
     ## DEF
         
-    def processImpl(self):
+    def loadImpl(self):
         if not self.no_mongo_parse:
             self.parseWorkload(self.fd)
             

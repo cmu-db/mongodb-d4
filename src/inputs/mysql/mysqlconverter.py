@@ -52,7 +52,7 @@ class MySQLConverter(AbstractConverter):
         self.mysql_conn = mdb.connect(host=dbHost, port=dbPort, db=dbName, user=dbUser, passwd=dbPass)
     ## DEF
 
-    def processImpl(self):
+    def loadImpl(self):
         ## ----------------------------------------------
         ## Step 1:
         ## Determine tables/columns/indexes of MySQL schema

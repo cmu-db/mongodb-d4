@@ -49,9 +49,9 @@ class OpHasher:
         if op["type"] == constants.OP_TYPE_QUERY:
             # The query field has our where clause
             if not "#query" in op["query_content"][0]:
-                print pformat(op)
-                sys.exit(1)
-            
+                msg = "Missing query field in query_content for operation #%d" % op["query_id"]
+                raise Exception(msg)
+
             fields = op["query_content"][0][constants.REPLACE_KEY_DOLLAR_PREFIX + "query"]
 
         # UPDATE

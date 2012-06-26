@@ -27,6 +27,7 @@ import logging
 # mongodb-d4
 import catalog
 from costmodel import costmodel
+from search import InitialDesigner
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ class Designer():
     ## INPUT PROCESSING
     ## -------------------------------------------------------------------------
 
-    def processMongoInput(self, fd):
+    def processMongoInput(self, fd, no_load=False, no_post_process=False):
         import inputs.mongodb
 
         # MongoDB Trace
@@ -99,10 +100,14 @@ class Designer():
         convertor.mongo_skip = self.mongo_skip
         convertor.mongo_limit = self.mongo_limit
 
-        convertor.process(self.page_size)
+        convertor.process(\
+            no_load=no_load,\
+            no_post_process=no_post_process,\
+            page_size=self.page_size,\
+        )
     ## DEF
 
-    def processMySQLInput(self):
+    def processMySQLInput(self, no_load=False, no_post_process=False):
         from inputs.mysql import MySQLConverter
 
         # MySQL Trace
@@ -116,7 +121,11 @@ class Designer():
             dbPass=self.cparser.get(config.SECT_MYSQL, 'pass'))
 
         # Process the inputs and then save the results in mongodb
-        convertor.process(self.page_size)
+        convertor.process( \
+            no_load=no_load, \
+            no_post_process=no_post_process, \
+            page_size=self.page_size, \
+        )
     ## DEF
 
     ## -------------------------------------------------------------------------
@@ -124,7 +133,7 @@ class Designer():
     ## -------------------------------------------------------------------------
 
     def generateInitialSolution(self):
-        initialDesigner = search.InitialDesigner(self.metadata_db[constants.COLLECTION_SCHEMA].find())
+        initialDesigner = InitialDesigner(self.metadata_db[constants.COLLECTION_SCHEMA].find())
         self.initialSolution = initialDesigner.generate()
         return self.initialSolution
     ## DEF

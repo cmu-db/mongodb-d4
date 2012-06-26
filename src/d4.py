@@ -75,6 +75,9 @@ if __name__ == '__main__':
                         help='Skip loading input files into system. ' +
                              'Use this option if schema statistics and the workload have ' +
                              'already been loaded into the catalog database.')
+    agroup.add_argument('--no-post-process', action='store_true',
+                        help='Skip post-processing the workload trace after loading it into ' +
+                             'the internal catalog database.')
     agroup.add_argument('--no-search', action='store_true',
                         help='Do not perform a search for a database design.')
     agroup.add_argument('--stop-on-error', action='store_true',
@@ -175,17 +178,28 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     ## STEP 1: INPUT PROCESSING
     ## ----------------------------------------------
-    if not args['no_load']:
+    if not args['no_load'] or not args['no_post_process']:
         if not args['mysql']:
             # If the user passed in '-', then we'll read from stdin
             inputFile = args['mongo']
             if not inputFile:
-                LOG.warn("A mongonsiff trace file was not provided. Reading from standard input...")
+                if not args['no_load']:
+                    LOG.warn("A mongonsiff trace file was not provided. Reading from standard input...")
                 inputFile = "-"
             with open(inputFile, 'r') if inputFile != '-' else sys.stdin as fd:
-                designer.processMongoInput(fd)
+                designer.processMongoInput(\
+                    fd, \
+                    no_load=args['no_load'], \
+                    no_post_process=args['no_post_process'], \
+                )
+            ## WITH
         else:
-            designer.processMySQLInput()
+            designer.processMySQLInput(\
+                no_load=args['no_load'],\
+                no_post_process=args['no_post_process'], \
+            )
+    else:
+        LOG.warn("Skipping workload trace loading and processing...")
     ## IF
 
     if not args['no_search']:

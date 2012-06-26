@@ -44,6 +44,7 @@ class Collection(Document):
         'shard_keys':           { },
         'indexes':              [ ],
         'doc_count':            0,
+        'avg_doc_size':         0,
         'max_pages':            0,
         'workload_queries':     0,
         'workload_percent':     0.0,

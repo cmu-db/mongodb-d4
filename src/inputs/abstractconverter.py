@@ -65,10 +65,6 @@ class AbstractConverter():
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
         
-    def processImpl(self):
-        raise NotImplementedError("Unimplemented %s.process()" % (self.__init__.im_class))
-    ## DEF
-
     def reset(self):
         # FIXME: This should be done with a single update query
             for col in self.metadata_db.Collection.find():
@@ -79,9 +75,13 @@ class AbstractConverter():
                 col.save()
         ## DEF
 
-    def process(self, page_size=4):
-        self.processImpl()
-        self.postProcess(page_size)
+    def process(self, no_load=False, no_post_process=False, page_size=4):
+        if not no_load: self.loadImpl()
+        if not no_post_process: self.postProcess(page_size)
+    ## DEF
+
+    def loadImpl(self):
+        raise NotImplementedError("Unimplemented %s.loadImpl()" % (self.__init__.im_class))
     ## DEF
 
     def postProcess(self, page_size=4):
@@ -113,13 +113,12 @@ class AbstractConverter():
     ## DEF
 
     def addQueryHashes(self):
-        sessions = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
-        if self.limit: sessions.limit(self.limit)
-
-        for sess in sessions:
+        total = self.metadata_db.Session.find().count()
+        LOG.info("Adding query hashes to sessions")
+        for sess in self.metadata_db.Session.fetch():
             for op in sess['operations'] :
                 op["query_hash"] = self.hasher.hash(op)
-            self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
+            sess.save()
             ## FOR
         if self.debug:
             LOG.debug("Query Class Histogram:\n%s" % self.hasher.histogram)
@@ -127,9 +126,12 @@ class AbstractConverter():
 
     def computeWorkloadStats(self):
         """Process Workload Trace"""
+        LOG.info("Computing database statistics from workload trace")
 
+        # We'll maintain a local cache of Collection objects so that
+        # we only have to look-up/create each one once, and then we can
+        # save them all together at the end
         collectionCache = { }
-
         for sess in self.metadata_db.Session.fetch():
             start_time = None
             end_time = None
