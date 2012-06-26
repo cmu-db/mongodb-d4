@@ -27,7 +27,7 @@ import logging
 # mongodb-d4
 import catalog
 from costmodel import costmodel
-from search import InitialDesigner
+from search import InitialDesigner, DesignCandidate, bbsearch
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -132,16 +132,43 @@ class Designer():
     ## DESIGNER EXECUTION
     ## -------------------------------------------------------------------------
 
-    def generateInitialSolution(self):
-        initialDesigner = InitialDesigner(self.metadata_db[constants.COLLECTION_SCHEMA].find())
-        self.initialSolution = initialDesigner.generate()
-        return self.initialSolution
+    def search(self):
+        """Perform the actual search for a design"""
+        cmConfig = {
+            'weight_network': self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_network'),
+            'weight_disk':    self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_disk'),
+            'weight_skew':    self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_skew'),
+            'nodes':          self.cparser.getint(config.SECT_CLUSTER, 'nodes'),
+            'max_memory':     self.cparser.getint(config.SECT_CLUSTER, 'node_memory'),
+            'skew_intervals': self.cparser.getint(config.SECT_COSTMODEL, 'time_intervals'),
+            'address_size':   self.cparser.getint(config.SECT_COSTMODEL, 'address_size')
+        }
+
+        collections = self.metadata_db.Collection.fetch()
+        workload = self.metadata_db.Session.fetch()
+
+        # Instantiate cost model
+        cm = costmodel.CostModel(collections, workload, cmConfig)
+
+        # Compute initial solution and calculate its cost
+        # This will be the upper bound from starting design
+        initialSolution = InitialDesigner(collections).generate()
+        upper_bound = cm.overallCost(initialSolution)
+        LOG.info("Computed initial design [COST=%f]\n%s", upper_bound, initialSolution)
+
+        # Now generate the design candidates
+        # These are the different options that we are going to explore
+        # in the branch-and-bound search
+        dc = self.generateDesignCandidate()
+        bb = bbsearch.BBSearch(dc, cm, initialSolution, upper_bound, 10)
+        solution = bb.solve()
+        return solution
     ## DEF
 
     def generateDesignCandidate(self):
-        dc = search.DesignCandidate()
+        dc = DesignCandidate()
 
-        for col in self.metadata_db[constants.COLLECTION_SCHEMA].find():
+        for col in self.metadata_db.Collection.fetch():
             # deal with shards
             shardKeys = col['interesting']
 
@@ -158,29 +185,9 @@ class Designer():
                     denorm.append(v['parent_col'])
             dc.addCollection(col['name'], indexKeys, shardKeys, denorm)
         ## FOR
-        return (dc)
+        return dc
     ## DEF
 
-    def search(self):
-        """Perform the actual search for a design"""
-        cmConfig = {
-            'weight_network': self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_network'),
-            'weight_disk':    self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_disk'),
-            'weight_skew':    self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_skew'),
-            'nodes':          self.cparser.getint(config.SECT_CLUSTER, 'nodes'),
-            'max_memory':     self.cparser.getint(config.SECT_CLUSTER, 'node_memory'),
-            'skew_intervals': self.cparser.getint(config.SECT_COSTMODEL, 'time_intervals'),
-            'address_size':   self.cparser.getint(config.SECT_COSTMODEL, 'address_size')
-        }
-
-        collections = self.metadata_db[constants.COLLECTION_SCHEMA].find()
-        workload = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
-
-        # Instantiate cost model, determine upper bound from starting design
-        cm = costmodel.CostModel(collections, workload, cmConfig)
-        upper_bound = cm.overallCost(self.initialSolution)
-    ## DEF
-        
     def generateShardingCandidates(self, collection):
         """Generate the list of sharding candidates for the given collection"""
         assert type(collection) == catalog.Collection

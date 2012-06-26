@@ -22,7 +22,10 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
+import logging
 import design
+
+LOG = logging.getLogger(__name__)
 
 ## ==============================================
 ## InitialDesigner
@@ -34,6 +37,8 @@ class InitialDesigner():
     ## DEF
     
     def generate(self):
+        LOG.info("Computing initial design")
+
         # XXX: Why is this suppose to be?
         params = {
             'query_use_count' : 1.0,
@@ -41,25 +46,29 @@ class InitialDesigner():
 
         starting_design = design.Design()
         results = {}
-        for col in self.collections :
-            starting_design.addCollection(col['name'])
-            results[col['name']] = {}
+        for col_info in self.collections :
+            starting_design.addCollection(col_info['name'])
+            results = {}
             col_fields = []
-            for field, data in col['fields'].iteritems() :
+            for field, data in col_info['fields'].iteritems() :
                 col_fields.append(field)
-                results[col['name']][field] = self.calc_stats(params, col['fields'][field])
+                results[field] = self.calc_stats(params, col_info['fields'][field])
+
+            # Figure out which attribute has the highest value for
+            # the params that we care about when choosing the best design
             attr = None
             value = 0
-            for field, data in results[col['name']].iteritems() :
+            for field, data in results.iteritems() :
                 if data >= value:
                     value = data
                     attr = field
-            starting_design.addShardKey(col['name'], [attr])
-            starting_design.addIndex(col['name'], [attr])
+            starting_design.addShardKey(col_info['name'], [attr])
+            starting_design.addIndex(col_info['name'], [attr])
             
-        return (starting_design)
+        return starting_design
+    ## DEF
     
-    def calc_stats(params, stats):
+    def calc_stats(self, params, stats):
         output = 0.0
         for k,v in params.iteritems():
             output += v * stats[k]

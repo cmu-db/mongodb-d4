@@ -29,7 +29,6 @@ import os
 import sys
 import argparse
 import logging
-import itertools
 import json
 from ConfigParser import SafeConfigParser
 
@@ -40,8 +39,9 @@ import mongokit
 
 # mongodb-d4
 import catalog
-from designer import Designer
 import workload
+from designer import Designer
+from search import bbsearch
 from util import config
 from util import constants
 
@@ -202,28 +202,16 @@ if __name__ == '__main__':
         LOG.warn("Skipping workload trace loading and processing...")
     ## IF
 
-    if not args['no_search']:
+    if args['no_search']:
         LOG.warn("Not performing design search. Halting")
         sys.exit(0)
 
     ## ----------------------------------------------
-    ## STEP 2: INITIAL SOLUTION
-    ## ----------------------------------------------
-    designer.generateInitialSolution()
-
-    ## ----------------------------------------------
-    ## STEP 5
-    ## Instantiate and populate the design candidates
-    ## ----------------------------------------------
-
-    
-    ## ----------------------------------------------
     ## STEP 6
     ## Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
-    bb = bbsearch.BBSearch(dc, cm, starting_design, upper_bound, 10)
-    solution = bb.solve()
+    designer.search()
     
-    solutions['final'] = solution.toDICT()
-    print json.dumps(solutions, sort_keys=False, indent=4)
+    # solutions['final'] = solution.toDICT()
+    # print json.dumps(solutions, sort_keys=False, indent=4)
 ## MAIN
