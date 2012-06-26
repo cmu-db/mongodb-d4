@@ -81,29 +81,35 @@ class AbstractConverter():
 
     def process(self, page_size=4):
         self.processImpl()
+        self.postProcess(page_size)
+    ## DEF
 
-        # The PostProcessor performs final calculations on an already loaded metadata
-        # and workload database. These calculations can be computed regardless of whether
-        # the catalog information came from MongoSniff or MySQL.
-        # This should only be invoked once after do the initial loading.
+    def postProcess(self, page_size=4):
+        """
+            The PostProcessor performs final calculations on an already loaded metadata
+            and workload database. These calculations can be computed regardless of whether
+            the catalog information came from MongoSniff or MySQL.
+            This should only be invoked once after do the initial loading.
+        """
 
         # STEP 1: Add query hashes
         self.addQueryHashes()
 
-        # STEP 3: Process workload
+        # STEP 2: Process workload
         self.computeWorkloadStats()
 
-        # STEP 4: Process dataset
+        # STEP 3: Process dataset
         self.extractSchemaCatalog()
 
         # Finalize workload percentage statistics for each collection
         page_size *= 1024
-        for col in self.metadata_db.Collection.find():
-            col['workload_percent'] = col['workload_queries'] / float(self.total_queries)
-            col['max_pages'] = col['doc_count'] * col['avg_doc_size'] / page_size
+        for col_info in self.metadata_db.Collection.find():
+            col_info['workload_percent'] = col_info['workload_queries'] / float(self.total_queries)
+            col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / page_size
+            col_info.save()
         ## FOR
-
     ## DEF
+
 
     def addQueryHashes(self):
         sessions = self.metadata_db[constants.COLLECTION_WORKLOAD].find()
@@ -120,6 +126,8 @@ class AbstractConverter():
 
     def computeWorkloadStats(self):
         """Process Workload Trace"""
+
+        collectionCache = { }
 
         for sess in self.metadata_db.Session.fetch():
             start_time = None
@@ -138,10 +146,14 @@ class AbstractConverter():
 
                 # Get the collection information object
                 # We will use this to store the number times each key is referenced in a query
-                col_info = self.metadata_db.Collection.one({'name': op['collection']})
-                if not col_info:
-                    col_info = self.metadata_db.Collection()
-                    col_info['name'] = op['collection']
+                if not op['collection'] in collectionCache:
+                    col_info = self.metadata_db.Collection.one({'name': op['collection']})
+                    if not col_info:
+                        col_info = self.metadata_db.Collection()
+                        col_info['name'] = op['collection']
+                    collectionCache[op['collection']] = col_info
+
+                col_info = collectionCache[op['collection']]
                 col_info['workload_queries'] += 1
 
                 if not 'predicates' in op or not op['predicates']:
@@ -152,30 +164,27 @@ class AbstractConverter():
                     if op['type'] == constants.OP_TYPE_QUERY:
                         for content in op['query_content'] :
                             if '#query' in content and content['#query'] is not None:
-                                self.processOpFields(col_info, op, content['#query'])
+                                self.processOpFields(col_info['fields'], op, content['#query'])
 
                     # DELETE
                     elif op['type'] == constants.OP_TYPE_DELETE:
                         for content in op['query_content']:
-                            self.processOpFields(col_info, op, content)
+                            self.processOpFields(col_info['fields'], op, content)
 
                     # INSERT
                     elif op['type'] == constants.OP_TYPE_INSERT:
                         for content in op['query_content']:
                             for k,v in content.iteritems():
-                                self.processOpFields(col_info, op, content)
+                                self.processOpFields(col_info['fields'], op, content)
 
                     # UPDATE
                     elif op['type'] == constants.OP_TYPE_UPDATE:
                         for content in op['query_content']:
-                            self.processOpFields(col_info, op, content)
+                            self.processOpFields(col_info['fields'], op, content)
                 except:
                     LOG.error("Unexpected error for operation #%d in Session #%d\n%s", \
                               op['query_id'], sess['session_id'], pformat(op))
                     raise
-
-                # Save off this skanky stink box right here...
-                col_info.save()
             ## FOR (operations)
 
             if start_time and end_time:
@@ -185,9 +194,15 @@ class AbstractConverter():
             if self.debug: LOG.debug("Updating Session #%d" % sess['session_id'])
             sess.save()
         ## FOR (sessions)
+
+        # Save off all our skanky stink boxes right here...
+        for col_info in collectionCache.itervalues():
+            col_info.save()
+
     ## DEF
 
-    def processOpFields(self, col_info, op, content):
+    def processOpFields(self, fields, op, content):
+        if self.debug: LOG.debug("Processing operation fields\n%s", pformat(content))
         for k,v in content.iteritems():
             # Skip anything that starts with our special char
             # Those are flag markers used by MongoDB's queries
@@ -197,12 +212,10 @@ class AbstractConverter():
             # We need to add the field to the collection if it doesn't
             # already exist. This will occur if this op was an aggregate,
             # which we ignore when recreating the schema
-            if not k in col_info['fields']:
-                fieldType = catalog.fieldTypeToString(type(v))
-                col_info['fields'][k] = catalog.Collection.fieldFactory(k, fieldType)
-
-            f = col_info['fields'][k]
-            f['query_use_count'] += 1
+            f_type = type(v)
+            if not k in fields:
+                fields[k] = catalog.Collection.fieldFactory(k, catalog.fieldTypeToString(f_type))
+            fields[k]['query_use_count'] += 1
 
             # No predicate for insert operations
             # No projections for insert operations
@@ -213,6 +226,10 @@ class AbstractConverter():
                     op['predicates'][k] = constants.PRED_TYPE_RANGE
                 else:
                     op['predicates'][k] = constants.PRED_TYPE_EQUALITY
+
+            ## TODO: Should we expect there to be field names with dot notation here?
+            ##       Or should have all been cleaned out by the converters?
+
         ## FOR
 
         return
@@ -226,16 +243,12 @@ class AbstractConverter():
         """
             Iterates through all documents and infers the schema.
             This only needs to extract the schema skeleton. The
-            post-processing stuff in the AbstractConvertor will populate
+            post-processing stuff in the AbstractConverter will populate
             the statistics information for each collection
         """
+
         cols = self.dataset_db.collection_names()
-        LOG.info("Found %d collections. Processing...", len(cols))
-
-        self.tuple_sizes = {}
-        self.distinct_values = {}
-        self.first = {}
-
+        LOG.info("Extracting schema catalog from %d collections.", len(cols))
         for colName in cols:
             # Skip ignored collections
             if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
@@ -248,24 +261,14 @@ class AbstractConverter():
                 col_info = self.metadata_db.Collection()
                 col_info['name'] = colName
 
-            # Initialize Distinct Values
-            if not colName in distinct_values:
-                self.distinct_values[colName] = {}
-                self.first[colName] = {}
-                for k, v in col_info['fields'].iteritems() :
-                    self.distinct_values[colName][k] = {}
-                    self.first[colName][k] = True
-                ## FOR
-            ## IF
-
             col_info['doc_count'] = 0
-            self.tuple_sizes[colName] = 0
+            col_info['data_size'] = 0l
 
             # Examine each document in the dataset for this collection
             for doc in self.dataset_db[colName].find():
                 col_info['doc_count'] += 1
                 if random.randint(0, 100) <= sample_rate:
-                    self.extractFields(col_info, col_info['fields'], doc)
+                    self.processDataFields(col_info, col_info['fields'], doc)
             ## FOR
 
             # Calculate average tuple size (if we have at least one)
@@ -283,20 +286,7 @@ class AbstractConverter():
         ## FOR
     ## DEF
 
-    def calculateCardinalities(self, col_info, fields):
-        for k,field in fields.iteritems():
-            if 'distinct_values' in field:
-                field['cardinality'] = len(field['distinct_values'])
-                if not col_info['doc_count']:
-                    field['selectivity'] = 0
-                else :
-                    field['selectivity'] = field['cardinality'] / col_info['doc_count']
-                del field['distinct_values']
-            if field['fields']: self.calculateCardinalities(col_info, field['fields'])
-        ## FOR
-    ## DEF
-
-    def extractFields(self, col_info, fields, doc):
+    def processDataFields(self, col_info, fields, doc):
         """
             Recursively traverse a single document and extract out the field information
         """
@@ -315,16 +305,16 @@ class AbstractConverter():
                 if self.debug: LOG.debug("Creating new field entry for '%s'" % k)
                 fields[k] = catalog.Collection.fieldFactory(k, f_type_str)
             else:
-                pass
+                fields[k]['type'] = f_type_str
                 # Sanity check
                 # This won't work if the data is not uniform
                 #if v != None:
                 #assert fields[k]['type'] == f_type_str, \
                 #"Mismatched field types '%s' <> '%s' for '%s'" % (fields[k]['type'], f_type_str, k)
 
-            # XXX: We will store the distinct values in a temporarily
-            #      set embedded in the field. We will have to delete it
-            #      when we calculate the cardinalities
+            # NOTE: We will store the distinct values for each field in a set
+            #       that is embedded in the field. We will delete it when
+            #       we call calculateCardinalities()
             if not 'distinct_values' in fields[k]:
                 fields[k]['distinct_values'] = set()
 
@@ -334,10 +324,10 @@ class AbstractConverter():
             ## ----------------------------------------------
             ## NESTED FIELDS
             ## ----------------------------------------------
-            if f_type is dict:
-                if self.debug: LOG.debug("Extracting keys in nested field for '%s'" % (k))
+            if f_type == dict:
+                if self.debug: LOG.debug("Extracting keys in nested field for '%s'" % k)
                 if not 'fields' in fields[k]: fields[k]['fields'] = { }
-                self.extractFields(col_info, fields[k]['fields'], doc[k])
+                self.processDataFields(col_info, fields[k]['fields'], doc[k])
 
             ## ----------------------------------------------
             ## LIST OF VALUES
@@ -346,22 +336,23 @@ class AbstractConverter():
             ## If it's a list, then we'll use a special marker 'LIST_INNER_FIELD' to
             ## store the field information for the inner values.
             ## ----------------------------------------------
-            elif f_type is list:
+            elif f_type == list:
+                if self.debug: LOG.debug("Extracting keys in nested list for '%s'" % k)
                 if not 'fields' in fields[k]: fields[k]['fields'] = { }
 
                 for i in xrange(0, len(doc[k])):
                     inner_type = type(doc[k][i])
                     # More nested documents...
-                    if inner_type is dict:
-                        if debug: LOG.debug("Extracting keys in nested field in list position %d for '%s'" % (i, k))
-                        self.extractFields(doc[k][i], fields[k]['fields'], True)
+                    if inner_type == dict:
+                        if self.debug: LOG.debug("Extracting keys in nested field in list position %d for '%s'" % (i, k))
+                        self.processDataFields(doc[k][i], fields[k]['fields'], True)
                     else:
                         # TODO: We probably should store a list of types here in case
                         #       the list has different types of values
                         inner = fields[k]['fields'].get(constants.LIST_INNER_FIELD, {})
                         inner['type'] = catalog.fieldTypeToString(inner_type)
                         fields[k]['fields'][constants.LIST_INNER_FIELD] = inner
-                        fields[k]['distinct_values'].add(inner)
+                        fields[k]['distinct_values'].add(doc[k][i])
                 ## FOR (list)
             ## ----------------------------------------------
             ## SCALAR VALUES
@@ -370,6 +361,24 @@ class AbstractConverter():
                 size = catalog.getEstimatedSize(fields[k]['type'], v)
                 col_info['data_size'] += size
                 fields[k]['distinct_values'].add(v)
+        ## FOR
+    ## DEF
+
+
+    def calculateCardinalities(self, col_info, fields):
+        """
+            Recursively calculate the cardinality of each field.
+            This should only be invoked after processDataFields() has been called
+        """
+        for k,field in fields.iteritems():
+            if 'distinct_values' in field:
+                field['cardinality'] = len(field['distinct_values'])
+                if not col_info['doc_count']:
+                    field['selectivity'] = 0
+                else :
+                    field['selectivity'] = field['cardinality'] / col_info['doc_count']
+                del field['distinct_values']
+            if field['fields']: self.calculateCardinalities(col_info, field['fields'])
         ## FOR
     ## DEF
 

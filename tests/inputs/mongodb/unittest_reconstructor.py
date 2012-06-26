@@ -115,12 +115,12 @@ class TestReconstructor(unittest.TestCase):
         self.reconstructor = Reconstructor(self.metadata_db, self.dataset_db)
     ## DEF
 
-    def testReconstructDatabase(self):
+    def testProcess(self):
         """
             Check whether the reconstructed database includes the fields
             that were returned in the query responses
         """
-        self.reconstructor.reconstructDatabase()
+        self.reconstructor.process()
 
         fields = [ "field%02d" % f for f in xrange(0, NUM_FIELDS) ]
         num_docs = 0
