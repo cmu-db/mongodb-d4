@@ -144,15 +144,15 @@ class Designer():
             'address_size':   self.cparser.getint(config.SECT_COSTMODEL, 'address_size')
         }
 
-        collections = self.metadata_db.Collection.fetch()
+        collectionsDict = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
         workload = self.metadata_db.Session.fetch()
 
         # Instantiate cost model
-        cm = costmodel.CostModel(collections, workload, cmConfig)
+        cm = costmodel.CostModel(collectionsDict, workload, cmConfig)
 
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
-        initialSolution = InitialDesigner(collections).generate()
+        initialSolution = InitialDesigner(collectionsDict.values()).generate()
         upper_bound = cm.overallCost(initialSolution)
         LOG.info("Computed initial design [COST=%f]\n%s", upper_bound, initialSolution)
 
@@ -167,23 +167,22 @@ class Designer():
 
     def generateDesignCandidate(self):
         dc = DesignCandidate()
-
-        for col in self.metadata_db.Collection.fetch():
+        for col_info in self.metadata_db.Collection.fetch():
             # deal with shards
-            shardKeys = col['interesting']
+            shardKeys = col_info['interesting']
 
             # deal with indexes
             indexKeys = [[]]
-            for o in xrange(1, len(col['interesting']) + 1) :
-                for i in itertools.combinations(col['interesting'], o) :
+            for o in xrange(1, len(col_info['interesting']) + 1) :
+                for i in itertools.combinations(col_info['interesting'], o) :
                     indexKeys.append(i)
 
             # deal with de-normalization
             denorm = []
-            for k,v in col['fields'].iteritems() :
+            for k,v in col_info['fields'].iteritems() :
                 if v['parent_col'] <> '' and v['parent_col'] not in denorm :
                     denorm.append(v['parent_col'])
-            dc.addCollection(col['name'], indexKeys, shardKeys, denorm)
+            dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
         ## FOR
         return dc
     ## DEF

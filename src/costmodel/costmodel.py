@@ -38,7 +38,8 @@ Cost Model uses Network Cost, Disk Cost, and Skew Cost functions (in addition to
 configurable coefficients) to determine the overall cost for a given design/workload
 combination
 
-workload : Workload abstraction class
+collections : CollectionName -> Collection
+workload : List of Sessions
 
 config {
     'weight_network' : Network cost coefficient,
@@ -49,56 +50,40 @@ config {
     'address_size' : Amount of memory required to index 1 document,
     'skew_intervals' : Number of intervals over which to calculate the skew costs
 }
-
-statistics {
-    'collections' : {
-        'collection_name' : {
-            'fields' : {
-                'field_name' : {
-                    'query_use_count' : Number of queries in which this field appears in the predicate,
-                    'cardinality' : Number of distinct values,
-                    'selectivity' : Cardinalty / Tuple Count
-                }
-            },
-            'doc_count' : Number of tuples in the collection,
-            'workload_queries' : Number of queries in the workload that target this collection,
-            'workload_percent' : Percentage of queries in the workload that target this collection,
-            'avg_doc_size' : The average number of kilobytes per document in this collection,
-            'max_pages' : The maximum number of pages required to scan the collection
-        },
-    },
-    'total_queries' : total number of queries in the workload??,
-  }
 '''
 class CostModel(object):
     
-    def __init__(self, workload, config, statistics = {}) :
+    def __init__(self, collections, workload, config):
+        assert type(collections) == dict
+        self.collections = collections
         self.workload = workload
+
+        self.rg = random.Random()
+        self.rg.seed('cost model coolness')
+
         self.weight_network = config['weight_network']
         self.weight_disk = config['weight_disk']
         self.weight_skew = config['weight_skew']
         self.nodes = config['nodes']
-        self.stats = statistics
-        self.rg = random.Random()
-        self.rg.seed('cost model coolness')
+
         # Convert MB to KB
         self.max_memory = config['max_memory'] * 1024 * 1024 * self.nodes
         self.skew_segments = config['skew_intervals'] - 1
         self.address_size = config['address_size'] / 4
-    ## end def ##
+    ## DEF
     
-    def overallCost(self, design) :
+    def overallCost(self, design):
         cost = 0
         cost += self.weight_network * self.networkCost(design)
         cost += self.weight_disk * self.diskCost(design)
         cost += self.weight_skew * self.skewCost(design)
-        return cost / (self.weight_network + self.weight_disk + self.weight_skew)
-    ## end def ##
+        return cost / float(self.weight_network + self.weight_disk + self.weight_skew)
+    ## DEF
     
     def networkCost(self, design) :
         cost, queries = self.partialNetworkCost(design, self.workload)
         return cost
-    ## end def ##
+    ## DEF
     
     '''
     Estimate the Disk Cost for a design and a workload
@@ -118,48 +103,48 @@ class CostModel(object):
         
         # 3. Iterate over workload, foreach query:
         for s in self.workload:
-            for q in s.queries :
+            for op in s['operations'] :
                 # is the collection in the design - if not ignore
-                if design.hasCollection(q.collection) == False :
+                if design.hasCollection(op.collection) == False :
                     break
                 
                 # Does this depend on the type of query? (insert vs update vs delete vs select)
                 multiplier = 1
-                if q.type == 'insert' :
+                if op.type == 'insert' :
                     multiplier = 2
                     max_pages = 1
                     min_pages = 1
                     pass
                 else :
-                    if q.type == 'update' or q.type == 'delete' :
+                    if op.type == 'update' or op.type == 'delete' :
                         multiplier = 2
                     ## end if ##
                     
                     # How many pages for the queries tuples?
-                    max_pages = self.stats[q.collection]['max_pages']
+                    max_pages = self.collections[op.collection]['max_pages']
                     min_pages = max_pages
                     
                     # Is the entire collection in the working set?
-                    if working_set[q.collection] >= 100 :
+                    if working_set[op.collection] >= 100 :
                         min_pages = 0
                     
                     # Does this query hit an index?
-                    elif design.hasIndex(q.collection, list(q.predicates)) :
+                    elif design.hasIndex(op.collection, list(op.predicates)) :
                         min_pages = 0
                     else :
                         # Does this query hit the working set?
                         ws_hit = self.rg.randint(1, 100)
-                        if ws_hit <= working_set[q.collection] :
+                        if ws_hit <= working_set[op.collection] :
                             min_pages = 0
                 ## end if ##
                     
                 cost += min_pages        
                 worst_case += max_pages
-        if worst_case == 0 :
+        if not worst_case:
             return 0
         else :
             return cost / worst_case
-    ## end def ##
+    ## DEF
     
     def skewCost(self, design):
         segment_costs = []
@@ -197,7 +182,7 @@ class CostModel(object):
             sum_intervals += skew * segment_costs[i][1]
             sum_of_query_counts += segment_costs[i][1]
         
-        if sum_of_query_counts == 0 :
+        if not sum_of_query_counts:
             return 0
         else :
             return sum_intervals / sum_of_query_counts
@@ -205,59 +190,58 @@ class CostModel(object):
     def partialNetworkCost(self, design, wrkld_sgmnt) :
         worst_case = 0
         result = 0
-        stat_collections = list(self.stats)
         query_count = 0
         for s in wrkld_sgmnt.sessions :
             previous_query = None
-            for q in s.queries :
+            for op in s.queries :
                 # Check to see if the queried collection exists in the design's 
                 # de-normalization scheme
-                if design.hasCollection(q.collection) :
-                    process = False
-                    parent_col = design.getParentCollection(q.collection)
-                    if previous_query == None :
-                        process = True
-                    elif parent_col == q.collection :
-                        process = True
-                    elif previous_query.type <> 'select' or q.type <> 'select' :
-                        process = True
-                    elif previous_query.collection <> parent_col :
-                        process = True
-                    if process == True :
-                        worst_case += self.nodes
-                        query_count += 1
-                        if q.type == 'insert' :
-                            result += 1
-                        else :
-                            # Network costs of SELECT, UPDATE, DELETE queries are based off
-                            # of using the sharding key in the predicate
-                            if len(q.predicates) > 0 :
-                                scan = True
-                                query_type = None
-                                for k,v in q.predicates.iteritems() :
-                                    if design.inShardKeyPattern(q.collection, k) :
-                                        scan = False
-                                        query_type = v
-                                if scan == False :
-                                    # Query uses shard key... need to determine if this is an
-                                    # equality predicate or a range type
-                                    if query_type == 'equality' :
-                                        result += 0.0
-                                    else :
-                                        nodes = self.guessNodes(design, q.collection, k)
-                                        result += nodes
-                                else :
-                                    result += self.nodes
-                            else :
-                                result += self.nodes
-                    else :
-                        # query does not need to be processed
-                        pass
+
+                # Collection is not in design.. don't count query
+                if not design.hasCollection(op.collection): continue
+
+                process = False
+                parent_col = design.getParentCollection(op.collection)
+                if previous_query == None :
+                    process = True
+                elif parent_col == op.collection :
+                    process = True
+                elif previous_query.type <> 'select' or op.type <> 'select' :
+                    process = True
+                elif previous_query.collection <> parent_col :
+                    process = True
+
+                # query does not need to be processed
+                if not process: pass
+
+                worst_case += self.nodes
+                query_count += 1
+                if op.type == 'insert' :
+                    result += 1
                 else :
-                    # Collection is not in design.. don't count query
-                    pass
+                    # Network costs of SELECT, UPDATE, DELETE queries are based off
+                    # of using the sharding key in the predicate
+                    if len(op.predicates) > 0 :
+                        scan = True
+                        query_type = None
+                        for k,v in op.predicates.iteritems() :
+                            if design.inShardKeyPattern(op.collection, k) :
+                                scan = False
+                                query_type = v
+                        if scan == False :
+                            # Query uses shard key... need to determine if this is an
+                            # equality predicate or a range type
+                            if query_type == 'equality' :
+                                result += 0.0
+                            else :
+                                nodes = self.guessNodes(design, op.collection, k)
+                                result += nodes
+                        else :
+                            result += self.nodes
+                    else :
+                        result += self.nodes
                 previous_query = q
-        if worst_case == 0 :
+        if not worst_case:
             cost = 0
         else :
             cost = result / worst_case
@@ -331,5 +315,5 @@ class CostModel(object):
                     col_percent = memory_available / memory_needed
                     working_set_counts[pair[1]] += col_percent * 100
         return working_set_counts
-    ## end def ##
+    ## DEF
 ## end class ##

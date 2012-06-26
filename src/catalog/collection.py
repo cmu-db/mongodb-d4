@@ -17,7 +17,7 @@ class Collection(Document):
         'data_size':        long,      # The estimated total size of this collection
         'doc_count':        int,       # The estimated number of documents in this collection
         'avg_doc_size':     int,       # The average size of the documents in the collection (bytes)
-        'max_pages':        int,       # The maximum number of pages that this collection will take up
+        'max_pages':        int,       # The maximum number of pages required to scan the collection
         'workload_queries': int,       # The number operations that reference this collection
         'workload_percent': float,     # The percentage of the total workload that touch this collection
         'interesting':      [basestring], # TODO(ckeith)
@@ -27,8 +27,8 @@ class Collection(Document):
                 'type':             basestring, # catalog.fieldTypeToString(col_type),
                 'fields':           dict,       # nested fields
                 'query_use_count':  int,        # The number of times this field is referenced in queries
-                'cardinality':      int,        # Value Cardinality
-                'selectivity':      int,        # Value Selectivity
+                'cardinality':      int,        # Number of distinct values
+                'selectivity':      int,        # Cardinalty / Tuple Count
                 'parent_col':       basestring, # TODO(ckeith)
                 'parent_key':       basestring, # TODO(ckeith)
                 'parent_conf':      float,      # TODO(ckeith)
