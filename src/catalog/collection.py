@@ -14,9 +14,10 @@ class Collection(Document):
         'shard_key':        unicode,   # TODO(ckeith)
         'shard_keys':       dict,      # TODO(ckeith)
         'indexes':          [dict],    # TODO(ckeith)
-        'tuple_count':      int,       # TODO(ckeith)
+        'data_size':        long,      # The estimated total size of this collection
+        'doc_count':        int,       # The estimated number of documents in this collection
         'avg_doc_size':     int,       # The average size of the documents in the collection (bytes)
-        'workload_queries': int,       #
+        'workload_queries': int,       # The number operations that reference this collection
         'workload_percent': float,     # The percentage of the total workload that touch this collection
         'interesting':      [basestring], # TODO(ckeith)
 
@@ -35,13 +36,13 @@ class Collection(Document):
 
     }
     required_fields = [
-        'name', 'tuple_count'
+        'name', 'doc_count'
     ]
     default_values = {
         'shard_key':            None,
         'shard_keys':           { },
         'indexes':              [ ],
-        'tuple_count':          0,
+        'doc_count':          0,
         'workload_queries':     0,
         'workload_percent':     0.0,
         'interesting':          [ ],

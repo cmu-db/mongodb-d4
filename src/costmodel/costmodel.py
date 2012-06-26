@@ -60,7 +60,7 @@ statistics {
                     'selectivity' : Cardinalty / Tuple Count
                 }
             },
-            'tuple_count' : Number of tuples in the collection,
+            'doc_count' : Number of tuples in the collection,
             'workload_queries' : Number of queries in the workload that target this collection,
             'workload_percent' : Percentage of queries in the workload that target this collection,
             'avg_doc_size' : The average number of kilobytes per document in this collection,
@@ -279,11 +279,11 @@ class CostModel(object):
         memory = 0
         for col in design.getCollections() :
             # Add a hit for the index on '_id' attribute for each collection
-            memory += self.stats[col]['tuple_count'] * self.stats[col]['avg_doc_size']
+            memory += self.stats[col]['doc_count'] * self.stats[col]['avg_doc_size']
             
             # Process other indexes for this collection in the design
             for index in design.getIndexesForCollection(col) :
-                memory += self.stats[col]['tuple_count'] * self.address_size * len(index)
+                memory += self.stats[col]['doc_count'] * self.address_size * len(index)
         return memory
         
     '''
@@ -304,7 +304,7 @@ class CostModel(object):
         # iterate over sorted tuples to process in descending order of usage
         for pair in sorting_pairs :
             memory_available = capacity * pair[0]
-            memory_needed = self.stats[pair[1]]['avg_doc_size'] * self.stats[pair[1]]['tuple_count']
+            memory_needed = self.stats[pair[1]]['avg_doc_size'] * self.stats[pair[1]]['doc_count']
             
             # is there leftover memory that can be put in a buffer for other collections?
             if memory_needed <= memory_available :
@@ -321,7 +321,7 @@ class CostModel(object):
         '''
         for pair in needs_memory :
             memory_available = buffer
-            memory_needed = (1 - (working_set_counts[pair[1]] / 100)) * self.stats[pair[1]]['avg_doc_size'] * self.stats[pair[1]]['tuple_count']
+            memory_needed = (1 - (working_set_counts[pair[1]] / 100)) * self.stats[pair[1]]['avg_doc_size'] * self.stats[pair[1]]['doc_count']
             
             if memory_needed <= memory_available :
                 working_set_counts[pair[1]] = 100

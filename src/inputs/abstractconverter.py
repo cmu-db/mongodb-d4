@@ -27,8 +27,10 @@ import logging
 from pprint import pformat
 
 import catalog
-from util import constants
 from workload import OpHasher
+from util import constants
+from util.histogram import Histogram
+
 
 LOG = logging.getLogger(__name__)
 
@@ -59,6 +61,8 @@ class AbstractConverter():
 
         self.total_queries = 0
         self.hasher = OpHasher()
+
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
         
     def processImpl(self):
@@ -86,20 +90,17 @@ class AbstractConverter():
         # STEP 1: Add query hashes
         self.addQueryHashes()
 
-        # STEP 2: Compute statistics about collections
-        self.computeCollectionStats()
-
         # STEP 3: Process workload
         self.computeWorkloadStats()
 
         # STEP 4: Process dataset
-        self.computeDatasetStats()
+        self.extractSchemaCatalog()
 
         # Finalize workload percentage statistics for each collection
         page_size *= 1024
         for col in self.metadata_db.Collection.find():
             col['workload_percent'] = col['workload_queries'] / float(self.total_queries)
-            col['max_pages'] = col['tuple_count'] * col['avg_doc_size'] / page_size
+            col['max_pages'] = col['doc_count'] * col['avg_doc_size'] / page_size
         ## FOR
 
     ## DEF
@@ -113,23 +114,9 @@ class AbstractConverter():
                 op["query_hash"] = self.hasher.hash(op)
             self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
             ## FOR
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("Query Class Histogram:\n%s" % self.hasher.histogram)
     ## DEF
-
-    def computeCollectionStats(self):
-        """Gather statistics from an iterable of collections for using in
-           instantiation of the cost model and for determining the initial
-           design solution"""
-
-        for col in self.metadata_db[constants.COLLECTION_SCHEMA].find():
-            for field, data in col['fields'].iteritems() :
-                if data['query_use_count'] > 0 and not field in col['interesting']:
-                    col['interesting'].append(field)
-                    ## FOR
-            ## FOR
-        return
-        ## FOR
 
     def computeWorkloadStats(self):
         """Process Workload Trace"""
@@ -187,19 +174,15 @@ class AbstractConverter():
                               op['query_id'], sess['session_id'], pformat(op))
                     raise
 
-                try:
-                    col_info.save() # self.metadata_db.Collection.save()
-                except:
-                    col_info['fields'] = None
-                    LOG.error("\n" + pformat(col_info))
-                    raise
+                # Save off this skanky stink box right here...
+                col_info.save()
             ## FOR (operations)
 
             if start_time and end_time:
                 sess['start_time'] = start_time
                 sess['end_time'] = end_time
 
-            LOG.debug("Updating Session #%d" % sess['session_id'])
+            if self.debug: LOG.debug("Updating Session #%d" % sess['session_id'])
             sess.save()
         ## FOR (sessions)
     ## DEF
@@ -239,7 +222,7 @@ class AbstractConverter():
     ## SCHEMA EXTRACTION
     ## ==============================================
 
-    def extractSchema(self):
+    def extractSchemaCatalog(self, sample_rate = 100):
         """
             Iterates through all documents and infers the schema.
             This only needs to extract the schema skeleton. The
@@ -249,90 +232,145 @@ class AbstractConverter():
         cols = self.dataset_db.collection_names()
         LOG.info("Found %d collections. Processing...", len(cols))
 
-        for col in cols:
-            # Skip ignored collections
-            if col.split(".")[0] in constants.IGNORED_COLLECTIONS:
-                continue
-
-            fields = {}
-            for doc in self.dataset_db[col].find():
-                catalog.extractFields(doc, fields)
-
-            c = self.metadata_db.Collection()
-            c['name'] = col
-            c['fields'] = fields
-            c.save()
-            LOG.info("Saved new catalog entry for collection '%s'" % col)
-            ## FOR
-        ## DEF
-
-
-
-    def computeDatasetStats(self, sample_rate = 100):
-        """Process Sample Dataset"""
         self.tuple_sizes = {}
         self.distinct_values = {}
         self.first = {}
 
-        # Compute per-collection statistics
-        for col_info in self.metadata_db.Collection.find():
-            if not col_info['name'] in distinct_values:
-                self.distinct_values[col_info['name']] = {}
-                self.first[col_info['name']] = {}
+        for colName in cols:
+            # Skip ignored collections
+            if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
+                continue
+
+            # Get the collection information object
+            # We will use this to store the number times each key is referenced in a query
+            col_info = self.metadata_db.Collection.one({'name': colName})
+            if not col_info:
+                col_info = self.metadata_db.Collection()
+                col_info['name'] = colName
+
+            # Initialize Distinct Values
+            if not colName in distinct_values:
+                self.distinct_values[colName] = {}
+                self.first[colName] = {}
                 for k, v in col_info['fields'].iteritems() :
-                    self.distinct_values[col_info['name']][k] = {}
-                    self.first[col_info['name']][k] = True
-                    ## FOR
-                ## IF
+                    self.distinct_values[colName][k] = {}
+                    self.first[colName][k] = True
+                ## FOR
+            ## IF
 
-            col_info['tuple_count'] = 0
-            self.tuple_sizes[col_info['name']] = 0
-            for row in self.dataset_db[col_info['name']].find():
-                col_info['tuple_count'] += 1
+            col_info['doc_count'] = 0
+            self.tuple_sizes[colName] = 0
+
+            # Examine each document in the dataset for this collection
+            for doc in self.dataset_db[colName].find():
+                col_info['doc_count'] += 1
                 if random.randint(0, 100) <= sample_rate:
-                    self.processDataFields(col_info, col_info['fields'], row)
+                    self.extractFields(col_info, col_info['fields'], doc)
+            ## FOR
 
-            if not col_info['tuple_count']:
+            # Calculate average tuple size (if we have at least one)
+            if not col_info['doc_count']:
                 col_info['avg_doc_size'] = 0
             else :
-                col_info['avg_doc_size'] = int(self.tuple_sizes[col_info['name']] / col_info['tuple_count'])
+                col_info['avg_doc_size'] = int(col_info['data_size'] / col_info['doc_count'])
 
             # Calculate cardinality and selectivity
-            for k,v in col_info['fields'].iteritems() :
-                v['cardinality'] = len(self.distinct_values[col_info['name']][k])
-                if not col_info['tuple_count']:
-                    v['selectivity'] = 0
-                else :
-                    v['selectivity'] = v['cardinality'] / col_info['tuple_count']
-                ## FOR
+            self.calculateCardinalities(col_info, col_info['fields'])
 
+            LOG.info("Saved new catalog entry for collection '%s'" % colName)
             col_info.save()
-            ## FOR
+
+        ## FOR
     ## DEF
 
-    def processDataFields(self, col_info, fields, content):
-        for k, v in row.iteritems():
+    def calculateCardinalities(self, col_info, fields):
+        for k,field in fields.iteritems():
+            if 'distinct_values' in field:
+                field['cardinality'] = len(field['distinct_values'])
+                if not col_info['doc_count']:
+                    field['selectivity'] = 0
+                else :
+                    field['selectivity'] = field['cardinality'] / col_info['doc_count']
+                del field['distinct_values']
+            if field['fields']: self.calculateCardinalities(col_info, field['fields'])
+        ## FOR
+    ## DEF
+
+    def extractFields(self, col_info, fields, doc):
+        """
+            Recursively traverse a single document and extract out the field information
+        """
+        if self.debug: LOG.debug("Extracting fields for document:\n%s" % pformat(doc))
+
+        for k,v in doc.iteritems():
             # Skip if this is the _id field
             if constants.SKIP_MONGODB_ID_FIELD and k == '_id': continue
 
-            if not k in fields:
-                fieldType = catalog.fieldTypeToString(type(v))
-                field[k] = catalog.Collection.fieldFactory(k, fieldType)
+            f_type = type(v)
+            f_type_str = catalog.fieldTypeToString(f_type)
 
-            # Nested Document
-            if type(v) == dict:
+            if not k in fields:
+                # This is only subset of what we will compute for each field
+                # See catalog.Collection for more information
+                if self.debug: LOG.debug("Creating new field entry for '%s'" % k)
+                fields[k] = catalog.Collection.fieldFactory(k, f_type_str)
+            else:
                 pass
-            # List of Documents
-            elif type(v) == list:
-                pass
-            # Scalar Value
+                # Sanity check
+                # This won't work if the data is not uniform
+                #if v != None:
+                #assert fields[k]['type'] == f_type_str, \
+                #"Mismatched field types '%s' <> '%s' for '%s'" % (fields[k]['type'], f_type_str, k)
+
+            # XXX: We will store the distinct values in a temporarily
+            #      set embedded in the field. We will have to delete it
+            #      when we calculate the cardinalities
+            if not 'distinct_values' in fields[k]:
+                fields[k]['distinct_values'] = set()
+
+            if fields[k]['query_use_count'] > 0 and not k in col_info['interesting']:
+                col_info['interesting'].append(k)
+
+            ## ----------------------------------------------
+            ## NESTED FIELDS
+            ## ----------------------------------------------
+            if f_type is dict:
+                if self.debug: LOG.debug("Extracting keys in nested field for '%s'" % (k))
+                if not 'fields' in fields[k]: fields[k]['fields'] = { }
+                self.extractFields(col_info, fields[k]['fields'], doc[k])
+
+            ## ----------------------------------------------
+            ## LIST OF VALUES
+            ## Could be either scalars or dicts. If it's a dict, then we'll just
+            ## store the nested field information in the 'fields' value
+            ## If it's a list, then we'll use a special marker 'LIST_INNER_FIELD' to
+            ## store the field information for the inner values.
+            ## ----------------------------------------------
+            elif f_type is list:
+                if not 'fields' in fields[k]: fields[k]['fields'] = { }
+
+                for i in xrange(0, len(doc[k])):
+                    inner_type = type(doc[k][i])
+                    # More nested documents...
+                    if inner_type is dict:
+                        if debug: LOG.debug("Extracting keys in nested field in list position %d for '%s'" % (i, k))
+                        self.extractFields(doc[k][i], fields[k]['fields'], True)
+                    else:
+                        # TODO: We probably should store a list of types here in case
+                        #       the list has different types of values
+                        inner = fields[k]['fields'].get(constants.LIST_INNER_FIELD, {})
+                        inner['type'] = catalog.fieldTypeToString(inner_type)
+                        fields[k]['fields'][constants.LIST_INNER_FIELD] = inner
+                        fields[k]['distinct_values'].add(inner)
+                ## FOR (list)
+            ## ----------------------------------------------
+            ## SCALAR VALUES
+            ## ----------------------------------------------
             else:
                 size = catalog.getEstimatedSize(fields[k]['type'], v)
-                self.tuple_sizes[col_info['name']] += size
-                self.distinct_values[col_info['name']][k][v] = v
-        else :
-            tuple_sizes[col_info['name']] += 12
-
+                col_info['data_size'] += size
+                fields[k]['distinct_values'].add(v)
+        ## FOR
     ## DEF
 
     ## ==============================================
@@ -341,13 +379,13 @@ class AbstractConverter():
 
     def fixInvalidCollections(self):
         searchKey = {"operations.collection": constants.INVALID_COLLECTION_MARKER}
-        for session in self.metadata_db.Session.find():
+        for session in self.metadata_db.Session.find(searchKey):
             for op in session["operations"]:
                 dirty = False
                 if op["collection"] != constants.INVALID_COLLECTION_MARKER:
                     continue
 
-                LOG.info("Attempting to fix corrupted Operation:\n%s" % pformat(op))
+                if self.debug: LOG.debug("Attempting to fix corrupted Operation:\n%s" % pformat(op))
 
                 # For each field referenced in the query, build a histogram of
                 # which collections have a field with the same name
@@ -357,8 +395,8 @@ class AbstractConverter():
                     for f in c['fields']:
                         if f in fields:
                             h.put(c['name'])
-                            ## FOR
-                            ## FOR
+                    ## FOR
+                ## FOR
 
                 matches = h.getMaxCountKeys()
                 if len(matches) == 0:
@@ -376,9 +414,9 @@ class AbstractConverter():
                     ## FOR (operations)
 
             if dirty: session.save()
-            ## FOR (sessions)
+        ## FOR (sessions)
 
-            ## DEF
+    ## DEF
 
 ## CLASS
 
