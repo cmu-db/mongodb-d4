@@ -145,7 +145,10 @@ class Designer():
         }
 
         collectionsDict = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
-        workload = self.metadata_db.Session.fetch()
+
+        # TODO: This is probably a bad idea because it means that we will have
+        #       to bring the entire collection into RAM in order to keep processing it
+        workload = [x for x in self.metadata_db.Session.fetch()]
 
         # Instantiate cost model
         cm = costmodel.CostModel(collectionsDict, workload, cmConfig)

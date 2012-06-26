@@ -4,6 +4,8 @@ import sqlparse
 import json
 import yaml
 
+from util import constants
+
 '''
 @todo: Handle nested queries?
 '''
@@ -563,7 +565,20 @@ class Sql2Mongo (object) :
             else :
                 self.query_type = 'UNKNOWN'
     ## End process_sql()
-    
+
+    def get_op_type(self, sql_type):
+        if self.query_type == 'SELECT':
+            return constants.OP_TYPE_QUERY
+        elif self.query_type == 'INSERT' :
+            return constants.OP_TYPE_INSERT
+        elif self.query_type == 'DELETE' :
+            return constants.OP_TYPE_DELETE
+        elif self.query_type == 'UPDATE' :
+            return constants.OP_TYPE_UPDATE
+        else :
+            return constants.OP_TYPE_UNKNOWN
+    ## DEF
+
     def process_where_clause(self, attr, op, value) :
         if op == 'LIKE' :
             op = ':'

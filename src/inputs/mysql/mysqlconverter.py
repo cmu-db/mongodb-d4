@@ -196,7 +196,7 @@ class MySQLConverter(AbstractConverter):
             stamp = float(row[0].strftime("%s"))
             if row[2] <> thread_id :
                 thread_id = row[2]
-                if first == False :
+                if not first:
                     if len(session['operations']) > 0 :
                         session.save()
                         uid += 1
@@ -218,12 +218,13 @@ class MySQLConverter(AbstractConverter):
                     query = mongo.process_sql(sql)
                 except (NameError, KeyError, IndexError) as e :
                     success = False
-                if success == True :
+                if success:
                     if mongo.query_type <> 'UNKNOWN' :
                         operations = mongo.generate_operations(stamp)
                         if len(operations) == 0 :
                             print row[5]
-                        for op in operations :
+                        for op in operations:
+                            op['query_type'] = sql2mongo.get_op_type(op['query_type'])
                             session['operations'].append(op)
                         ## ENDFOR
                     elif row[5].strip().lower() == 'commit' :
