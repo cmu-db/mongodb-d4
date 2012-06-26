@@ -151,7 +151,9 @@ class Parser:
         self.flagsRegex = re.compile(FLAGS_MASK)
         self.ntoreturnRegex = re.compile(NTORETURN_MASK)
         self.ntoskipRegex = re.compile(NTOSKIP_MASK)
-        
+
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
+
         assert self.workload_col
         assert self.fd
         pass
@@ -227,7 +229,7 @@ class Parser:
         """Save all sessions!"""
         for session in self.session_map.itervalues():
             if len(session['operations']) == 0: 
-                if LOG.isEnabledFor(logging.DEBUG):
+                if self.debug:
                     LOG.warn("Ignoring Session %(session_id)d because it doesn't have any operations" % session)
                 continue
             try:
@@ -250,7 +252,7 @@ class Parser:
         try:
             self.currentOp['collection'].decode('ascii')
         except:
-            if LOG.isEnabledFor(logging.DEBUG):
+            if self.debug:
                 LOG.warn("Operation %(query_id)d has an invalid collection name '%(collection)s'. Will fix later... [opCtr=%(op_ctr)d / lineCtr=%(line_ctr)d]" % self.currentOp)
             self.currentOp['collection'] = constants.INVALID_COLLECTION_MARKER
             self.bustedOps.append(self.currentOp)
@@ -293,7 +295,7 @@ class Parser:
         # Create the operation, add it to the session
         if self.currentOp['type'] in [constants.OP_TYPE_QUERY, constants.OP_TYPE_INSERT, constants.OP_TYPE_DELETE, constants.OP_TYPE_UPDATE]:
             # create the operation -- corresponds to current
-            if LOG.isEnabledFor(logging.DEBUG):
+            if self.debug:
                 LOG.debug("Current Operation %d Content:\n%s" % (self.currentOp['query_id'], pformat(self.currentContent)))
             
             op = Session.operationFactory()
@@ -332,7 +334,7 @@ class Parser:
                 op['query_hash'] = self.opHasher.hash(op)
             except:
                 msg = "Failed to compute hash on operation\n%s" % pformat(op)
-                LOG.warn(msg)
+                if self.debug: LOG.warn(msg)
                 if self.stop_on_error: raise Exception(msg)
                 return
             
@@ -342,7 +344,7 @@ class Parser:
             #       Or use multiple sessions
             session['operations'].append(op)
             self.op_ctr += 1
-            if LOG.isEnabledFor(logging.DEBUG):
+            if self.debug:
                 LOG.debug("Added %s operation %d to session %s from line %d:\n%s" % (op['type'], self.currentOp['query_id'], session['session_id'], self.line_ctr, pformat(op)))
         
             # store the collection name in known_collections. This will be useful later.
@@ -368,12 +370,12 @@ class Parser:
                 del self.query_response_map[reply_id]
             else:
                 self.skip_ctr += 1
-                if LOG.isEnabledFor(logging.DEBUG):
+                if self.debug:
                     LOG.warn("Skipping response on line %d - No matching query_id '%s' [skipCtr=%d/%d]" % (self.line_ctr, reply_id, self.skip_ctr, self.resp_ctr))
                 
         # These can be safely ignored
         elif self.currentOp['type'] in [constants.OP_TYPE_GETMORE, constants.OP_TYPE_KILLCURSORS]:
-            if LOG.isEnabledFor(logging.DEBUG):
+            if self.debug:
                 LOG.warn("Skipping '%s' operation %d on line %d" % (self.currentOp['type'], self.currentOp['query_id'], self.line_ctr))
             
         # UNKNOWN
@@ -443,7 +445,7 @@ class Parser:
             col_name = self.currentOp['collection']
             prefix = col_name.split('.')[0]
             if prefix in constants.IGNORED_COLLECTIONS:
-                if LOG.isEnabledFor(logging.DEBUG):
+                if self.debug:
                     LOG.debug("Ignoring operation %(query_id)d on collection '%(collection)s' [opCtr=%(op_ctr)d / lineCtr=%(line_ctr)d]" % self.currentOp)
                 self.skip_to_next = True
                 self.currentOp = None
@@ -603,7 +605,7 @@ class Parser:
             return
         
         LOG.info("Performing post processing on %s sessions with %d operations" % (self.getSessionCount(), self.getOpCount()))
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("-- Aggregate Collection Names --")
             LOG.debug("Encountered %d collection names in plaintext." % len(self.known_collections))
             LOG.debug(pformat(self.known_collections))
@@ -625,7 +627,7 @@ class Parser:
         for col_name in self.known_collections:
             hash = anonymize.hash_string(self.get_hash_string(col_name), salt)
             hashed_collections[hash] = col_name
-            if LOG.isEnabledFor(logging.DEBUG):
+            if self.debug:
                 LOG.debug("hash: %s / col_name: %s / hash_str: %s" % (hash, col_name, get_hash_string(col_name)))
         ## FOR
             
@@ -683,7 +685,7 @@ class Parser:
     def fix_collection_names(self, hashed_collections):
         """now we go through aggregate ops again and fill in the collection name..."""
         
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("Adding plaintext collection names to hashed operations...")
             LOG.debug("PlainText Hashes:\n%s" % pformat(hashed_collections))
         
@@ -693,7 +695,7 @@ class Parser:
             for op in session['operations']:
                 query = op['query_content'][0]
                 if op['query_aggregate'] or 'findAndModify' in query:
-                    if LOG.isEnabledFor(logging.DEBUG):
+                    if self.debug:
                         LOG.debug("Fixable Operation Candidate:\n%s" % pformat(op))
                     
                     # first and only JSON from the payload
