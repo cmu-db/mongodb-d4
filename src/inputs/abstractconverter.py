@@ -235,52 +235,150 @@ class AbstractConverter():
         return
     ## DEF
 
+    ## ==============================================
+    ## SCHEMA EXTRACTION
+    ## ==============================================
+
+    def extractSchema(self):
+        """
+            Iterates through all documents and infers the schema.
+            This only needs to extract the schema skeleton. The
+            post-processing stuff in the AbstractConvertor will populate
+            the statistics information for each collection
+        """
+        cols = self.dataset_db.collection_names()
+        LOG.info("Found %d collections. Processing...", len(cols))
+
+        for col in cols:
+            # Skip ignored collections
+            if col.split(".")[0] in constants.IGNORED_COLLECTIONS:
+                continue
+
+            fields = {}
+            for doc in self.dataset_db[col].find():
+                catalog.extractFields(doc, fields)
+
+            c = self.metadata_db.Collection()
+            c['name'] = col
+            c['fields'] = fields
+            c.save()
+            LOG.info("Saved new catalog entry for collection '%s'" % col)
+            ## FOR
+        ## DEF
+
+
+
     def computeDatasetStats(self, sample_rate = 100):
         """Process Sample Dataset"""
-        tuple_sizes = {}
-        distinct_values = {}
-        first = {}
+        self.tuple_sizes = {}
+        self.distinct_values = {}
+        self.first = {}
 
         # Compute per-collection statistics
-        for col in self.metadata_db.Collection.find():
-            if not col['name'] in distinct_values:
-                distinct_values[col['name']] = {}
-                first[col['name']] = {}
-                for k, v in col['fields'].iteritems() :
-                    distinct_values[col['name']][k] = {}
-                    first[col['name']][k] = True
+        for col_info in self.metadata_db.Collection.find():
+            if not col_info['name'] in distinct_values:
+                self.distinct_values[col_info['name']] = {}
+                self.first[col_info['name']] = {}
+                for k, v in col_info['fields'].iteritems() :
+                    self.distinct_values[col_info['name']][k] = {}
+                    self.first[col_info['name']][k] = True
                     ## FOR
                 ## IF
 
-            col['tuple_count'] = 0
-            tuple_sizes[col['name']] = 0
-            for row in self.dataset_db[col['name']].find():
-                col['tuple_count'] += 1
-                if random.randint(0, 100) <= sample_rate :
-                    for k, v in row.iteritems() :
-                        if k <> '_id' :
-                            size = catalog.getEstimatedSize(col['fields'][k]['type'], v)
-                            tuple_sizes[col['name']] += size
-                            distinct_values[col['name']][k][v] = v
-                        else :
-                            tuple_sizes[col['name']] += 12
-            if not col['tuple_count']:
-                col['avg_doc_size'] = 0
+            col_info['tuple_count'] = 0
+            self.tuple_sizes[col_info['name']] = 0
+            for row in self.dataset_db[col_info['name']].find():
+                col_info['tuple_count'] += 1
+                if random.randint(0, 100) <= sample_rate:
+                    self.processDataFields(col_info, col_info['fields'], row)
+
+            if not col_info['tuple_count']:
+                col_info['avg_doc_size'] = 0
             else :
-                col['avg_doc_size'] = int(tuple_sizes[col['name']] / col['tuple_count'])
+                col_info['avg_doc_size'] = int(self.tuple_sizes[col_info['name']] / col_info['tuple_count'])
 
             # Calculate cardinality and selectivity
-            for k,v in col['fields'].iteritems() :
-                v['cardinality'] = len(distinct_values[col['name']][k])
-                if not col['tuple_count']:
+            for k,v in col_info['fields'].iteritems() :
+                v['cardinality'] = len(self.distinct_values[col_info['name']][k])
+                if not col_info['tuple_count']:
                     v['selectivity'] = 0
                 else :
-                    v['selectivity'] = v['cardinality'] / col['tuple_count']
+                    v['selectivity'] = v['cardinality'] / col_info['tuple_count']
                 ## FOR
 
-            col.save()
+            col_info.save()
             ## FOR
     ## DEF
+
+    def processDataFields(self, col_info, fields, content):
+        for k, v in row.iteritems():
+            # Skip if this is the _id field
+            if constants.SKIP_MONGODB_ID_FIELD and k == '_id': continue
+
+            if not k in fields:
+                fieldType = catalog.fieldTypeToString(type(v))
+                field[k] = catalog.Collection.fieldFactory(k, fieldType)
+
+            # Nested Document
+            if type(v) == dict:
+                pass
+            # List of Documents
+            elif type(v) == list:
+                pass
+            # Scalar Value
+            else:
+                size = catalog.getEstimatedSize(fields[k]['type'], v)
+                self.tuple_sizes[col_info['name']] += size
+                self.distinct_values[col_info['name']][k][v] = v
+        else :
+            tuple_sizes[col_info['name']] += 12
+
+    ## DEF
+
+    ## ==============================================
+    ## OPERATION FIXIN'
+    ## ==============================================
+
+    def fixInvalidCollections(self):
+        searchKey = {"operations.collection": constants.INVALID_COLLECTION_MARKER}
+        for session in self.metadata_db.Session.find():
+            for op in session["operations"]:
+                dirty = False
+                if op["collection"] != constants.INVALID_COLLECTION_MARKER:
+                    continue
+
+                LOG.info("Attempting to fix corrupted Operation:\n%s" % pformat(op))
+
+                # For each field referenced in the query, build a histogram of
+                # which collections have a field with the same name
+                fields = workload.getReferencedFields(op)
+                h = Histogram()
+                for c in self.metadata_db.Collection.find():
+                    for f in c['fields']:
+                        if f in fields:
+                            h.put(c['name'])
+                            ## FOR
+                            ## FOR
+
+                matches = h.getMaxCountKeys()
+                if len(matches) == 0:
+                    LOG.warn("No matching collection was found for corrupted operation\n%s" % pformat(op))
+                    continue
+                elif len(matches) > 1:
+                    LOG.warn("More than one matching collection was found for corrupted operation %s\n%s" % (matches, pformat(op)))
+                    continue
+                else:
+                    op["collection"] = matches[0]
+                    dirty = True
+                    self.fix_ctr += 1
+                    LOG.info("Fix corrupted collection in operation\n%s" % pformat(op))
+                    ## IF
+                    ## FOR (operations)
+
+            if dirty: session.save()
+            ## FOR (sessions)
+
+            ## DEF
 
 ## CLASS
 

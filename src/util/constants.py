@@ -28,6 +28,8 @@ DATASET_DB_NAME = "dataset"
 ## WORKLOAD PROCESSING OPTIONS
 ## ==============================================
 
+SKIP_MONGODB_ID_FIELD = False
+
 # List of collection names prefixes that we should ignore
 # when performing various processing tasks
 IGNORED_COLLECTIONS = [ 'system', 'local', 'admin' ]

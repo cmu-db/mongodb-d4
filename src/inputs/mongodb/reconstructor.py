@@ -54,11 +54,6 @@ class Reconstructor:
         self.sess_ctr = 0
         self.skip_ctr = 0
         self.fix_ctr = 0
-        
-        # Name -> Collection
-#        self.schema = { }
-
-        pass
     ## DEF
 
     def process(self):
@@ -66,23 +61,36 @@ class Reconstructor:
         cnt = self.metadata_db.Session.find().count()
         LOG.info("Found %d sessions in the workload collection. Processing... ", cnt)
 
-        ## ----------------------------------------------
-        ## Step 1: Reconstruct the original database
-        ## ----------------------------------------------
-        self.reconstructDatabase()
+        # HACK: Skip any operations with invalid collection names
+        #       We will go back later and fix these up
+        toIgnore = [constants.INVALID_COLLECTION_MARKER] + constants.IGNORED_COLLECTIONS
 
-        ## ----------------------------------------------
-        ## Step 2: Extract Collection Catalog
-        ## Now use that database to populate the schema catalog
-        ## ----------------------------------------------
-        self.extractSchema()
+        LOG.info("Reconstructing dataset from %d Sessions" % self.metadata_db.Session.find().count())
+        for session in self.metadata_db.Session.find():
+            self.sess_ctr += 1
+            for op in session["operations"]:
+                self.op_ctr += 1
 
-        ## ----------------------------------------------
-        ## Step 3: Fix invalid collection names
-        ## ----------------------------------------------
-        self.fixInvalidCollections()
-        
-        LOG.debug("Done.")
+                if op["collection"] in toIgnore:
+                    self.skip_ctr += 1
+                    continue
+
+                if op["type"] == constants.OP_TYPE_QUERY:
+                    ret = self.processQuery(op)
+                elif op["type"] == constants.OP_TYPE_DELETE:
+                    ret = self.processDelete(op)
+                elif op["type"] == constants.OP_TYPE_UPDATE:
+                    ret = self.processUpdate(op)
+                elif op["type"] in [constants.OP_TYPE_INSERT, constants.OP_TYPE_ISERT]:
+                    ret = self.processInsert(op)
+                else:
+                    LOG.warn("Unknown operation type: %s", op["type"])
+
+                if not ret: self.skip_ctr += 1
+            ## FOR (operations)
+        ## FOR (sessions)
+        LOG.info("Processed %d sessions with %d operations [skipped=%d]",
+                 self.sess_ctr, self.op_ctr, self.skip_ctr)
     ## DEF
     
     def getSessionCount(self):
@@ -114,43 +122,6 @@ class Reconstructor:
         return counts
     ## DEF
 
-    ## ==============================================
-    ## DATABASE RECONSTRUCTION
-    ## ==============================================
-    
-    def reconstructDatabase(self):
-        # HACK: Skip any operations with invalid collection names
-        #       We will go back later and fix these up
-        toIgnore = [constants.INVALID_COLLECTION_MARKER] + constants.IGNORED_COLLECTIONS
-
-        LOG.info("Reconstructing dataset from %d Sessions" % self.metadata_db.Session.find().count())
-        for session in self.metadata_db.Session.find():
-            self.sess_ctr += 1
-            for op in session["operations"]:
-                self.op_ctr += 1
-                
-                if op["collection"] in toIgnore:
-                    self.skip_ctr += 1
-                    continue
-                
-                if op["type"] == constants.OP_TYPE_QUERY:
-                    ret = self.processQuery(op)
-                elif op["type"] == constants.OP_TYPE_DELETE:
-                    ret = self.processDelete(op)
-                elif op["type"] == constants.OP_TYPE_UPDATE:
-                    ret = self.processUpdate(op)
-                elif op["type"] in [constants.OP_TYPE_INSERT, constants.OP_TYPE_ISERT]:
-                    ret = self.processInsert(op)
-                else:
-                    LOG.warn("Unknown operation type: %s", op["type"])
-                    
-                if not ret: self.skip_ctr += 1
-            ## FOR (operations)
-        ## FOR (sessions)
-        LOG.info("Processed %d sessions with %d operations [skipped=%d]",
-                 self.sess_ctr, self.op_ctr, self.skip_ctr)
-    ## DEF
-    
     def processInsert(self, op):
         payload = op["query_content"]
         col = op["collection"]
@@ -207,81 +178,6 @@ class Reconstructor:
         
         return False
     ## DEF
-    
-    ## ==============================================
-    ## SCHEMA EXTRACTION
-    ## ==============================================
-    
-    def extractSchema(self):
-        """
-            Iterates through all documents and infers the schema.
-            This only needs to extract the schema skeleton. The
-            post-processing stuff in the AbstractConvertor will populate
-            the statistics information for each collection
-        """
-        cols = self.dataset_db.collection_names()
-        LOG.info("Found %d collections. Processing...", len(cols))
-        
-        for col in cols:
-            # Skip ignored collections
-            if col.split(".")[0] in constants.IGNORED_COLLECTIONS:
-                continue
-            
-            fields = {}
-            for doc in self.dataset_db[col].find():
-                catalog.extractFields(doc, fields)
-            
-            c = self.metadata_db.Collection()
-            c['name'] = col
-            c['fields'] = fields
-            c.save()
-            LOG.info("Saved new catalog entry for collection '%s'" % col)
-        ## FOR
-    ## DEF
-    
-    ## ==============================================
-    ## OPERATION FIXIN'
-    ## ==============================================
 
-    def fixInvalidCollections(self):
-        
-        for session in self.metadata_db.Session.find({"operations.collection": constants.INVALID_COLLECTION_MARKER}):
-            for op in session["operations"]:
-                dirty = False
-                if op["collection"] != constants.INVALID_COLLECTION_MARKER:
-                    continue
-                
-                LOG.info("Attempting to fix corrupted Operation:\n%s" % pformat(op))
-                
-                # For each field referenced in the query, build a histogram of 
-                # which collections have a field with the same name
-                fields = workload.getReferencedFields(op)
-                h = Histogram()
-                for c in self.metadata_db.Collection.find():
-                    for f in c['fields']:
-                        if f in fields:
-                            h.put(c['name'])
-                    ## FOR
-                ## FOR
-                
-                matches = h.getMaxCountKeys()
-                if len(matches) == 0:
-                    LOG.warn("No matching collection was found for corrupted operation\n%s" % pformat(op))
-                    continue
-                elif len(matches) > 1:
-                    LOG.warn("More than one matching collection was found for corrupted operation %s\n%s" % (matches, pformat(op)))
-                    continue
-                else:
-                    op["collection"] = matches[0]
-                    dirty = True
-                    self.fix_ctr += 1
-                    LOG.info("Fix corrupted collection in operation\n%s" % pformat(op))
-                ## IF
-            ## FOR (operations)
-            
-            if dirty: session.save()
-        ## FOR (sessions)
-        
-    ## DEF
     
 ## CLASS

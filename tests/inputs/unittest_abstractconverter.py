@@ -97,6 +97,21 @@ class TestAbstractConverter(unittest.TestCase):
                     self.assertIsNotNone(firstHash)
                 self.assertEqual(firstHash, op['query_hash'])
         ## FOR
+
+    ## DEF
+
+    def testExtractSchema(self):
+        """
+            Check whether we can successfully extract the database schema
+            into our internal catalog
+        """
+        self.reconstructor.reconstructDatabase()
+        self.reconstructor.extractSchema()
+
+        col = self.metadata_db.Collection.one({"name": COLLECTION_NAME})
+        # Add one for the '_id' field
+        self.assertEqual(NUM_FIELDS + 1, len(col['fields']))
+    ## DEF
 ## CLASS
 
 if __name__ == '__main__':

@@ -25,40 +25,40 @@ NUM_OPS_PER_SESSION = 4
 NUM_FIELDS = 6
 
 '''
-                {
-                        "resp_id" : 108573252,
-                        "query_time" : 1338410624.76486,
-                        "query_limit" : -1,
-                        "resp_content" : [
-                                {
-                                        "website" : "e4e0848c0213e9ec35378357c072bc4e/22",
-                                        "bio" : "b23e46b797cb9604ac10ffd0b5d1fd8d/38",
-                                        "_id" : "4e284300507afcc25589043fec3ce46e/7",
-                                        "preferences" : {
-                                                "new_follower_email" : true,
-                                                "relove_email" : true,
-                                                "newsletter" : true,
-                                                "weekly_recap_email" : true
-                                        }
-                                }
-                        ],
-                        "query_aggregate" : false,
-                        "collection" : "exfm.user.meta",
-                        "resp_time" : 1338410624.764927,
-                        "query_id" : 1470946406,
-                        "query_hash" : NumberLong("5967555224994160467"),
-                        "query_offset" : 0,
-                        "query_size" : 76,
-                        "resp_size" : 893,
-                        "type" : "$query",
-                        "query_content" : [
-                                {
-                                        "#query" : {
-                                                "_id" : "4e284300507afcc25589043fec3ce46e/7"
-                                        }
-                                }
-                        ]
-                },
+{
+    "resp_id" : 108573252,
+    "query_time" : 1338410624.76486,
+    "query_limit" : -1,
+    "resp_content" : [
+            {
+                    "website" : "e4e0848c0213e9ec35378357c072bc4e/22",
+                    "bio" : "b23e46b797cb9604ac10ffd0b5d1fd8d/38",
+                    "_id" : "4e284300507afcc25589043fec3ce46e/7",
+                    "preferences" : {
+                            "new_follower_email" : true,
+                            "relove_email" : true,
+                            "newsletter" : true,
+                            "weekly_recap_email" : true
+                    }
+            }
+    ],
+    "query_aggregate" : false,
+    "collection" : "exfm.user.meta",
+    "resp_time" : 1338410624.764927,
+    "query_id" : 1470946406,
+    "query_hash" : NumberLong("5967555224994160467"),
+    "query_offset" : 0,
+    "query_size" : 76,
+    "resp_size" : 893,
+    "type" : "$query",
+    "query_content" : [
+            {
+                    "#query" : {
+                            "_id" : "4e284300507afcc25589043fec3ce46e/7"
+                    }
+            }
+    ]
+},
 '''
 class TestReconstructor(unittest.TestCase):
 
@@ -132,21 +132,6 @@ class TestReconstructor(unittest.TestCase):
         # We should always have one per operation
         self.assertEquals(num_docs, NUM_SESSIONS * NUM_OPS_PER_SESSION)
     ## DEF
-
-    def testExtractSchema(self):
-        """
-            Check whether we can successfully extract the database schema
-            into our internal catalog
-        """
-
-        self.reconstructor.reconstructDatabase()
-        self.reconstructor.extractSchema()
-
-        col = self.metadata_db.Collection.one({"name": COLLECTION_NAME})
-        # Add one for the '_id' field
-        self.assertEqual(NUM_FIELDS + 1, len(col['fields']))
-    ## DEF
-
 ## CLASS
 
 if __name__ == '__main__':
