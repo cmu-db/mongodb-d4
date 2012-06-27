@@ -276,8 +276,9 @@ class CostModel(object):
                                              op["query_id"], op["collection"], nodes)
                                     result += nodes
                             else:
-                                LOG.info("Op #%d on '%s' is a broadcast query", \
-                                         op["query_id"], op["collection"])
+                                if self.debug:
+                                    LOG.debug("Op #%d on '%s' is a broadcast query", \
+                                              op["query_id"], op["collection"])
                                 result += self.nodes
                         else:
                             result += self.nodes

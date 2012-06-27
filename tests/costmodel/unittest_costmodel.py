@@ -90,30 +90,30 @@ class TestCostModel(MongoDBTestCase):
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
     ## DEF
 
-#    def testNetworkCost(self):
-#        """Check network cost for equality predicate queries"""
-#        col_info = self.collections[COLLECTION_NAMES[0]]
-#        self.assertTrue(col_info['interesting'])
-#
-#        # If we shard the collection on the interesting fields, then
-#        # each query should only need to touch one node
-#        d = Design()
-#        d.addCollection(col_info['name'])
-#        d.addShardKey(col_info['name'], col_info['interesting'])
-#        cost0 = self.cm.networkCost(d)
-##        print "cost0:", cost0
-#
-#        # If we now shard the collection on just '_id', then every query
-#        # should have to touch every node. The cost of this design
-#        # should be greater than the first one
-#        d = Design()
-#        d.addCollection(col_info['name'])
-#        d.addShardKey(col_info['name'], ['_id'])
-#        cost1 = self.cm.networkCost(d)
-##        print "cost1:", cost1
-#
-#        self.assertLess(cost0, cost1)
-#    ## DEF
+    def testNetworkCost(self):
+        """Check network cost for equality predicate queries"""
+        col_info = self.collections[COLLECTION_NAMES[0]]
+        self.assertTrue(col_info['interesting'])
+
+        # If we shard the collection on the interesting fields, then
+        # each query should only need to touch one node
+        d = Design()
+        d.addCollection(col_info['name'])
+        d.addShardKey(col_info['name'], col_info['interesting'])
+        cost0 = self.cm.networkCost(d)
+#        print "cost0:", cost0
+
+        # If we now shard the collection on just '_id', then every query
+        # should have to touch every node. The cost of this design
+        # should be greater than the first one
+        d = Design()
+        d.addCollection(col_info['name'])
+        d.addShardKey(col_info['name'], ['_id'])
+        cost1 = self.cm.networkCost(d)
+#        print "cost1:", cost1
+
+        self.assertLess(cost0, cost1)
+    ## DEF
 
     def testNetworkCostDenormalization(self):
         """Check network cost for queries that reference denormalized collections"""

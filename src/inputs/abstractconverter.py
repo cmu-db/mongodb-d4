@@ -316,7 +316,8 @@ class AbstractConverter():
             # Calculate cardinality and selectivity
             self.calculateCardinalities(col_info, col_info['fields'])
 
-            LOG.info("Saved new catalog entry for collection '%s'" % colName)
+            if self.debug:
+                LOG.debug("Saved new catalog entry for collection '%s'" % colName)
             col_info.save()
 
         ## FOR
