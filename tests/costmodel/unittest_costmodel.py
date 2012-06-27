@@ -16,11 +16,11 @@ import costmodel
 from search import Design
 from workload import Session
 from util import constants
+from inputs.mongodb import MongoSniffConverter
 
-COLLECTION_NAME = "squirrels"
+COLLECTION_NAMES = ["squirrels", "girls"]
 NUM_DOCUMENTS = 10000
-NUM_SESSIONS = 100
-NUM_OPS_PER_SESSION = 4
+NUM_SESSIONS = 50
 NUM_FIELDS = 6
 NUM_NODES = 8
 
@@ -29,40 +29,20 @@ class TestCostModel(MongoDBTestCase):
     def setUp(self):
         MongoDBTestCase.setUp(self)
 
-        # COLLECTIONS
-        col_info = catalog.Collection()
-        col_info['name'] = COLLECTION_NAME
-        col_info['workload_percent'] = 1.0
-        col_info['workload_queries'] = NUM_SESSIONS * NUM_OPS_PER_SESSION
-        self.collections = {col_info['name']: col_info}
-
-        for f in xrange(0, NUM_FIELDS):
-            f_name = "field%02d" % f
-            if f % 2 == 0:
-                f_type = int
-                col_info['interesting'].append(f_name)
-                query_count = col_info['workload_queries']
-            else:
-                f_type = str
-                queryCount = 0
-            f = catalog.Collection.fieldFactory(f_name, catalog.fieldTypeToString(f_type))
-            f['query_use_count'] = query_count
-            col_info['fields'][f_name] = f
-        ## FOR
-
         # WORKLOAD
         self.workload = [ ]
         for i in xrange(0, NUM_SESSIONS):
-            sess = Session()
+            sess = self.metadata_db.Session()
             sess['session_id'] = i
             sess['ip_client'] = "client:%d" % (1234+i)
             sess['ip_server'] = "server:5678"
             sess['start_time'] = time.time()
             sess['end_time'] = time.time() + 5
-            for j in xrange(0, NUM_OPS_PER_SESSION):
+            for j in xrange(0, len(COLLECTION_NAMES)):
                 _id = str(random.random())
                 queryId = long((i<<16) + j)
                 queryContent = { }
+                queryPredicates = { }
 
                 responseContent = {"_id": _id}
                 responseId = (queryId<<8)
@@ -71,25 +51,35 @@ class TestCostModel(MongoDBTestCase):
                     if f % 2 == 0:
                         responseContent[f_name] = random.randint(0, 100)
                         queryContent[f_name] = responseContent[f_name]
+                        queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
                     else:
                         responseContent[f_name] = str(random.randint(1000, 100000))
                     ## FOR
 
                 queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
                 op = Session.operationFactory()
-                op['collection']    = COLLECTION_NAME
+                op['collection']    = COLLECTION_NAMES[j]
                 op['type']          = constants.OP_TYPE_QUERY
                 op['query_id']      = queryId
                 op['query_content'] = [ queryContent ]
                 op['resp_content']  = [ responseContent ]
                 op['resp_id']       = responseId
-                op['predicates']    = dict([(f_name, constants.PRED_TYPE_EQUALITY) for f_name in  col_info['interesting']])
+                op['predicates']    = queryPredicates
                 sess['operations'].append(op)
             ## FOR (ops)
-
+            sess.save()
             self.workload.append(sess)
-            ## FOR (sess)
-        self.assertEqual(NUM_SESSIONS, len(self.workload))
+        ## FOR (sess)
+
+        # Use the MongoSniffConverter to populate our metadata
+        converter = MongoSniffConverter(self.metadata_db, self.dataset_db)
+        converter.no_mongo_parse = True
+        converter.no_mongo_sessionizer = True
+        converter.process()
+        self.assertEqual(NUM_SESSIONS, self.metadata_db.Session.find().count())
+
+        self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
+        self.assertEqual(len(COLLECTION_NAMES), len(self.collections))
 
         self.costModelConfig = {
            'max_memory':     6144, # MB
@@ -113,13 +103,14 @@ class TestCostModel(MongoDBTestCase):
     
     def testNetworkCost(self):
         """Check network cost for equality predicate queries"""
-        col_info = self.collections[COLLECTION_NAME]
+        col_info = self.collections[COLLECTION_NAMES[0]]
+        self.assertTrue(col_info['interesting'])
 
         # If we shard the collection on the interesting fields, then
         # each query should only need to touch one node
         d = Design()
-        d.addCollection(COLLECTION_NAME)
-        d.addShardKey(COLLECTION_NAME, col_info['interesting'])
+        d.addCollection(col_info['name'])
+        d.addShardKey(col_info['name'], col_info['interesting'])
         cost0 = self.cm.networkCost(d)
         print "cost0:", cost0
 
@@ -127,18 +118,18 @@ class TestCostModel(MongoDBTestCase):
         # should have to touch every node. The cost of this design
         # should be greater than the first one
         d = Design()
-        d.addCollection(COLLECTION_NAME)
-        d.addShardKey(COLLECTION_NAME, ['_id'])
+        d.addCollection(col_info['name'])
+        d.addShardKey(col_info['name'], ['_id'])
         cost1 = self.cm.networkCost(d)
         print "cost1:", cost1
 
         self.assertLess(cost0, cost1)
     ## DEF
 
-    def testNetworkCostDenormalization(self):
-        """Check network cost for queries that reference denormalized collections"""
-        pass
-    ## DEF
+#    def testNetworkCostDenormalization(self):
+#        """Check network cost for queries that reference denormalized collections"""
+#        pass
+#    ## DEF
 
 #    def testDiskCost(self):
 #        cost = self.cm.diskCost(self.d, self.w)

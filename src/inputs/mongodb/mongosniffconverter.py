@@ -51,7 +51,7 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class MongoSniffConverter(AbstractConverter):
     
-    def __init__(self, metadata_db, dataset_db, fd):
+    def __init__(self, metadata_db, dataset_db, fd=None):
         AbstractConverter.__init__(self, metadata_db, dataset_db)
 
         self.fd = fd
@@ -122,9 +122,10 @@ class MongoSniffConverter(AbstractConverter):
         r.process()
         LOG.info("Processed %d sessions with %d operations into '%s'" % (\
                  r.getSessionCount(), r.getOpCount(), self.dataset_db.name))
-        LOG.info("Skipped Operations: %d" % r.getOpSkipCount())
-        LOG.info("Fixed Operations: %d" % r.getOpFixCount())
-        LOG.info("Collection Sizes:\n%s" % pformat(r.getCollectionCounts()))
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug("Skipped Operations: %d" % r.getOpSkipCount())
+            LOG.debug("Fixed Operations: %d" % r.getOpFixCount())
+            LOG.debug("Collection Sizes:\n%s" % pformat(r.getCollectionCounts()))
     ## DEF
     
     ## ----------------------------------------------

@@ -118,6 +118,7 @@ class Reconstructor:
            documents that they contain"""
         counts = { }
         for col in self.dataset_db.collection_names():
+            if col.split(".")[0] in constants.IGNORED_COLLECTIONS: continue
             counts[col] = self.dataset_db[col].find().count()
         return counts
     ## DEF

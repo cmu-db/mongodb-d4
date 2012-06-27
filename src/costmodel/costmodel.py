@@ -258,6 +258,9 @@ class CostModel(object):
                                 if design.inShardKeyPattern(op['collection'], k) :
                                     scan = False
                                     predicate_type = v
+                            if self.debug:
+                                LOG.debug("Op #%d Predicates: %s [scan=%s / predicateType=%s]", \
+                                          op['query_id'], op['predicates'], scan, predicate_type)
                             if not scan:
                                 # Query uses shard key... need to determine if this is an
                                 # equality predicate or a range type
