@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------
-# Copyright (C) 2012
-# Andy Pavlo - http://www.cs.brown.edu/~pavlo/
+# Copyright (C) 2012 by Brown University
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -74,6 +73,40 @@ class CostModel(object):
         self.max_memory = config['max_memory'] * 1024 * 1024 * self.nodes
         self.skew_segments = config['skew_intervals'] - 1
         self.address_size = config['address_size'] / 4
+
+        self.workload_segments = [ ]
+    ## DEF
+
+    def splitWorkload(self):
+        self.workload_segments = []
+        if len(self.workload) > 0 :
+            start = self.workload[0]['start_time']
+            end = None
+            i = len(self.workload)-1
+            while i >= 0 and not end:
+                end = self.workload[i]['end_time']
+                i -= 1
+            assert start
+            assert end
+        else:
+            return 0
+
+        # Divide the workload up into segments for skew analysis
+        # TODO: This should not be done in here, because we're going to be
+        #       doing the same calculation thousands of times over and over again
+        #       We should precompute these intervals and save it in our object
+        offset = (end - start) / self.skew_segments
+        timer = start + offset
+        i = 0
+        segment = [ ]
+        for sess in self.workload:
+            if sess['end_time'] > timer:
+                i += 1
+                timer += offset
+                self.workload_segments.append(segment)
+                segment = [ ]
+            segment.append(sess)
+        self.workload_segments.append(segment)
     ## DEF
     
     def overallCost(self, design):
@@ -154,45 +187,16 @@ class CostModel(object):
     
     def skewCost(self, design):
         segment_costs = []
-        segments = []
-        if len(self.workload) > 0 :
-            start = self.workload[0]['start_time']
-            end = None
-            i = len(self.workload)-1
-            while i >= 0 and not end:
-                end = self.workload[i]['end_time']
-                i -= 1
-            assert start
-            assert end
-        else:
-            return 0
-            
-        # Divide the workload up into segments for skew analysis
-        # TODO: This should not be done in here, because we're going to be
-        #       doing the same calculation thousands of times over and over again
-        #       We should precompute these intervals and save it in our object
-        offset = (end - start) / self.skew_segments
-        timer = start + offset
-        i = 0
-        segment = [ ]
-        for sess in self.workload:
-            if sess['end_time'] > timer:
-                i += 1
-                timer += offset
-                segments.append(segment)
-                segment = [ ]
-            segment.append(sess)
-        segments.append(segment)
         
         # Calculate the network cost for each segment for skew analysis
-        for i in range(0, len(segments)) :
-            segment_costs.append(self.partialNetworkCost(design, segments[i]))
+        for i in range(0, len(self.workload_segments)) :
+            segment_costs.append(self.partialNetworkCost(design, self.workload_segments[i]))
         
         # Determine overall skew cost as a function of the distribution of the
         # segment network costs
         sum_of_query_counts = 0
         sum_intervals = 0
-        for i in range(0, len(segments)) :
+        for i in range(0, len(self.workload_segments)) :
             skew = 1 - segment_costs[i][0]
             sum_intervals += skew * segment_costs[i][1]
             sum_of_query_counts += segment_costs[i][1]
@@ -316,9 +320,7 @@ class CostModel(object):
                 working_set_counts[pair[1]] = math.ceil(col_percent * 100)
                 needs_memory.append((still_needs, pair[1]))
         
-        '''
-        This is where the problem is... Need to rethink how I am doing this.
-        '''
+        # This is where the problem is... Need to rethink how I am doing this.
         for pair in needs_memory :
             memory_available = buffer
             memory_needed = (1 - (working_set_counts[pair[1]] / 100)) * \
