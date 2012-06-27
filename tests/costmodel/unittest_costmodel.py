@@ -124,7 +124,10 @@ class TestCostModel(MongoDBTestCase):
         for i in xrange(0, len(COLLECTION_NAMES)):
             col_info = self.collections[COLLECTION_NAMES[i]]
             d.addCollection(col_info['name'])
-            d.addShardKey(col_info['name'], col_info['interesting'])
+            if i == 0:
+                d.addShardKey(col_info['name'], col_info['interesting'])
+            else:
+                d.addShardKey(col_info['name'], ["_id"])
         ## FOR
         cost0 = self.cm.networkCost(d)
         print "cost0:", cost0
