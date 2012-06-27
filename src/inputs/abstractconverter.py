@@ -67,13 +67,21 @@ class AbstractConverter():
         
     def reset(self):
         # FIXME: This should be done with a single update query
-            for col in self.metadata_db.Collection.find():
-                for k, v in col['fields'].iteritems() :
-                    v['query_use_count'] = 0
-                    v['cardinality'] = 0
-                    v['selectivity'] = 0
-                col.save()
-        ## DEF
+        for col_info in self.metadata_db.Collection.fetch():
+            for k,v in catalog.Collection.default_values.iteritems():
+                if type(v) in [list, dict]: continue
+                col_info[k] = v
+            ## FOR
+
+            ## TODO: This needs to be recursive
+            for k, v in col_info['fields'].iteritems() :
+                v['query_use_count'] = 0
+                v['query_hash'] = 0
+                v['cardinality'] = 0
+                v['selectivity'] = 0
+            col_info.save()
+        ## FOR
+    ## DEF
 
     def process(self, no_load=False, no_post_process=False, page_size=4):
         if not no_load: self.loadImpl()
@@ -91,6 +99,8 @@ class AbstractConverter():
             the catalog information came from MongoSniff or MySQL.
             This should only be invoked once after do the initial loading.
         """
+
+        self.reset()
 
         # STEP 1: Add query hashes
         self.addQueryHashes()
@@ -153,9 +163,13 @@ class AbstractConverter():
                 start_time = min(start_time, op['query_time'])
 
                 # The end_time is the timestamp of when the last response arrives
-                if 'resp_time' in op and op['resp_time']: end_time = max(end_time, op['resp_time'])
+                if 'resp_time' in op and op['resp_time']:
+                    end_time = max(end_time, op['resp_time'])
+                # If
+                elif not end_time and op['query_time']:
+                    end_time = op['query_time']
 
-                # Get the collection information object
+                    # Get the collection information object
                 # We will use this to store the number times each key is referenced in a query
                 if not op['collection'] in collectionCache:
                     col_info = self.metadata_db.Collection.one({'name': op['collection']})

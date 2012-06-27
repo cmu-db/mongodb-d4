@@ -176,12 +176,12 @@ class CostModel(object):
         i = 0
         segment = [ ]
         for sess in self.workload:
-            if sess.endTime > timer :
+            if sess['end_time'] > timer:
                 i += 1
                 timer += offset
-                segments.append(wl_seg)
-                wl_seg = self.workload.factory()
-            segment.addSession(sess)
+                segments.append(segment)
+                segment = [ ]
+            segment.append(sess)
         segments.append(segment)
         
         # Calculate the network cost for each segment for skew analysis
@@ -203,11 +203,11 @@ class CostModel(object):
             return sum_intervals / sum_of_query_counts
     ## DEF
         
-    def partialNetworkCost(self, design, wrkld_sgmnt) :
+    def partialNetworkCost(self, design, segment) :
         worst_case = 0
         result = 0
         query_count = 0
-        for sess in wrkld_sgmnt:
+        for sess in segment:
             previous_op = None
             for op in sess['operations']:
                 # Check to see if the queried collection exists in the design's 
@@ -282,7 +282,7 @@ class CostModel(object):
             memory += self.collections[colName]['doc_count'] * self.collections[colName]['avg_doc_size']
             
             # Process other indexes for this collection in the design
-            for index in design.getIndexesForCollection(colName) :
+            for index in design.getIndexes(colName) :
                 memory += self.collections[colName]['doc_count'] * self.address_size * len(index)
         return memory
         

@@ -162,10 +162,10 @@ class Designer():
         # Now generate the design candidates
         # These are the different options that we are going to explore
         # in the branch-and-bound search
-        dc = self.generateDesignCandidate()
-        bb = bbsearch.BBSearch(dc, cm, initialSolution, upper_bound, 10)
-        solution = bb.solve()
-        return solution
+#        dc = self.generateDesignCandidate()
+#        bb = bbsearch.BBSearch(dc, cm, initialSolution, upper_bound, 10)
+#        solution = bb.solve()
+#        return solution
     ## DEF
 
     def generateDesignCandidate(self):

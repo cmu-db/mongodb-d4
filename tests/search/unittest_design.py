@@ -4,7 +4,7 @@
 import unittest
 from search import design 
 
-class TestDesign (unittest.TestCase) :
+class TestDesign (unittest.TestCase):
     
     def setUp(self) :
         pass
@@ -27,7 +27,7 @@ class TestDesign (unittest.TestCase) :
         key = ['field 1']
         d.addCollection(collection)
         d.addShardKey(collection, key)
-        self.assertEqual(d.getShardKey(collection), key)
+        self.assertEqual(d.getShardKeys(collection), key)
         
     def testAddShardKeys(self) :
         d = design.Design()
@@ -37,7 +37,7 @@ class TestDesign (unittest.TestCase) :
         for col in collections :
             keys[col] = ['field 1']
         d.addShardKeys(keys)
-        self.assertEqual(d.getShardKeys(), keys)
+        self.assertEqual(d.getAllShardKeys(), keys)
         
     def testAddIndex(self) :
         d = design.Design()
@@ -45,7 +45,7 @@ class TestDesign (unittest.TestCase) :
         index = ['field 1', 'field 2']
         d.addCollection(collection)
         d.addIndex(collection, index)
-        self.assertEqual(d.getIndexesForCollection(collection), [index])
+        self.assertEqual(d.getIndexes(collection), [index])
         
     def testAddIndexes(self) :
         d = design.Design()
@@ -53,7 +53,7 @@ class TestDesign (unittest.TestCase) :
         indexes = [['field 1'], ['field 2']]
         d.addCollection(collection)
         d.addIndexes({collection : indexes})
-        self.assertEqual(d.getIndexesForCollection(collection), indexes)
+        self.assertEqual(d.getIndexes(collection), indexes)
     
     def testDesignFactory(self) :
         d = design.Design.testFactory()

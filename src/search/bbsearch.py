@@ -357,7 +357,7 @@ class BBNode():
             while denorm_parent:
                 # if the encapsulating collection has a shard key, it's a conflict
                 if denorm_parent in self.design.data:
-                    if self.design.getShardKey(denorm_parent) != []:
+                    if self.design.getShardKeys(denorm_parent) != []:
                         feasible = False
                         break
                 denorm_parent = self.design.getDenormalizationParent(denorm_parent)

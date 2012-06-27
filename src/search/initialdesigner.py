@@ -56,14 +56,16 @@ class InitialDesigner():
 
             # Figure out which attribute has the highest value for
             # the params that we care about when choosing the best design
-            attr = None
+            attrs = [ ]
             value = 0
-            for field, data in results.iteritems() :
+            for field, data in results.iteritems():
                 if data >= value:
+                    if data > value: attrs = [ ]
                     value = data
-                    attr = field
-            starting_design.addShardKey(col_info['name'], [attr])
-            starting_design.addIndex(col_info['name'], [attr])
+                    attrs.append(field)
+                    LOG.info("%s: (%d) -> %s", col_info['name'], value, attrs)
+            starting_design.addShardKey(col_info['name'], attrs)
+            starting_design.addIndex(col_info['name'], attrs)
             
         return starting_design
     ## DEF

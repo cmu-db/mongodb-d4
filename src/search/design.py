@@ -57,9 +57,9 @@ class Design(object):
         d = Design()
         for k,v in self.data.iteritems() :
             d.addCollection(k)
-            d.addShardKey(k, self.getShardKey(k))
+            d.addShardKey(k, self.getShardKeys(k))
             d.setDenormalizationParent(k, self.getDenormalizationParent(k))
-            indexes = self.getIndexesForCollection(k)
+            indexes = self.getIndexes(k)
             for i in indexes :
                 d.addIndex(k, i)
         return d
@@ -99,16 +99,20 @@ class Design(object):
         else :
             return None
     ## DEF
-    
+
+    ## ----------------------------------------------
+    ## SHARD KEYS
+    ## ----------------------------------------------
+
     def addShardKey(self, collection, key) :
         self.data[collection]['shardKeys'] = key
     ## DEF
 
-    def getShardKey(self, collection) :
+    def getShardKeys(self, collection) :
         return self.data[collection]['shardKeys']
     ## DEF
     
-    def getShardKeys(self) :
+    def getAllShardKeys(self) :
         keys = {}
         for k, v in self.data.iteritems() :
             keys[k] = v['shardKeys']
@@ -119,14 +123,33 @@ class Design(object):
         for k, v in keys.iteritems() :
             self.data[k]['shardKeys'] = v
     ## DEF
-    
+
+    def inShardKeyPattern(self, collection, attr) :
+        return attr in self.data[collection]['shardKeys']
+    ## DEF
+
+    ## ----------------------------------------------
+    ## INDEXES
+    ## ----------------------------------------------
+
+    def getIndexes(self, collection) :
+        return self.data[collection]['indexes']
+    ## DEF
+
+    def getAllIndexes(self) :
+        indexes = {}
+        for k,v in self.data.iteritems() :
+            indexes[k] = v['indexes']
+        return indexes
+    ## DEF
+
     def addIndex(self, collection, index) :
         add = True
         for i in self.data[collection]['indexes'] :
-            if i == index :
+            if i == index:
                 add = False
-        if add == True :
-            self.data[collection]['indexes'].append(index)
+                break
+        if add: self.data[collection]['indexes'].append(index)
     ## DEF
     
     def addIndexes(self, indexes) :
@@ -142,7 +165,11 @@ class Design(object):
                    return True
         return False
     ## DEF
-    
+
+    ## ----------------------------------------------
+    ## UTILITY CODE
+    ## ----------------------------------------------
+
     def __str__(self):
         s=""
         for k, v in self.data.iteritems() :
@@ -160,20 +187,7 @@ class Design(object):
         return self.data
     ## DEF
     
-    def inShardKeyPattern(self, collection, attr) :
-        return attr in self.data[collection]['shardKeys']
-    ## DEF
-    
-    def getIndexesForCollection(self, collection) :
-        return self.data[collection]['indexes']
-    ## DEF 
-    
-    def getIndexes(self) :
-        indexes = {}
-        for k,v in self.data.iteritems() :
-            indexes[k] = v['indexes']
-        return indexes
-    ## DEF
+
     
     @staticmethod
     def testFactory() :
