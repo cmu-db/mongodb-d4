@@ -61,13 +61,14 @@ class Designer():
 
         self.page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
         self.sample_rate = self.cparser.getint(config.SECT_DESIGNER, 'sample_rate')
-        
+
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
 
     def setOptionsFromArguments(self, args):
         """Set the internal parameters of the Designer based on command-line arguments"""
         for key in args:
-            LOG.debug("%s => %s" % (key, args[key]))
+            if self.debug: LOG.debug("%s => %s" % (key, args[key]))
             self.__dict__[key] = args[key]
         ## FOR
     ## DEF
@@ -157,27 +158,35 @@ class Designer():
         # This will be the upper bound from starting design
         initialSolution = InitialDesigner(collectionsDict.values()).generate()
         upper_bound = cm.overallCost(initialSolution)
-        LOG.info("Computed initial design [COST=%f]\n%s", upper_bound, initialSolution)
+        if self.debug: LOG.debug("Computed initial design [COST=%f]\n%s", upper_bound, initialSolution)
 
         # Now generate the design candidates
         # These are the different options that we are going to explore
         # in the branch-and-bound search
-#        dc = self.generateDesignCandidate()
-#        bb = bbsearch.BBSearch(dc, cm, initialSolution, upper_bound, 10)
-#        solution = bb.solve()
-#        return solution
+        dc = self.generateDesignCandidate()
+        if self.debug: LOG.debug("Design Candidates:\n%s", dc)
+
+        LOG.info("Executing D4 search algorithm...")
+        bb = bbsearch.BBSearch(dc, cm, initialSolution, upper_bound, 10)
+        solution = bb.solve()
+        return solution
     ## DEF
 
     def generateDesignCandidate(self):
         dc = DesignCandidate()
         for col_info in self.metadata_db.Collection.fetch():
+            interesting = col_info['interesting']
+            if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
+                interesting = interesting[:]
+                interesting.remove("_id")
+
             # deal with shards
-            shardKeys = col_info['interesting']
+            shardKeys = interesting
 
             # deal with indexes
             indexKeys = [[]]
-            for o in xrange(1, len(col_info['interesting']) + 1) :
-                for i in itertools.combinations(col_info['interesting'], o) :
+            for o in xrange(1, len(interesting) + 1) :
+                for i in itertools.combinations(interesting, o) :
                     indexKeys.append(i)
 
             # deal with de-normalization

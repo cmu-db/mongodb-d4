@@ -32,7 +32,7 @@ SKIP_MONGODB_ID_FIELD = False
 
 # List of collection names prefixes that we should ignore
 # when performing various processing tasks
-IGNORED_COLLECTIONS = [ 'system', 'local', 'admin' ]
+IGNORED_COLLECTIONS = [ 'system', 'local', 'admin', 'config' ]
 
 # If a query's collection name is mangled when processing traces,
 # we'll use this value to indicate that it is invalid

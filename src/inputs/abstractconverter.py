@@ -100,8 +100,6 @@ class AbstractConverter():
             This should only be invoked once after do the initial loading.
         """
 
-        self.reset()
-
         # STEP 1: Add query hashes
         self.addQueryHashes()
 
@@ -169,9 +167,11 @@ class AbstractConverter():
                 elif not end_time and op['query_time']:
                     end_time = op['query_time']
 
-                    # Get the collection information object
+                # Get the collection information object
                 # We will use this to store the number times each key is referenced in a query
                 if not op['collection'] in collectionCache:
+                    if op['collection'] in constants.IGNORED_COLLECTIONS or op['collection'].endswith("$cmd"):
+                        continue
                     col_info = self.metadata_db.Collection.one({'name': op['collection']})
                     if not col_info:
                         col_info = self.metadata_db.Collection()
@@ -187,8 +187,9 @@ class AbstractConverter():
                 try:
                     # QUERY
                     if op['type'] == constants.OP_TYPE_QUERY:
+                        # TODO: Why are not examining the resp_content here?
                         for content in op['query_content'] :
-                            if '#query' in content and content['#query'] is not None:
+                            if '#query' in content and content['#query']:
                                 self.processOpFields(col_info['fields'], op, content['#query'])
 
                     # DELETE

@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from pprint import pformat
+
 ## ==============================================
 ## DesignCandidate
 ## ==============================================
@@ -37,5 +39,8 @@ class DesignCandidate():
             self.shardKeys[collection] = shardKeys
             self.denorm[collection] = denorm
     
-    
+
+    def __str__(self):
+        return pformat(self.__dict__)
+
 ## CLASS

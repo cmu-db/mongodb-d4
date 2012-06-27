@@ -63,7 +63,7 @@ class InitialDesigner():
                     if data > value: attrs = [ ]
                     value = data
                     attrs.append(field)
-                    LOG.info("%s: (%d) -> %s", col_info['name'], value, attrs)
+                    LOG.debug("%s: (%d) -> %s", col_info['name'], value, attrs)
             starting_design.addShardKey(col_info['name'], attrs)
             starting_design.addIndex(col_info['name'], attrs)
             
