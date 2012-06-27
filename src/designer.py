@@ -27,7 +27,7 @@ import logging
 # mongodb-d4
 import catalog
 from costmodel import costmodel
-from search import InitialDesigner, DesignCandidate, bbsearch
+from search import InitialDesigner, DesignCandidates, bbsearch
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -163,8 +163,9 @@ class Designer():
         # Now generate the design candidates
         # These are the different options that we are going to explore
         # in the branch-and-bound search
-        dc = self.generateDesignCandidate()
-        if self.debug: LOG.debug("Design Candidates:\n%s", dc)
+        dc = self.generateDesignCandidates()
+#        if self.debug:
+        LOG.info("Design Candidates:\n%s", dc)
 
         LOG.info("Executing D4 search algorithm...")
         bb = bbsearch.BBSearch(dc, cm, initialSolution, upper_bound, 10)
@@ -172,8 +173,8 @@ class Designer():
         return solution
     ## DEF
 
-    def generateDesignCandidate(self):
-        dc = DesignCandidate()
+    def generateDesignCandidates(self):
+        dc = DesignCandidates()
         for col_info in self.metadata_db.Collection.fetch():
             interesting = col_info['interesting']
             if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
@@ -197,39 +198,6 @@ class Designer():
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
         ## FOR
         return dc
-    ## DEF
-
-    def generateShardingCandidates(self, collection):
-        """Generate the list of sharding candidates for the given collection"""
-        assert type(collection) == catalog.Collection
-        LOG.info("Generating sharding candidates for collection '%s'" % collection["name"])
-        
-        # Go through the workload and build a summarization of what fields
-        # are accessed (and how often)
-        found = 0
-        field_counters = { }
-        for sess in self.workload_db.Session.find({"operations.collection": collection["name"], "operations.type": ["query", "insert"]}):
-            print sess
-            
-            # For now can just count the number of reads / writes per field
-            for op in sess["operations"]:
-                for field in op["content"]:
-                    if not field in op["content"]: op["content"] = { "reads": 0, "writes": 0}
-                    if op["type"] == constants.OP_TYPE_QUERY:
-                        field_counters[field]["reads"] += 1
-                    elif op["type"] == constants.OP_TYPE_INSERT:
-                        # TODO: Should we ignore _id?
-                        field_counters[field]["writes"] += 1
-                    else:
-                        raise Exception("Unexpected query type '%s'" % op["type"])
-                ## FOR
-            found += 1
-        ## FOR
-        if not found:
-            LOG.warn("No workload sessions exist for collection '%s'" % collection["name"])
-            return
-            
-        return (fields_counters)
     ## DEF
 
 ## CLASS

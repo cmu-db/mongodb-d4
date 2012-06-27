@@ -210,7 +210,8 @@ if __name__ == '__main__':
     ## STEP 6
     ## Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
-    designer.search()
+    finalSolution = designer.search()
+    LOG.info("Final Solution:\n%s", finalSolution)
     
     # solutions['final'] = solution.toDICT()
     # print json.dumps(solutions, sort_keys=False, indent=4)

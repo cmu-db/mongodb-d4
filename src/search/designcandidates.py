@@ -3,7 +3,7 @@
 from pprint import pformat
 
 ## ==============================================
-## DesignCandidate
+## DesignCandidates
 ## ==============================================
 '''
 An instance of this class is given to the BBSearch.
@@ -16,7 +16,7 @@ a) list of possible shard keys
 b) list of collections it can be denormalized to
 c) list of possible index keys (this will be very likely the same as a))
 '''
-class DesignCandidate():
+class DesignCandidates():
 
     '''
     class constructor

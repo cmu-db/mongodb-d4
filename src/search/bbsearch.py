@@ -23,7 +23,7 @@ SHARD_KEY_MAX_COMPOUND_COUNT = 3 # composite shard keys may consist at most of 3
 '''
 Usage:
 1) Instantiate BBSearch object. The constructor takes these args:
-* instance of DesignCandidate: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
+* instance of DesignCandidates: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
 * instance of CostModel
 * initialDesign (instance of Design)
 * upperBound (float; cost of initialDesign)
@@ -35,15 +35,20 @@ That's it.
 '''
 
 class BBSearch ():
-    
-    # bbsearch object has self.status field, which can have following values:
-    # initialized, solving, solved, timed_out, user_terminated
+    """
+        bbsearch object has self.status field, which can have following values:
+        initialized, solving, solved, timed_out, user_terminated
+    """
     
     '''
     public methods
     '''
-    # main public method. Simply call to get the optimal solution
     def solve(self):
+        """
+            main public method. Simply call to get the optimal solution
+        """
+        signal.signal(signal.SIGINT, self.onSigint)
+
         # set up
         self.leafNodes = 0 # for testing
         self.totalNodes = 0 # for testing
@@ -51,19 +56,20 @@ class BBSearch ():
         LOG.debug("===BBSearch Solve===")
         LOG.debug(" timeout: %d", self.timeout)
         self.startTime = time.time()
-        signal.signal(signal.SIGINT, self.onSigint)
+
         # set initial bound to infinity
         self.rootNode.solve()
         if self.status is "solving":
             self.status = "solved"
         self.onTerminate()
         return self.bestDesign
-       
-       
-    # traverses the entire tree and returns nodes as list
-    # mostly for testing
-    # must solve first. Returns only childNodes visited while solving
+
     def listAllNodes(self):
+        """
+            traverses the entire tree and returns nodes as list
+            mostly for testing
+            must solve first. Returns only childNodes visited while solving
+        """
         result = [self.rootNode]
         self.rootNode.addChildrenToList(result)
         return result
@@ -85,9 +91,9 @@ class BBSearch ():
     '''
     Events
     '''
-    #SIGINT signal handler
     def onSigint(self, signal, frame):
-        print ">> CTRL+C >> Search Aborted by User..."
+        """SIGINT signal handler"""
+        LOG.warn(">> CTRL+C >> Search Aborted by User...")
         self.terminate()
     
     # this event gets called when the search backtracks
@@ -95,8 +101,8 @@ class BBSearch ():
         self.totalBacktracks += 1
         self.checkTimeout()
         
-    # this event gets called when the algorithm terminates
     def onTerminate(self):
+        """this event gets called when the algorithm terminates"""
         self.endTime = time.time()
         #self.restoreKeys() # change keys to collection names
         LOG.debug("===Search ended===")
@@ -113,7 +119,7 @@ class BBSearch ():
     '''
     class constructor
     args:
-    * instance of DesignCandidate: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
+    * instance of DesignCandidates: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
     * instance of CostModel
     * initialDesign (instance of Design)
     * bestCost (float; cost of initialDesign, upper bound)
@@ -272,7 +278,11 @@ class BBNode():
                 if self.bbsearch.terminated:
                     return
         
-                child = self.getNextChild()
+                child = None
+                try:
+                    child = self.getNextChild()
+                except StopIteration:
+                    pass
             ## WHILE
         
         # some stats... for testing
