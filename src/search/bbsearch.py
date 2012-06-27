@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 
-
 import time
 import sys
 import design
 import itertools
 import signal
+import logging
+
+LOG = logging.getLogger(__name__)
 
 '''
 CONSTANTS & CONFIG
 '''
 INDEX_KEY_MAX_COMPOUND_COUNT = -1 # index key may consist of any combination of possible indexes
 SHARD_KEY_MAX_COMPOUND_COUNT = 3 # composite shard keys may consist at most of 3 keys
-
-
 
 ## ==============================================
 ## Branch and Bound search
@@ -48,8 +48,8 @@ class BBSearch ():
         self.leafNodes = 0 # for testing
         self.totalNodes = 0 # for testing
         self.status = "solving"
-        #print("===BBSearch Solve===")
-        #print " timeout: ", self.timeout
+        LOG.debug("===BBSearch Solve===")
+        LOG.debug(" timeout: ", self.timeout)
         self.startTime = time.time()
         signal.signal(signal.SIGINT, self.onSigint)
         # set initial bound to infinity
@@ -99,16 +99,16 @@ class BBSearch ():
     def onTerminate(self):
         self.endTime = time.time()
         #self.restoreKeys() # change keys to collection names
-        #print "\n===Search ended==="
-        #print "  status: ", self.status
-        #print "STATISTICS:"
-        #print "  time elapsed: ", self.endTime - self.startTime, "s"
-        #print "  best cost: ", self.bestCost
-        #print "  total backtracks: ", self.totalBacktracks
-        #print "  total nodes: ", self.totalNodes
-        #print "  leaf nodes: ", self.leafNodes
-        #print "BEST SOLUTION:\n", self.bestDesign
-        #print "------------------\n"
+        LOG.debug("\n===Search ended===")
+        LOG.debug("  status: ", self.status)
+        LOG.debug("STATISTICS:")
+        LOG.debug("  time elapsed: ", self.endTime - self.startTime, "s")
+        LOG.debug("  best cost: ", self.bestCost)
+        LOG.debug("  total backtracks: ", self.totalBacktracks)
+        LOG.debug("  total nodes: ", self.totalNodes)
+        LOG.debug("  leaf nodes: ", self.leafNodes)
+        LOG.debug("BEST SOLUTION:\n", self.bestDesign)
+        LOG.debug("------------------\n")
     
     '''
     class constructor
@@ -253,7 +253,7 @@ class BBNode():
    # this is depth first search for now
     def solve(self):
     
-        #print ("\n ==Node Solve== ")
+        LOG.debug(("\n ==Node Solve== "))
     
         self.bbsearch.checkTimeout()
         if self.bbsearch.terminated:
@@ -267,8 +267,8 @@ class BBNode():
             child = self.getNextChild()
             while child is not None:
                 
-                #print "\nDEPTH: ", child.depth
-                #print child.design
+                LOG.debug("\nDEPTH: ", child.depth)
+                LOG.debug(child.design)
                 
                 if child.evaluate():
                     self.children.append(child)
@@ -293,7 +293,7 @@ class BBNode():
     # returns None if all children have been enumerated
     def getNextChild(self):
         
-        #print ("GET NEXT CHILD")
+        LOG.debug(("GET NEXT CHILD"))
         
         # use iterators to determine the next assignment for the current collection
         
@@ -323,7 +323,7 @@ class BBNode():
                     # == all children enumerated
                     return None
         
-        #print "APPLYING: ", self.currentCol, "shardKey: ", shardKey, " denorm: ", denorm, " indexes: ", indexes
+        LOG.debug("APPLYING: ", self.currentCol, "shardKey: ", shardKey, " denorm: ", denorm, " indexes: ", indexes)
         
         ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
@@ -366,7 +366,7 @@ class BBNode():
         # it's OK so long there are not too many consecutive infeasible nodes,
         # then it could hit the max recursion limit...
         if not feasible:
-            #print "FAIL"
+            LOG.debug("FAIL")
             return self.getNextChild()
         
         ### --- end of CONSTRAINTS ---
@@ -401,7 +401,7 @@ class BBNode():
         self.denormIter = SimpleKeyIterator(self.bbsearch.designCandidate.denorm[self.currentCol])
         self.indexIter = CompoundKeyIterator(self.bbsearch.designCandidate.indexKeys[self.currentCol], INDEX_KEY_MAX_COMPOUND_COUNT)
         
-        #print "COL: ", col, "denorm: ", self.bbsearch.designCandidate.denorm[self.currentCol]
+        LOG.debug("COL: ", col, "denorm: ", self.bbsearch.designCandidate.denorm[self.currentCol])
         #for f in self.denormIter:
         #    print str(f)
         #self.indexIter.rewind()
@@ -410,12 +410,12 @@ class BBNode():
     # It updates the global lower/upper bound accordingly
     # retrun: True if the node should be explored, False if the node can be discarded
     def evaluate(self):
-        #print ".",
-        #print self
+        LOG.debug(".",)
+        LOG.debug(self)
         sys.stdout.flush()
         # add child only when the solution is admissible
         self.cost = self.bbsearch.costModel.overallCost(self.design)
-        #print "EVAL NODE: ", self.design, " bound_lower: ", self.lower_bound, "bound_upper: ", self.upper_bound, "BOUND: ", self.bbsearch.lower_bound
+        LOG.debug("EVAL NODE: ", self.design, " bound_lower: ", self.lower_bound, "bound_upper: ", self.upper_bound, "BOUND: ", self.bbsearch.lower_bound)
         
         # for leaf nodes (complete solutions):
         # Check against the best value we have seen so far
