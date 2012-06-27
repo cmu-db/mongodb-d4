@@ -223,7 +223,11 @@ class CostModel(object):
                     continue
 
                 # Check whether this collection is embedded inside of another
-                parent_col = design.getParentCollection(op['collection'])
+                # TODO: Need to get ancestor
+                parent_col = design.getDenormalizationParent(op['collection'])
+                if self.debug and parent_col:
+                    LOG.debug("Op #%d on '%s' Parent Collection -> '%s'", \
+                              op["query_id"], op["collection"], parent_col)
 
                 process = False
                 # This is the first op we've seen in this session
@@ -268,8 +272,12 @@ class CostModel(object):
                                     result += 0.0
                                 else:
                                     nodes = self.guessNodes(design, op['collection'], k)
+                                    LOG.info("Estimating that Op #%d on '%s' touches %d nodes", \
+                                             op["query_id"], op["collection"], nodes)
                                     result += nodes
                             else:
+                                LOG.info("Op #%d on '%s' is a broadcast query", \
+                                         op["query_id"], op["collection"])
                                 result += self.nodes
                         else:
                             result += self.nodes
@@ -283,6 +291,10 @@ class CostModel(object):
             cost = 0
         else:
             cost = result / float(query_count * self.nodes)
+
+        LOG.info("Computed Network Cost: %f [result=%d / queryCount=%d]", \
+                 cost, result, query_count)
+
         return (cost, query_count)
         
     def guessNodes(self, design, colName, key) :

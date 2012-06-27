@@ -88,48 +88,83 @@ class TestCostModel(MongoDBTestCase):
            'nodes':          NUM_NODES,
         }
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
-#        self.d = search.Design.testFactory()
     ## DEF
 
-#    @staticmethod
-#    def designFactory():
-#        design = Design()
-#        collections = ['col 1', 'col 2']
-#        design.addCollections(collections)
-#        design.addShardKey('col 1', ['c1b'])
-#        design.addShardKey('col 2', ['c2a'])
-#        design.addIndexes({ 'col 1' : [['c1a']], 'col 2' : [['c2c'], ['c2a', 'c2d']] })
-#        return design
-    
-    def testNetworkCost(self):
-        """Check network cost for equality predicate queries"""
-        col_info = self.collections[COLLECTION_NAMES[0]]
-        self.assertTrue(col_info['interesting'])
+#    def testNetworkCost(self):
+#        """Check network cost for equality predicate queries"""
+#        col_info = self.collections[COLLECTION_NAMES[0]]
+#        self.assertTrue(col_info['interesting'])
+#
+#        # If we shard the collection on the interesting fields, then
+#        # each query should only need to touch one node
+#        d = Design()
+#        d.addCollection(col_info['name'])
+#        d.addShardKey(col_info['name'], col_info['interesting'])
+#        cost0 = self.cm.networkCost(d)
+##        print "cost0:", cost0
+#
+#        # If we now shard the collection on just '_id', then every query
+#        # should have to touch every node. The cost of this design
+#        # should be greater than the first one
+#        d = Design()
+#        d.addCollection(col_info['name'])
+#        d.addShardKey(col_info['name'], ['_id'])
+#        cost1 = self.cm.networkCost(d)
+##        print "cost1:", cost1
+#
+#        self.assertLess(cost0, cost1)
+#    ## DEF
 
-        # If we shard the collection on the interesting fields, then
-        # each query should only need to touch one node
+    def testNetworkCostDenormalization(self):
+        """Check network cost for queries that reference denormalized collections"""
+
+        # Get the "base" design cost when all of the collections
+        # are sharded on their "interesting" fields
         d = Design()
-        d.addCollection(col_info['name'])
-        d.addShardKey(col_info['name'], col_info['interesting'])
+        for i in xrange(0, len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+            d.addShardKey(col_info['name'], col_info['interesting'])
+        ## FOR
         cost0 = self.cm.networkCost(d)
         print "cost0:", cost0
 
-        # If we now shard the collection on just '_id', then every query
-        # should have to touch every node. The cost of this design
-        # should be greater than the first one
+        # Now get the network cost for when we denormalize the
+        # second collection inside of the first one
+        # We should have a lower cost because there should now be fewer queries
         d = Design()
-        d.addCollection(col_info['name'])
-        d.addShardKey(col_info['name'], ['_id'])
+        for i in xrange(0, len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            self.assertTrue(col_info['interesting'])
+            d.addCollection(col_info['name'])
+            if i == 0:
+                d.addShardKey(col_info['name'], col_info['interesting'])
+            else:
+                parent = self.collections[COLLECTION_NAMES[0]]
+                self.assertIsNotNone(parent)
+                d.setDenormalizationParent(col_info['name'], parent['name'])
+                self.assertTrue(d.isDenormalized(col_info['name']), col_info['name'])
+                self.assertIsNotNone(d.getDenormalizationParent(col_info['name']))
+        ## FOR
         cost1 = self.cm.networkCost(d)
         print "cost1:", cost1
 
-        self.assertLess(cost0, cost1)
-    ## DEF
+        # The denormalization cost should also be the same as the cost
+        # when we remove all of the ops one the second collection
+        for sess in self.workload:
+            for op in sess["operations"]:
+                if op["collection"] <> COLLECTION_NAMES[0]:
+                    sess["operations"].remove(op)
+                    ## FOR (op)
+            ## FOR (sess)
+        for i in xrange(1, len(COLLECTION_NAMES)):
+            del self.collections[COLLECTION_NAMES[i]]
+        cost2 = self.cm.networkCost(d)
+        print "cost2:", cost2
 
-#    def testNetworkCostDenormalization(self):
-#        """Check network cost for queries that reference denormalized collections"""
-#        pass
-#    ## DEF
+        self.assertLess(cost1, cost0)
+        self.assertEqual(cost1, cost2)
+    ## DEF
 
 #    def testDiskCost(self):
 #        cost = self.cm.diskCost(self.d, self.w)

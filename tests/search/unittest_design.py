@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os, sys
 import unittest
-from search import design 
+
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../../src"))
+
+from search import design
 
 class TestDesign (unittest.TestCase):
     
@@ -64,8 +69,18 @@ class TestDesign (unittest.TestCase):
         d.addCollection(collection)
         d.addIndexes({collection : indexes})
         self.assertEqual(d.getIndexes(collection), indexes)
-    
-    def testGetDenormalizationHierarchy(self) :
+
+    def testGetParentCollection(self):
+        d = design.Design()
+        d.addCollection('A')
+        d.addCollection('B')
+        d.setDenormalizationParent('B', 'A')
+        self.assertFalse(d.isDenormalized('A'))
+        self.assertTrue(d.isDenormalized('B'))
+        self.assertEqual('A', d.getDenormalizationParent('B'))
+    ## DEF
+
+    def testGetDenormalizationHierarchy(self):
         # Dependency Tree
         #    A
         #   / \

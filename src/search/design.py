@@ -11,12 +11,10 @@ class Design(object):
     def __init__(self):
         self.data = {}
         self.collections = []
-        
-    '''
-    public methods
-    '''
-    # returns True when all collections are assigned
+    # DEF
+
     def isComplete(self, totalNumberOfCollections):
+        """returns True when all collections are assigned"""
         return len(self.data) == totalNumberOfCollections
     ## DEF
     
@@ -63,8 +61,11 @@ class Design(object):
             for i in indexes :
                 d.addIndex(k, i)
         return d
-          
-          
+
+    ## ----------------------------------------------
+    ## DENORMALIZATION
+    ## ----------------------------------------------
+
     def isDenormalized(self, collection):
         return self.getDenormalizationParent(collection) != None
     ## DEF
@@ -166,6 +167,7 @@ class Design(object):
         return False
     ## DEF
 
+
     ## ----------------------------------------------
     ## UTILITY CODE
     ## ----------------------------------------------
@@ -179,12 +181,12 @@ class Design(object):
             s += " denorm: " + str(v['denorm']) + "\n"
         return s
     ## DEF
-            
+
     def toJSON(self) :
         return json.dumps(self.toDICT(), sort_keys=False, indent=4)
-    
+
     def toDICT(self) :
         return self.data
     ## DEF
-    
+
 ## CLASS
