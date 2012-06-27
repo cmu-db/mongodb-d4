@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from util import *
-
 ## ==============================================
 ## DesignCandidate
 ## ==============================================
@@ -16,8 +14,7 @@ a) list of possible shard keys
 b) list of collections it can be denormalized to
 c) list of possible index keys (this will be very likely the same as a))
 '''
-class DesignCandidate(object):
-
+class DesignCandidate():
 
     '''
     class constructor

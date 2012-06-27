@@ -61,7 +61,7 @@ class TestSearchSpace (unittest.TestCase) :
         self.costmodel = DummyCostModel(dummy_bounding_f)
     ## DEF
 
-    def testBBSearch1(self):
+    def testSimpleSearch(self):
         '''
         dummy example: since the bounding function returns always float('inf'),
         this should basically traverse the entire tree
