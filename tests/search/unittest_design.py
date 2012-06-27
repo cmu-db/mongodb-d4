@@ -8,6 +8,16 @@ class TestDesign (unittest.TestCase):
     
     def setUp(self) :
         pass
+
+    @staticmethod
+    def designFactory():
+        design = design.Design()
+        collections = ['col 1', 'col 2']
+        design.addCollections(collections)
+        design.addShardKey('col 1', ['c1b'])
+        design.addShardKey('col 2', ['c2a'])
+        design.addIndexes({ 'col 1' : [['c1a']], 'col 2' : [['c2c'], ['c2a', 'c2d']] })
+        return design
         
     def testAddCollection(self) :
         d = design.Design()
@@ -55,10 +65,6 @@ class TestDesign (unittest.TestCase):
         d.addIndexes({collection : indexes})
         self.assertEqual(d.getIndexes(collection), indexes)
     
-    def testDesignFactory(self) :
-        d = design.Design.testFactory()
-        self.assertEqual(isinstance(d, design.Design), True)
-        
     def testGetDenormalizationHierarchy(self) :
         # Dependency Tree
         #    A

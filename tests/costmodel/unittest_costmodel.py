@@ -6,15 +6,11 @@ import random
 import time
 import unittest
 
-import logging
-logging.basicConfig(level = logging.DEBUG,
-    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-    datefmt="%m-%d-%Y %H:%M:%S",
-    stream = sys.stdout)
-
 basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, "../../src"))
+sys.path.append(os.path.join(basedir, "../../"))
 
+# mongodb-d4
+from tests import MongoDBTestCase
 import catalog
 import costmodel
 from search import Design
@@ -28,9 +24,11 @@ NUM_OPS_PER_SESSION = 4
 NUM_FIELDS = 6
 NUM_NODES = 8
 
-class TestCostModel(unittest.TestCase):
+class TestCostModel(MongoDBTestCase):
 
     def setUp(self):
+        MongoDBTestCase.setUp(self)
+
         # COLLECTIONS
         col_info = catalog.Collection()
         col_info['name'] = COLLECTION_NAME

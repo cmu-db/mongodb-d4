@@ -7,20 +7,11 @@ import unittest
 from datetime import datetime
 from pprint import pprint
 
-import logging
-logging.basicConfig(level = logging.INFO,
-    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-    datefmt="%m-%d-%Y %H:%M:%S",
-    stream = sys.stdout)
-
 basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, "../../libs"))
-sys.path.append(os.path.join(basedir, "../../src"))
-
-# Third-Party Dependencies
-import mongokit
+sys.path.append(os.path.join(basedir, "../../"))
 
 # mongodb-d4
+from tests import MongoDBTestCase
 import catalog
 import workload
 from util import constants
@@ -32,19 +23,10 @@ NUM_SESSIONS = 100
 NUM_OPS_PER_SESSION = 4
 NUM_FIELDS = 6
 
-class TestAbstractConverter(unittest.TestCase):
+class TestAbstractConverter(MongoDBTestCase):
 
     def setUp(self):
-        conn = mongokit.Connection()
-        conn.register([ catalog.Collection, workload.Session ])
-
-        # Drop the databases first
-        # Note that we prepend "test_" in front of the db names
-        db_prefix = "test_"
-        for dbName in [constants.METADATA_DB_NAME, constants.DATASET_DB_NAME]:
-            conn.drop_database(db_prefix + dbName)
-        self.metadata_db = conn[db_prefix + constants.METADATA_DB_NAME]
-        self.dataset_db = conn[db_prefix + constants.DATASET_DB_NAME]
+        MongoDBTestCase.setUp(self)
 
         # Generate some fake workload sessions
         for i in xrange(0, NUM_SESSIONS):
