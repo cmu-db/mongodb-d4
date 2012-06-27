@@ -82,7 +82,7 @@ class Design(object):
     ## DEF
     
     def getDenormalizationHierarchy(self, collection, ret=None):
-        if ret == None: ret = [ ]
+        if not ret: ret = [ ]
         parent = self.getDenormalizationParent(collection)
         if parent:
             ret.insert(0, parent) 
@@ -91,9 +91,9 @@ class Design(object):
     ## DEF
             
     def getParentCollection(self, collection) :
-        if collection in list(self.data):
+        if collection in self.data:
             if not self.data[collection]['denorm'] :
-                return collection
+                return None
             else :
                 return self.getParentCollection(self.data[collection]['denorm'])
         else :
@@ -187,15 +187,4 @@ class Design(object):
         return self.data
     ## DEF
     
-
-    
-    @staticmethod
-    def testFactory() :
-        design = Design()
-        collections = ['col 1', 'col 2']
-        design.addCollections(collections)
-        design.addShardKey('col 1', ['c1b'])
-        design.addShardKey('col 2', ['c2a'])
-        design.addIndexes({ 'col 1' : [['c1a']], 'col 2' : [['c2c'], ['c2a', 'c2d']] })
-        return design
 ## CLASS

@@ -22,6 +22,9 @@ class Collection(Document):
         'workload_percent': float,     # The percentage of the total workload that touch this collection
         'interesting':      [basestring], # TODO(ckeith)
 
+        ## ----------------------------------------------
+        ## FIELDS
+        ## ----------------------------------------------
         'fields': {
             unicode: {
                 'type':             basestring, # catalog.fieldTypeToString(col_type),

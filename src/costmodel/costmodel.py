@@ -58,26 +58,29 @@ class CostModel(object):
     
     def __init__(self, collections, workload, config):
         assert type(collections) == dict
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
+
         self.collections = collections
         self.workload = workload
 
         self.rg = random.Random()
         self.rg.seed('cost model coolness')
 
-        self.weight_network = config['weight_network']
-        self.weight_disk = config['weight_disk']
-        self.weight_skew = config['weight_skew']
-        self.nodes = config['nodes']
+        self.weight_network = config.get('weight_network', 1.0)
+        self.weight_disk = config.get('weight_disk', 1.0)
+        self.weight_skew = config.get('weight_skew', 1.0)
+        self.nodes = config.get('nodes', 1)
 
         # Convert MB to KB
         self.max_memory = config['max_memory'] * 1024 * 1024 * self.nodes
         self.skew_segments = config['skew_intervals'] - 1
         self.address_size = config['address_size'] / 4
 
-        self.workload_segments = [ ]
+        self.splitWorkload()
     ## DEF
 
     def splitWorkload(self):
+        """Divide the workload up into segments for skew analysis"""
         self.workload_segments = []
         if len(self.workload) > 0 :
             start = self.workload[0]['start_time']
@@ -91,10 +94,6 @@ class CostModel(object):
         else:
             return 0
 
-        # Divide the workload up into segments for skew analysis
-        # TODO: This should not be done in here, because we're going to be
-        #       doing the same calculation thousands of times over and over again
-        #       We should precompute these intervals and save it in our object
         offset = (end - start) / self.skew_segments
         timer = start + offset
         i = 0
@@ -122,12 +121,12 @@ class CostModel(object):
         return cost
     ## DEF
     
-    '''
-    Estimate the Disk Cost for a design and a workload
-    - Best case, every query is satisfied by main memory
-    - Worst case, every query requires a full collection
-    '''
     def diskCost(self, design):
+        """
+        Estimate the Disk Cost for a design and a workload
+        - Best case, every query is satisfied by main memory
+        - Worst case, every query requires a full collection
+        """
         worst_case = 0
         cost = 0
         # 1. estimate index memory requirements
@@ -186,9 +185,9 @@ class CostModel(object):
     ## DEF
     
     def skewCost(self, design):
+        """Calculate the network cost for each segment for skew analysis"""
         segment_costs = []
         
-        # Calculate the network cost for each segment for skew analysis
         for i in range(0, len(self.workload_segments)) :
             segment_costs.append(self.partialNetworkCost(design, self.workload_segments[i]))
         
@@ -207,8 +206,8 @@ class CostModel(object):
             return sum_intervals / sum_of_query_counts
     ## DEF
         
-    def partialNetworkCost(self, design, segment) :
-        worst_case = 0
+    def partialNetworkCost(self, design, segment):
+        if self.debug: LOG.debug("Computing network cost for %d sessions", len(segment))
         result = 0
         query_count = 0
         for sess in segment:
@@ -218,62 +217,78 @@ class CostModel(object):
                 # de-normalization scheme
 
                 # Collection is not in design.. don't count query
-                if not design.hasCollection(op['collection']): continue
+                if not design.hasCollection(op['collection']):
+                    if self.debug: LOG.debug("SKIP - %s Op #%d on %s", \
+                                             op['type'], op['query_id'], op['collection'])
+                    continue
+
+                # Check whether this collection is embedded inside of another
+                parent_col = design.getParentCollection(op['collection'])
 
                 process = False
-                parent_col = design.getParentCollection(op['collection'])
+                # This is the first op we've seen in this session
                 if not previous_op:
                     process = True
-                elif parent_col == op['collection'] :
+                # Or this operation's target collection is not embedded
+                elif not parent_col:
                     process = True
-                elif previous_op.type <> constants.OP_TYPE_QUERY or op['type'] <> constants.OP_TYPE_QUERY:
+                # Or if either the previous op or this op was not a query
+                elif previous_op['type'] <> constants.OP_TYPE_QUERY or op['type'] <> constants.OP_TYPE_QUERY:
                     process = True
-                elif previous_op.collection <> parent_col :
+                # Or if the previous op was
+                elif previous_op['collection'] <> parent_col:
                     process = True
+                # TODO: What if the previous op should be merged with a later op?
+                #       We would lose it because we're going to overwrite previous op
 
-                # query does not need to be processed
-                if not process: pass
+                # Process this op!
+                if process:
+                    query_count += 1
 
-                worst_case += self.nodes
-                query_count += 1
-                if op['type'] == constants.OP_TYPE_INSERT:
-                    result += 1
-                else:
+                    # Inserts always go to a single node
+                    if op['type'] == constants.OP_TYPE_INSERT:
+                        result += 1
                     # Network costs of SELECT, UPDATE, DELETE queries are based off
                     # of using the sharding key in the predicate
-                    if len(op['predicates']) > 0 :
-                        scan = True
-                        query_type = None
-                        for k,v in op['predicates'].iteritems() :
-                            if design.inShardKeyPattern(op['collection'], k) :
-                                scan = False
-                                query_type = v
-                        if not scan:
-                            # Query uses shard key... need to determine if this is an
-                            # equality predicate or a range type
-                            if query_type == constants.PRED_TYPE_EQUALITY:
-                                result += 0.0
+                    else:
+                        if len(op['predicates']) > 0:
+                            scan = True
+                            predicate_type = None
+                            for k,v in op['predicates'].iteritems() :
+                                if design.inShardKeyPattern(op['collection'], k) :
+                                    scan = False
+                                    predicate_type = v
+                            if not scan:
+                                # Query uses shard key... need to determine if this is an
+                                # equality predicate or a range type
+                                if predicate_type == constants.PRED_TYPE_EQUALITY:
+                                    result += 0.0
+                                else:
+                                    nodes = self.guessNodes(design, op['collection'], k)
+                                    result += nodes
                             else:
-                                nodes = self.guessNodes(design, op['collection'], k)
-                                result += nodes
+                                result += self.nodes
                         else:
                             result += self.nodes
-                    else:
-                        result += self.nodes
+                else:
+                    if self.debug: LOG.debug("SKIP - %s Op #%d on %s [parent=%s / previous=%s]", \
+                                             op['type'], op['query_id'], op['collection'], \
+                                             parent_col, (previous_op != None))
+                ## IF
                 previous_op = op
-        if not worst_case:
+        if not query_count:
             cost = 0
         else:
-            cost = result / worst_case
+            cost = result / float(query_count * self.nodes)
         return (cost, query_count)
         
-    '''
-    Serve as a stand-in for the EXPLAIN function referenced in the paper?
-    
-    How do we use the statistics to determine the selectivity of this particular
-    attribute and thus determine the number of nodes required to answer the query?
-    '''
     def guessNodes(self, design, colName, key) :
+        """
+        Serve as a stand-in for the EXPLAIN function referenced in the paper?
+
+        How do we use the statistics to determine the selectivity of this particular
+        attribute and thus determine the number of nodes required to answer the query?
+        """
         return math.ceil(self.collections[colName]['fields'][key]['selectivity'] * self.nodes)
         
     '''
