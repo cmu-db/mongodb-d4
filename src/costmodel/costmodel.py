@@ -73,7 +73,7 @@ class CostModel(object):
 
         # Convert MB to KB
         self.max_memory = config['max_memory'] * 1024 * 1024 * self.nodes
-        self.skew_segments = config['skew_intervals'] - 1
+        self.skew_segments = config['skew_intervals'] # Why? "- 1"
         self.address_size = config['address_size'] / 4
 
         self.splitWorkload()
@@ -81,32 +81,34 @@ class CostModel(object):
 
     def splitWorkload(self):
         """Divide the workload up into segments for skew analysis"""
-        self.workload_segments = []
         if len(self.workload) > 0 :
-            start = self.workload[0]['start_time']
-            end = None
+            start_time = self.workload[0]['start_time']
+            end_time = None
             i = len(self.workload)-1
-            while i >= 0 and not end:
-                end = self.workload[i]['end_time']
+            while i >= 0 and not end_time:
+                end_time = self.workload[i]['end_time']
                 i -= 1
-            assert start
-            assert end
+            assert start_time
+            assert end_time
         else:
             return 0
 
-        offset = (end - start) / self.skew_segments
-        timer = start + offset
-        i = 0
-        segment = [ ]
+        LOG.info("Workload Segments - START:%d / END:%d", start_time, end_time)
+        self.workload_segments = [ [] for i in xrange(0, self.skew_segments) ]
         for sess in self.workload:
-            if sess['end_time'] > timer:
-                i += 1
-                timer += offset
-                self.workload_segments.append(segment)
-                segment = [ ]
-            segment.append(sess)
-        self.workload_segments.append(segment)
+            idx = self.getSessionSegment(sess, start_time, end_time)
+            self.workload_segments[idx].append(sess)
+        ## FOR
     ## DEF
+
+    def getSessionSegment(self, sess, start_time, end_time):
+        """Return the segment offset that the given Session should be assigned to"""
+        timestamp = sess['start_time']
+        if timestamp == end_time: timestamp -= 1
+        ratio = (timestamp - start_time) / float(end_time - start_time)
+        return int(self.skew_segments * ratio)
+    ## DEF
+
     
     def overallCost(self, design):
         cost = 0

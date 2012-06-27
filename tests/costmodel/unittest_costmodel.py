@@ -10,7 +10,8 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../"))
 
 # mongodb-d4
-from tests import MongoDBTestCase
+from tests import *
+from mongodbtestcase import MongoDBTestCase
 import catalog
 import costmodel
 from search import Design
@@ -23,6 +24,7 @@ NUM_DOCUMENTS = 10000
 NUM_SESSIONS = 50
 NUM_FIELDS = 6
 NUM_NODES = 8
+NUM_INTERVALS = 10
 
 class TestCostModel(MongoDBTestCase):
 
@@ -31,13 +33,14 @@ class TestCostModel(MongoDBTestCase):
 
         # WORKLOAD
         self.workload = [ ]
+        timestamp = time.time()
         for i in xrange(0, NUM_SESSIONS):
             sess = self.metadata_db.Session()
             sess['session_id'] = i
             sess['ip_client'] = "client:%d" % (1234+i)
             sess['ip_server'] = "server:5678"
-            sess['start_time'] = time.time()
-            sess['end_time'] = time.time() + 5
+            sess['start_time'] = timestamp
+
             for j in xrange(0, len(COLLECTION_NAMES)):
                 _id = str(random.random())
                 queryId = long((i<<16) + j)
@@ -65,8 +68,15 @@ class TestCostModel(MongoDBTestCase):
                 op['resp_content']  = [ responseContent ]
                 op['resp_id']       = responseId
                 op['predicates']    = queryPredicates
+
+                op['query_time']    = timestamp
+                timestamp += 1
+                op['resp_time']    = timestamp
+
                 sess['operations'].append(op)
             ## FOR (ops)
+            sess['end_time'] = timestamp
+            timestamp += 2
             sess.save()
             self.workload.append(sess)
         ## FOR (sess)
@@ -83,11 +93,22 @@ class TestCostModel(MongoDBTestCase):
 
         self.costModelConfig = {
            'max_memory':     6144, # MB
-           'skew_intervals': 10,
+           'skew_intervals': NUM_INTERVALS,
            'address_size':   64,
            'nodes':          NUM_NODES,
         }
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
+    ## DEF
+
+    def testGetSplitWorkload(self):
+        """Check that the workload is split into intervals"""
+
+        self.assertEqual(NUM_SESSIONS, sum(map(len, self.cm.workload_segments)))
+        for i in xrange(0, NUM_INTERVALS):
+#            print "[%02d]: %d" % (i, len(self.cm.workload_segments[i]))
+            self.assertGreater(len(self.cm.workload_segments[i]), 0)
+        ## FOR
+        self.assertEqual(NUM_INTERVALS, len(self.cm.workload_segments))
     ## DEF
 
     def testNetworkCost(self):
