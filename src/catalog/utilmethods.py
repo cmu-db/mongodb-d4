@@ -92,3 +92,20 @@ def variance_factor(list, norm):
             std = std + (a - mean)**2
         std = math.sqrt(std / float(n-1))
         return abs(1 - (std / norm))
+
+def getFieldValue(shardingKey, fields):
+    """
+        Return the field value for the given shardingKey entry
+        The shardKey can be a nested field using dot notation
+    """
+
+    # If the sharding key has a dot in it, then we will want
+    # to fix the prefix and then traverse further into the fields
+    splits = shardingKey.split(".")
+    if not splits[0] in fields:
+        return None
+    elif len(splits) > 1:
+        return getFieldValue(shardingKey[len(splits[0])+1:], fields[splits[0]])
+    else:
+        return fields[shardingKey]
+## DEF

@@ -30,7 +30,7 @@ LOG = logging.getLogger(__name__)
 class NodeEstimator(object):
 
     def __init__(self, num_nodes):
-#        LOG.setLevel(logging.DEBUG)
+        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.num_nodes = num_nodes
     ## DEF
@@ -41,6 +41,8 @@ class NodeEstimator(object):
             return an estimate of a list of node ids that we think that
             the query will be executed on
         """
+        if self.debug:
+            LOG.debug("Computing node estimate for Op #%(query_id)d" % op)
 
         results = [ ]
 
@@ -50,42 +52,43 @@ class NodeEstimator(object):
             results.append(0) # FIXME
         # Network costs of SELECT, UPDATE, DELETE queries are based off
         # of using the sharding key in the predicate
-        else:
-            if len(op['predicates']) > 0:
-                scan = True
-                predicate_type = None
-                for k,v in op['predicates'].iteritems() :
-                    if design.inShardKeyPattern(op['collection'], k) :
-                        scan = False
-                        predicate_type = v
-                if self.debug:
-                    LOG.debug("Op #%d %s Predicates: %s [scan=%s / predicateType=%s]",\
-                              op['query_id'], op['collection'], op['predicates'], scan, predicate_type)
-                if not scan:
-                    # Query uses shard key... need to determine if this is an
-                    # equality predicate or a range type
-                    if predicate_type == constants.PRED_TYPE_EQUALITY:
-                        # results += 0.0
-                        results.append(0) # FIXME
-                        pass
-                    else:
-                        nodes = self.guessNodes(design, op['collection'], k)
-                        LOG.info("Estimating that Op #%d on '%s' touches %d nodes",\
-                            op["query_id"], op["collection"], nodes)
-                        for i in xrange(0, nodes):
-                            results.append(i)
+        elif len(op['predicates']) > 0:
+            scan = True
+            predicate_type = None
+            for k,v in op['predicates'].iteritems() :
+                if design.inShardKeyPattern(op['collection'], k) :
+                    scan = False
+                    predicate_type = v
+            if self.debug:
+                LOG.debug("Op #%d %s Predicates: %s [scan=%s / predicateType=%s]",\
+                          op['query_id'], op['collection'], op['predicates'], scan, predicate_type)
+            if not scan:
+                # Query uses shard key... need to determine if this is an
+                # equality predicate or a range type
+                if predicate_type == constants.PRED_TYPE_EQUALITY:
+                    # results += 0.0
+                    results.append(0) # FIXME
+                    pass
                 else:
-                    if self.debug:
-                        LOG.debug("Op #%d on '%s' is a broadcast query",\
-                            op["query_id"], op["collection"])
-#                    result += self.nodes
-                    map(results.append, xrange(0, self.num_nodes))
+                    nodes = self.guessNodes(design, op['collection'], k)
+                    LOG.info("Estimating that Op #%d on '%s' touches %d nodes",\
+                        op["query_id"], op["collection"], nodes)
+                    for i in xrange(0, nodes):
+                        results.append(i)
             else:
+                if self.debug:
+                    LOG.debug("Op #%d on '%s' is a broadcast query",\
+                        op["query_id"], op["collection"])
+#                    result += self.nodes
                 map(results.append, xrange(0, self.num_nodes))
+        else:
+            map(results.append, xrange(0, self.num_nodes))
 #                result += self.nodes
 
         return results
     ## DEF
+
+
 
     def guessNodes(self, design, colName, fieldName):
         """

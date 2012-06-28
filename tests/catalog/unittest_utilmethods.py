@@ -9,7 +9,30 @@ import unittest
 import catalog
 
 class TestUtilMethods(unittest.TestCase):
-    
+
+    def testGetFieldValue(self):
+        fields = {
+            "scalarKey": 1234,
+            "listKey":   range(10),
+            "nestedKey": {
+                "innerKey1": 5678,
+                "innerKey2": 5678,
+            }
+        }
+
+        for shardKey in fields.keys():
+            expected = fields[shardKey]
+            if shardKey == "nestedKey":
+                expected = fields[shardKey]["innerKey2"]
+                shardKey += ".innerKey2"
+
+            actual = catalog.getFieldValue(shardKey, fields)
+            print shardKey, "->", actual
+            self.assertIsNotNone(actual, shardKey)
+            self.assertEqual(expected, actual, shardKey)
+        ## FOR
+    ## DEF
+
     def testFieldTypeSerialization(self):
         for t in [ int, str, unicode, float ]:
             t_bson = catalog.fieldTypeToString(t)
