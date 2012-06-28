@@ -32,9 +32,11 @@ LOG = logging.getLogger(__name__)
 
 class NodeEstimator(object):
 
-    def __init__(self, num_nodes):
+    def __init__(self, collections, num_nodes):
+        assert type(collections) == dict
         LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.collections = collections
         self.num_nodes = num_nodes
     ## DEF
 
@@ -89,12 +91,13 @@ class NodeEstimator(object):
                 # node they will start the scan at, and then just approximate
                 # what it will do by adding N nodes to the touched list starting
                 # from that first node. We will wrap around to zero
-                else:
+                elif predicate_type == constants.PRED_TYPE_RANGE:
                     num_touched = self.guessNodes(design, op['collection'], k)
                     LOG.info("Estimating that Op #%d on '%s' touches %d nodes",\
                              op["query_id"], op["collection"], num_touched)
                     for content in workload.getOpContents(op):
                         values = catalog.getFieldValues(shardingKeys, content)
+                        if self.debug: LOG.debug("%s -> %s", shardingKeys, values)
                         node_id = self.computeTouchedNode(values)
                         for i in xrange(num_touched):
                             if node_id >= self.num_nodes: node_id = 0
@@ -102,6 +105,8 @@ class NodeEstimator(object):
                             node_id += 1
                         ## FOR
                     ## FOR
+                else:
+                    raise Exception("Unexpected predicate type '%s' for op #%d" % (predicate_type, op['query_id']))
             else:
                 broadcast = True
         else:
@@ -137,6 +142,6 @@ class NodeEstimator(object):
 
         # TODO: How do we use the statistics to determine the selectivity of this particular
         #       attribute and thus determine the number of nodes required to answer the query?
-        return math.ceil(field['selectivity'] * self.num_nodes)
+        return int(math.ceil(field['selectivity'] * self.num_nodes))
     ## DEF
 ## CLASS

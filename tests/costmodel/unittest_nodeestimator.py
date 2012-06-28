@@ -95,12 +95,12 @@ class TestNodeEstimator(MongoDBTestCase):
         self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
         self.assertEqual(len(COLLECTION_NAMES), len(self.collections))
 
-        self.estimator = NodeEstimator(NUM_NODES)
+        self.estimator = NodeEstimator(self.collections, NUM_NODES)
     ## DEF
 
 
-    def testEstimateOp(self):
-        """Check the estimating touched nodes for a simple op"""
+    def testEstimateOpEquality(self):
+        """Check the estimating touched nodes for a equality predicate op"""
 
         d = Design()
         for i in xrange(0, len(COLLECTION_NAMES)):
@@ -119,6 +119,30 @@ class TestNodeEstimator(MongoDBTestCase):
         touched0 = self.estimator.estimateOp(d, op)
         touched1 = self.estimator.estimateOp(d, op)
         self.assertListEqual(touched0, touched1)
+    ## DEF
+
+    def testEstimateOpRange(self):
+        """Check the estimating touched nodes for a range predicate op"""
+
+        col_info = self.collections[COLLECTION_NAMES[0]]
+        shard_key = col_info['interesting'][0]
+        col_info['fields'][shard_key]['selectivity'] = 0.5
+
+        d = Design()
+        d.addCollection(col_info['name'])
+        d.addShardKey(col_info['name'], [shard_key])
+
+        sess = self.metadata_db.Session.fetch_one()
+        op = sess['operations'][0]
+        op['query_content'] = [ {constants.REPLACE_KEY_DOLLAR_PREFIX + "query": \
+                {shard_key: {constants.REPLACE_KEY_DOLLAR_PREFIX+"gt": 10000l} } \
+        } ]
+        op['predicates'] = { shard_key: constants.PRED_TYPE_RANGE }
+
+        # The list estimated touched nodes should contain more than one entry
+        touched0 = self.estimator.estimateOp(d, op)
+        print "touched0:", touched0
+        self.assertGreater(len(touched0), 1)
     ## DEF
 
     def testEstimateOpNullValue(self):

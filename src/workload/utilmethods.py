@@ -13,9 +13,13 @@ def getOpContents(op):
     if op['type'] == constants.OP_TYPE_QUERY:
         # TODO: Why are we not examining the resp_content here?
         contents = [ ]
-        for content in op['query_content'] :
-            if '#query' in content and content['#query']:
-                contents.append(content['#query'])
+        for opContent in op['query_content']:
+            try:
+                if '#query' in opContent and opContent['#query']:
+                    contents.append(opContent['#query'])
+            except:
+                LOG.error("Invalid query content:\n%s", pformat(opContent))
+                raise
 
     # INSERT + UPDATE + DELETE
     elif op['type'] in [constants.OP_TYPE_INSERT, constants.OP_TYPE_UPDATE, constants.OP_TYPE_DELETE]:

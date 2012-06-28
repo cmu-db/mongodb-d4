@@ -117,6 +117,17 @@ def getFieldValue(shardingKey, fields):
         return None
     elif len(splits) > 1:
         return getFieldValue(shardingKey[len(splits[0])+1:], fields[splits[0]])
-    else:
-        return fields[shardingKey]
+
+    # Check whether the value is a dict that has only one key with our special
+    # marking character. If it does, then that's the real value that we want to return
+    # This will happen when there are things like range predicates (Example {"#gt": 123})
+    # Or if it is a special field type for MongoDB (Example {"#date": 123456})
+    value = fields[shardingKey]
+    if type(value) == dict and len(value.keys()) == 1:
+        key = value.keys()[0]
+        if key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+            value = value[key]
+    ## IF
+
+    return value
 ## DEF
