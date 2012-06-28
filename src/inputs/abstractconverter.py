@@ -30,6 +30,7 @@ import catalog
 from workload import OpHasher
 from util import constants
 from util.histogram import Histogram
+import workload
 
 
 LOG = logging.getLogger(__name__)
@@ -185,28 +186,8 @@ class AbstractConverter():
                     op['predicates'] = { }
 
                 try:
-                    # QUERY
-                    if op['type'] == constants.OP_TYPE_QUERY:
-                        # TODO: Why are not examining the resp_content here?
-                        for content in op['query_content'] :
-                            if '#query' in content and content['#query']:
-                                self.processOpFields(col_info['fields'], op, content['#query'])
-
-                    # DELETE
-                    elif op['type'] == constants.OP_TYPE_DELETE:
-                        for content in op['query_content']:
-                            self.processOpFields(col_info['fields'], op, content)
-
-                    # INSERT
-                    elif op['type'] == constants.OP_TYPE_INSERT:
-                        for content in op['query_content']:
-                            for k,v in content.iteritems():
-                                self.processOpFields(col_info['fields'], op, content)
-
-                    # UPDATE
-                    elif op['type'] == constants.OP_TYPE_UPDATE:
-                        for content in op['query_content']:
-                            self.processOpFields(col_info['fields'], op, content)
+                    for content in workload.getOpContents(op):
+                        self.processOpFields(col_info['fields'], op, content)
                 except:
                     LOG.error("Unexpected error for operation #%d in Session #%d\n%s", \
                               op['query_id'], sess['session_id'], pformat(op))

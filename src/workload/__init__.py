@@ -10,3 +10,6 @@ from session import Session
 
 # Regular Classes
 from ophasher import OpHasher
+
+from utilmethods import *
+del utilmethods

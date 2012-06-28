@@ -5,6 +5,7 @@ import os, sys
 import random
 import time
 import unittest
+from pprint import pprint
 
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../"))
@@ -98,24 +99,72 @@ class TestNodeEstimator(MongoDBTestCase):
     ## DEF
 
 
-#    def testEstimateOp(self):
-#        """Check the estimating touched nodes for a simple op"""
-#
-#        d = Design()
-#        for i in xrange(0, len(COLLECTION_NAMES)):
-#            col_info = self.collections[COLLECTION_NAMES[i]]
-#            d.addCollection(col_info['name'])
-#            # Only put the first field in the interesting list as the
-#            # the sharding key. We'll worry about compound sharding
-#            # keys later.
-#            d.addShardKey(col_info['name'], col_info['interesting'][:1])
-#        ## FOR
-#
-#        sess = self.metadata_db.Session.fetch_one()
-#        op = sess['operations'][0]
-#
-#        touched = self.estimator.estimateOp(d, op)
-#    ## DEF
+    def testEstimateOp(self):
+        """Check the estimating touched nodes for a simple op"""
+
+        d = Design()
+        for i in xrange(0, len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+            # Only put the first field in the interesting list as the sharding key
+            # We'll worry about compound sharding keys later.
+            d.addShardKey(col_info['name'], col_info['interesting'][:1])
+        ## FOR
+
+        sess = self.metadata_db.Session.fetch_one()
+        op = sess['operations'][0]
+#        pprint(op)
+
+        # If we execute it twice, we should get back the exact same node ids
+        touched0 = self.estimator.estimateOp(d, op)
+        touched1 = self.estimator.estimateOp(d, op)
+        self.assertListEqual(touched0, touched1)
+    ## DEF
+
+    def testEstimateOpNullValue(self):
+        """Check the estimating touched nodes when the sharding key value is null"""
+
+        d = Design()
+        for i in xrange(0, len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+            # This key won't be in the operation's fields, but we should still
+            # be able to get back a value
+            d.addShardKey(col_info['name'], ['XXXX'])
+            ## FOR
+
+        # A query that looks up on a non-sharding key should always be
+        # broadcast to every node
+        sess = self.metadata_db.Session.fetch_one()
+        op = sess['operations'][0]
+        touched0 = self.estimator.estimateOp(d, op)
+#        print "touched0:", touched0
+        self.assertListEqual(range(NUM_NODES), touched0)
+
+        # But if we insert into that collection with a document that doesn't
+        # have the sharding key, it should only go to one node
+        op['type'] = constants.OP_TYPE_INSERT
+        op['query_content'] = op['resp_content']
+        op['predicates'] = [ ]
+#        pprint(op)
+        touched1 = self.estimator.estimateOp(d, op)
+#        print "touched1:", touched1
+        self.assertEqual(1, len(touched1))
+
+        # And if we insert another one, then we should get the same value back
+        op = Session.operationFactory()
+        op['collection']    = COLLECTION_NAMES[0]
+        op['type']          = constants.OP_TYPE_INSERT
+        op['query_id']      = 10000
+        op['query_content'] = [ {"parkinglot": 1234} ]
+        op['resp_content']  = [ {"ok": 1} ]
+        op['resp_id']       = 10001
+#        pprint(op)
+        touched2 = self.estimator.estimateOp(d, op)
+        self.assertEqual(1, len(touched2))
+        self.assertListEqual(touched1, touched2)
+#        print "touched2:", touched2
+    ## DEF
 
 ## CLASS
 

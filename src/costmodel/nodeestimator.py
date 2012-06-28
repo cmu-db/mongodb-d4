@@ -23,6 +23,9 @@
 # -----------------------------------------------------------------------
 import logging
 import math
+
+import catalog
+import workload
 from util import constants
 
 LOG = logging.getLogger(__name__)
@@ -41,15 +44,26 @@ class NodeEstimator(object):
             return an estimate of a list of node ids that we think that
             the query will be executed on
         """
-        if self.debug:
-            LOG.debug("Computing node estimate for Op #%(query_id)d" % op)
 
         results = [ ]
+        broadcast = False
+        shardingKeys = design.getShardKeys(op['collection'])
+
+        if self.debug:
+            LOG.debug("Computing node estimate for Op #%d [sharding=%s]", \
+                      op['query_id'], shardingKeys)
 
         # Inserts always go to a single node
         if op['type'] == constants.OP_TYPE_INSERT:
-            # result += 1
-            results.append(0) # FIXME
+            # Get the documents that they're trying to insert and then
+            # compute their hashes based on the sharding key
+            # Because there is no logical replication, each document will
+            # be inserted in one and only one node
+            for content in workload.getOpContents(op):
+                values = catalog.getFieldValues(shardingKeys, content)
+                results.append(self.computeTouchedNode(values))
+            ## FOR
+
         # Network costs of SELECT, UPDATE, DELETE queries are based off
         # of using the sharding key in the predicate
         elif len(op['predicates']) > 0:
@@ -66,29 +80,49 @@ class NodeEstimator(object):
                 # Query uses shard key... need to determine if this is an
                 # equality predicate or a range type
                 if predicate_type == constants.PRED_TYPE_EQUALITY:
-                    # results += 0.0
-                    results.append(0) # FIXME
-                    pass
+                    for content in workload.getOpContents(op):
+                        values = catalog.getFieldValues(shardingKeys, content)
+                        results.append(self.computeTouchedNode(values))
+                    ## FOR
+
+                # If it's a scan, then we need to first figure out what
+                # node they will start the scan at, and then just approximate
+                # what it will do by adding N nodes to the touched list starting
+                # from that first node. We will wrap around to zero
                 else:
-                    nodes = self.guessNodes(design, op['collection'], k)
+                    num_touched = self.guessNodes(design, op['collection'], k)
                     LOG.info("Estimating that Op #%d on '%s' touches %d nodes",\
-                        op["query_id"], op["collection"], nodes)
-                    for i in xrange(0, nodes):
-                        results.append(i)
+                             op["query_id"], op["collection"], num_touched)
+                    for content in workload.getOpContents(op):
+                        values = catalog.getFieldValues(shardingKeys, content)
+                        node_id = self.computeTouchedNode(values)
+                        for i in xrange(num_touched):
+                            if node_id >= self.num_nodes: node_id = 0
+                            results.append(node_id)
+                            node_id += 1
+                        ## FOR
+                    ## FOR
             else:
-                if self.debug:
-                    LOG.debug("Op #%d on '%s' is a broadcast query",\
-                        op["query_id"], op["collection"])
-#                    result += self.nodes
-                map(results.append, xrange(0, self.num_nodes))
+                broadcast = True
         else:
+            broadcast = True
+
+        if broadcast:
+            if self.debug: LOG.debug("Op #%d on '%s' is a broadcast query to all nodes",\
+                                     op["query_id"], op["collection"])
             map(results.append, xrange(0, self.num_nodes))
-#                result += self.nodes
 
         return results
     ## DEF
 
-
+    def computeTouchedNode(self, values):
+        """
+            Compute which node the given set of values will need to go
+            This is just a simple (hash % N), where N is the number of nodes in the cluster
+        """
+        assert type(values) == tuple
+        return hash(values) % self.num_nodes
+    ## DEF
 
     def guessNodes(self, design, colName, fieldName):
         """

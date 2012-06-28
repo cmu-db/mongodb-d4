@@ -6,6 +6,26 @@ from pprint import pformat
 
 LOG = logging.getLogger(__name__)
 
+
+def getOpContents(op):
+    """Return a list of all of the query contents for the given operation"""
+    # QUERY
+    if op['type'] == constants.OP_TYPE_QUERY:
+        # TODO: Why are we not examining the resp_content here?
+        contents = [ ]
+        for content in op['query_content'] :
+            if '#query' in content and content['#query']:
+                contents.append(content['#query'])
+
+    # INSERT + UPDATE + DELETE
+    elif op['type'] in [constants.OP_TYPE_INSERT, constants.OP_TYPE_UPDATE, constants.OP_TYPE_DELETE]:
+        contents = op['query_content']
+
+    return contents
+## DEF
+
+
+@DeprecationWarning
 def getReferencedFields(op):
     """Get a list of the fields referenced in the given operation"""
     content = op["query_content"]
@@ -39,6 +59,7 @@ def getReferencedFields(op):
 # TODO: This is just for testing that our Sessions object
 # validates correctly. The parser/santizer should be fixed
 # to use the Sessions object directly
+@DeprecationWarning
 def convertWorkload(conn):
     old_workload = conn['designer']['mongo_comm']
     new_workload = ['workload']

@@ -31,6 +31,10 @@ class TestUtilMethods(unittest.TestCase):
             self.assertIsNotNone(actual, shardKey)
             self.assertEqual(expected, actual, shardKey)
         ## FOR
+
+        ## Make sure that if we give it an invald key that we get back None
+        actual = catalog.getFieldValue("LiptonSoup", fields)
+        self.assertIsNone(actual)
     ## DEF
 
     def testFieldTypeSerialization(self):
