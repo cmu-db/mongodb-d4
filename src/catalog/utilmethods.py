@@ -18,11 +18,7 @@ from util import constants
 LOG = logging.getLogger(__name__)
 
 # Mapping from TypeName -> Type
-# This won't work on Python 2.6
-# TYPES_XREF = { (t.__name__, t) for t in [types.IntType, types.LongType, types.FloatType, types.BooleanType] }
-TYPES_XREF = { }
-for t in [types.IntType, types.LongType, types.FloatType, types.BooleanType]:
-    TYPES_XREF[t.__name__] = t
+TYPES_XREF = dict([ (t.__name__, t) for t in [types.IntType, types.LongType, types.FloatType, types.BooleanType] ])
 
 def getEstimatedSize(typeName, value):
     """Returns the estimated size (in bytes) of the value for the given type"""

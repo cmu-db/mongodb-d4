@@ -22,7 +22,7 @@ from util import constants
 from inputs.mongodb import MongoSniffConverter
 
 COLLECTION_NAMES = ["squirrels", "girls"]
-NUM_DOCUMENTS = 10000
+NUM_DOCUMENTS = 1000000
 NUM_SESSIONS = 100
 NUM_FIELDS = 6
 NUM_NODES = 8
@@ -93,13 +93,57 @@ class TestCostModel(MongoDBTestCase):
         self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
         self.assertEqual(len(COLLECTION_NAMES), len(self.collections))
 
+        # Increase the database size beyond what the converter derived from the workload
+        for col_name, col_info in self.collections.iteritems():
+            col_info['doc_count'] = NUM_DOCUMENTS
+            col_info['avg_doc_size'] = 1024 # bytes
+            col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / (4 * 1024)
+            col_info.save()
+
+        # Setup CostModel
         self.costModelConfig = {
-           'max_memory':     6144, # MB
+           'max_memory':     1024, # MB
            'skew_intervals': NUM_INTERVALS,
            'address_size':   64,
            'nodes':          NUM_NODES,
         }
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
+    ## DEF
+
+    def testEstimateWorkingSets(self):
+        """Check the working set size estimator for collections"""
+
+        d = Design()
+        for i in xrange(0, len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+        ## FOR
+
+        max_memory = self.costModelConfig['max_memory'] * 1024 * 1024
+        workingSets = self.cm.estimateWorkingSets(d, max_memory)
+        self.assertIsNotNone(workingSets)
+
+        for i in xrange(0, len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            self.assertIn(col_info['name'], workingSets)
+            setSize = workingSets[col_info['name']]
+            print col_info['name'], "->", setSize
+            self.assertGreater(setSize, 0.0)
+    ## DEF
+
+    def testDiskCost(self):
+        # First get the disk cost when there are no indexes
+        d = Design()
+        for i in xrange(0, len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+        ## FOR
+        cost0 = self.cm.diskCost(d)
+        print "diskCost0:", cost0
+
+        # For now all we can do is just make sure that it's non-zero
+#        self.assertGreater(cost0, 0.0)
+
     ## DEF
 
     def testGetSplitWorkload(self):
@@ -192,33 +236,6 @@ class TestCostModel(MongoDBTestCase):
         self.assertEqual(cost1, cost2)
     ## DEF
 
-    def testSkewCost(self):
-        col_info = self.collections[COLLECTION_NAMES[0]]
-        self.assertTrue(col_info['interesting'])
-
-        # If we shard the collection on the interesting fields, then
-        # each query should only need to touch one node
-        d = Design()
-        d.addCollection(col_info['name'])
-        d.addShardKey(col_info['name'], col_info['interesting'])
-        cost0 = self.cm.skewCost(d)
-
-        # For now all we can do is just make sure that it's non-zero
-        self.assertGreater(cost0, 0.0)
-
-        print "skewCost0:", cost0
-
-
-    ## DEF
-
-#    def testDiskCost(self):
-#        cost = self.cm.diskCost(self.d, self.w)
-#        self.assertEqual(cost, 1.0)
-#
-#    def testOverallCost(self):
-#        config = {'nodes' : 4}
-#        cost = self.cm.overallCost(self.d, self.w, config)
-#        self.assertEqual(cost, 0.0)
 ## CLASS
 
 if __name__ == '__main__':

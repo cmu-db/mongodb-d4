@@ -11,9 +11,8 @@ class Collection(Document):
     __collection__ = constants.COLLECTION_SCHEMA
     structure = {
         'name':             unicode,   # The name of the collection
-        'shard_key':        unicode,   # TODO(ckeith)
-        'shard_keys':       dict,      # TODO(ckeith)
-        'indexes':          [dict],    # TODO(ckeith)
+        'shard_keys':       dict,      # The original sharding keys assigned for this collection (if available)
+        'indexes':          [dict],    # The original index keys assigned for this collection (if available)
         'data_size':        long,      # The estimated total size of this collection
         'doc_count':        int,       # The estimated number of documents in this collection
         'avg_doc_size':     int,       # The average size of the documents in the collection (bytes)
@@ -43,7 +42,6 @@ class Collection(Document):
         'name', 'doc_count'
     ]
     default_values = {
-        'shard_key':            None,
         'shard_keys':           { },
         'indexes':              [ ],
         'doc_count':            0,

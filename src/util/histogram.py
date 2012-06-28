@@ -37,6 +37,9 @@ class Histogram(dict):
     def put(self, x, delta=1):
         self[x] = self.get(x, 0) + delta
     # DEF
+    def remove(self, x, delta=1):
+        self[x] = self.get(x, 0) - delta
+    # DEF
     
     def __computeInternalValues__(self):
         self.min_keys = [ ]

@@ -23,11 +23,10 @@
 # -----------------------------------------------------------------------
 from __future__ import division
 
-import sys
-import json
 import logging
 import math
 import random
+from pprint import pformat
 
 from nodeestimator import NodeEstimator
 from util import constants
@@ -60,6 +59,7 @@ class CostModel(object):
     
     def __init__(self, collections, workload, config):
         assert type(collections) == dict
+#        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.collections = collections
@@ -91,25 +91,32 @@ class CostModel(object):
         return cost / float(self.weight_network + self.weight_disk + self.weight_skew)
     ## DEF
 
-    ## ----------------------------------------------
+    ## -----------------------------------------------------------------------
     ## DISK COST
-    ## ----------------------------------------------
+    ## -----------------------------------------------------------------------
 
     def diskCost(self, design):
         """
-        Estimate the Disk Cost for a design and a workload
-        - Best case, every query is satisfied by main memory
-        - Worst case, every query requires a full collection
+            Estimate the Disk Cost for a design and a workload
         """
-        worst_case = 0
         cost = 0
+
+        # Worst case is when every query requires a full collection scan
+        # Best case, every query is satisfied by main memory
+        worst_case = 0
+
         # 1. estimate index memory requirements
         index_memory = self.getIndexSize(design)
-        if index_memory > self.max_memory :
+        if index_memory > self.max_memory:
+            # TODO: We might want to move this somewhere else or raise an Exception
+            # so that we know what really happened up above rather than just setting
+            # the cost to a super high-value
             return 10000000000000
         
         # 2. approximate the number of documents per collection in the working set
         working_set = self.estimateWorkingSets(design, self.max_memory - index_memory)
+        if self.debug:
+            LOG.debug("Estimated Working Sets:\n%s", pformat(working_set))
         
         # 3. Iterate over workload, foreach query:
         for sess in self.workload:
@@ -117,27 +124,28 @@ class CostModel(object):
                 # is the collection in the design - if not ignore
                 if not design.hasCollection(op['collection']):
                     continue
-                
+
+                col_info = self.collections[op['collection']]
+
                 # Does this depend on the type of query? (insert vs update vs delete vs select)
                 multiplier = 1
                 if op['type'] == constants.OP_TYPE_INSERT:
                     multiplier = 2
                     max_pages = 1
                     min_pages = 1
-                    pass
+                    pass # Why?
                 else:
                     if op['type'] in [constants.OP_TYPE_UPDATE, constants.OP_TYPE_DELETE]:
                         multiplier = 2
-                    ## end if ##
-                    
+
                     # How many pages for the queries tuples?
-                    max_pages = self.collections[op['collection']]['max_pages']
+                    max_pages = col_info['max_pages']
                     min_pages = max_pages
-                    
+
                     # Is the entire collection in the working set?
                     if working_set[op['collection']] >= 100 :
                         min_pages = 0
-                    
+
                     # Does this query hit an index?
                     elif design.hasIndex(op['collection'], list(op['predicates'])) :
                         min_pages = 0
@@ -149,18 +157,88 @@ class CostModel(object):
                         if ws_hit <= working_set[op['collection']] :
                             min_pages = 0
                 ## end if ##
-                    
+
+                if self.debug:
+                    LOG.debug("PageHits for Op #%d on '%s' -> [min:%d / max:%d / multiplier:%d]", \
+                              op["query_id"], op["collection"], min_pages, max_pages, multiplier)
+
                 cost += min_pages        
                 worst_case += max_pages
+            ## FOR (op)
+        ## FOR (sess)
         if not worst_case:
             return 0
         else:
             return cost / worst_case
     ## DEF
 
-    ## ----------------------------------------------
+    def getIndexSize(self, design):
+        '''
+            Estimate the amount of memory required by the indexes of a given design
+        '''
+        memory = 0
+        for colName in design.getCollections():
+            col_info = self.collections[colName]
+
+            # Add a hit for the index on '_id' attribute for each collection
+            memory += col_info['doc_count'] * col_info['avg_doc_size']
+
+            # Process other indexes for this collection in the design
+            for index in design.getIndexes(colName):
+                memory += col_info['doc_count'] * self.address_size * len(index)
+        return memory
+
+
+    def estimateWorkingSets(self, design, capacity):
+        '''
+            Estimate the percentage of a collection that will fit in working set space
+        '''
+        working_set_counts = {}
+        leftovers = {}
+        buffer = 0
+        needs_memory = []
+
+        if self.debug:
+            LOG.debug("Estimating collection working sets [capacity=%d]", capacity)
+
+        # iterate over sorted tuples to process in descending order of usage
+        for col_name in sorted(self.collections.keys(), key=lambda k: self.collections[k]['workload_percent'], reverse=True):
+            col_info = self.collections[col_name]
+            memory_available = capacity * col_info['workload_percent']
+            memory_needed = col_info['avg_doc_size'] * col_info['doc_count']
+
+            if self.debug:
+                LOG.debug("%s Memory Needed: %d", col_name, memory_needed)
+
+            # is there leftover memory that can be put in a buffer for other collections?
+            if memory_needed <= memory_available :
+                working_set_counts[col_name] = 100
+                buffer += memory_available - memory_needed
+            else:
+                col_percent = memory_available / memory_needed
+                still_needs = 1.0 - col_percent
+                working_set_counts[col_name] = math.ceil(col_percent * 100)
+                needs_memory.append((still_needs, col_name))
+
+        # This is where the problem is... Need to rethink how I am doing this.
+        for still_needs, col_info in needs_memory:
+            memory_available = buffer
+            memory_needed = (1 - (working_set_counts[col_name] / 100)) *\
+                            self.collections[col_name]['avg_doc_size'] *\
+                            self.collections[col_name]['doc_count']
+
+            if memory_needed <= memory_available :
+                working_set_counts[col_name] = 100
+                buffer = memory_available - memory_needed
+            elif memory_available > 0 :
+                col_percent = memory_available / memory_needed
+                working_set_counts[col_name] += col_percent * 100
+        return working_set_counts
+    ## DEF
+
+    ## -----------------------------------------------------------------------
     ## SKEW COST
-    ## ----------------------------------------------
+    ## -----------------------------------------------------------------------
 
     def skewCost(self, design):
         """Calculate the network cost for each segment for skew analysis"""
@@ -221,20 +299,15 @@ class CostModel(object):
         return skew / (math.log(1 / best) * self.nodes), query_count
     ## DEF
 
-    ## ----------------------------------------------
+    ## -----------------------------------------------------------------------
     ## NETWORK COST
-    ## ----------------------------------------------
+    ## -----------------------------------------------------------------------
 
     def networkCost(self, design) :
-        cost, queries = self.partialNetworkCost(design, self.workload)
-        return cost
-    ## DEF
-
-    def partialNetworkCost(self, design, segment):
-        if self.debug: LOG.debug("Computing network cost for %d sessions", len(segment))
+        if self.debug: LOG.debug("Computing network cost for %d sessions", len(self.workload))
         result = 0
         query_count = 0
-        for sess in segment:
+        for sess in self.workload:
             previous_op = None
             for op in sess['operations']:
                 # Check to see if the queried collection exists in the design's 
@@ -287,73 +360,12 @@ class CostModel(object):
         LOG.info("Computed Network Cost: %f [result=%d / queryCount=%d]", \
                  cost, result, query_count)
 
-        return (cost, query_count)
+        return cost
     ## DEF
 
-    '''
-    Estimate the amount of memory required by the indexes of a given design
-    '''
-    def getIndexSize(self, design) :
-        memory = 0
-        for colName in design.getCollections() :
-            # Add a hit for the index on '_id' attribute for each collection
-            memory += self.collections[colName]['doc_count'] * self.collections[colName]['avg_doc_size']
-            
-            # Process other indexes for this collection in the design
-            for index in design.getIndexes(colName) :
-                memory += self.collections[colName]['doc_count'] * self.address_size * len(index)
-        return memory
-        
-    '''
-    Estimate the percentage of a collection that will fit in working set space
-    '''
-    def estimateWorkingSets(self, design, capacity) :
-        working_set_counts = {}
-        leftovers = {}
-        buffer = 0
-        needs_memory = []
-        
-        # create tuples of workload percentage, collection for sorting
-        sorting_pairs = []
-        for col in design.getCollections() :
-            sorting_pairs.append((self.collections[col]['workload_percent'], col))
-        sorting_pairs.sort(reverse=True)
-        
-        # iterate over sorted tuples to process in descending order of usage
-        for pair in sorting_pairs :
-            memory_available = capacity * pair[0]
-            memory_needed = self.collections[pair[1]]['avg_doc_size'] * self.collections[pair[1]]['doc_count']
-            
-            # is there leftover memory that can be put in a buffer for other collections?
-            if memory_needed <= memory_available :
-                working_set_counts[pair[1]] = 100
-                buffer += memory_available - memory_needed
-            else:
-                col_percent = memory_available / memory_needed
-                still_needs = 1.0 - col_percent
-                working_set_counts[pair[1]] = math.ceil(col_percent * 100)
-                needs_memory.append((still_needs, pair[1]))
-        
-        # This is where the problem is... Need to rethink how I am doing this.
-        for pair in needs_memory :
-            memory_available = buffer
-            memory_needed = (1 - (working_set_counts[pair[1]] / 100)) * \
-                            self.collections[pair[1]]['avg_doc_size'] * \
-                            self.collections[pair[1]]['doc_count']
-            
-            if memory_needed <= memory_available :
-                working_set_counts[pair[1]] = 100
-                buffer = memory_available - memory_needed
-            else:   
-                if memory_available > 0 :
-                    col_percent = memory_available / memory_needed
-                    working_set_counts[pair[1]] += col_percent * 100
-        return working_set_counts
-    ## DEF
-
-    ## ----------------------------------------------
+    ## -----------------------------------------------------------------------
     ## WORKLOAD SEGMENTATION
-    ## ----------------------------------------------
+    ## -----------------------------------------------------------------------
 
     def splitWorkload(self):
         """Divide the workload up into segments for skew analysis"""
@@ -369,7 +381,8 @@ class CostModel(object):
         else:
             return 0
 
-        if self.debug: LOG.info("Workload Segments - START:%d / END:%d", start_time, end_time)
+        if self.debug:
+            LOG.debug("Workload Segments - START:%d / END:%d", start_time, end_time)
         self.workload_segments = [ [] for i in xrange(0, self.skew_segments) ]
         for sess in self.workload:
             idx = self.getSessionSegment(sess, start_time, end_time)
@@ -384,4 +397,4 @@ class CostModel(object):
         ratio = (timestamp - start_time) / float(end_time - start_time)
         return int(self.skew_segments * ratio)
     ## DEF
-## end class ##
+## CLASS
