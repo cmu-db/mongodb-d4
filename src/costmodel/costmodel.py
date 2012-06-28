@@ -29,7 +29,9 @@ import logging
 import math
 import random
 
+from nodeestimator import NodeEstimator
 from util import constants
+from util import Histogram
 
 LOG = logging.getLogger(__name__)
 
@@ -63,6 +65,7 @@ class CostModel(object):
         self.collections = collections
         self.workload = workload
 
+        # TODO: REMOVE! The cost model estimates should be completely deterministic!
         self.rg = random.Random()
         self.rg.seed('cost model coolness')
 
@@ -76,40 +79,10 @@ class CostModel(object):
         self.skew_segments = config['skew_intervals'] # Why? "- 1"
         self.address_size = config['address_size'] / 4
 
+        self.estimator = NodeEstimator(self.nodes)
         self.splitWorkload()
     ## DEF
 
-    def splitWorkload(self):
-        """Divide the workload up into segments for skew analysis"""
-        if len(self.workload) > 0 :
-            start_time = self.workload[0]['start_time']
-            end_time = None
-            i = len(self.workload)-1
-            while i >= 0 and not end_time:
-                end_time = self.workload[i]['end_time']
-                i -= 1
-            assert start_time
-            assert end_time
-        else:
-            return 0
-
-        LOG.info("Workload Segments - START:%d / END:%d", start_time, end_time)
-        self.workload_segments = [ [] for i in xrange(0, self.skew_segments) ]
-        for sess in self.workload:
-            idx = self.getSessionSegment(sess, start_time, end_time)
-            self.workload_segments[idx].append(sess)
-        ## FOR
-    ## DEF
-
-    def getSessionSegment(self, sess, start_time, end_time):
-        """Return the segment offset that the given Session should be assigned to"""
-        timestamp = sess['start_time']
-        if timestamp == end_time: timestamp -= 1
-        ratio = (timestamp - start_time) / float(end_time - start_time)
-        return int(self.skew_segments * ratio)
-    ## DEF
-
-    
     def overallCost(self, design):
         cost = 0
         cost += self.weight_network * self.networkCost(design)
@@ -117,12 +90,11 @@ class CostModel(object):
         cost += self.weight_skew * self.skewCost(design)
         return cost / float(self.weight_network + self.weight_disk + self.weight_skew)
     ## DEF
-    
-    def networkCost(self, design) :
-        cost, queries = self.partialNetworkCost(design, self.workload)
-        return cost
-    ## DEF
-    
+
+    ## ----------------------------------------------
+    ## DISK COST
+    ## ----------------------------------------------
+
     def diskCost(self, design):
         """
         Estimate the Disk Cost for a design and a workload
@@ -143,8 +115,8 @@ class CostModel(object):
         for sess in self.workload:
             for op in sess['operations'] :
                 # is the collection in the design - if not ignore
-                if design.hasCollection(op['collection']) == False :
-                    break
+                if not design.hasCollection(op['collection']):
+                    continue
                 
                 # Does this depend on the type of query? (insert vs update vs delete vs select)
                 multiplier = 1
@@ -185,29 +157,79 @@ class CostModel(object):
         else:
             return cost / worst_case
     ## DEF
-    
+
+    ## ----------------------------------------------
+    ## SKEW COST
+    ## ----------------------------------------------
+
     def skewCost(self, design):
         """Calculate the network cost for each segment for skew analysis"""
+        if self.debug: LOG.debug("Computing skew cost for %d sessions over %d segments", len(segment), self.skew_segments)
+
         segment_costs = []
-        
-        for i in range(0, len(self.workload_segments)) :
+        for i in range(0, len(self.workload_segments)):
+            # TODO: We should cache this so that we don't have to call it twice
             segment_costs.append(self.partialNetworkCost(design, self.workload_segments[i]))
         
         # Determine overall skew cost as a function of the distribution of the
         # segment network costs
         sum_of_query_counts = 0
         sum_intervals = 0
-        for i in range(0, len(self.workload_segments)) :
+        for i in xrange(0, len(self.workload_segments)) :
             skew = 1 - segment_costs[i][0]
             sum_intervals += skew * segment_costs[i][1]
             sum_of_query_counts += segment_costs[i][1]
-        
+            LOG.info("Segment[%02d] Skew - %f", i, skew)
+        LOG.info("sum_intervals: %f", sum_intervals)
+        LOG.info("sum_of_query_counts: %f", sum_of_query_counts)
+
         if not sum_of_query_counts:
             return 0
         else:
-            return sum_intervals / sum_of_query_counts
+            return sum_intervals / float(sum_of_query_counts)
     ## DEF
-        
+
+    def calculateSkew(self, design, segment):
+        """
+            Calculate the cluster skew factor for the given workload segment
+
+            See Alg.#3 from Pavlo et al. 2012:
+            http://hstore.cs.brown.edu/papers/hstore-partitioning.pdf
+        """
+
+        # Keep track of how many times that we accessed each node
+        nodeCounts = Histogram()
+
+        # Iterate over each session and get the list of nodes
+        # that we estimate that each of its operations will need to touch
+        for sess in segment:
+            for op in sess['operations']:
+                # XXX: This just returns the number of nodes that we expect
+                #      the op to touch. We don't know exactly which ones they will
+                #      be because auto-sharding could put shards anywhere...
+                map(nodeCounts.put, self.estimator.estimateOp(design, op))
+        ## FOR
+
+        total = nodeCounts.getSampleCount()
+        best = 1 / float(self.nodes)
+        skew = 0.0
+        for i in xrange(0, self.nodes):
+            ratio = nodeCounts.get(i) / float(total)
+            if ratio < best:
+                ratio = best + ((1 - ratio/best) * (1 - best))
+            skew += math.log(ratio / best)
+        return skew / (math.log(1 / best) * self.nodes)
+    ## DEF
+
+    ## ----------------------------------------------
+    ## NETWORK COST
+    ## ----------------------------------------------
+
+    def networkCost(self, design) :
+        cost, queries = self.partialNetworkCost(design, self.workload)
+        return cost
+    ## DEF
+
     def partialNetworkCost(self, design, segment):
         if self.debug: LOG.debug("Computing network cost for %d sessions", len(segment))
         result = 0
@@ -250,40 +272,7 @@ class CostModel(object):
                 # Process this op!
                 if process:
                     query_count += 1
-
-                    # Inserts always go to a single node
-                    if op['type'] == constants.OP_TYPE_INSERT:
-                        result += 1
-                    # Network costs of SELECT, UPDATE, DELETE queries are based off
-                    # of using the sharding key in the predicate
-                    else:
-                        if len(op['predicates']) > 0:
-                            scan = True
-                            predicate_type = None
-                            for k,v in op['predicates'].iteritems() :
-                                if design.inShardKeyPattern(op['collection'], k) :
-                                    scan = False
-                                    predicate_type = v
-                            if self.debug:
-                                LOG.debug("Op #%d Predicates: %s [scan=%s / predicateType=%s]", \
-                                          op['query_id'], op['predicates'], scan, predicate_type)
-                            if not scan:
-                                # Query uses shard key... need to determine if this is an
-                                # equality predicate or a range type
-                                if predicate_type == constants.PRED_TYPE_EQUALITY:
-                                    result += 0.0
-                                else:
-                                    nodes = self.guessNodes(design, op['collection'], k)
-                                    LOG.info("Estimating that Op #%d on '%s' touches %d nodes", \
-                                             op["query_id"], op["collection"], nodes)
-                                    result += nodes
-                            else:
-                                if self.debug:
-                                    LOG.debug("Op #%d on '%s' is a broadcast query", \
-                                              op["query_id"], op["collection"])
-                                result += self.nodes
-                        else:
-                            result += self.nodes
+                    result += len(self.estimator.estimateOp(design, op))
                 else:
                     if self.debug: LOG.debug("SKIP - %s Op #%d on %s [parent=%s / previous=%s]", \
                                              op['type'], op['query_id'], op['collection'], \
@@ -299,16 +288,8 @@ class CostModel(object):
                  cost, result, query_count)
 
         return (cost, query_count)
-        
-    def guessNodes(self, design, colName, key) :
-        """
-        Serve as a stand-in for the EXPLAIN function referenced in the paper?
+    ## DEF
 
-        How do we use the statistics to determine the selectivity of this particular
-        attribute and thus determine the number of nodes required to answer the query?
-        """
-        return math.ceil(self.collections[colName]['fields'][key]['selectivity'] * self.nodes)
-        
     '''
     Estimate the amount of memory required by the indexes of a given design
     '''
@@ -368,5 +349,39 @@ class CostModel(object):
                     col_percent = memory_available / memory_needed
                     working_set_counts[pair[1]] += col_percent * 100
         return working_set_counts
+    ## DEF
+
+    ## ----------------------------------------------
+    ## WORKLOAD SEGMENTATION
+    ## ----------------------------------------------
+
+    def splitWorkload(self):
+        """Divide the workload up into segments for skew analysis"""
+        if len(self.workload) > 0 :
+            start_time = self.workload[0]['start_time']
+            end_time = None
+            i = len(self.workload)-1
+            while i >= 0 and not end_time:
+                end_time = self.workload[i]['end_time']
+                i -= 1
+            assert start_time
+            assert end_time
+        else:
+            return 0
+
+        LOG.info("Workload Segments - START:%d / END:%d", start_time, end_time)
+        self.workload_segments = [ [] for i in xrange(0, self.skew_segments) ]
+        for sess in self.workload:
+            idx = self.getSessionSegment(sess, start_time, end_time)
+            self.workload_segments[idx].append(sess)
+        ## FOR
+    ## DEF
+
+    def getSessionSegment(self, sess, start_time, end_time):
+        """Return the segment offset that the given Session should be assigned to"""
+        timestamp = sess['start_time']
+        if timestamp == end_time: timestamp -= 1
+        ratio = (timestamp - start_time) / float(end_time - start_time)
+        return int(self.skew_segments * ratio)
     ## DEF
 ## end class ##

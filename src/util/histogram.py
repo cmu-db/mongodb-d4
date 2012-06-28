@@ -23,7 +23,6 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
-# TODO: Extend UserDict
 class Histogram(dict):
     def __init__(self, *args, **kw):
         super(Histogram, self).__init__(*args, **kw)
