@@ -405,7 +405,7 @@ class AbstractConverter():
                 total = 0.0
                 for size, count in h.iteritems():
                     if count: total += (size * count)
-                field['avg_size'] = int(math.ceil(total / float(h.getSampleCount())))
+                field['avg_size'] = int(math.ceil(total / h.getSampleCount()))
                 del field['size_histogram']
 
             # Use the distinct values set to determine cardinality + selectivity

@@ -22,7 +22,7 @@ from util import constants
 from inputs.mongodb import MongoSniffConverter
 
 COLLECTION_NAMES = ["squirrels", "girls"]
-NUM_DOCUMENTS = 1000000
+NUM_DOCUMENTS = 10000000
 NUM_SESSIONS = 100
 NUM_FIELDS = 6
 NUM_NODES = 8
@@ -110,7 +110,25 @@ class TestCostModel(MongoDBTestCase):
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
     ## DEF
 
+    def testDiskCost(self):
+        """Check whether disk cost calculations work correctly"""
+
+        # First get the disk cost when there are no indexes
+        d = Design()
+        for i in xrange(0, len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+            ## FOR
+        cost0 = self.cm.diskCost(d)
+        print "diskCost0:", cost0
+
+        # For now all we can do is just make sure that it's non-zero
+        self.assertGreater(cost0, 0.0)
+
+    ## DEF
+
     def testSkewCost(self):
+        """Check whether skew cost calculations work correctly"""
         col_info = self.collections[COLLECTION_NAMES[0]]
         shard_key = col_info['interesting'][0]
 
@@ -174,21 +192,6 @@ class TestCostModel(MongoDBTestCase):
             setSize = workingSets[col_info['name']]
             print col_info['name'], "->", setSize
             self.assertGreater(setSize, 0.0)
-    ## DEF
-
-    def testDiskCost(self):
-        # First get the disk cost when there are no indexes
-        d = Design()
-        for i in xrange(0, len(COLLECTION_NAMES)):
-            col_info = self.collections[COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
-        ## FOR
-        cost0 = self.cm.diskCost(d)
-        print "diskCost0:", cost0
-
-        # For now all we can do is just make sure that it's non-zero
-#        self.assertGreater(cost0, 0.0)
-
     ## DEF
 
     def testGetSplitWorkload(self):

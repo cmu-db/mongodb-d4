@@ -120,7 +120,7 @@ class CostModel(object):
         
         # 3. Iterate over workload, foreach query:
         for sess in self.workload:
-            for op in sess['operations'] :
+            for op in sess['operations']:
                 # is the collection in the design - if not ignore
                 if not design.hasCollection(op['collection']):
                     continue
@@ -156,10 +156,10 @@ class CostModel(object):
                         ws_hit = self.rg.randint(1, 100)
                         if ws_hit <= working_set[op['collection']] :
                             min_pages = 0
-                ## end if ##
+                ## IF
 
                 if self.debug:
-                    LOG.debug("PageHits for Op #%d on '%s' -> [min:%d / max:%d / multiplier:%d]", \
+                    LOG.debug("Op #%d on '%s' -> PAGES[min:%d / max:%d / multiplier:%d]", \
                               op["query_id"], op["collection"], min_pages, max_pages, multiplier)
 
                 cost += min_pages        
@@ -183,9 +183,8 @@ class CostModel(object):
             for indexKeys in design.getIndexes(colName) + [['_id']]:
                 index_size = sum(map(lambda f: col_info.getField(f)['avg_size'], indexKeys))
                 index_size *= col_info['doc_count'] * self.address_size
-                if self.debug:
-                    LOG.debug("%s Index %s Memory: %d bytes", \
-                              col_info['name'], repr(indexKeys), index_size)
+                if self.debug: LOG.debug("%s Index %s Memory: %d bytes", \
+                                         col_info['name'], repr(indexKeys), index_size)
                 memory += index_size
             ## FOR (index)
         ## FOR (collection)
