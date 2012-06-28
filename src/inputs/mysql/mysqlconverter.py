@@ -50,6 +50,8 @@ class MySQLConverter(AbstractConverter):
         self.dbUser = dbUser
         self.dbPass = dbPass
         self.mysql_conn = mdb.connect(host=dbHost, port=dbPort, db=dbName, user=dbUser, passwd=dbPass)
+
+        self.next_query_id = 1000l
     ## DEF
 
     def loadImpl(self):
@@ -71,22 +73,6 @@ class MySQLConverter(AbstractConverter):
         ## ----------------------------------------------
         self.extractWorkload()
 
-        for collCatalog in convertor.collectionCatalogs():
-            self.metadata_db[constants.COLLECTION_SCHEMA].save(collCatalog)
-            # TODO: This probably is a bad idea if the sample database
-        #       is huge. We will probably want to read tuples one at a time
-        #       from MySQL and then write them out immediately to MongoDB
-        for collName, collData in convertor.collectionDatasets.iteritems():
-            for doc in collData: self.dataset_db[collName].insert(doc)
-        for sess in convertor.sessions:
-            self.metadata_db[constants.COLLECTION_WORKLOAD].save(sess)
-
-        ## ---------------------------------------------
-        ## FIXME Generate Query IDs for the Workload
-        ## ---------------------------------------------
-        #stats = workload.StatsProcessor(metadata_db, dataset_db)
-        #stats.processQueryIds()
-    
     ## DEF
     
     def extractSchema(self):
@@ -96,48 +82,43 @@ class MySQLConverter(AbstractConverter):
         c1.execute("""
             SELECT TABLE_NAME
             FROM information_schema.TABLES
-            WHERE TABLE_SCHEMA = %s""", args['name'])
+            WHERE TABLE_SCHEMA = %s""", self.dbName)
         quick_look = {}
         for row in c1:
             tbl_name = row[0]
-            coll_catalog = self.metadata_db.Collection()
-            coll_catalog['name'] = unicode(tbl_name)
-            coll_catalog['shard_keys'] = { }
-            coll_catalog['fields'] = { }
-            coll_catalog['indexes'] = { }
-            quick_look[coll_catalog['name']] = []
+            col_info = self.metadata_db.Collection()
+            col_info['name'] = tbl_name
+            quick_look[col_info['name']] = []
             
             c2 = self.mysql_conn.cursor()
             c2.execute("""
                 SELECT COLUMN_NAME, DATA_TYPE
                 FROM information_schema.COLUMNS
                 WHERE TABLE_SCHEMA = %s AND TABLE_NAME=%s
-            """, (args['name'], tbl_name))
-            
+            """, (self.dbName, tbl_name))
             for col_row in c2:
                 col_name = col_row[0]
-                quick_look[coll_catalog['name']].append(col_name)
+                quick_look[col_info['name']].append(col_name)
                 col_type = catalog.sqlTypeToPython(col_row[1])
                 col_type_str = catalog.fieldTypeToString(col_type)
-                coll_catalog["fields"][col_name] = catalog.Collection.fieldFactory(col_name, col_type_str)
+                col_info["fields"][col_name] = catalog.Collection.fieldFactory(col_name, col_type_str)
             ## FOR
             
             # Get the index information from MySQL for this table
-            sql = "SHOW INDEXES FROM " + args['name'] + "." + tbl_name
+            sql = "SHOW INDEXES FROM " + self.dbName + "." + tbl_name
             c3 = self.mysql_conn.cursor()
             c3.execute(sql)
             index_name = None
             for ind_row in c3:
                 if index_name <> ind_row[2]:
-                    coll_catalog['indexes'][ind_row[2]] = []
+                    col_info['indexes'][ind_row[2]] = []
                     index_name = ind_row[2]
-                coll_catalog['indexes'][ind_row[2]].append(ind_row[4])
+                col_info['indexes'][ind_row[2]].append(ind_row[4])
             ## FOR
-            coll_catalog.save()
+            col_info.save()
 
-            coll_data = self.dataset_db[tbl_name]
-            # FIXME? coll_data.remove()
-            sql = 'SELECT * FROM ' + args['name'] + '.' + tbl_name
+            col_data = self.dataset_db[tbl_name]
+            sql = 'SELECT * FROM ' + self.dbName + '.' + tbl_name
             c4 = self.mysql_conn.cursor()
             c4.execute(sql)
             for data_row in c4 :
@@ -147,11 +128,10 @@ class MySQLConverter(AbstractConverter):
                     mongo_record[column] = data_row[i]
                     i += 1
                 ## ENDFOR
-                coll_data.append(mongo_record)
+                col_data.insert(mongo_record)
             ## ENDFOR
         ## ENDFOR
     ## DEF
-
 
     def extractForeignKeys(self):
         LOG.info("Extracting foreign keys from MySQL")
@@ -163,30 +143,33 @@ class MySQLConverter(AbstractConverter):
             FROM INFORMATION_SCHEMA.key_column_usage 
             WHERE referenced_table_schema = %s 
                 AND referenced_table_name IS NOT NULL 
-        """, (args['name']))
+        """, (self.dbName))
         
         for row in c3 :
             rel = row[0].split('.')
             if len(rel) == 4 :
                 # rel = [ child_table, child_field, parent_table, parent_field]
                 #collection = metadata_db.Collection.find_one({'name' : rel[0]})
-                collection = self.collectionCatalogs[rel[0]]
-                collection['fields'][rel[1]]['parent_col'] = rel[2]
-                collection['fields'][rel[1]]['parent_field'] = rel[3]
-                collection['fields'][rel[1]]['parent_conf'] = 1.0
-                collection.save()
+                col_info = self.metadata_db.Collection.fetch({"name": rel[0]})
+
+                col_info['fields'][rel[1]]['parent_col'] = rel[2]
+                col_info['fields'][rel[1]]['parent_field'] = rel[3]
+                col_info['fields'][rel[1]]['parent_conf'] = 1.0
+                col_info.save()
     ## DEF
         
     def extractWorkload(self):
         LOG.info("Extracting workload from MySQL query log")
-        
+
+        # Drop everything in the sessions collection first
+        self.metadata_db.drop_collection(constants.COLLECTION_WORKLOAD)
+        quick_look = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
+
         c4 = self.mysql_conn.cursor()
         c4.execute("""
             SELECT * FROM general_log ORDER BY thread_id, event_time;
         """)
-        conn.register([workload.Session])
-        metadata_db.drop_collection(constants.COLLECTION_WORKLOAD)
-        
+
         thread_id = None
         first = True
         uid = 0
@@ -204,7 +187,7 @@ class MySQLConverter(AbstractConverter):
                 else :
                     first = False
                 ## ENDIF
-                session = metadata_db.Session()
+                session = self.metadata_db.Session()
                 session['ip_client'] = sql2mongo.stripIPtoUnicode(row[1])
                 session['ip_server'] = hostIP
                 session['session_id'] = uid
@@ -225,7 +208,9 @@ class MySQLConverter(AbstractConverter):
                             print row[5]
                         for op in operations:
                             op['query_type'] = sql2mongo.get_op_type(op['query_type'])
+                            op['query_id'] = self.next_query_id
                             session['operations'].append(op)
+                            self.next_query_id += 1
                         ## ENDFOR
                     elif row[5].strip().lower() == 'commit' :
                         if len(session['operations']) > 0 :
