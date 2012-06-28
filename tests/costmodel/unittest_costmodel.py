@@ -110,6 +110,51 @@ class TestCostModel(MongoDBTestCase):
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
     ## DEF
 
+    def testSkewCost(self):
+        col_info = self.collections[COLLECTION_NAMES[0]]
+        shard_key = col_info['interesting'][0]
+
+        d = Design()
+        d.addCollection(col_info['name'])
+        d.addShardKey(col_info['name'], [shard_key])
+
+        # First get the skew cost when the queries got each node uniformly
+        # This is the best-case scenario
+        op_ctr = 0
+        for sess in self.workload:
+            for op in sess['operations']:
+                query_content = [ {constants.REPLACE_KEY_DOLLAR_PREFIX + "query":\
+                       {shard_key: op_ctr % NUM_NODES }\
+                } ]
+                op['collection'] = col_info['name']
+                op['query_content'] = query_content
+                op['predicates'] = { shard_key: constants.PRED_TYPE_EQUALITY }
+                op_ctr += 1
+            ## FOR (op)
+        ## FOR (session)
+        cost0 = self.cm.skewCost(d)
+        self.assertLessEqual(cost0, 1.0)
+#        print "skewCost0:", cost0
+
+        # Then make all of the operations go to a single node
+        # This is the worst-case scenario
+        query_content = [ {constants.REPLACE_KEY_DOLLAR_PREFIX + "query": \
+                {shard_key: 1000l } \
+        } ]
+        for sess in self.workload:
+            for op in sess['operations']:
+                op['collection'] = col_info['name']
+                op['query_content'] = query_content
+                op['predicates'] = { shard_key: constants.PRED_TYPE_EQUALITY }
+        ## FOR
+        cost1 = self.cm.skewCost(d)
+        self.assertLessEqual(cost1, 1.0)
+#        print "skewCost1:", cost1
+
+        self.assertGreater(cost1, cost0)
+
+    ## DEF
+
     def testEstimateWorkingSets(self):
         """Check the working set size estimator for collections"""
 
