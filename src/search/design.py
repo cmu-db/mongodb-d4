@@ -138,13 +138,11 @@ class Design(object):
     ## DEF
 
     def getAllIndexes(self) :
-        indexes = {}
-        for k,v in self.data.iteritems() :
-            indexes[k] = v['indexes']
-        return indexes
+        return dict(self.data.iteritems())
     ## DEF
 
-    def addIndex(self, collection, index) :
+    def addIndex(self, collection, index):
+        assert type(index) == list
         add = True
         for i in self.data[collection]['indexes'] :
             if i == index:

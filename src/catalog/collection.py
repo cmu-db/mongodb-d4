@@ -31,6 +31,7 @@ class Collection(Document):
                 'query_use_count':  int,        # The number of times this field is referenced in queries
                 'cardinality':      int,        # Number of distinct values
                 'selectivity':      int,        # Cardinalty / Tuple Count
+                'avg_size':         int,        # The average size of the values for this field (bytes)
                 'parent_col':       basestring, # TODO(ckeith)
                 'parent_key':       basestring, # TODO(ckeith)
                 'parent_conf':      float,      # TODO(ckeith)
@@ -62,11 +63,25 @@ class Collection(Document):
             'query_use_count':  0,
             'cardinality':      0,
             'selectivity':      0,
+            'avg_size':         0,
             'parent_col':       None,
             'parent_key':       None,
             'parent_conf':      None
         }
         return (field)
+    ## DEF
+
+    def getField(self, f_name, fields=None):
+        if not fields: fields = self['fields']
+
+        # If the field name has a dot in it, then we will want
+        # to fix the prefix and then traverse further into the fields
+        splits = f_name.split(".")
+        if not splits[0] in fields:
+            return None
+        elif len(splits) > 1:
+            return self.getField(f_name[len(splits[0])+1:], fields[splits[0]]['fields'])
+        return fields[f_name]
     ## DEF
 
     def getEmbeddedKeys(self):

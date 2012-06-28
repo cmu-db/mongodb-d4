@@ -59,7 +59,7 @@ class CostModel(object):
     
     def __init__(self, collections, workload, config):
         assert type(collections) == dict
-#        LOG.setLevel(logging.DEBUG)
+        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.collections = collections
@@ -99,21 +99,21 @@ class CostModel(object):
         """
             Estimate the Disk Cost for a design and a workload
         """
-        cost = 0
-
         # Worst case is when every query requires a full collection scan
         # Best case, every query is satisfied by main memory
+        cost = 0
         worst_case = 0
 
-        # 1. estimate index memory requirements
+        # 1. Estimate index memory requirements
         index_memory = self.getIndexSize(design)
+        if self.debug: LOG.debug("Estimated Index Size: %d", index_memory)
         if index_memory > self.max_memory:
             # TODO: We might want to move this somewhere else or raise an Exception
             # so that we know what really happened up above rather than just setting
             # the cost to a super high-value
             return 10000000000000
         
-        # 2. approximate the number of documents per collection in the working set
+        # 2. Approximate the number of documents per collection in the working set
         working_set = self.estimateWorkingSets(design, self.max_memory - index_memory)
         if self.debug:
             LOG.debug("Estimated Working Sets:\n%s", pformat(working_set))
@@ -173,21 +173,24 @@ class CostModel(object):
     ## DEF
 
     def getIndexSize(self, design):
-        '''
-            Estimate the amount of memory required by the indexes of a given design
-        '''
+        """Estimate the amount of memory required by the indexes of a given design"""
         memory = 0
         for colName in design.getCollections():
             col_info = self.collections[colName]
 
-            # Add a hit for the index on '_id' attribute for each collection
-            memory += col_info['doc_count'] * col_info['avg_doc_size']
-
             # Process other indexes for this collection in the design
-            for index in design.getIndexes(colName):
-                memory += col_info['doc_count'] * self.address_size * len(index)
+            # Add a hit for the index on '_id' attribute for each collection
+            for indexKeys in design.getIndexes(colName) + [['_id']]:
+                index_size = sum(map(lambda f: col_info.getField(f)['avg_size'], indexKeys))
+                index_size *= col_info['doc_count'] * self.address_size
+                if self.debug:
+                    LOG.debug("%s Index %s Memory: %d bytes", \
+                              col_info['name'], repr(indexKeys), index_size)
+                memory += index_size
+            ## FOR (index)
+        ## FOR (collection)
         return memory
-
+    ## DEF
 
     def estimateWorkingSets(self, design, capacity):
         '''
@@ -303,7 +306,7 @@ class CostModel(object):
     ## NETWORK COST
     ## -----------------------------------------------------------------------
 
-    def networkCost(self, design) :
+    def networkCost(self, design):
         if self.debug: LOG.debug("Computing network cost for %d sessions", len(self.workload))
         result = 0
         query_count = 0

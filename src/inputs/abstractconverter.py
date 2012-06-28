@@ -25,6 +25,7 @@
 import random
 import logging
 from pprint import pformat
+import math
 
 import catalog
 from workload import OpHasher
@@ -77,9 +78,10 @@ class AbstractConverter():
             ## TODO: This needs to be recursive
             for k, v in col_info['fields'].iteritems() :
                 v['query_use_count'] = 0
-                v['query_hash'] = 0
+                v['query_hash']  = 0
                 v['cardinality'] = 0
                 v['selectivity'] = 0
+                v['avg_size']    = 0
             col_info.save()
         ## FOR
     ## DEF
@@ -295,7 +297,7 @@ class AbstractConverter():
                 col_info['avg_doc_size'] = int(col_info['data_size'] / col_info['doc_count'])
 
             # Calculate cardinality and selectivity
-            self.calculateCardinalities(col_info, col_info['fields'])
+            self.computeFieldStats(col_info, col_info['fields'])
 
             if self.debug:
                 LOG.debug("Saved new catalog entry for collection '%s'" % colName)
@@ -330,11 +332,15 @@ class AbstractConverter():
                 #assert fields[k]['type'] == f_type_str, \
                 #"Mismatched field types '%s' <> '%s' for '%s'" % (fields[k]['type'], f_type_str, k)
 
-            # NOTE: We will store the distinct values for each field in a set
-            #       that is embedded in the field. We will delete it when
-            #       we call calculateCardinalities()
+            # We will store the distinct values for each field in a set
+            # that is embedded in the field. We will delete it when
+            # we call computeFieldStats()
             if not 'distinct_values' in fields[k]:
                 fields[k]['distinct_values'] = set()
+            # Likewise, we will also store a histogram for the different sizes
+            # of each field. We will use this later on to compute the weighted average
+            if not 'size_histogram' in fields[k]:
+                fields[k]['size_histogram'] = Histogram()
 
             if fields[k]['query_use_count'] > 0 and not k in col_info['interesting']:
                 col_info['interesting'].append(k)
@@ -367,10 +373,13 @@ class AbstractConverter():
                     else:
                         # TODO: We probably should store a list of types here in case
                         #       the list has different types of values
+                        size = catalog.getEstimatedSize(inner_type, doc[k][i])
                         inner = fields[k]['fields'].get(constants.LIST_INNER_FIELD, {})
                         inner['type'] = catalog.fieldTypeToString(inner_type)
                         fields[k]['fields'][constants.LIST_INNER_FIELD] = inner
+                        fields[k]['size_histogram'].put(size)
                         fields[k]['distinct_values'].add(doc[k][i])
+
                 ## FOR (list)
             ## ----------------------------------------------
             ## SCALAR VALUES
@@ -378,17 +387,28 @@ class AbstractConverter():
             else:
                 size = catalog.getEstimatedSize(fields[k]['type'], v)
                 col_info['data_size'] += size
+                fields[k]['size_histogram'].put(size)
                 fields[k]['distinct_values'].add(v)
         ## FOR
     ## DEF
 
 
-    def calculateCardinalities(self, col_info, fields):
+    def computeFieldStats(self, col_info, fields):
         """
             Recursively calculate the cardinality of each field.
             This should only be invoked after processDataFields() has been called
         """
         for k,field in fields.iteritems():
+            # Compute a weighedt average for each field
+            if 'size_histogram' in field:
+                h = field['size_histogram']
+                total = 0.0
+                for size, count in h.iteritems():
+                    if count: total += (size * count)
+                field['avg_size'] = int(math.ceil(total / float(h.getSampleCount())))
+                del field['size_histogram']
+
+            # Use the distinct values set to determine cardinality + selectivity
             if 'distinct_values' in field:
                 field['cardinality'] = len(field['distinct_values'])
                 if not col_info['doc_count']:
@@ -397,7 +417,7 @@ class AbstractConverter():
                     field['selectivity'] = field['cardinality'] / col_info['doc_count']
                 del field['distinct_values']
             if 'fields' in field and field['fields']:
-                self.calculateCardinalities(col_info, field['fields'])
+                self.computeFieldStats(col_info, field['fields'])
         ## FOR
     ## DEF
 
