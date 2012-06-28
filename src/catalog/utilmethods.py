@@ -93,6 +93,17 @@ def variance_factor(list, norm):
         std = math.sqrt(std / float(n-1))
         return abs(1 - (std / norm))
 
+def getFieldValues(shardingKeys, fields):
+    """
+        Return a tuple of the values for the given list of shardingKeys
+    """
+    values = [ ]
+    for shardingKey in shardingKeys:
+        values.append(getFieldValue(shardingKey, fields))
+    return tuple(values)
+## DEF
+
+
 def getFieldValue(shardingKey, fields):
     """
         Return the field value for the given shardingKey entry
