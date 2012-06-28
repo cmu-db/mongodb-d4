@@ -79,7 +79,7 @@ class CostModel(object):
         self.skew_segments = config['skew_intervals'] # Why? "- 1"
         self.address_size = config['address_size'] / 4
 
-        self.estimator = NodeEstimator(self.nodes)
+        self.estimator = NodeEstimator(self.collections, self.nodes)
         self.splitWorkload()
     ## DEF
 
