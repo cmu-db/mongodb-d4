@@ -164,61 +164,61 @@ class CostModel(object):
 
     def skewCost(self, design):
         """Calculate the network cost for each segment for skew analysis"""
-        if self.debug: LOG.debug("Computing skew cost for %d sessions over %d segments", len(segment), self.skew_segments)
 
-        segment_costs = []
+        op_counts = [ 0 ] *  self.skew_segments
+        segment_skew = [ 0 ] *  self.skew_segments
         for i in range(0, len(self.workload_segments)):
             # TODO: We should cache this so that we don't have to call it twice
-            segment_costs.append(self.partialNetworkCost(design, self.workload_segments[i]))
-        
-        # Determine overall skew cost as a function of the distribution of the
-        # segment network costs
-        sum_of_query_counts = 0
-        sum_intervals = 0
-        for i in xrange(0, len(self.workload_segments)) :
-            skew = 1 - segment_costs[i][0]
-            sum_intervals += skew * segment_costs[i][1]
-            sum_of_query_counts += segment_costs[i][1]
-            LOG.info("Segment[%02d] Skew - %f", i, skew)
-        LOG.info("sum_intervals: %f", sum_intervals)
-        LOG.info("sum_of_query_counts: %f", sum_of_query_counts)
+            segment_skew[i], op_counts[i] = self.calculateSkew(design, self.workload_segments[i])
 
-        if not sum_of_query_counts:
-            return 0
-        else:
-            return sum_intervals / float(sum_of_query_counts)
+        weighted_skew = sum([segment_skew[i] * op_counts[i] for i in xrange(len(self.workload_segments))])
+        return weighted_skew / float(sum(op_counts))
     ## DEF
 
     def calculateSkew(self, design, segment):
         """
             Calculate the cluster skew factor for the given workload segment
-
             See Alg.#3 from Pavlo et al. 2012:
             http://hstore.cs.brown.edu/papers/hstore-partitioning.pdf
         """
+        if self.debug:
+            LOG.debug("Computing skew cost for %d sessions over %d segments", len(segment), self.skew_segments)
 
         # Keep track of how many times that we accessed each node
         nodeCounts = Histogram()
 
         # Iterate over each session and get the list of nodes
         # that we estimate that each of its operations will need to touch
+        query_count = 0
         for sess in segment:
             for op in sess['operations']:
-                # XXX: This just returns the number of nodes that we expect
-                #      the op to touch. We don't know exactly which ones they will
-                #      be because auto-sharding could put shards anywhere...
+                # Skip anything that doesn't have a design configuration
+                if not design.hasCollection(op['collection']):
+                    if self.debug:
+                        LOG.debug("SKIP - %s Op #%d on %s",\
+                                  op['type'], op['query_id'], op['collection'])
+#                    if self.debug: LOG.debug("SKIP: ")
+                    continue
+
+                #  This just returns an estimate of which nodes  we expect
+                #  the op to touch. We don't know exactly which ones they will
+                #  be because auto-sharding could put shards anywhere...
                 map(nodeCounts.put, self.estimator.estimateOp(design, op))
+                query_count += 1
         ## FOR
 
+        if self.debug: LOG.debug("Node Count Histogram:\n%s", nodeCounts)
         total = nodeCounts.getSampleCount()
+        if not total: return 0.0, query_count
+
         best = 1 / float(self.nodes)
         skew = 0.0
         for i in xrange(0, self.nodes):
-            ratio = nodeCounts.get(i) / float(total)
+            ratio = nodeCounts.get(i, 0) / float(total)
             if ratio < best:
                 ratio = best + ((1 - ratio/best) * (1 - best))
             skew += math.log(ratio / best)
-        return skew / (math.log(1 / best) * self.nodes)
+        return skew / (math.log(1 / best) * self.nodes), query_count
     ## DEF
 
     ## ----------------------------------------------
@@ -369,7 +369,7 @@ class CostModel(object):
         else:
             return 0
 
-        LOG.info("Workload Segments - START:%d / END:%d", start_time, end_time)
+        if self.debug: LOG.info("Workload Segments - START:%d / END:%d", start_time, end_time)
         self.workload_segments = [ [] for i in xrange(0, self.skew_segments) ]
         for sess in self.workload:
             idx = self.getSessionSegment(sess, start_time, end_time)

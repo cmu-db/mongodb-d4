@@ -30,6 +30,7 @@ LOG = logging.getLogger(__name__)
 class NodeEstimator(object):
 
     def __init__(self, num_nodes):
+#        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.num_nodes = num_nodes
     ## DEF
@@ -58,13 +59,14 @@ class NodeEstimator(object):
                         scan = False
                         predicate_type = v
                 if self.debug:
-                    LOG.debug("Op #%d Predicates: %s [scan=%s / predicateType=%s]",\
-                        op['query_id'], op['predicates'], scan, predicate_type)
+                    LOG.debug("Op #%d %s Predicates: %s [scan=%s / predicateType=%s]",\
+                              op['query_id'], op['collection'], op['predicates'], scan, predicate_type)
                 if not scan:
                     # Query uses shard key... need to determine if this is an
                     # equality predicate or a range type
                     if predicate_type == constants.PRED_TYPE_EQUALITY:
                         # results += 0.0
+                        results.append(0) # FIXME
                         pass
                     else:
                         nodes = self.guessNodes(design, op['collection'], k)
@@ -77,9 +79,9 @@ class NodeEstimator(object):
                         LOG.debug("Op #%d on '%s' is a broadcast query",\
                             op["query_id"], op["collection"])
 #                    result += self.nodes
-                    map(results.append, xrange(0, self.nodes))
+                    map(results.append, xrange(0, self.num_nodes))
             else:
-                map(results.append, xrange(0, self.nodes))
+                map(results.append, xrange(0, self.num_nodes))
 #                result += self.nodes
 
         return results
@@ -98,6 +100,6 @@ class NodeEstimator(object):
 
         # TODO: How do we use the statistics to determine the selectivity of this particular
         #       attribute and thus determine the number of nodes required to answer the query?
-        return math.ceil(field['selectivity'] * self.nodes)
+        return math.ceil(field['selectivity'] * self.num_nodes)
     ## DEF
 ## CLASS
