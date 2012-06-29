@@ -22,6 +22,7 @@ TYPES_XREF = dict([ (t.__name__, t) for t in [types.IntType, types.LongType, typ
 
 def getEstimatedSize(typeName, value):
     """Returns the estimated size (in bytes) of the value for the given type"""
+    assert type(typeName) in [unicode, str], "Invalid typeName '%s/%s'" % (typeName, type(typeName))
     
     # DATETIME
     if typeName == 'datetime':

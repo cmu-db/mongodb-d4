@@ -373,11 +373,10 @@ class AbstractConverter():
                     else:
                         # TODO: We probably should store a list of types here in case
                         #       the list has different types of values
-                        size = catalog.getEstimatedSize(inner_type, doc[k][i])
                         inner = fields[k]['fields'].get(constants.LIST_INNER_FIELD, {})
                         inner['type'] = catalog.fieldTypeToString(inner_type)
                         fields[k]['fields'][constants.LIST_INNER_FIELD] = inner
-                        fields[k]['size_histogram'].put(size)
+                        fields[k]['size_histogram'].put(catalog.getEstimatedSize(inner['type'], doc[k][i]))
                         fields[k]['distinct_values'].add(doc[k][i])
 
                 ## FOR (list)
