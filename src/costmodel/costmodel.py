@@ -27,7 +27,10 @@ import logging
 import math
 import random
 from pprint import pformat
+import catalog
 
+import workload
+from lrubuffer import LRUBuffer
 from nodeestimator import NodeEstimator
 from util import constants
 from util import Histogram
@@ -65,21 +68,23 @@ class CostModel(object):
         self.collections = collections
         self.workload = workload
 
-        # TODO: REMOVE! The cost model estimates should be completely deterministic!
-        self.rg = random.Random()
-        self.rg.seed('cost model coolness')
-
         self.weight_network = config.get('weight_network', 1.0)
         self.weight_disk = config.get('weight_disk', 1.0)
         self.weight_skew = config.get('weight_skew', 1.0)
-        self.nodes = config.get('nodes', 1)
+        self.num_nodes = config.get('nodes', 1)
 
         # Convert MB to KB
-        self.max_memory = config['max_memory'] * 1024 * 1024 * self.nodes
+        self.max_memory = config['max_memory'] * 1024 * 1024
         self.skew_segments = config['skew_intervals'] # Why? "- 1"
         self.address_size = config['address_size'] / 4
 
-        self.estimator = NodeEstimator(self.collections, self.nodes)
+        self.estimator = NodeEstimator(self.collections, self.num_nodes)
+
+        self.buffers = [ ]
+        for i in xrange(self.num_nodes):
+            lru = LRUBuffer(self.collections, self.max_memory)
+            self.buffers.append(lru)
+
         self.splitWorkload()
     ## DEF
 
@@ -104,22 +109,12 @@ class CostModel(object):
         cost = 0
         worst_case = 0
 
-        # 1. Estimate index memory requirements
-        index_memory = 0 # FIXME self.getIndexSize(design)
-        if self.debug: LOG.debug("Estimated Index Size: %d", index_memory)
-        if index_memory > self.max_memory:
-            # TODO: We might want to move this somewhere else or raise an Exception
-            # so that we know what really happened up above rather than just setting
-            # the cost to a super high-value
-            return 10000000000000
-        
-        # 2. Approximate the number of documents per collection in the working set
-        working_set = self.estimateWorkingSets(design, self.max_memory - index_memory)
-        if self.debug:
-            LOG.debug("Estimated Working Sets:\n%s", pformat(working_set))
-        
-        # 3. Iterate over workload, foreach query
-        # Ok strap on your helmet, this is the magical part of the whole thing!
+        # (1) Initialize all of the LRU buffers
+        for lru in self.buffers:
+            lru.reset()
+            lru.initialize(design)
+
+        # (2) Ok strap on your helmet, this is the magical part of the whole thing!
         #
         # Outline:
         # + For each operation, we need to figure out what document(s) it's going
@@ -153,56 +148,55 @@ class CostModel(object):
         #                     tell us to stop the scan after the first matching document
         #                     is found.
         #
-        # NOTE: We don't need to keep track of evicted tuples. It's either
-        #       in the LRU buffer or not.
+        # NOTE: We don't need to keep track of evicted tuples. It's either in the LRU buffer or not.
         # TODO: We may want to figure out how to estimate whether we are traversing
         #       indexes on the right-hand side of the tree. We could some preserve
         #       the sort order the keys when we hash them...
+
+        cost = 0
         for sess in self.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
                 if not design.hasCollection(op['collection']):
                     continue
-
                 col_info = self.collections[op['collection']]
 
-                # Does this depend on the type of query? (insert vs update vs delete vs select)
-                multiplier = 1
+                indexKeys, covering = self.guessIndex(design, op)
+                pageHits = 0
+
+                # Grab all of the query contents
+                for content in workload.getOpContents(op):
+                    for node_id in self.estimator.estimateOp(design, op):
+                        lru = self.buffers[node_id]
+
+                        # If we have a target index, hit that up
+                        if indexKeys:
+                            # TODO: Need to handle whether it's a scan or an equality predicate
+                            documentIds = [ hash(catalog.getFieldValues(indexKeys, content)) ]
+                            pageHits += lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
+
+                        # If it's not a covering index, then we need to hit up
+                        # the collection to retrieve the whole document
+                        if not covering:
+                            documentIds = [ ] # TODO
+                            pageHits += lru.getDocumentsFromCollection(op['collection'], documentIds)
+                    ## FOR (node)
+                ## FOR (content)
+                cost += pageHits
+
                 if op['type'] == constants.OP_TYPE_INSERT:
-                    multiplier = 2
-                    max_pages = 1
-                    min_pages = 1
-                    pass # Why?
+                    # The worst case for an insert is if we have to a evict
+                    # another record to make space for our new one
+                    worst_case += 1
                 else:
-                    if op['type'] in [constants.OP_TYPE_UPDATE, constants.OP_TYPE_DELETE]:
-                        multiplier = 2
-
-                    # How many pages for the queries tuples?
-                    max_pages = col_info['max_pages']
-                    min_pages = max_pages
-
-                    # Is the entire collection in the working set?
-                    if working_set[op['collection']] >= 100 :
-                        min_pages = 0
-
-                    # Does this query hit an index?
-                    elif design.hasIndex(op['collection'], list(op['predicates'])) :
-                        min_pages = 0
-                    # Does this query hit the working set?
-                    else:
-                        # TODO: Complete hack! This just random guesses whether its in the
-                        #       working set! This is not what we want to do!
-                        ws_hit = self.rg.randint(1, 100)
-                        if ws_hit <= working_set[op['collection']] :
-                            min_pages = 0
-                ## IF
+                    # The worst case for all other operations is if we have to do
+                    # a full table scan that requires us to evict the entire buffer
+                    # Hence, we multiple the max pages by two
+                    worst_case += col_info['max_pages'] * 2
 
                 if self.debug:
-                    LOG.debug("Op #%d on '%s' -> PAGES[min:%d / max:%d / multiplier:%d]", \
-                              op["query_id"], op["collection"], min_pages, max_pages, multiplier)
-
-                cost += min_pages        
-                worst_case += max_pages
+                    LOG.debug("Op #%d on '%s' -> PAGES[hits:%d / worst:%d]", \
+                              op["query_id"], op["collection"], pageHits, worst_case)
             ## FOR (op)
         ## FOR (sess)
         if not worst_case:
@@ -241,9 +235,6 @@ class CostModel(object):
 
         return best_index
     ## DEF
-
-
-
 
     def estimateWorkingSets(self, design, capacity):
         '''
@@ -337,6 +328,7 @@ class CostModel(object):
                 #  This just returns an estimate of which nodes  we expect
                 #  the op to touch. We don't know exactly which ones they will
                 #  be because auto-sharding could put shards anywhere...
+                # TODO: We already do this in diskCost(). We should try to reuse the calculations
                 map(nodeCounts.put, self.estimator.estimateOp(design, op))
                 query_count += 1
         ## FOR
@@ -345,14 +337,14 @@ class CostModel(object):
         total = nodeCounts.getSampleCount()
         if not total: return 0.0, query_count
 
-        best = 1 / float(self.nodes)
+        best = 1 / float(self.num_nodes)
         skew = 0.0
-        for i in xrange(0, self.nodes):
+        for i in xrange(0, self.num_nodes):
             ratio = nodeCounts.get(i, 0) / float(total)
             if ratio < best:
                 ratio = best + ((1 - ratio/best) * (1 - best))
             skew += math.log(ratio / best)
-        return skew / (math.log(1 / best) * self.nodes), query_count
+        return skew / (math.log(1 / best) * self.num_nodes), query_count
     ## DEF
 
     ## -----------------------------------------------------------------------
@@ -411,7 +403,7 @@ class CostModel(object):
         if not query_count:
             cost = 0
         else:
-            cost = result / float(query_count * self.nodes)
+            cost = result / float(query_count * self.num_nodes)
 
         LOG.info("Computed Network Cost: %f [result=%d / queryCount=%d]", \
                  cost, result, query_count)

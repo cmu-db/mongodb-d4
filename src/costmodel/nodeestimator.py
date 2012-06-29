@@ -25,6 +25,7 @@ import logging
 import math
 
 import catalog
+from util.histogram import Histogram
 import workload
 from util import constants
 
@@ -38,6 +39,18 @@ class NodeEstimator(object):
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.collections = collections
         self.num_nodes = num_nodes
+
+        # Keep track of how many times that we accessed each node
+        self.nodeCounts = Histogram()
+    ## DEF
+
+    def reset(self):
+        """
+            Reset internal counters for this estimator.
+            This should be called everytime we start evaluating a new design
+        """
+        self.nodeCounts.clear()
+        pass
     ## DEF
 
     def estimateOp(self, design, op):
@@ -117,6 +130,7 @@ class NodeEstimator(object):
                                      op["query_id"], op["collection"])
             map(results.append, xrange(0, self.num_nodes))
 
+        map(self.nodeCounts.put, results)
         return results
     ## DEF
 
