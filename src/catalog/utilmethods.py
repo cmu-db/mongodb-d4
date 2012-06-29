@@ -93,18 +93,18 @@ def variance_factor(list, norm):
         std = math.sqrt(std / float(n-1))
         return abs(1 - (std / norm))
 
-def getFieldValues(shardingKeys, fields):
+def getFieldValues(fieldNames, fields):
     """
         Return a tuple of the values for the given list of shardingKeys
     """
     values = [ ]
-    for shardingKey in shardingKeys:
-        values.append(getFieldValue(shardingKey, fields))
+    for fieldName in fieldNames:
+        values.append(getFieldValue(fieldName, fields))
     return tuple(values)
 ## DEF
 
 
-def getFieldValue(shardingKey, fields):
+def getFieldValue(fieldName, fields):
     """
         Return the field value for the given shardingKey entry
         The shardKey can be a nested field using dot notation
@@ -112,17 +112,17 @@ def getFieldValue(shardingKey, fields):
 
     # If the sharding key has a dot in it, then we will want
     # to fix the prefix and then traverse further into the fields
-    splits = shardingKey.split(".")
+    splits = fieldName.split(".")
     if not splits[0] in fields:
         return None
     elif len(splits) > 1:
-        return getFieldValue(shardingKey[len(splits[0])+1:], fields[splits[0]])
+        return getFieldValue(fieldName[len(splits[0])+1:], fields[splits[0]])
 
     # Check whether the value is a dict that has only one key with our special
     # marking character. If it does, then that's the real value that we want to return
     # This will happen when there are things like range predicates (Example {"#gt": 123})
     # Or if it is a special field type for MongoDB (Example {"#date": 123456})
-    value = fields[shardingKey]
+    value = fields[fieldName]
     if type(value) == dict and len(value.keys()) == 1:
         key = value.keys()[0]
         if key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
@@ -130,4 +130,20 @@ def getFieldValue(shardingKey, fields):
     ## IF
 
     return value
+## DEF
+
+def hasField(fieldName, fields):
+    """
+        Return the field value for the given shardingKey entry
+        The shardKey can be a nested field using dot notation
+    """
+    # If the sharding key has a dot in it, then we will want
+    # to fix the prefix and then traverse further into the fields
+    splits = fieldName.split(".")
+    if not splits[0] in fields:
+        return False
+    elif len(splits) > 1:
+        return getFieldValue(fieldName[len(splits[0])+1:], fields[splits[0]])
+
+    return True
 ## DEF

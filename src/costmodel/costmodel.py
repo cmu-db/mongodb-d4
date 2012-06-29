@@ -118,7 +118,46 @@ class CostModel(object):
         if self.debug:
             LOG.debug("Estimated Working Sets:\n%s", pformat(working_set))
         
-        # 3. Iterate over workload, foreach query:
+        # 3. Iterate over workload, foreach query
+        # Ok strap on your helmet, this is the magical part of the whole thing!
+        #
+        # Outline:
+        # + For each operation, we need to figure out what document(s) it's going
+        #   to need to touch. From this we want to compute a unique hash signature
+        #   for those document so that we can identify what node those documents
+        #   reside on and whether those documents are in our working set memory.
+        #
+        # + For each node, we are going to have a single LRU buffer that simulates
+        #   the working set for all collections and indexes in the database.
+        #   Documents entries are going to be tagged based on whether they are
+        #   part of an index or a collection.
+        #
+        # + Now when we iterate through each operation in our workload, we are
+        #   going to need to first figure out what index (if any) it will need
+        #   to use and how it will be used (i.e., equality look-up or range scan).
+        #   We can then compute the hash for the look-up keys.
+        #   If that key is in the LRU buffer, then we will update its entry's last
+        #   accessed timestamp. If it's not, then we will increase the page hit
+        #   counter and evict some other entry.
+        #   After evaluating the target index, we will check whether the index
+        #   covers the query. If it does, then we're done
+        #   If not, then we need to compute hash for the "base" documents that it
+        #   wants to access (i.e., in the collection). Then just as before, we
+        #   will check whether its in our buffer, make an eviction if not, and
+        #   update our page hit counter.
+        #   There are several additional corner cases that we need to handle:
+        #      INSERT/UPDATE: Check whether it's an upsert query
+        #      INSERT/UPDATE/DELETE: We assume that they're using a WAL and therefore
+        #                            writing dirty pages is "free"
+        #      UPDATE/DELETE: Check whether the "multi" flag is set to true, which will
+        #                     tell us to stop the scan after the first matching document
+        #                     is found.
+        #
+        # NOTE: We don't need to keep track of evicted tuples. It's either
+        #       in the LRU buffer or not.
+        # TODO: We may want to figure out how to estimate whether we are traversing
+        #       indexes on the right-hand side of the tree. We could some preserve
+        #       the sort order the keys when we hash them...
         for sess in self.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
@@ -172,6 +211,36 @@ class CostModel(object):
             return cost / worst_case
     ## DEF
 
+    def guessIndex(self, design, op):
+
+        # Simply choose the index that has most of the fields
+        # referenced in the operation.
+        indexes = design.getIndexes(op['collection'])
+        op_contents = workload.getOpContents(op)
+        best_index = None
+        best_ratio = None
+        for i in xrange(len(indexes)):
+            field_cnt = 0
+            for indexKey in indexes[i]:
+                if catalog.hasField(indexKey, op_contents):
+                    field_cnt += 1
+            field_ratio = field_cnt / float(len(indexes[i]))
+            if not best_index or field_ratio >= best_ratio:
+                # If the ratios are the same, then choose the
+                # one with the most keys
+                if field_ratio == best_ratio:
+                    if len(indexes[i]) < len(best_index):
+                        continue
+                best_index = indexes[i]
+                best_ratio = field_ratio
+        ## FOR
+        LOG.info("Op #%d - BestIndex:%s / BestRatio:%s", \
+                 op['query_id'], best_index, best_ratio)
+
+        return best_index
+    ## DEF
+
+
     def getIndexSize(self, design):
         """Estimate the amount of memory required by the indexes of a given design"""
         memory = 0
@@ -180,6 +249,8 @@ class CostModel(object):
 
             # Process other indexes for this collection in the design
             # Add a hit for the index on '_id' attribute for each collection
+            # TODO: This should be precomputed ahead of time. No need to do this
+            #       over and over again.
             for indexKeys in design.getIndexes(colName) + [['_id']]:
                 index_size = sum(map(lambda f: col_info.getField(f)['avg_size'], indexKeys))
                 index_size *= col_info['doc_count'] * self.address_size
