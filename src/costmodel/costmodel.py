@@ -105,7 +105,7 @@ class CostModel(object):
         worst_case = 0
 
         # 1. Estimate index memory requirements
-        index_memory = self.getIndexSize(design)
+        index_memory = 0 # FIXME self.getIndexSize(design)
         if self.debug: LOG.debug("Estimated Index Size: %d", index_memory)
         if index_memory > self.max_memory:
             # TODO: We might want to move this somewhere else or raise an Exception

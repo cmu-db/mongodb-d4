@@ -57,18 +57,10 @@ class TestDesign (unittest.TestCase):
     def testAddIndex(self) :
         d = design.Design()
         collection = 'test 1'
-        index = ['field 1', 'field 2']
+        index = ('field 1', 'field 2')
         d.addCollection(collection)
         d.addIndex(collection, index)
-        self.assertEqual(d.getIndexes(collection), [index])
-        
-    def testAddIndexes(self) :
-        d = design.Design()
-        collection = 'test 1'
-        indexes = [['field 1'], ['field 2']]
-        d.addCollection(collection)
-        d.addIndexes({collection : indexes})
-        self.assertEqual(d.getIndexes(collection), indexes)
+        self.assertListEqual(d.getIndexes(collection), [index])
 
     def testGetParentCollection(self):
         d = design.Design()

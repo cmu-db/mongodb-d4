@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from util import *
+import logging
 import json
+from util import *
+
+LOG = logging.getLogger(__name__)
 
 ## ==============================================
 ## Design
@@ -149,13 +152,10 @@ class Design(object):
             if i == index:
                 add = False
                 break
-        if add: self.data[collection]['indexes'].append(index)
-    ## DEF
-    
-    def addIndexes(self, indexes) :
-        for k, v in indexes.iteritems() :
-            for i in v :
-                self.addIndex(k, i)
+        if add:
+            LOG.debug("Adding index '%s/%s' for collection %s", \
+                      index, type(index), collection)
+            self.data[collection]['indexes'].append(index)
     ## DEF
     
     def hasIndex(self, collection, list) :
