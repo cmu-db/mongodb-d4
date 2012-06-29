@@ -48,6 +48,7 @@ class LRUBuffer:
         self.buffer_size = buffer_size
         # This is the amount of space that is unallocated in this buffer (bytes)
         self.remaining = buffer_size
+        self.evicted = 0
 
         self.address_size = constants.DEFAULT_ADDRESS_SIZE # FIXME
 
@@ -60,7 +61,7 @@ class LRUBuffer:
         """
         self.remaining = self.buffer_size
         self.buffer = [ ]
-        pass
+        self.evicted = 0
     ## DEF
 
     def initialize(self, design):
@@ -119,8 +120,11 @@ class LRUBuffer:
             #       that out would be too expensive for this estimate, since we don't
             #       actually know how many documents are in that page that it needs to write
             else:
+                assert size < self.buffer_size
                 while (self.remaining - size) < 0:
-                    LOG.info("Buffer is full. Evicting documents to gain %d bytes [remaining=%d]", size, self.remaining)
+                    if self.debug:
+                        LOG.info("Buffer is full. Evicting documents to gain %d bytes [remaining=%d]", \
+                                 size, self.remaining)
                     self.evictNext()
                     page_hits += 1
 
@@ -143,6 +147,7 @@ class LRUBuffer:
         if self.debug:
             LOG.debug("Evicted document - Remaining:%d", self.remaining)
 
+        self.evicted += 1
         return typeId, key, docId
     ## DEF
 
@@ -156,7 +161,7 @@ class LRUBuffer:
             f = col_info.getField(f_name)
             assert f, "Invalid index key '%s.%s'" % (col_info['name'], f_name)
             index_size += f['avg_size']
-        index_size *= col_info['doc_count'] * self.address_size
+        index_size *= self.address_size
         if self.debug: LOG.debug("%s Index %s Memory: %d bytes",\
             col_info['name'], repr(indexKeys), index_size)
         return index_size

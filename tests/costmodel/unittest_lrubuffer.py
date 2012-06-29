@@ -21,6 +21,7 @@ from costmodel import LRUBuffer
 from search import Design
 from workload import Session
 from util import constants
+from util.histogram import Histogram
 from inputs.mongodb import MongoSniffConverter
 
 COLLECTION_NAME = "squirrels"
@@ -96,9 +97,42 @@ class TestNodeEstimator(unittest.TestCase):
         self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
     ## DEF
 
-    def testEvictNext(self):
-        """Check whether the LRUBuffer can evict documents and free space properly"""
-        pass
+    def testGetDocumentsFromIndex(self):
+        """Check whether the LRUBuffer updates internal buffer for new index documents"""
+
+        # Roll through each index and add a bunch of documents. Note that the documents
+        # will have the same documentId, but they should be represented as separted objects
+        # in the internal buffer (because they are for different indexes)
+        documentId = 0
+        pageHits = 0
+        while not self.buffer.evicted:
+            for indexKeys in self.design.getIndexes(COLLECTION_NAME):
+                pageHits += self.buffer.getDocumentsFromIndex(COLLECTION_NAME, indexKeys, [documentId])
+                if self.buffer.evicted: break
+            documentId += 1
+        ## WHILE
+
+        # Make sure that we get back two entries for each documentId (except for one)
+        lastDocId = None
+        docIds_h = Histogram()
+        while len(self.buffer.buffer) > 0:
+            typeId, key, docId = self.buffer.evictNext()
+            self.assertIsNotNone(typeId)
+            self.assertIsNotNone(key)
+            self.assertIsNotNone(docId)
+            docIds_h.put(docId)
+        ## WHILE
+
+        foundSingleDocId = False
+        for documentId,cnt in docIds_h.iteritems():
+            if cnt == 1:
+                self.assertFalse(foundSingleDocId)
+                foundSingleDocId = True
+            else:
+                self.assertEqual(2, cnt)
+        ## FOR
+
+        self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
     ## DEF
 
     def testReset(self):
