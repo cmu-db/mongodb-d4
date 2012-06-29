@@ -23,6 +23,7 @@
 # -----------------------------------------------------------------------
 
 import logging
+from util import constants
 
 LOG = logging.getLogger(__name__)
 
@@ -48,16 +49,21 @@ class LRUBuffer:
         # This is the amount of space that is unallocated in this buffer (bytes)
         self.buffer_remaining = buffer_size
 
+        self.address_size = constants.DEFAULT_ADDRESS_SIZE # FIXME
+
         pass
     ## DEF
 
     def reset(self):
+        """
+            Reset the internal buffer and "free" all of its used memory
+        """
         self.buffer_remaining = self.buffer_size
-
+        self.buffer = [ ]
         pass
     ## DEF
 
-    def registerDesign(self, design):
+    def initialize(self, design):
         """
             Add the given collection to our buffer.
             This will automatically initialize any indexes for the collection as well.
@@ -135,7 +141,11 @@ class LRUBuffer:
         """Estimate the amount of memory required by the indexes of a given design"""
         # TODO: This should be precomputed ahead of time. No need to do this
         #       over and over again.
-        index_size = sum(map(lambda f: col_info.getField(f)['avg_size'], indexKeys))
+        index_size = 0
+        for f_name in indexKeys:
+            f = col_info.getField(f_name)
+            assert f, "Invalid index key '%s.%s'" % (col_info['name'], f_name)
+            index_size += f['avg_size']
         index_size *= col_info['doc_count'] * self.address_size
         if self.debug: LOG.debug("%s Index %s Memory: %d bytes",\
             col_info['name'], repr(indexKeys), index_size)

@@ -73,3 +73,9 @@ for k in locals().keys():
 ## ==============================================
 PRED_TYPE_RANGE    = 'range'
 PRED_TYPE_EQUALITY = 'eq'
+
+## ==============================================
+## COSTMODEL DEFAULTS
+## ==============================================
+DEFAULT_ADDRESS_SIZE = 8 # bytes
+DEFAULT_TIME_INTERVALS = 10
