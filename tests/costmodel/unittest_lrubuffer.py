@@ -78,6 +78,14 @@ class TestNodeEstimator(unittest.TestCase):
         pageHits = 0
         while self.buffer.remaining > self.col_info['avg_doc_size']:
             pageHits += self.buffer.getDocumentsFromCollection(self.col_info['name'], [documentId])
+            before = self.buffer.remaining
+
+            # If we insert the same document, we should not get any pageHits and our
+            # remaining memory should be the same
+            _pageHits = self.buffer.getDocumentsFromCollection(self.col_info['name'], [documentId])
+            self.assertEqual(0, _pageHits)
+            self.assertEqual(before, self.buffer.remaining)
+
             documentId += 1
         ## WHILE
 
@@ -107,7 +115,14 @@ class TestNodeEstimator(unittest.TestCase):
         pageHits = 0
         while not self.buffer.evicted:
             for indexKeys in self.design.getIndexes(COLLECTION_NAME):
-                pageHits += self.buffer.getDocumentsFromIndex(COLLECTION_NAME, indexKeys, [documentId])
+                pageHits += self.buffer.getDocumentsFromIndex(self.col_info['name'], indexKeys, [documentId])
+                before = self.buffer.remaining
+
+                # If we insert the same document, we should not get any pageHits
+                _pageHits = self.buffer.getDocumentsFromIndex(self.col_info['name'], indexKeys, [documentId])
+                self.assertEqual(0, _pageHits)
+                self.assertEqual(before, self.buffer.remaining)
+
                 if self.buffer.evicted: break
             documentId += 1
         ## WHILE
