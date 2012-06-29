@@ -47,7 +47,7 @@ class LRUBuffer:
         # This is the total amount of space available in this buffer (bytes)
         self.buffer_size = buffer_size
         # This is the amount of space that is unallocated in this buffer (bytes)
-        self.buffer_remaining = buffer_size
+        self.remaining = buffer_size
 
         self.address_size = constants.DEFAULT_ADDRESS_SIZE # FIXME
 
@@ -58,7 +58,7 @@ class LRUBuffer:
         """
             Reset the internal buffer and "free" all of its used memory
         """
-        self.buffer_remaining = self.buffer_size
+        self.remaining = self.buffer_size
         self.buffer = [ ]
         pass
     ## DEF
@@ -114,12 +114,18 @@ class LRUBuffer:
             # It's not in the buffer for this index, so we're going to have
             # go fetch it from disk. Check whether we can just fetch
             # the page in or whether we will need to write out a dirty page right now
+            # NOTE: We actually don't know whether the page is dirty. If it wasn't then
+            #       OS would just discard it rather than write it back to disk. Figuring
+            #       that out would be too expensive for this estimate, since we don't
+            #       actually know how many documents are in that page that it needs to write
             else:
-                while (self.buffer_remaining - size) < 0:
+                while (self.remaining - size) < 0:
+                    LOG.info("Buffer is full. Evicting documents to gain %d bytes [remaining=%d]", size, self.remaining)
                     self.evictNext()
                     page_hits += 1
 
                 self.buffer.append(buffer_tuple)
+                self.remaining -= size
                 page_hits += 1
         ## FOR (document)
         return page_hits
@@ -133,7 +139,11 @@ class LRUBuffer:
             size = self.collection_sizes[key]
         else:
             raise Exception("Unexpected LRUBuffer type id '%s'" % typeId)
-        self.buffer_remaining += size
+        self.remaining += size
+        if self.debug:
+            LOG.debug("Evicted document - Remaining:%d", self.remaining)
+
+        return typeId, key, docId
     ## DEF
 
 
