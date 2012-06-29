@@ -142,7 +142,7 @@ class Design(object):
     ## DEF
 
     def addIndex(self, collection, index):
-        assert type(index) == list
+        assert type(index) in [list, tuple]
         add = True
         for i in self.data[collection]['indexes'] :
             if i == index:
