@@ -213,6 +213,8 @@ class CostModel(object):
 
     def guessIndex(self, design, op):
 
+        # TODO: We should cache this selection based on query_hashes
+
         # Simply choose the index that has most of the fields
         # referenced in the operation.
         indexes = design.getIndexes(op['collection'])
@@ -241,26 +243,7 @@ class CostModel(object):
     ## DEF
 
 
-    def getIndexSize(self, design):
-        """Estimate the amount of memory required by the indexes of a given design"""
-        memory = 0
-        for colName in design.getCollections():
-            col_info = self.collections[colName]
 
-            # Process other indexes for this collection in the design
-            # Add a hit for the index on '_id' attribute for each collection
-            # TODO: This should be precomputed ahead of time. No need to do this
-            #       over and over again.
-            for indexKeys in design.getIndexes(colName) + [['_id']]:
-                index_size = sum(map(lambda f: col_info.getField(f)['avg_size'], indexKeys))
-                index_size *= col_info['doc_count'] * self.address_size
-                if self.debug: LOG.debug("%s Index %s Memory: %d bytes", \
-                                         col_info['name'], repr(indexKeys), index_size)
-                memory += index_size
-            ## FOR (index)
-        ## FOR (collection)
-        return memory
-    ## DEF
 
     def estimateWorkingSets(self, design, capacity):
         '''
