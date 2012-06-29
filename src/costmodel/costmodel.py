@@ -211,6 +211,36 @@ class CostModel(object):
             return cost / worst_case
     ## DEF
 
+    def guessIndex(self, design, op):
+
+        # Simply choose the index that has most of the fields
+        # referenced in the operation.
+        indexes = design.getIndexes(op['collection'])
+        op_contents = workload.getOpContents(op)
+        best_index = None
+        best_ratio = None
+        for i in xrange(len(indexes)):
+            field_cnt = 0
+            for indexKey in indexes[i]:
+                if catalog.hasField(indexKey, op_contents):
+                    field_cnt += 1
+            field_ratio = field_cnt / float(len(indexes[i]))
+            if not best_index or field_ratio >= best_ratio:
+                # If the ratios are the same, then choose the
+                # one with the most keys
+                if field_ratio == best_ratio:
+                    if len(indexes[i]) < len(best_index):
+                        continue
+                best_index = indexes[i]
+                best_ratio = field_ratio
+        ## FOR
+        LOG.info("Op #%d - BestIndex:%s / BestRatio:%s", \
+                 op['query_id'], best_index, best_ratio)
+
+        return best_index
+    ## DEF
+
+
     def getIndexSize(self, design):
         """Estimate the amount of memory required by the indexes of a given design"""
         memory = 0
@@ -219,6 +249,8 @@ class CostModel(object):
 
             # Process other indexes for this collection in the design
             # Add a hit for the index on '_id' attribute for each collection
+            # TODO: This should be precomputed ahead of time. No need to do this
+            #       over and over again.
             for indexKeys in design.getIndexes(colName) + [['_id']]:
                 index_size = sum(map(lambda f: col_info.getField(f)['avg_size'], indexKeys))
                 index_size *= col_info['doc_count'] * self.address_size
