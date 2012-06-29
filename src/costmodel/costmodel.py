@@ -118,7 +118,43 @@ class CostModel(object):
         if self.debug:
             LOG.debug("Estimated Working Sets:\n%s", pformat(working_set))
         
-        # 3. Iterate over workload, foreach query:
+        # 3. Iterate over workload, foreach query
+        # Ok strap on your skates, this is the magical part of the whole thing!
+        #
+        # Outline:
+        # + For each operation, we need to figure out what document(s) it's going
+        #   to need to touch. From this we want to compute a unique hash signature
+        #   for those document so that we can identify what node those documents
+        #   reside on and whether those documents are in our working set memory.
+        #
+        # + For each node, we are going to have a single LRU buffer that simulates
+        #   the working set for all collections and indexes in the database.
+        #   Documents entries are going to be tagged based on whether they are
+        #   part of an index or a collection.
+        #
+        # + Now when we iterate through each operation in our workload, we are
+        #   going to need to first figure out what index (if any) it will need
+        #   to use. We can then compute the hash for the look-up keys.
+        #   If that key is in the LRU buffer, then we will update its entry's last
+        #   accessed timestamp. If it's not, then we will increase the page hit
+        #   counter and evict some other entry.
+        #   NOTE: We don't need to keep track of evicted tuples.
+
+        #   After evaluating the target index, we will check whether the index
+        #   covers the query. If it does, then we're done
+        #   If not, then we need to compute hash for the "base" documents that it
+        #   wants to access (i.e., in the collection). Then just as before, we
+        #   will check whether its in our buffer, make an eviction if not, and
+        #   update our page hit counter.
+        #   There are several additional corner cases that we need to handle:
+        #      -> INSERT/UPDATE: Check whether it's an upsert query
+        #      -> INSERT/UPDATE/DELETE:
+        #
+        #
+
+        # TODO: We may want to figure out how to estimate whether we are traversing
+        #       indexes on the right-hand side of the tree. We could some preserve
+        #       the sort order the keys when we hash them...
         for sess in self.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
