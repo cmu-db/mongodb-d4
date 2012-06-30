@@ -20,7 +20,6 @@ class TestUtilMethods(unittest.TestCase):
         }
     }
 
-
     def testGetAllValues(self):
         values = catalog.getAllValues(TestUtilMethods.TEST_FIELDS)
         self.assertIsNotNone(values)

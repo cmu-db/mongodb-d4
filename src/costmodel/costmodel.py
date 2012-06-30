@@ -178,7 +178,8 @@ class CostModel(object):
                         # If it's not a covering index, then we need to hit up
                         # the collection to retrieve the whole document
                         if not covering:
-                            documentIds = [ ] # TODO
+                            # TODO: Need to handle whether it's a scan or an equality predicate
+                            documentIds = [ hash(catalog.getAllValues(content)) ]
                             pageHits += lru.getDocumentsFromCollection(op['collection'], documentIds)
                     ## FOR (node)
                 ## FOR (content)
@@ -233,7 +234,23 @@ class CostModel(object):
         LOG.info("Op #%d - BestIndex:%s / BestRatio:%s", \
                  op['query_id'], best_index, best_ratio)
 
-        return best_index
+        # Check whether this is a covering index
+        covering = False
+        if op['type'] == constants.OP_TYPE_QUERY:
+            col_info = self.collection[op['collection']]
+
+            # The second element in the query_content is the projection
+            if len(op['query_content']) > 1:
+                projectionFields = op['query_content'][1]
+            # Otherwise just check whether the index encompasses all fields
+            else:
+                projectionFields = col_info['fields']
+
+            if len(best_index) == len(projectionFields):
+                # FIXME
+                covering = True
+        ## IF
+        return best_index, covering
     ## DEF
 
     def estimateWorkingSets(self, design, capacity):
