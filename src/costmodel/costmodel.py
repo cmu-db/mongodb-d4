@@ -237,13 +237,12 @@ class CostModel(object):
         # Check whether this is a covering index
         covering = False
         if op['type'] == constants.OP_TYPE_QUERY:
-            col_info = self.collection[op['collection']]
-
             # The second element in the query_content is the projection
             if len(op['query_content']) > 1:
                 projectionFields = op['query_content'][1]
             # Otherwise just check whether the index encompasses all fields
             else:
+                col_info = self.collections[op['collection']]
                 projectionFields = col_info['fields']
 
             if len(best_index) == len(projectionFields):
