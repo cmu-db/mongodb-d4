@@ -236,7 +236,7 @@ class CostModel(object):
 
         # Check whether this is a covering index
         covering = False
-        if op['type'] == constants.OP_TYPE_QUERY:
+        if best_index and op['type'] == constants.OP_TYPE_QUERY:
             # The second element in the query_content is the projection
             if len(op['query_content']) > 1:
                 projectionFields = op['query_content'][1]
@@ -245,7 +245,7 @@ class CostModel(object):
                 col_info = self.collections[op['collection']]
                 projectionFields = col_info['fields']
 
-            if len(best_index) == len(projectionFields):
+            if projectionFields and len(best_index) == len(projectionFields):
                 # FIXME
                 covering = True
         ## IF
