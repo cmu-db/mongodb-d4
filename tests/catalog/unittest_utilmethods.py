@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import os, sys
+import itertools
+
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../src"))
 
@@ -9,17 +11,39 @@ import unittest
 import catalog
 
 class TestUtilMethods(unittest.TestCase):
+    TEST_FIELDS = {
+        "scalarKey": 1234,
+        "listKey":   range(10),
+        "nestedKey": {
+            "innerKey1": 5678,
+            "innerKey2": 5678,
+        }
+    }
+
+
+    def testGetAllValues(self):
+        values = catalog.getAllValues(TestUtilMethods.TEST_FIELDS)
+        self.assertIsNotNone(values)
+        self.assertIsInstance(values, tuple)
+
+        # Make sure we can hash it
+        hash_v = hash(values)
+#        print "hash_v:", hash_v
+        self.assertIsNotNone(hash_v)
+
+        for v in TestUtilMethods.TEST_FIELDS.itervalues():
+            if isinstance(v, dict):
+                expected = tuple(v.values())
+            elif isinstance(v, list):
+                expected = tuple(v)
+            else:
+                expected = v
+            self.assertIn(expected, values)
+        ## FOR
+    ## DEF
 
     def testGetFieldValue(self):
-        fields = {
-            "scalarKey": 1234,
-            "listKey":   range(10),
-            "nestedKey": {
-                "innerKey1": 5678,
-                "innerKey2": 5678,
-            }
-        }
-
+        fields = TestUtilMethods.TEST_FIELDS
         for shardKey in fields.keys():
             expected = fields[shardKey]
             if shardKey == "nestedKey":
@@ -27,7 +51,7 @@ class TestUtilMethods(unittest.TestCase):
                 shardKey += ".innerKey2"
 
             actual = catalog.getFieldValue(shardKey, fields)
-            print shardKey, "->", actual
+#            print shardKey, "->", actual
             self.assertIsNotNone(actual, shardKey)
             self.assertEqual(expected, actual, shardKey)
         ## FOR

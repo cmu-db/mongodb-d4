@@ -88,11 +88,45 @@ def variance_factor(list, norm):
     else :
         for a in list:
             mean = mean + a
-        mean = mean / float(n)
+        mean /= float(n)
         for a in list:
-            std = std + (a - mean)**2
+            std += (a - mean)**2
         std = math.sqrt(std / float(n-1))
         return abs(1 - (std / norm))
+## DEF
+
+def getAllValues(fields):
+    """
+        Return a tuple of all the values in the fields dict
+        The fields will be sorted lexiographically so that two documents with
+        the same values always come back with the same tuple
+    """
+
+    def _getListValues(value_list):
+        values = [ ]
+        for v in value_list:
+            if isinstance(v, dict):
+                values.append(getAllValues(v))
+            elif isinstance(v, list):
+                values.append(_getListValues(v))
+            else:
+                values.append(v)
+            ## FOR
+        return tuple(values)
+    ## DEF
+
+    values = [ ]
+    for k in sorted(fields.keys()):
+        v = fields[k]
+        if isinstance(v, dict):
+            values.append(getAllValues(v))
+        elif isinstance(v, list):
+            values.append(_getListValues(v))
+        else:
+            values.append(v)
+        ## FOR
+    return tuple(values)
+## DEF
 
 def getFieldValues(fieldNames, fields):
     """
