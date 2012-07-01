@@ -58,7 +58,7 @@ class Sql2Mongo (object) :
     def generate_operations(self, timestamp) :
         operations = []
         for table in self.tables :
-            op = {}
+            op = dict()
             op['collection'] = table
             op['query_time'] = timestamp
             op['resp_time'] = None

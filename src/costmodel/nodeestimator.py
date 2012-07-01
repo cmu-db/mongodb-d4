@@ -62,7 +62,7 @@ class NodeEstimator(object):
         """
 
         results = [ ]
-        broadcast = False
+        broadcast = True
         shardingKeys = design.getShardKeys(op['collection'])
 
         if self.debug:
@@ -79,52 +79,64 @@ class NodeEstimator(object):
                 values = catalog.getFieldValues(shardingKeys, content)
                 results.append(self.computeTouchedNode(values))
             ## FOR
+            broadcast = False
 
         # Network costs of SELECT, UPDATE, DELETE queries are based off
         # of using the sharding key in the predicate
         elif len(op['predicates']) > 0:
-            scan = True
-            predicate_type = None
+            predicate_types = set()
             for k,v in op['predicates'].iteritems() :
                 if design.inShardKeyPattern(op['collection'], k) :
-                    scan = False
-                    predicate_type = v
+                    broadcast = False
+                    predicate_types.add(v)
             if self.debug:
-                LOG.debug("Op #%d %s Predicates: %s [scan=%s / predicateType=%s]",\
-                          op['query_id'], op['collection'], op['predicates'], scan, predicate_type)
-            if not scan:
-                # Query uses shard key... need to determine if this is an
-                # equality predicate or a range type
-                if predicate_type == constants.PRED_TYPE_EQUALITY:
-                    for content in workload.getOpContents(op):
-                        values = catalog.getFieldValues(shardingKeys, content)
-                        results.append(self.computeTouchedNode(values))
-                    ## FOR
+                LOG.debug("Op #%d %s Predicates: %s [broadcast=%s / predicateType=%s]",\
+                          op['query_id'], op['collection'], op['predicates'], broadcast, predicate_types)
 
+            ## ----------------------------------------------
+            ## PRED_TYPE_REGEX
+            ## ----------------------------------------------
+            if not broadcast and constants.PRED_TYPE_REGEX in predicate_types:
+                # Any query that is using a regex on the sharding key must be broadcast to every node
+                # It's not complete accurate but it's just easier that way
+                broadcast = True
+
+            ## ----------------------------------------------
+            ## PRED_TYPE_RANGE
+            ## ----------------------------------------------
+            elif not broadcast and constants.PRED_TYPE_RANGE in predicate_types:
                 # If it's a scan, then we need to first figure out what
                 # node they will start the scan at, and then just approximate
                 # what it will do by adding N nodes to the touched list starting
                 # from that first node. We will wrap around to zero
-                elif predicate_type == constants.PRED_TYPE_RANGE:
-                    num_touched = self.guessNodes(design, op['collection'], k)
-                    LOG.info("Estimating that Op #%d on '%s' touches %d nodes",\
-                             op["query_id"], op["collection"], num_touched)
-                    for content in workload.getOpContents(op):
-                        values = catalog.getFieldValues(shardingKeys, content)
-                        if self.debug: LOG.debug("%s -> %s", shardingKeys, values)
-                        node_id = self.computeTouchedNode(values)
-                        for i in xrange(num_touched):
-                            if node_id >= self.num_nodes: node_id = 0
-                            results.append(node_id)
-                            node_id += 1
-                        ## FOR
+                num_touched = self.guessNodes(design, op['collection'], k)
+                LOG.info("Estimating that Op #%d on '%s' touches %d nodes",\
+                    op["query_id"], op["collection"], num_touched)
+                for content in workload.getOpContents(op):
+                    values = catalog.getFieldValues(shardingKeys, content)
+                    if self.debug: LOG.debug("%s -> %s", shardingKeys, values)
+                    node_id = self.computeTouchedNode(values)
+                    for i in xrange(num_touched):
+                        if node_id >= self.num_nodes: node_id = 0
+                        results.append(node_id)
+                        node_id += 1
                     ## FOR
-                else:
-                    raise Exception("Unexpected predicate type '%s' for op #%d" % (predicate_type, op['query_id']))
+                ## FOR
+            ## ----------------------------------------------
+            ## PRED_TYPE_EQUALITY
+            ## ----------------------------------------------
+            elif not broadcast and constants.PRED_TYPE_EQUALITY in predicate_types:
+                broadcast = False
+                for content in workload.getOpContents(op):
+                    values = catalog.getFieldValues(shardingKeys, content)
+                    results.append(self.computeTouchedNode(values))
+                ## FOR
+            ## ----------------------------------------------
+            ## BUSTED!
+            ## ----------------------------------------------
             else:
-                broadcast = True
-        else:
-            broadcast = True
+                raise Exception("Unexpected predicate type '%s' for op #%d" % (predicate_types, op['query_id']))
+        ## IF
 
         if broadcast:
             if self.debug: LOG.debug("Op #%d on '%s' is a broadcast query to all nodes",\

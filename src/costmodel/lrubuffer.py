@@ -32,7 +32,7 @@ class LRUBuffer:
     DOC_TYPE_COLLECTION = 1
 
     def __init__(self, collections, buffer_size):
-        LOG.setLevel(logging.DEBUG)
+#        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.collections = collections

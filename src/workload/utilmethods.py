@@ -6,6 +6,15 @@ from pprint import pformat
 
 LOG = logging.getLogger(__name__)
 
+def isOpRegex(op):
+    """Returns true if this operation contains a regex query"""
+    regex_flag = constants.REPLACE_KEY_DOLLAR_PREFIX + "regex"
+    for contents in getOpContents(op):
+        for k, v in contents.iteritems():
+            if isinstance(v, dict) and regex_flag in v:
+                return True
+    return False
+## FOR
 
 def getOpContents(op):
     """Return a list of all of the query contents for the given operation"""
@@ -28,6 +37,9 @@ def getOpContents(op):
     return contents
 ## DEF
 
+## ==============================================
+## OLD STUFF
+## ==============================================
 
 @DeprecationWarning
 def getReferencedFields(op):
@@ -56,9 +68,6 @@ def getReferencedFields(op):
     return fields
 ## DEF
 
-## ==============================================
-## OLD STUFF
-## ==============================================
 
 # TODO: This is just for testing that our Sessions object
 # validates correctly. The parser/santizer should be fixed

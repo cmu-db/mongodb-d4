@@ -71,8 +71,9 @@ for k in locals().keys():
 ## ==============================================
 ## PREDICATE TYPES
 ## ==============================================
-PRED_TYPE_RANGE    = 'range'
-PRED_TYPE_EQUALITY = 'eq'
+PRED_TYPE_RANGE     = 'range'
+PRED_TYPE_EQUALITY  = 'eq'
+PRED_TYPE_REGEX     = 'regex'
 
 ## ==============================================
 ## COSTMODEL DEFAULTS

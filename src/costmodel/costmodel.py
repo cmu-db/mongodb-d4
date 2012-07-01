@@ -61,8 +61,8 @@ config {
 class CostModel(object):
     
     def __init__(self, collections, workload, config):
-        assert type(collections) == dict
-        LOG.setLevel(logging.DEBUG)
+        assert isinstance(collections, dict)
+#        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.collections = collections
@@ -460,23 +460,26 @@ class CostModel(object):
 
     def splitWorkload(self):
         """Divide the workload up into segments for skew analysis"""
-        if len(self.workload) > 0 :
-            start_time = self.workload[0]['start_time']
-            end_time = None
-            i = len(self.workload)-1
-            while i >= 0 and not end_time:
+
+        start_time = None
+        end_time = None
+        for i in xrange(len(self.workload)):
+            if start_time is None or start_time < self.workload[i]['start_time']:
+                start_time = self.workload[i]['start_time']
+            if end_time is None or end_time > self.workload[i]['end_time']:
                 end_time = self.workload[i]['end_time']
-                i -= 1
-            assert start_time
-            assert end_time
-        else:
-            return 0
+        assert start_time
+        assert end_time
 
         if self.debug:
             LOG.debug("Workload Segments - START:%d / END:%d", start_time, end_time)
         self.workload_segments = [ [] for i in xrange(0, self.skew_segments) ]
+        segment_h = Histogram()
         for sess in self.workload:
             idx = self.getSessionSegment(sess, start_time, end_time)
+            segment_h.put(idx)
+            assert idx >= 0 and idx < self.skew_segments, \
+                "Invalid workload segment '%d' for Session #%d\n%s" % (idx, sess['session_id'], segment_h)
             self.workload_segments[idx].append(sess)
         ## FOR
     ## DEF
@@ -486,6 +489,6 @@ class CostModel(object):
         timestamp = sess['start_time']
         if timestamp == end_time: timestamp -= 1
         ratio = (timestamp - start_time) / float(end_time - start_time)
-        return int(self.skew_segments * ratio)
+        return min(self.skew_segments-1, int(self.skew_segments * ratio)) # HACK
     ## DEF
 ## CLASS
