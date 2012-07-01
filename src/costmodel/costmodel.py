@@ -129,6 +129,10 @@ class CostModel(object):
             histogram of how often nodes are touched in the workload
         """
 
+        num_sessions = len(self.workload)
+#        if self.debug:
+        LOG.info("Calculating diskCost for %d sessions", num_sessions)
+
         # (1) Initialize all of the LRU buffers
         for lru in self.buffers:
             lru.initialize(design)
@@ -176,6 +180,7 @@ class CostModel(object):
         # Best case, every query is satisfied by main memory
         worst_case = 0
         cost = 0
+        sess_ctr = 0
         for sess in self.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
@@ -237,6 +242,8 @@ class CostModel(object):
                     LOG.debug("Op #%d on '%s' -> PAGES[hits:%d / worst:%d]", \
                               op["query_id"], op["collection"], pageHits, worst_case)
             ## FOR (op)
+            sess_ctr += 1
+            if sess_ctr % 1000 == 0: LOG.info("Session %5d / %d", sess_ctr, num_sessions)
         ## FOR (sess)
 
         # The final disk cost is the ratio of our estimated disk access cost divided
@@ -366,7 +373,7 @@ class CostModel(object):
         weighted_skew = sum([segment_skew[i] * op_counts[i] for i in xrange(len(self.workload_segments))])
         cost = weighted_skew / float(sum(op_counts))
         LOG.info("Computed Skew Cost: %f", cost)
-        return
+        return cost
     ## DEF
 
     def calculateSkew(self, design, segment):
