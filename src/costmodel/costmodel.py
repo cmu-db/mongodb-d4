@@ -129,7 +129,6 @@ class CostModel(object):
             histogram of how often nodes are touched in the workload
         """
 
-
         # (1) Initialize all of the LRU buffers
         for lru in self.buffers:
             lru.initialize(design)
