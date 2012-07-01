@@ -42,6 +42,7 @@ class NodeEstimator(object):
 
         # Keep track of how many times that we accessed each node
         self.nodeCounts = Histogram()
+        self.op_count = 0
     ## DEF
 
     def reset(self):
@@ -50,10 +51,10 @@ class NodeEstimator(object):
             This should be called everytime we start evaluating a new design
         """
         self.nodeCounts.clear()
-        pass
+        self.op_count = 0
     ## DEF
 
-    def estimateOp(self, design, op):
+    def estimateNodes(self, design, op):
         """
             For the given operation and a design object,
             return an estimate of a list of node ids that we think that
@@ -131,6 +132,7 @@ class NodeEstimator(object):
             map(results.append, xrange(0, self.num_nodes))
 
         map(self.nodeCounts.put, results)
+        self.op_count += 1
         return results
     ## DEF
 
@@ -158,4 +160,8 @@ class NodeEstimator(object):
         #       attribute and thus determine the number of nodes required to answer the query?
         return int(math.ceil(field['selectivity'] * self.num_nodes))
     ## DEF
+
+    def getOpCount(self):
+        """Return the number of operations evaluated"""
+        return self.op_count
 ## CLASS

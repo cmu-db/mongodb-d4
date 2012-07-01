@@ -110,22 +110,21 @@ class TestCostModel(MongoDBTestCase):
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
     ## DEF
 
-    def testDiskCost(self):
-        """Check whether disk cost calculations work correctly"""
-
-        # First get the disk cost when there are no indexes
-        d = Design()
-        for i in xrange(0, len(COLLECTION_NAMES)):
-            col_info = self.collections[COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
-            ## FOR
-        cost0 = self.cm.diskCost(d)
-        print "diskCost0:", cost0
-
-        # For now all we can do is just make sure that it's non-zero
-        self.assertGreater(cost0, 0.0)
-
-    ## DEF
+#    def testDiskCost(self):
+#        """Check whether disk cost calculations work correctly"""
+#
+#        # First get the disk cost when there are no indexes
+#        d = Design()
+#        for i in xrange(0, len(COLLECTION_NAMES)):
+#            col_info = self.collections[COLLECTION_NAMES[i]]
+#            d.addCollection(col_info['name'])
+#            ## FOR
+#        cost0 = self.cm.diskCost(d)
+#        print "diskCost0:", cost0
+#
+#        # For now all we can do is just make sure that it's non-zero
+#        self.assertGreater(cost0, 0.0)
+#    ## DEF
 
     def testSkewCost(self):
         """Check whether skew cost calculations work correctly"""
@@ -165,6 +164,7 @@ class TestCostModel(MongoDBTestCase):
                 op['query_content'] = query_content
                 op['predicates'] = { shard_key: constants.PRED_TYPE_EQUALITY }
         ## FOR
+        self.cm.reset()
         cost1 = self.cm.skewCost(d)
         self.assertLessEqual(cost1, 1.0)
 #        print "skewCost1:", cost1
@@ -224,6 +224,7 @@ class TestCostModel(MongoDBTestCase):
         d = Design()
         d.addCollection(col_info['name'])
         d.addShardKey(col_info['name'], ['_id'])
+        self.cm.reset()
         cost1 = self.cm.networkCost(d)
 #        print "cost1:", cost1
 
@@ -264,6 +265,7 @@ class TestCostModel(MongoDBTestCase):
                 self.assertTrue(d.isDenormalized(col_info['name']), col_info['name'])
                 self.assertIsNotNone(d.getDenormalizationParent(col_info['name']))
         ## FOR
+        self.cm.reset()
         cost1 = self.cm.networkCost(d)
 #        print "cost1:", cost1
 
@@ -277,6 +279,7 @@ class TestCostModel(MongoDBTestCase):
             ## FOR (sess)
         for i in xrange(1, len(COLLECTION_NAMES)):
             del self.collections[COLLECTION_NAMES[i]]
+        self.cm.reset()
         cost2 = self.cm.networkCost(d)
 #        print "cost2:", cost2
 

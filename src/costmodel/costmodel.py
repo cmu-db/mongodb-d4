@@ -81,6 +81,8 @@ class CostModel(object):
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
 
         # Cache of QueryHash->BestIndex
+        self.cache_last_design = None
+        self.cache_last_cost = None
         self.cache_best_index = { }
 
         self.buffers = [ ]
@@ -92,16 +94,27 @@ class CostModel(object):
     ## DEF
 
     def overallCost(self, design):
-        cost = 0
+
+        # TODO: We should reset any cache entries for only those collections
+        #       that were changed in this new design from the last design
+
+        cost = 0.0
         cost += self.weight_network * self.networkCost(design)
         cost += self.weight_disk * self.diskCost(design)
         cost += self.weight_skew * self.skewCost(design)
-        return cost / float(self.weight_network + self.weight_disk + self.weight_skew)
+
+        self.cache_last_cost = cost / float(self.weight_network + self.weight_disk + self.weight_skew)
+        self.cache_last_design = design
+
+        return self.cache_last_cost
     ## DEF
 
     def reset(self):
         self.cache_best_index = {}
         self.estimator.reset()
+
+        for lru in self.buffers:
+            lru.reset()
     ## DEF
 
     ## -----------------------------------------------------------------------
@@ -111,15 +124,14 @@ class CostModel(object):
     def diskCost(self, design):
         """
             Estimate the Disk Cost for a design and a workload
+            Note: If this is being invoked with overallCost(), then the diskCost()
+            should be calculated before skewCost() because we will reused the same
+            histogram of how often nodes are touched in the workload
         """
-        # Worst case is when every query requires a full collection scan
-        # Best case, every query is satisfied by main memory
-        cost = 0
-        worst_case = 0
+
 
         # (1) Initialize all of the LRU buffers
         for lru in self.buffers:
-            lru.reset()
             lru.initialize(design)
 
         # (2) Ok strap on your helmet, this is the magical part of the whole thing!
@@ -161,6 +173,9 @@ class CostModel(object):
         #       indexes on the right-hand side of the tree. We could some preserve
         #       the sort order the keys when we hash them...
 
+        # Worst case is when every query requires a full collection scan
+        # Best case, every query is satisfied by main memory
+        worst_case = 0
         cost = 0
         for sess in self.workload:
             for op in sess['operations']:
@@ -174,7 +189,7 @@ class CostModel(object):
 
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
-                    for node_id in self.estimator.estimateOp(design, op):
+                    for node_id in self.estimator.estimateNodes(design, op):
                         lru = self.buffers[node_id]
 
                         # If we have a target index, hit that up
@@ -208,13 +223,18 @@ class CostModel(object):
                               op["query_id"], op["collection"], pageHits, worst_case)
             ## FOR (op)
         ## FOR (sess)
-        if not worst_case:
-            return 0
-        else:
-            return cost / worst_case
+
+        # The final disk cost is the ratio of our estimated disk access cost divided
+        # by the worst possible cost for this design. If we don't have a worst case,
+        # then the cost is simply zero
+        return cost / worst_case if worst_case else 0
     ## DEF
 
     def guessIndex(self, design, op):
+        """
+            Return a tuple containing the best index to use for this operation and a boolean
+            flag that is true if that index covers the entire operation's query
+        """
 
         # Check whether we have a cache index selection based on query_hashes
         best_index, covering = self.cache_best_index.get(op["query_hash"], (None, None))
@@ -337,42 +357,38 @@ class CostModel(object):
         if self.debug:
             LOG.debug("Computing skew cost for %d sessions over %d segments", len(segment), self.skew_segments)
 
-        # Keep track of how many times that we accessed each node
-        nodeCounts = Histogram()
+        # Check whether we already have a histogram of how often each of the
+        # nodes are touched from the NodeEstimator. This will have been computed
+        # in diskCost()
+        if not self.estimator.getOpCount():
+            # Iterate over each session and get the list of nodes
+            # that we estimate that each of its operations will need to touch
+            for sess in segment:
+                for op in sess['operations']:
+                    # Skip anything that doesn't have a design configuration
+                    if not design.hasCollection(op['collection']):
+                        if self.debug:
+                            LOG.debug("SKIP - %s Op #%d on %s", op['type'], op['query_id'], op['collection'])
+                        continue
 
-        # Iterate over each session and get the list of nodes
-        # that we estimate that each of its operations will need to touch
-        query_count = 0
-        for sess in segment:
-            for op in sess['operations']:
-                # Skip anything that doesn't have a design configuration
-                if not design.hasCollection(op['collection']):
-                    if self.debug:
-                        LOG.debug("SKIP - %s Op #%d on %s",\
-                                  op['type'], op['query_id'], op['collection'])
-#                    if self.debug: LOG.debug("SKIP: ")
-                    continue
+                    #  This just returns an estimate of which nodes  we expect
+                    #  the op to touch. We don't know exactly which ones they will
+                    #  be because auto-sharding could put shards anywhere...
+                    self.estimator.estimateNodes(design, op)
+            ## FOR
 
-                #  This just returns an estimate of which nodes  we expect
-                #  the op to touch. We don't know exactly which ones they will
-                #  be because auto-sharding could put shards anywhere...
-                # TODO: We already do this in diskCost(). We should try to reuse the calculations
-                map(nodeCounts.put, self.estimator.estimateOp(design, op))
-                query_count += 1
-        ## FOR
-
-        if self.debug: LOG.debug("Node Count Histogram:\n%s", nodeCounts)
-        total = nodeCounts.getSampleCount()
-        if not total: return 0.0, query_count
+        if self.debug: LOG.debug("Node Count Histogram:\n%s", self.estimator.nodeCounts)
+        total = self.estimator.nodeCounts.getSampleCount()
+        if not total: return 0.0, self.estimator.getOpCount()
 
         best = 1 / float(self.num_nodes)
         skew = 0.0
         for i in xrange(0, self.num_nodes):
-            ratio = nodeCounts.get(i, 0) / float(total)
+            ratio = self.estimator.nodeCounts.get(i, 0) / float(total)
             if ratio < best:
                 ratio = best + ((1 - ratio/best) * (1 - best))
             skew += math.log(ratio / best)
-        return skew / (math.log(1 / best) * self.num_nodes), query_count
+        return skew / (math.log(1 / best) * self.num_nodes), self.estimator.getOpCount()
     ## DEF
 
     ## -----------------------------------------------------------------------
@@ -421,7 +437,7 @@ class CostModel(object):
                 # Process this op!
                 if process:
                     query_count += 1
-                    result += len(self.estimator.estimateOp(design, op))
+                    result += len(self.estimator.estimateNodes(design, op))
                 else:
                     if self.debug: LOG.debug("SKIP - %s Op #%d on %s [parent=%s / previous=%s]", \
                                              op['type'], op['query_id'], op['collection'], \

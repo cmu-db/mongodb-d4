@@ -22,6 +22,7 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
+import math
 
 class Histogram(dict):
     def __init__(self, *args, **kw):
@@ -48,11 +49,11 @@ class Histogram(dict):
         self.max_cnt = None
         
         for key, cnt in self.iteritems():
-            if self.min_cnt == None or cnt <= self.min_cnt:
+            if not self.min_cnt or cnt <= self.min_cnt:
                 if cnt < self.min_cnt: self.min_keys = []
                 self.min_keys.append(key)
                 self.min_cnt = cnt
-            if self.max_cnt == None or cnt >= self.max_cnt:
+            if not self.max_cnt or cnt >= self.max_cnt:
                 if cnt > self.max_cnt: self.max_keys = []
                 self.max_keys.append(key)
                 self.max_cnt = cnt
@@ -100,12 +101,48 @@ class Histogram(dict):
             output += "this.put(%s, %d);\n" % (key, cnt)
         return output
     ## DEF
+
     def __str__(self):
+
+        self.__computeInternalValues__()
+
         ret = ""
-        ret += "# of Elements: %d\n" % len(self)
-        ret += "# of Samples:  %d\n" % self.getSampleCount()
-        ret += "="*50 + "\n"
-        ret += "\n".join([ "%-25s %d" % (x, y) for x,y in self.iteritems() ])
-        ret += "\n" + "="*50
-        return (ret)
+#        ret += "# of Elements: %d\n" % len(self)
+#        ret += "# of Samples:  %d\n" % self.getSampleCount()
+
+        max_value_length = 20
+        max_bar_length = 80
+        marker = "*"
+
+        # Figure out the max size of the counts
+        max_ctr_length = 4
+        total = 0
+        for ctr in self.itervalues():
+            total += ctr
+            max_ctr_length = max(max_ctr_length, len(str(ctr)))
+        ## FOR
+
+        # Don't let anything go longer than MAX_VALUE_LENGTH chars
+        f = "%-" + str(max_value_length) + "s [%" + str(max_ctr_length) + "d] "
+
+        first = True
+        for value in sorted(self.iterkeys()):
+            if not first: ret += "\n"
+            value_str = str(value)
+            if len(value_str) > max_value_length:
+                value_str = value_str[:(max_value_length - 3)] + "..."
+
+            # Value Label + Count
+            cnt = self[value]
+            ret += f % (value_str, cnt)
+
+            # Histogram Bar
+            barSize = int(cnt / float(self.max_cnt)) * max_bar_length
+            ret += marker*barSize
+
+            first = False
+        ## FOR
+        if not len(self): ret += "<EMPTY>"
+
+        return ret
 ## CLASS
