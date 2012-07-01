@@ -80,6 +80,9 @@ class CostModel(object):
 
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
 
+        # Cache of QueryHash->BestIndex
+        self.cache_best_index = { }
+
         self.buffers = [ ]
         for i in xrange(self.num_nodes):
             lru = LRUBuffer(self.collections, self.max_memory)
@@ -94,6 +97,11 @@ class CostModel(object):
         cost += self.weight_disk * self.diskCost(design)
         cost += self.weight_skew * self.skewCost(design)
         return cost / float(self.weight_network + self.weight_disk + self.weight_skew)
+    ## DEF
+
+    def reset(self):
+        self.cache_best_index = {}
+        self.estimator.reset()
     ## DEF
 
     ## -----------------------------------------------------------------------
@@ -208,47 +216,51 @@ class CostModel(object):
 
     def guessIndex(self, design, op):
 
-        # TODO: We should cache this selection based on query_hashes
+        # Check whether we have a cache index selection based on query_hashes
+        best_index, covering = self.cache_best_index.get(op["query_hash"], (None, None))
 
         # Simply choose the index that has most of the fields
         # referenced in the operation.
-        indexes = design.getIndexes(op['collection'])
-        op_contents = workload.getOpContents(op)
-        best_index = None
-        best_ratio = None
-        for i in xrange(len(indexes)):
-            field_cnt = 0
-            for indexKey in indexes[i]:
-                if catalog.hasField(indexKey, op_contents):
-                    field_cnt += 1
-            field_ratio = field_cnt / float(len(indexes[i]))
-            if not best_index or field_ratio >= best_ratio:
-                # If the ratios are the same, then choose the
-                # one with the most keys
-                if field_ratio == best_ratio:
-                    if len(indexes[i]) < len(best_index):
-                        continue
-                best_index = indexes[i]
-                best_ratio = field_ratio
-        ## FOR
-        LOG.info("Op #%d - BestIndex:%s / BestRatio:%s", \
-                 op['query_id'], best_index, best_ratio)
+        if not best_index:
+            indexes = design.getIndexes(op['collection'])
+            op_contents = workload.getOpContents(op)
+            best_ratio = None
+            for i in xrange(len(indexes)):
+                field_cnt = 0
+                for indexKey in indexes[i]:
+                    if catalog.hasField(indexKey, op_contents):
+                        field_cnt += 1
+                field_ratio = field_cnt / float(len(indexes[i]))
+                if not best_index or field_ratio >= best_ratio:
+                    # If the ratios are the same, then choose the
+                    # one with the most keys
+                    if field_ratio == best_ratio:
+                        if len(indexes[i]) < len(best_index):
+                            continue
+                    best_index = indexes[i]
+                    best_ratio = field_ratio
+            ## FOR
+            LOG.info("Op #%d - BestIndex:%s / BestRatio:%s", \
+                     op['query_id'], best_index, best_ratio)
 
-        # Check whether this is a covering index
-        covering = False
-        if best_index and op['type'] == constants.OP_TYPE_QUERY:
-            # The second element in the query_content is the projection
-            if len(op['query_content']) > 1:
-                projectionFields = op['query_content'][1]
-            # Otherwise just check whether the index encompasses all fields
-            else:
-                col_info = self.collections[op['collection']]
-                projectionFields = col_info['fields']
+            # Check whether this is a covering index
+            covering = False
+            if best_index and op['type'] == constants.OP_TYPE_QUERY:
+                # The second element in the query_content is the projection
+                if len(op['query_content']) > 1:
+                    projectionFields = op['query_content'][1]
+                # Otherwise just check whether the index encompasses all fields
+                else:
+                    col_info = self.collections[op['collection']]
+                    projectionFields = col_info['fields']
 
-            if projectionFields and len(best_index) == len(projectionFields):
-                # FIXME
-                covering = True
+                if projectionFields and len(best_index) == len(projectionFields):
+                    # FIXME
+                    covering = True
+
+            self.cache_best_index[op["query_hash"]] = (best_index, covering)
         ## IF
+
         return best_index, covering
     ## DEF
 
