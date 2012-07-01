@@ -234,12 +234,11 @@ class AbstractConverter():
             # No projections for insert operations
             if op['type'] != constants.OP_TYPE_INSERT:
                 # Update how this key was used with predicates
-                # TODO: This doesn't seem right because it will overwrite whatever we had there last?
                 if workload.isOpRegex(op, field=k):
                     op['predicates'][k] = constants.PRED_TYPE_REGEX
                 elif isinstance(v, dict):
                     op['predicates'][k] = constants.PRED_TYPE_RANGE
-                else:
+                elif not k in op['predicates']:
                     op['predicates'][k] = constants.PRED_TYPE_EQUALITY
 
             ## TODO: Should we expect there to be field names with dot notation here?
