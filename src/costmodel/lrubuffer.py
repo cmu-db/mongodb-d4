@@ -86,7 +86,7 @@ class LRUBuffer:
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
         """
-        size = self.index_sizes[indexKeys]
+        size = self.index_sizes.get(indexKeys, 0)
         assert size > 0, \
             "Missing index size for '%s'" % indexKeys
         return self.getDocuments(LRUBuffer.DOC_TYPE_INDEX, indexKeys, size, documentIds)
@@ -97,7 +97,7 @@ class LRUBuffer:
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
         """
-        size = self.collection_sizes[col_name]
+        size = self.collection_sizes.get(col_name, 0)
         assert size > 0, \
             "Missing collection size for '%s'" % col_name
         return self.getDocuments(LRUBuffer.DOC_TYPE_COLLECTION, col_name, size, documentIds)
