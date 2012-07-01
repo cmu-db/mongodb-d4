@@ -145,7 +145,15 @@ class Designer():
             'address_size':   self.cparser.getint(config.SECT_COSTMODEL, 'address_size')
         }
 
-        collectionsDict = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
+        collectionsDict = dict()
+        for col_info in self.metadata_db.Collection.fetch():
+            # Skip any collection that doesn't have any documents in it
+            # This is because we won't be able to make any estimates about how
+            # big the collection actually is
+            if not col_info['doc_count'] or not col_info['avg_doc_size']:
+                continue
+            collectionsDict[col_info['name']] = col_info
+        ## FOR
 
         # TODO: This is probably a bad idea because it means that we will have
         #       to bring the entire collection into RAM in order to keep processing it
@@ -163,7 +171,7 @@ class Designer():
         # Now generate the design candidates
         # These are the different options that we are going to explore
         # in the branch-and-bound search
-        dc = self.generateDesignCandidates()
+        dc = self.generateDesignCandidates(collectionsDict)
 #        if self.debug:
         LOG.info("Design Candidates:\n%s", dc)
 
@@ -173,9 +181,9 @@ class Designer():
         return solution
     ## DEF
 
-    def generateDesignCandidates(self):
+    def generateDesignCandidates(self, collections):
         dc = DesignCandidates()
-        for col_info in self.metadata_db.Collection.fetch():
+        for col_info in collections.itervalues():
             interesting = col_info['interesting']
             if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
                 interesting = interesting[:]

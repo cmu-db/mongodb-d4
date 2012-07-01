@@ -166,7 +166,6 @@ class AbstractConverter():
                 # The end_time is the timestamp of when the last response arrives
                 if 'resp_time' in op and op['resp_time']:
                     end_time = max(end_time, op['resp_time'])
-                # If
                 elif not end_time and op['query_time']:
                     end_time = op['query_time']
 
@@ -293,7 +292,7 @@ class AbstractConverter():
 
             # Calculate average tuple size (if we have at least one)
             if not col_info['doc_count']:
-                col_info['avg_doc_size'] = 0
+                col_info['avg_doc_size'] = int(col_info['data_size'])
             else :
                 col_info['avg_doc_size'] = int(col_info['data_size'] / col_info['doc_count'])
 
@@ -350,9 +349,17 @@ class AbstractConverter():
             ## NESTED FIELDS
             ## ----------------------------------------------
             if f_type == dict:
-                if self.debug: LOG.debug("Extracting keys in nested field for '%s'" % k)
-                if not 'fields' in fields[k]: fields[k]['fields'] = { }
-                self.processDataFields(col_info, fields[k]['fields'], doc[k])
+                # Check for a special data field
+                if len(v) == 1 and v[v.keys()[0]].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                    v = v[v.keys()[0]]
+                    size = catalog.getEstimatedSize(fields[k]['type'], v)
+                    col_info['data_size'] += size
+                    fields[k]['size_histogram'].put(size)
+                    fields[k]['distinct_values'].add(v)
+                else:
+                    if self.debug: LOG.debug("Extracting keys in nested field for '%s'" % k)
+                    if not 'fields' in fields[k]: fields[k]['fields'] = { }
+                    self.processDataFields(col_info, fields[k]['fields'], doc[k])
 
             ## ----------------------------------------------
             ## LIST OF VALUES

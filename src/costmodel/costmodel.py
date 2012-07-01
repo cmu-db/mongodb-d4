@@ -99,8 +99,8 @@ class CostModel(object):
         #       that were changed in this new design from the last design
 
         cost = 0.0
-        cost += self.weight_network * self.networkCost(design)
         cost += self.weight_disk * self.diskCost(design)
+        cost += self.weight_network * self.networkCost(design)
         cost += self.weight_skew * self.skewCost(design)
 
         self.cache_last_cost = cost / float(self.weight_network + self.weight_disk + self.weight_skew)
@@ -185,24 +185,40 @@ class CostModel(object):
 
                 indexKeys, covering = self.guessIndex(design, op)
                 pageHits = 0
+                isRegex = workload.isOpRegex(op)
 
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
                     for node_id in self.estimator.estimateNodes(design, op):
                         lru = self.buffers[node_id]
 
+                        # TODO: Need to handle whether it's a scan or an equality predicate
+                        # TODO: We need to handle when we have a regex predicate. These are tricky
+                        #       because they may use an index that will examine all a subset of collections
+                        #       and then execute a regex on just those documents.
+
                         # If we have a target index, hit that up
-                        if indexKeys:
-                            # TODO: Need to handle whether it's a scan or an equality predicate
-                            documentIds = [ hash(catalog.getFieldValues(indexKeys, content)) ]
-                            pageHits += lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
+                        if indexKeys and not isRegex: # FIXME
+                            values = catalog.getFieldValues(indexKeys, content)
+                            try:
+                                documentIds = [ hash(values) ]
+                                pageHits += lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
+                            except:
+                                LOG.error("Failed to compute index documentIds for op #%d - %s\n%s", \
+                                          op['query_id'], values, pformat(op))
+                                raise
 
                         # If it's not a covering index, then we need to hit up
                         # the collection to retrieve the whole document
                         if not covering:
-                            # TODO: Need to handle whether it's a scan or an equality predicate
-                            documentIds = [ hash(catalog.getAllValues(content)) ]
-                            pageHits += lru.getDocumentsFromCollection(op['collection'], documentIds)
+                            values = catalog.getAllValues(content)
+                            try:
+                                documentIds = [ hash(values) ]
+                                pageHits += lru.getDocumentsFromCollection(op['collection'], documentIds)
+                            except:
+                                LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s", \
+                                    op['query_id'], values, pformat(op))
+                                raise
                     ## FOR (node)
                 ## FOR (content)
                 cost += pageHits
@@ -226,7 +242,9 @@ class CostModel(object):
         # The final disk cost is the ratio of our estimated disk access cost divided
         # by the worst possible cost for this design. If we don't have a worst case,
         # then the cost is simply zero
-        return cost / worst_case if worst_case else 0
+        cost = cost / worst_case if worst_case else 0
+        LOG.info("Computed Disk Cost: %f [worstCase=%d]", cost, worst_case)
+        return cost
     ## DEF
 
     def guessIndex(self, design, op):
@@ -247,7 +265,8 @@ class CostModel(object):
             for i in xrange(len(indexes)):
                 field_cnt = 0
                 for indexKey in indexes[i]:
-                    if catalog.hasField(indexKey, op_contents):
+                    # We can't use a field if it's being used in a regex operation
+                    if catalog.hasField(indexKey, op_contents) and not workload.isOpRegex(op, field=indexKey):
                         field_cnt += 1
                 field_ratio = field_cnt / float(len(indexes[i]))
                 if not best_index or field_ratio >= best_ratio:
@@ -259,8 +278,9 @@ class CostModel(object):
                     best_index = indexes[i]
                     best_ratio = field_ratio
             ## FOR
-            LOG.info("Op #%d - BestIndex:%s / BestRatio:%s", \
-                     op['query_id'], best_index, best_ratio)
+            if self.debug:
+                LOG.debug("Op #%d - BestIndex:%s / BestRatio:%s", \
+                         op['query_id'], best_index, best_ratio)
 
             # Check whether this is a covering index
             covering = False
@@ -344,7 +364,9 @@ class CostModel(object):
             segment_skew[i], op_counts[i] = self.calculateSkew(design, self.workload_segments[i])
 
         weighted_skew = sum([segment_skew[i] * op_counts[i] for i in xrange(len(self.workload_segments))])
-        return weighted_skew / float(sum(op_counts))
+        cost = weighted_skew / float(sum(op_counts))
+        LOG.info("Computed Skew Cost: %f", cost)
+        return
     ## DEF
 
     def calculateSkew(self, design, segment):
