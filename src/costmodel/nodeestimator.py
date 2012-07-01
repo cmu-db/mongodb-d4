@@ -35,7 +35,7 @@ class NodeEstimator(object):
 
     def __init__(self, collections, num_nodes):
         assert type(collections) == dict
-#        LOG.setLevel(logging.DEBUG)
+        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.collections = collections
         self.num_nodes = num_nodes
@@ -90,8 +90,8 @@ class NodeEstimator(object):
                     broadcast = False
                     predicate_types.add(v)
             if self.debug:
-                LOG.debug("Op #%d %s Predicates: %s [broadcast=%s / predicateType=%s]",\
-                          op['query_id'], op['collection'], op['predicates'], broadcast, predicate_types)
+                LOG.debug("Op #%d %s Predicates: %s [broadcast=%s / predicateTypes=%s]",\
+                          op['query_id'], op['collection'], op['predicates'], broadcast, list(predicate_types))
 
             ## ----------------------------------------------
             ## PRED_TYPE_REGEX
@@ -110,8 +110,9 @@ class NodeEstimator(object):
                 # what it will do by adding N nodes to the touched list starting
                 # from that first node. We will wrap around to zero
                 num_touched = self.guessNodes(design, op['collection'], k)
-                LOG.info("Estimating that Op #%d on '%s' touches %d nodes",\
-                    op["query_id"], op["collection"], num_touched)
+                if self.debug:
+                    LOG.info("Estimating that Op #%d on '%s' touches %d nodes",\
+                             op["query_id"], op["collection"], num_touched)
                 for content in workload.getOpContents(op):
                     values = catalog.getFieldValues(shardingKeys, content)
                     if self.debug: LOG.debug("%s -> %s", shardingKeys, values)
@@ -134,8 +135,8 @@ class NodeEstimator(object):
             ## ----------------------------------------------
             ## BUSTED!
             ## ----------------------------------------------
-            else:
-                raise Exception("Unexpected predicate type '%s' for op #%d" % (predicate_types, op['query_id']))
+            elif not broadcast:
+                raise Exception("Unexpected predicate types '%s' for op #%d" % (list(predicate_types), op['query_id']))
         ## IF
 
         if broadcast:
