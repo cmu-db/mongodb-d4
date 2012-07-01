@@ -350,7 +350,7 @@ class AbstractConverter():
             ## ----------------------------------------------
             if f_type == dict:
                 # Check for a special data field
-                if len(v) == 1 and v[v.keys()[0]].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                if len(v) == 1 and v.keys()[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
                     v = v[v.keys()[0]]
                     size = catalog.getEstimatedSize(fields[k]['type'], v)
                     col_info['data_size'] += size
