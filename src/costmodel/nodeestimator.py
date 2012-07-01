@@ -35,7 +35,7 @@ class NodeEstimator(object):
 
     def __init__(self, collections, num_nodes):
         assert type(collections) == dict
-        LOG.setLevel(logging.DEBUG)
+#        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.collections = collections
         self.num_nodes = num_nodes

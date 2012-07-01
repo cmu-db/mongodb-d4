@@ -399,13 +399,17 @@ class AbstractConverter():
             This should only be invoked after processDataFields() has been called
         """
         for k,field in fields.iteritems():
-            # Compute a weighedt average for each field
+            # Compute a weighted average for each field
             if 'size_histogram' in field:
                 h = field['size_histogram']
                 total = 0.0
                 for size, count in h.iteritems():
                     if count: total += (size * count)
-                field['avg_size'] = int(math.ceil(total / h.getSampleCount()))
+                num_samples = h.getSampleCount()
+                if num_samples:
+                    field['avg_size'] = int(math.ceil(total / num_samples))
+                else:
+                    field['avg_size'] = 0
                 del field['size_histogram']
 
             # Use the distinct values set to determine cardinality + selectivity

@@ -57,9 +57,14 @@ class Sessionizer:
             if not "resp_time" in op: continue
             assert "query_hash" in op, \
                 "Missing hash in operation %d" % op["query_id"]
-            
+            if op["resp_time"] is None: op["resp_time"] = op["query_time"] # HACK
+
+            assert op["query_time"] is not None
+            assert op["resp_time"] is not None
+
             if lastOp:
-                assert op["query_time"] >= lastOp["resp_time"]
+                assert int(op["query_time"]) >= int(lastOp["resp_time"]), \
+                    "Op #%(query_id)d query time (%(query_time)d) comes after response time (%(resp_time)d)" % op
                 # Seconds -> Milliseconds
                 if lastOp["resp_time"]:
                     diff = (op["query_time"]*1000) - (lastOp["resp_time"]*1000)

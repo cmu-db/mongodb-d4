@@ -17,11 +17,10 @@
 
 2. Load this mongosniff workload trace from into **D4**'s internal catalog
 
-        gunzip -c sniff.out.gz | ./d4.py --config=application.config \
-            --reset \
-            --no-search
+        gunzip -c sniff.out.gz | ./d4.py --config=application.config --reset --no-search
             
    The *--reset* flag will erase all of the metadata that may exist in the catalog database in target MongoDB.
+   This does not modify your application's database.
    The *--no-search* flag will cause **D4** to halt the program immediately after processing the workload trace.
         
 TODO: Need to discuss how to use an existing MongoDB design in **D4** to check whether there is better configuration.

@@ -39,10 +39,33 @@ class BBSearch ():
         bbsearch object has self.status field, which can have following values:
         initialized, solving, solved, timed_out, user_terminated
     """
+
+    def __init__(self, designCandidate, costModel, initialDesign, bestCost, timeout):
+        """
+            class constructor
+            args:
+            * instance of DesignCandidates: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
+            * instance of CostModel
+            * initialDesign (instance of Design)
+            * bestCost (float; cost of initialDesign, upper bound)
+            * timeout (in sec)
+        """
+
+        # all nodes have a pointer to the bbsearch object
+        # in order to access bounding function, optimial solution and current bound
+        self.terminated = False
+        # store keys list... used only to translate integer iterators back to real key values...
+        self.rootNode = BBNode(design.Design(), self, True, 0) #rootNode: True
+        self.designCandidate = designCandidate
+        self.costModel = costModel
+        self.bestDesign = initialDesign
+        self.bestCost = bestCost
+        self.totalBacktracks = 0
+        self.timeout = timeout
+        self.status = "initialized"
+        return
+
     
-    '''
-    public methods
-    '''
     def solve(self):
         """
             main public method. Simply call to get the optimal solution
@@ -115,30 +138,7 @@ class BBSearch ():
         LOG.debug("  leaf nodes: %d", self.leafNodes)
         LOG.debug("BEST SOLUTION:\n%s", self.bestDesign)
         LOG.debug("------------------\n")
-    
-    '''
-    class constructor
-    args:
-    * instance of DesignCandidates: basically dictionary mapping collection names to possible shard keys, index keys and collection to denormalize to
-    * instance of CostModel
-    * initialDesign (instance of Design)
-    * bestCost (float; cost of initialDesign, upper bound)
-    * timeout (in sec)
-    '''
-    def __init__(self, designCandidate, costModel, initialDesign, bestCost, timeout):
-        # all nodes have a pointer to the bbsearch object
-        # in order to access bounding function, optimial solution and current bound
-        self.terminated = False
-        # store keys list... used only to translate integer iterators back to real key values...
-        self.rootNode = BBNode(design.Design(), self, True, 0) #rootNode: True
-        self.designCandidate = designCandidate
-        self.costModel = costModel
-        self.bestDesign = initialDesign
-        self.bestCost = bestCost
-        self.totalBacktracks = 0
-        self.timeout = timeout
-        self.status = "initialized"
-        return
+
     
 ## CLASS
 
