@@ -6,13 +6,18 @@ from pprint import pformat
 
 LOG = logging.getLogger(__name__)
 
-def isOpRegex(op):
+def isOpRegex(op, field=None):
     """Returns true if this operation contains a regex query"""
     regex_flag = constants.REPLACE_KEY_DOLLAR_PREFIX + "regex"
     for contents in getOpContents(op):
-        for k, v in contents.iteritems():
-            if isinstance(v, dict) and regex_flag in v:
+        if field is None:
+            for k, v in contents.iteritems():
+                if isinstance(v, dict) and regex_flag in v:
+                    return True
+        elif field in contents:
+            if isinstance(contents[field], dict) and regex_flag in contents[field]:
                 return True
+    ## FOR
     return False
 ## FOR
 

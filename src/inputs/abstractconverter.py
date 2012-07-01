@@ -235,7 +235,9 @@ class AbstractConverter():
             if op['type'] != constants.OP_TYPE_INSERT:
                 # Update how this key was used with predicates
                 # TODO: This doesn't seem right because it will overwrite whatever we had there last?
-                if type(v) == dict:
+                if workload.isOpRegex(op, field=k):
+                    op['predicates'][k] = constants.PRED_TYPE_REGEX
+                elif isinstance(v, dict):
                     op['predicates'][k] = constants.PRED_TYPE_RANGE
                 else:
                     op['predicates'][k] = constants.PRED_TYPE_EQUALITY
