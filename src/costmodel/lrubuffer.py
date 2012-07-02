@@ -92,7 +92,7 @@ class LRUBuffer:
         size = self.index_sizes[col_name].get(indexKeys, 0)
         assert size > 0, \
             "Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
-        return self.getDocuments(LRUBuffer.DOC_TYPE_INDEX, indexKeys, size, documentIds)
+        return self.getDocuments(LRUBuffer.DOC_TYPE_INDEX, col_name, indexKeys, size, documentIds)
     ## DEF
 
     def getDocumentsFromCollection(self, col_name, documentIds):
@@ -103,10 +103,10 @@ class LRUBuffer:
         size = self.collection_sizes.get(col_name, 0)
         assert size > 0, \
             "Missing collection size for '%s'" % col_name
-        return self.getDocuments(LRUBuffer.DOC_TYPE_COLLECTION, col_name, size, documentIds)
+        return self.getDocuments(LRUBuffer.DOC_TYPE_COLLECTION, col_name, col_name, size, documentIds)
     ## DEF
 
-    def getDocuments(self, typeId, key, size, documentIds):
+    def getDocuments(self, typeId, col_name, key, size, documentIds):
         page_hits = 0
         for documentId in documentIds:
             buffer_tuple = (typeId, key, documentId)
@@ -130,7 +130,7 @@ class LRUBuffer:
                     if self.debug:
                         LOG.info("Buffer is full. Evicting documents to gain %d bytes [remaining=%d]", \
                                  size, self.remaining)
-                    self.evictNext()
+                    self.evictNext(col_name)
                     page_hits += 1
 
                 self.buffer.append(buffer_tuple)
@@ -140,10 +140,10 @@ class LRUBuffer:
         return page_hits
     ## DEF
 
-    def evictNext(self):
+    def evictNext(self, col_name):
         typeId, key, docId = self.buffer.pop(0)
         if typeId == LRUBuffer.DOC_TYPE_INDEX:
-            size = self.index_sizes[key]
+            size = self.index_sizes[col_name][key]
         elif typeId == LRUBuffer.DOC_TYPE_COLLECTION:
             size = self.collection_sizes[key]
         else:
@@ -155,7 +155,6 @@ class LRUBuffer:
         self.evicted += 1
         return typeId, key, docId
     ## DEF
-
 
     def getIndexSize(self, col_info, indexKeys):
         """Estimate the amount of memory required by the indexes of a given design"""
@@ -171,3 +170,4 @@ class LRUBuffer:
             col_info['name'], repr(indexKeys), index_size)
         return index_size
     ## DEF
+## CLASS

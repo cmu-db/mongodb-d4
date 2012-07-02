@@ -95,7 +95,7 @@ class TestNodeEstimator(unittest.TestCase):
         # Make sure that the buffer is in the right order as we evict records
         lastDocId = None
         while len(self.buffer.buffer) > 0:
-            typeId, key, docId = self.buffer.evictNext()
+            typeId, key, docId = self.buffer.evictNext(self.col_info['name'])
             self.assertIsNotNone(typeId)
             self.assertIsNotNone(key)
             self.assertIsNotNone(docId)
@@ -109,7 +109,7 @@ class TestNodeEstimator(unittest.TestCase):
         """Check whether the LRUBuffer updates internal buffer for new index documents"""
 
         # Roll through each index and add a bunch of documents. Note that the documents
-        # will have the same documentId, but they should be represented as separted objects
+        # will have the same documentId, but they should be represented as separated objects
         # in the internal buffer (because they are for different indexes)
         documentId = 0
         pageHits = 0
@@ -131,7 +131,7 @@ class TestNodeEstimator(unittest.TestCase):
         lastDocId = None
         docIds_h = Histogram()
         while len(self.buffer.buffer) > 0:
-            typeId, key, docId = self.buffer.evictNext()
+            typeId, key, docId = self.buffer.evictNext(COLLECTION_NAME)
             self.assertIsNotNone(typeId)
             self.assertIsNotNone(key)
             self.assertIsNotNone(docId)
@@ -158,10 +158,11 @@ class TestNodeEstimator(unittest.TestCase):
 
     def testInitialize(self):
         """Check whether we can initialize the buffer properly for a design"""
-        self.assertIsNotNone(self.buffer.collection_sizes[self.col_info['name']])
-        self.assertEqual(len(self.design.getIndexes(self.col_info['name'])), len(self.buffer.index_sizes))
-        for indexKeys in self.design.getIndexes(self.col_info['name']):
-            self.assertIsNotNone(self.buffer.index_sizes[indexKeys])
+        col_name = self.col_info['name']
+        self.assertIsNotNone(self.buffer.collection_sizes[col_name])
+        self.assertEqual(len(self.design.getIndexes(col_name)), len(self.buffer.index_sizes[col_name]))
+        for indexKeys in self.design.getIndexes(col_name):
+            self.assertIsNotNone(self.buffer.index_sizes[col_name][indexKeys])
     ## DEF
 ## CLASS
 
