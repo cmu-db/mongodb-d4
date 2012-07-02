@@ -61,7 +61,13 @@ config {
 class CostModel(object):
 
     class Cache():
-        def __init__(self):
+        def __init__(self, col_info, num_nodes):
+
+            # The number of pages needed to do a full scan of this collection
+            # The worst case for all other operations is if we have to do
+            # a full scan that requires us to evict the entire buffer
+            # Hence, we multiple the max pages by two
+            self.fullscan_pages = (col_info['max_pages'] * 2) / num_nodes
 
             # Cache of Best Index Tuples
             # QueryHash -> BestIndex
@@ -92,7 +98,7 @@ class CostModel(object):
 
     def __init__(self, collections, workload, config):
         assert isinstance(collections, dict)
-#        LOG.setLevel(logging.DEBUG)
+        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.collections = collections
@@ -183,11 +189,11 @@ class CostModel(object):
 #        if self.debug:
         LOG.info("Calculating diskCost for %d sessions", num_sessions)
 
-        # (1) Initialize all of the LRU buffers
+        # Initialize all of the LRU buffers
         for lru in self.buffers:
             lru.initialize(design)
 
-        # (2) Ok strap on your helmet, this is the magical part of the whole thing!
+        # Ok strap on your helmet, this is the magical part of the whole thing!
         #
         # Outline:
         # + For each operation, we need to figure out what document(s) it's going
@@ -242,7 +248,7 @@ class CostModel(object):
                 # We will always want to do this regardless of whether caching is enabled
                 cache = self.cache_handles.get(col_info['name'], None)
                 if cache is None:
-                    cache = CostModel.Cache()
+                    cache = CostModel.Cache(col_info, self.num_nodes)
                     self.cache_handles[col_info['name']] = cache
 
                 # Check whether we have a cache index selection based on query_hashes
@@ -255,13 +261,16 @@ class CostModel(object):
                 isRegex = cache.op_regex.get(op["query_hash"], None)
                 if isRegex is None:
                     isRegex = workload.isOpRegex(op)
-                    cache.op_regex[op["query_hash"]] = isRegex
+                    if self.cache_enable: cache.op_regex[op["query_hash"]] = isRegex
 
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
                     node_ids = cache.op_nodeIds.get(op['query_id'], None)
+                    if node_ids is None:
+                        node_ids = self.estimator.estimateNodes(design, op)
+                        if self.cache_enable: cache.op_nodeIds[op['query_id']] = node_ids
 
-                    for node_id in self.estimator.estimateNodes(design, op):
+                    for node_id in node_ids:
                         lru = self.buffers[node_id]
 
                         # TODO: Need to handle whether it's a scan or an equality predicate
@@ -271,7 +280,7 @@ class CostModel(object):
 
                         # If we have a target index, hit that up
                         if indexKeys and not isRegex: # FIXME
-                            documentIds = cache.index_docIds[col_info['name']].get(op['query_id'], None)
+                            documentIds = cache.index_docIds.get(op['query_id'], None)
                             if documentIds is None:
                                 values = catalog.getFieldValues(indexKeys, content)
                                 try:
@@ -280,14 +289,19 @@ class CostModel(object):
                                     LOG.error("Failed to compute index documentIds for op #%d - %s\n%s", \
                                               op['query_id'], values, pformat(op))
                                     raise
-                                if self.cache_enable: cache.index_docIds[col_info['name']][op['query_id']] = documentIds
+                                if self.cache_enable: cache.index_docIds[op['query_id']] = documentIds
                             ## IF
                             pageHits += lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
 
-                        # If it's not a covering index, then we need to hit up
+                        # If we don't have an index, then we know that it's a full scan because the
+                        # collections are unordered
+                        if not indexKeys:
+                            pageHits += cache.fullscan_pages
+
+                        # Otherwise, if it's not a covering index, then we need to hit up
                         # the collection to retrieve the whole document
-                        if not covering:
-                            documentIds = cache.collection_docIds[col_info['name']].get(op['query_id'], None)
+                        elif not covering:
+                            documentIds = cache.collection_docIds.get(op['query_id'], None)
                             if documentIds is None:
                                 values = catalog.getAllValues(content)
                                 try:
@@ -296,7 +310,7 @@ class CostModel(object):
                                     LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s",\
                                               op['query_id'], values, pformat(op))
                                     raise
-                                if self.cache_enable: cache.collection_docIds[col_info['name']][op['query_id']] = documentIds
+                                if self.cache_enable: cache.collection_docIds[op['query_id']] = documentIds
                             ## IF
                             pageHits += lru.getDocumentsFromCollection(op['collection'], documentIds)
 
@@ -309,10 +323,7 @@ class CostModel(object):
                     # another record to make space for our new one
                     worst_case += 1
                 else:
-                    # The worst case for all other operations is if we have to do
-                    # a full table scan that requires us to evict the entire buffer
-                    # Hence, we multiple the max pages by two
-                    worst_case += col_info['max_pages'] * 2
+                    worst_case += cache.fullscan_pages
 
                 if self.debug:
                     LOG.debug("Op #%d on '%s' -> PAGES[hits:%d / worst:%d]", \

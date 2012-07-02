@@ -63,6 +63,8 @@ class LRUBuffer:
         self.remaining = self.buffer_size
         self.buffer = [ ]
         self.evicted = 0
+        self.collection_sizes = { }
+        self.index_sizes = { }
     ## DEF
 
     def initialize(self, design):
@@ -70,8 +72,7 @@ class LRUBuffer:
             Add the given collection to our buffer.
             This will automatically initialize any indexes for the collection as well.
         """
-        self.collection_sizes = { }
-        self.index_sizes = { }
+        self.reset()
         for col_name in design.getCollections():
             col_info = self.collections[col_name]
             self.collection_sizes[col_name] = col_info['avg_doc_size']
@@ -165,7 +166,7 @@ class LRUBuffer:
             f = col_info.getField(f_name)
             assert f, "Invalid index key '%s.%s'" % (col_info['name'], f_name)
             index_size += f['avg_size']
-        index_size *= self.address_size
+        index_size += self.address_size
         if self.debug: LOG.debug("%s Index %s Memory: %d bytes",\
             col_info['name'], repr(indexKeys), index_size)
         return index_size
