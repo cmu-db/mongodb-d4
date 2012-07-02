@@ -61,7 +61,7 @@ class Design(object):
         result = [ ]
         for col_name in self.collections:
             match = True
-            if not col_name in other.collections:
+            if not other or not col_name in other.collections:
                 match = False
             else:
                 for k, v in self.data[col_name].iteritems():

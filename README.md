@@ -13,7 +13,7 @@ D4 can select for an application are:
 + Indexes
 + Collection (De)normalization
 
-For More Information: http://database.cs.brown.edu/projects/mongodb/
+For More Information: <http://database.cs.brown.edu/projects/mongodb/>
 
 ## Dependencies
 + python-pymongo

@@ -80,16 +80,32 @@ class CostModel(object):
 
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
 
-        # Cache of QueryHash->BestIndex
-        self.cache_last_design = None
-        self.cache_last_cost = None
-        self.cache_best_index = { }
 
         self.buffers = [ ]
         for i in xrange(self.num_nodes):
             lru = LRUBuffer(self.collections, self.max_memory)
             self.buffers.append(lru)
 
+        # Cache of QueryHash->BestIndex
+        self.cache_last_design = None
+        self.cache_last_cost = None
+        self.cache_best_index = { }
+
+        # Cache of QueryId -> Index/Collection DocumentIds
+        self.cache_collection_ids = { }
+        self.cache_index_ids = { }
+
+        # For each collection, get the set of query hashes for it
+        self.cache_collection_hashes = { }
+        for sess in self.workload:
+            for op in sess['operations']:
+                col_name = op['collection']
+                if not col_name in self.cache_collection_hashes:
+                    self.cache_collection_hashes[col_name] = set()
+                self.cache_collection_hashes[col_name].add(op['query_hash'])
+        ## FOR
+
+        # Pre-split the workload into separate intervals
         self.splitWorkload()
     ## DEF
 
@@ -97,6 +113,8 @@ class CostModel(object):
 
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
+        delta = design.getDelta(self.cache_last_design)
+        map(self.invalidateCache, delta)
 
         cost = 0.0
         cost += self.weight_disk * self.diskCost(design)
@@ -107,6 +125,13 @@ class CostModel(object):
         self.cache_last_design = design
 
         return self.cache_last_cost
+    ## DEF
+
+    def invalidateCache(self, col_name):
+        for hashes in self.cache_collection_hashes.get(col_name, set()):
+            for op_hash in hashes:
+                del self.cache_best_index[op_hash]
+        ## FOR
     ## DEF
 
     def reset(self):
