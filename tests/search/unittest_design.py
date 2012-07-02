@@ -16,14 +16,44 @@ class TestDesign (unittest.TestCase):
 
     @staticmethod
     def designFactory():
-        design = design.Design()
+        d = design.Design()
         collections = ['col 1', 'col 2']
-        design.addCollections(collections)
-        design.addShardKey('col 1', ['c1b'])
-        design.addShardKey('col 2', ['c2a'])
-        design.addIndexes({ 'col 1' : [['c1a']], 'col 2' : [['c2c'], ['c2a', 'c2d']] })
-        return design
-        
+        d.addCollections(collections)
+        d.addShardKey('col 1', ['c1b'])
+        d.addShardKey('col 2', ['c2a'])
+        d.addIndex('col 1', ['c1a'])
+        d.addIndex('col 2', ['c2c'])
+        d.addIndex('col 2', ['c2a', 'c2d'])
+        return d
+
+    def testGetDelta(self):
+        d0 = TestDesign.designFactory()
+        d1 = TestDesign.designFactory()
+
+        delta = d0.getDelta(d0)
+        self.assertEqual(0, len(delta))
+
+        delta = d0.getDelta(d1)
+        self.assertEqual(0, len(delta))
+
+        d2 = design.Design()
+        for col_name in d0.getCollections():
+            d2.addCollection(col_name)
+            d2.addShardKey(col_name, d0.getShardKeys(col_name))
+            for indexKeys in d0.getIndexes(col_name):
+                d2.addIndex(col_name, indexKeys)
+                break
+        delta = d0.getDelta(d2)
+        self.assertEqual(1, len(delta))
+
+        # Throw an empty design at it. All of the collections
+        # should come back in our delta
+        d3 = design.Design()
+        delta = d0.getDelta(d3)
+        self.assertEquals(d0.getCollections(), delta)
+
+    ## DEF
+
     def testAddCollection(self) :
         d = design.Design()
         collection = 'Test'

@@ -70,7 +70,7 @@ class Design(object):
                         break
             if not match: result.append(col_name)
         ## FOR
-        return (result)
+        return result
     ## DEF
 
     '''
