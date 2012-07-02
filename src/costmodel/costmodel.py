@@ -59,7 +59,37 @@ config {
 }
 '''
 class CostModel(object):
-    
+
+    class Cache():
+        def __init__(self):
+
+            # Cache of Best Index Tuples
+            # QueryHash -> BestIndex
+            self.best_index = { }
+
+            # Cache of Regex Operations
+            # QueryHash -> Boolean
+            self.op_regex = { }
+
+            # Cache of Touched Node Ids
+            # QueryId -> [NodeId]
+            self.op_nodeIds = { }
+
+            # Cache of Document Ids
+            # QueryId -> Index/Collection DocumentIds
+            self.collection_docIds = { }
+            self.index_docIds = { }
+        ## DEF
+
+        def reset(self):
+            self.best_index.clear()
+            self.op_regex.clear()
+            self.op_nodeIds.clear()
+            self.collection_docIds.clear()
+            self.index_docIds.clear()
+        ## DEF
+    ## CLASS
+
     def __init__(self, collections, workload, config):
         assert isinstance(collections, dict)
 #        LOG.setLevel(logging.DEBUG)
@@ -73,6 +103,9 @@ class CostModel(object):
         self.weight_skew = config.get('weight_skew', 1.0)
         self.num_nodes = config.get('nodes', 1)
 
+        self.last_design = None
+        self.last_cost = None
+
         # Convert MB to KB
         self.max_memory = config['max_memory'] * 1024 * 1024
         self.skew_segments = config['skew_intervals'] # Why? "- 1"
@@ -83,24 +116,17 @@ class CostModel(object):
         for i in xrange(self.num_nodes):
             lru = LRUBuffer(self.collections, self.max_memory)
             self.buffers.append(lru)
-
         ## ----------------------------------------------
         ## CACHING
         ## ----------------------------------------------
-
         self.cache_enable = False
 
-        self.cache_last_design = None
-        self.cache_last_cost = None
+        # ColName -> CacheHandle
+        self.cache_handles = { }
 
-        # Cache of Best Index Tuples
-        # ColName -> QueryHash -> BestIndex
-        self.cache_best_index = { }
-
-        # Cache of Document Ids
-        # ColName -> QueryId -> Index/Collection DocumentIds
-        self.cache_collection_docIds = { }
-        self.cache_index_docIds = { }
+        ## ----------------------------------------------
+        ## PREP
+        ## ----------------------------------------------
 
         # Pre-split the workload into separate intervals
         self.splitWorkload()
@@ -110,7 +136,7 @@ class CostModel(object):
 
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
-        delta = design.getDelta(self.cache_last_design)
+        delta = design.getDelta(self.last_design)
         map(self.invalidateCache, delta)
 
         cost = 0.0
@@ -118,28 +144,23 @@ class CostModel(object):
         cost += self.weight_network * self.networkCost(design)
         cost += self.weight_skew * self.skewCost(design)
 
-        self.cache_last_cost = cost / float(self.weight_network + self.weight_disk + self.weight_skew)
-        self.cache_last_design = design
+        self.last_cost = cost / float(self.weight_network + self.weight_disk + self.weight_skew)
+        self.last_design = design
 
-        return self.cache_last_cost
+        return self.last_cost
     ## DEF
 
     def invalidateCache(self, col_name):
-        if col_name in self.cache_best_index:
-            self.cache_best_index[col_name].clear()
-        if col_name in self.cache_collection_docIds:
-            self.cache_collection_docIds[col_name].clear()
-        if col_name in self.cache_index_docIds:
-            self.cache_index_docIds[col_name].clear()
-
+        if col_name in self.cache_handles:
+            self.cache_handles[col_name].reset()
     ## DEF
 
     def reset(self):
+        """
+            Reset all of the internal state and cache information
+        """
         # Clear out caches for all collections
-        self.cache_best_index = {}
-        self.cache_collection_docIds = { }
-        self.cache_index_docIds = { }
-
+        self.cache_handles.clear()
         self.estimator.reset()
 
         for lru in self.buffers:
@@ -218,20 +239,28 @@ class CostModel(object):
                 col_info = self.collections[op['collection']]
 
                 # Initialize cache if necessary
-                if not col_info['name'] in self.cache_collection_docIds:
-                    self.cache_collection_docIds[col_info['name']] = { }
-                    self.cache_index_docIds[col_info['name']] = { }
+                # We will always want to do this regardless of whether caching is enabled
+                cache = self.cache_handles.get(col_info['name'], None)
+                if cache is None:
+                    cache = CostModel.Cache()
+                    self.cache_handles[col_info['name']] = cache
 
                 # Check whether we have a cache index selection based on query_hashes
-                indexKeys, covering = self.cache_best_index.get(op["query_hash"], (None, None))
+                indexKeys, covering = cache.best_index.get(op["query_hash"], (None, None))
                 if indexKeys is None:
                     indexKeys, covering = self.guessIndex(design, op)
-                    if self.cache_enable: self.cache_best_index[op["query_hash"]] = (indexKeys, covering)
+                    if self.cache_enable: cache.best_index[op["query_hash"]] = (indexKeys, covering)
                 pageHits = 0
-                isRegex = workload.isOpRegex(op)
+
+                isRegex = cache.op_regex.get(op["query_hash"], None)
+                if isRegex is None:
+                    isRegex = workload.isOpRegex(op)
+                    cache.op_regex[op["query_hash"]] = isRegex
 
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
+                    node_ids = cache.op_nodeIds.get(op['query_id'], None)
+
                     for node_id in self.estimator.estimateNodes(design, op):
                         lru = self.buffers[node_id]
 
@@ -242,9 +271,8 @@ class CostModel(object):
 
                         # If we have a target index, hit that up
                         if indexKeys and not isRegex: # FIXME
-                            if op['query_id'] in self.cache_index_docIds[col_info['name']]:
-                                documentIds = self.cache_index_docIds[col_info['name']][op['query_id']]
-                            else:
+                            documentIds = cache.index_docIds[col_info['name']].get(op['query_id'], None)
+                            if documentIds is None:
                                 values = catalog.getFieldValues(indexKeys, content)
                                 try:
                                     documentIds = [ hash(values) ]
@@ -252,16 +280,15 @@ class CostModel(object):
                                     LOG.error("Failed to compute index documentIds for op #%d - %s\n%s", \
                                               op['query_id'], values, pformat(op))
                                     raise
-                                if self.cache_enable: self.cache_index_docIds[col_info['name']][op['query_id']] = documentIds
+                                if self.cache_enable: cache.index_docIds[col_info['name']][op['query_id']] = documentIds
                             ## IF
                             pageHits += lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
 
                         # If it's not a covering index, then we need to hit up
                         # the collection to retrieve the whole document
                         if not covering:
-                            if op['query_id'] in self.cache_collection_docIds[col_info['name']]:
-                                documentIds = self.cache_collection_docIds[col_info['name']][op['query_id']]
-                            else:
+                            documentIds = cache.collection_docIds[col_info['name']].get(op['query_id'], None)
+                            if documentIds is None:
                                 values = catalog.getAllValues(content)
                                 try:
                                     documentIds = [ hash(values) ]
@@ -269,7 +296,7 @@ class CostModel(object):
                                     LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s",\
                                               op['query_id'], values, pformat(op))
                                     raise
-                                if self.cache_enable: self.cache_collection_docIds[col_info['name']][op['query_id']] = documentIds
+                                if self.cache_enable: cache.collection_docIds[col_info['name']][op['query_id']] = documentIds
                             ## IF
                             pageHits += lru.getDocumentsFromCollection(op['collection'], documentIds)
 
