@@ -79,31 +79,28 @@ class CostModel(object):
         self.address_size = config['address_size'] / 4
 
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
-
-
         self.buffers = [ ]
         for i in xrange(self.num_nodes):
             lru = LRUBuffer(self.collections, self.max_memory)
             self.buffers.append(lru)
 
-        # Cache of QueryHash->BestIndex
+        ## ----------------------------------------------
+        ## CACHING
+        ## ----------------------------------------------
+
+        self.cache_enable = False
+
         self.cache_last_design = None
         self.cache_last_cost = None
+
+        # Cache of Best Index Tuples
+        # ColName -> QueryHash -> BestIndex
         self.cache_best_index = { }
 
-        # Cache of QueryId -> Index/Collection DocumentIds
-        self.cache_collection_ids = { }
-        self.cache_index_ids = { }
-
-        # For each collection, get the set of query hashes for it
-        self.cache_collection_hashes = { }
-        for sess in self.workload:
-            for op in sess['operations']:
-                col_name = op['collection']
-                if not col_name in self.cache_collection_hashes:
-                    self.cache_collection_hashes[col_name] = set()
-                self.cache_collection_hashes[col_name].add(op['query_hash'])
-        ## FOR
+        # Cache of Document Ids
+        # ColName -> QueryId -> Index/Collection DocumentIds
+        self.cache_collection_docIds = { }
+        self.cache_index_docIds = { }
 
         # Pre-split the workload into separate intervals
         self.splitWorkload()
@@ -128,14 +125,21 @@ class CostModel(object):
     ## DEF
 
     def invalidateCache(self, col_name):
-        for hashes in self.cache_collection_hashes.get(col_name, set()):
-            for op_hash in hashes:
-                del self.cache_best_index[op_hash]
-        ## FOR
+        if col_name in self.cache_best_index:
+            self.cache_best_index[col_name].clear()
+        if col_name in self.cache_collection_docIds:
+            self.cache_collection_docIds[col_name].clear()
+        if col_name in self.cache_index_docIds:
+            self.cache_index_docIds[col_name].clear()
+
     ## DEF
 
     def reset(self):
+        # Clear out caches for all collections
         self.cache_best_index = {}
+        self.cache_collection_docIds = { }
+        self.cache_index_docIds = { }
+
         self.estimator.reset()
 
         for lru in self.buffers:
@@ -213,7 +217,16 @@ class CostModel(object):
                     continue
                 col_info = self.collections[op['collection']]
 
-                indexKeys, covering = self.guessIndex(design, op)
+                # Initialize cache if necessary
+                if not col_info['name'] in self.cache_collection_docIds:
+                    self.cache_collection_docIds[col_info['name']] = { }
+                    self.cache_index_docIds[col_info['name']] = { }
+
+                # Check whether we have a cache index selection based on query_hashes
+                indexKeys, covering = self.cache_best_index.get(op["query_hash"], (None, None))
+                if indexKeys is None:
+                    indexKeys, covering = self.guessIndex(design, op)
+                    if self.cache_enable: self.cache_best_index[op["query_hash"]] = (indexKeys, covering)
                 pageHits = 0
                 isRegex = workload.isOpRegex(op)
 
@@ -229,26 +242,37 @@ class CostModel(object):
 
                         # If we have a target index, hit that up
                         if indexKeys and not isRegex: # FIXME
-                            values = catalog.getFieldValues(indexKeys, content)
-                            try:
-                                documentIds = [ hash(values) ]
-                                pageHits += lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
-                            except:
-                                LOG.error("Failed to compute index documentIds for op #%d - %s\n%s", \
-                                          op['query_id'], values, pformat(op))
-                                raise
+                            if op['query_id'] in self.cache_index_docIds[col_info['name']]:
+                                documentIds = self.cache_index_docIds[col_info['name']][op['query_id']]
+                            else:
+                                values = catalog.getFieldValues(indexKeys, content)
+                                try:
+                                    documentIds = [ hash(values) ]
+                                except:
+                                    LOG.error("Failed to compute index documentIds for op #%d - %s\n%s", \
+                                              op['query_id'], values, pformat(op))
+                                    raise
+                                if self.cache_enable: self.cache_index_docIds[col_info['name']][op['query_id']] = documentIds
+                            ## IF
+                            pageHits += lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
 
                         # If it's not a covering index, then we need to hit up
                         # the collection to retrieve the whole document
                         if not covering:
-                            values = catalog.getAllValues(content)
-                            try:
-                                documentIds = [ hash(values) ]
-                                pageHits += lru.getDocumentsFromCollection(op['collection'], documentIds)
-                            except:
-                                LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s", \
-                                    op['query_id'], values, pformat(op))
-                                raise
+                            if op['query_id'] in self.cache_collection_docIds[col_info['name']]:
+                                documentIds = self.cache_collection_docIds[col_info['name']][op['query_id']]
+                            else:
+                                values = catalog.getAllValues(content)
+                                try:
+                                    documentIds = [ hash(values) ]
+                                except:
+                                    LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s",\
+                                              op['query_id'], values, pformat(op))
+                                    raise
+                                if self.cache_enable: self.cache_collection_docIds[col_info['name']][op['query_id']] = documentIds
+                            ## IF
+                            pageHits += lru.getDocumentsFromCollection(op['collection'], documentIds)
+
                     ## FOR (node)
                 ## FOR (content)
                 cost += pageHits
@@ -285,51 +309,46 @@ class CostModel(object):
             flag that is true if that index covers the entire operation's query
         """
 
-        # Check whether we have a cache index selection based on query_hashes
-        best_index, covering = self.cache_best_index.get(op["query_hash"], (None, None))
-
         # Simply choose the index that has most of the fields
         # referenced in the operation.
-        if not best_index:
-            indexes = design.getIndexes(op['collection'])
-            op_contents = workload.getOpContents(op)
-            best_ratio = None
-            for i in xrange(len(indexes)):
-                field_cnt = 0
-                for indexKey in indexes[i]:
-                    # We can't use a field if it's being used in a regex operation
-                    if catalog.hasField(indexKey, op_contents) and not workload.isOpRegex(op, field=indexKey):
-                        field_cnt += 1
-                field_ratio = field_cnt / float(len(indexes[i]))
-                if not best_index or field_ratio >= best_ratio:
-                    # If the ratios are the same, then choose the
-                    # one with the most keys
-                    if field_ratio == best_ratio:
-                        if len(indexes[i]) < len(best_index):
-                            continue
-                    best_index = indexes[i]
-                    best_ratio = field_ratio
-            ## FOR
-            if self.debug:
-                LOG.debug("Op #%d - BestIndex:%s / BestRatio:%s", \
-                         op['query_id'], best_index, best_ratio)
+        indexes = design.getIndexes(op['collection'])
+        op_contents = workload.getOpContents(op)
+        best_index = None
+        best_ratio = None
+        for i in xrange(len(indexes)):
+            field_cnt = 0
+            for indexKey in indexes[i]:
+                # We can't use a field if it's being used in a regex operation
+                if catalog.hasField(indexKey, op_contents) and not workload.isOpRegex(op, field=indexKey):
+                    field_cnt += 1
+            field_ratio = field_cnt / float(len(indexes[i]))
+            if not best_index or field_ratio >= best_ratio:
+                # If the ratios are the same, then choose the
+                # one with the most keys
+                if field_ratio == best_ratio:
+                    if len(indexes[i]) < len(best_index):
+                        continue
+                best_index = indexes[i]
+                best_ratio = field_ratio
+        ## FOR
+        if self.debug:
+            LOG.debug("Op #%d - BestIndex:%s / BestRatio:%s", \
+                     op['query_id'], best_index, best_ratio)
 
-            # Check whether this is a covering index
-            covering = False
-            if best_index and op['type'] == constants.OP_TYPE_QUERY:
-                # The second element in the query_content is the projection
-                if len(op['query_content']) > 1:
-                    projectionFields = op['query_content'][1]
-                # Otherwise just check whether the index encompasses all fields
-                else:
-                    col_info = self.collections[op['collection']]
-                    projectionFields = col_info['fields']
+        # Check whether this is a covering index
+        covering = False
+        if best_index and op['type'] == constants.OP_TYPE_QUERY:
+            # The second element in the query_content is the projection
+            if len(op['query_content']) > 1:
+                projectionFields = op['query_content'][1]
+            # Otherwise just check whether the index encompasses all fields
+            else:
+                col_info = self.collections[op['collection']]
+                projectionFields = col_info['fields']
 
-                if projectionFields and len(best_index) == len(projectionFields):
-                    # FIXME
-                    covering = True
-
-            self.cache_best_index[op["query_hash"]] = (best_index, covering)
+            if projectionFields and len(best_index) == len(projectionFields):
+                # FIXME
+                covering = True
         ## IF
 
         return best_index, covering
