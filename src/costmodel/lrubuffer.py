@@ -23,6 +23,7 @@
 # -----------------------------------------------------------------------
 
 import logging
+from pprint import pformat
 from util import constants
 
 LOG = logging.getLogger(__name__)
@@ -76,8 +77,10 @@ class LRUBuffer:
             self.collection_sizes[col_name] = col_info['avg_doc_size']
 
             # For each collection, get the indexes that are included in the design.
+            col_index_sizes = { }
             for index_keys in design.getIndexes(col_name):
-                self.index_sizes[index_keys] = self.getIndexSize(col_info, index_keys)
+                col_index_sizes[index_keys] = self.getIndexSize(col_info, index_keys)
+            self.index_sizes[col_name] = col_index_sizes
         self.design = design
     ## DEF
 
@@ -86,9 +89,9 @@ class LRUBuffer:
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
         """
-        size = self.index_sizes.get(indexKeys, 0)
+        size = self.index_sizes[col_name].get(indexKeys, 0)
         assert size > 0, \
-            "Missing index size for '%s'" % indexKeys
+            "Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
         return self.getDocuments(LRUBuffer.DOC_TYPE_INDEX, indexKeys, size, documentIds)
     ## DEF
 

@@ -50,7 +50,29 @@ class Design(object):
     def hasCollection(self, collection) :
         return collection in list(self.data)
     ## DEF
-    
+
+    def getDelta(self, other):
+        """
+            Return the list of collection names that have a different design
+            configuration in this design than in the one provided.
+            If a collection that is in this design is missing in other, then
+            that will count as a difference
+        """
+        result = [ ]
+        for col_name in self.collections:
+            match = True
+            if not col_name in other.collections:
+                match = False
+            else:
+                for k, v in self.data[col_name].iteritems():
+                    if v <> other.data[col_name].get(k, None):
+                        match = False
+                        break
+            if not match: result.append(col_name)
+        ## FOR
+        return (result)
+    ## DEF
+
     '''
     @todo: re-implement
     '''
