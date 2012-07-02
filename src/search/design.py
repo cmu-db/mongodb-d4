@@ -166,18 +166,18 @@ class Design(object):
         return dict(self.data.iteritems())
     ## DEF
 
-    def addIndex(self, collection, index):
-        if not type(index) == tuple:
-            index = tuple(index)
+    def addIndex(self, collection, indexKeys):
+        if not type(indexKeys) == tuple:
+            indexKeys = tuple(indexKeys)
         add = True
         for i in self.data[collection]['indexes'] :
-            if i == index:
+            if i == indexKeys:
                 add = False
                 break
         if add:
             LOG.debug("Adding index '%s/%s' for collection %s", \
-                      index, type(index), collection)
-            self.data[collection]['indexes'].append(index)
+                      indexKeys, type(indexKeys), collection)
+            self.data[collection]['indexes'].append(indexKeys)
     ## DEF
     
     def hasIndex(self, collection, list) :
