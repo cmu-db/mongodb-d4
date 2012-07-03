@@ -71,18 +71,18 @@ class TestNodeEstimator(unittest.TestCase):
         self.buffer.initialize(self.design)
     ## DEF
 
-    def testGetDocumentsFromCollection(self):
+    def testGetDocumentFromCollection(self):
         """Check whether the LRUBuffer updates internal buffer for new collection documents"""
 
         documentId = 0
         pageHits = 0
         while self.buffer.remaining > self.col_info['avg_doc_size']:
-            pageHits += self.buffer.getDocumentsFromCollection(self.col_info['name'], [documentId])
+            pageHits += self.buffer.getDocumentFromCollection(self.col_info['name'], documentId)
             before = self.buffer.remaining
 
             # If we insert the same document, we should not get any pageHits and our
             # remaining memory should be the same
-            _pageHits = self.buffer.getDocumentsFromCollection(self.col_info['name'], [documentId])
+            _pageHits = self.buffer.getDocumentFromCollection(self.col_info['name'], documentId)
             self.assertEqual(0, _pageHits)
             self.assertEqual(before, self.buffer.remaining)
 
@@ -105,7 +105,7 @@ class TestNodeEstimator(unittest.TestCase):
         self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
     ## DEF
 
-    def testGetDocumentsFromIndex(self):
+    def testGetDocumentFromIndex(self):
         """Check whether the LRUBuffer updates internal buffer for new index documents"""
 
         # Roll through each index and add a bunch of documents. Note that the documents
@@ -115,11 +115,11 @@ class TestNodeEstimator(unittest.TestCase):
         pageHits = 0
         while not self.buffer.evicted:
             for indexKeys in self.design.getIndexes(COLLECTION_NAME):
-                pageHits += self.buffer.getDocumentsFromIndex(self.col_info['name'], indexKeys, [documentId])
+                pageHits += self.buffer.getDocumentFromIndex(self.col_info['name'], indexKeys, documentId)
                 before = self.buffer.remaining
 
                 # If we insert the same document, we should not get any pageHits
-                _pageHits = self.buffer.getDocumentsFromIndex(self.col_info['name'], indexKeys, [documentId])
+                _pageHits = self.buffer.getDocumentFromIndex(self.col_info['name'], indexKeys, documentId)
                 self.assertEqual(0, _pageHits)
                 self.assertEqual(before, self.buffer.remaining)
 

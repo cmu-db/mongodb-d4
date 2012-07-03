@@ -323,22 +323,22 @@ class CostModel(object):
 
                         # If we have a target index, hit that up
                         if indexKeys and not isRegex: # FIXME
-                            documentIds = cache.index_docIds.get(op['query_id'], None)
-                            if documentIds is None:
+                            documentId = cache.index_docIds.get(op['query_id'], None)
+                            if documentId is None:
                                 values = catalog.getFieldValues(indexKeys, content)
                                 try:
-                                    documentIds = [ hash(values) ]
+                                    documentId = hash(values)
                                 except:
                                     LOG.error("Failed to compute index documentIds for op #%d - %s\n%s", \
                                               op['query_id'], values, pformat(op))
                                     raise
                                 if self.cache_enable:
                                     self.cache_miss_ctr.put("index_docIds")
-                                    cache.index_docIds[op['query_id']] = documentIds
+                                    cache.index_docIds[op['query_id']] = documentId
                             else:
                                 self.cache_hit_ctr.put("index_docIds")
                             ## IF
-                            hits = lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
+                            hits = lru.getDocumentFromIndex(op['collection'], indexKeys, documentId)
                             pageHits += hits
                             maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:
@@ -357,22 +357,22 @@ class CostModel(object):
                         # Otherwise, if it's not a covering index, then we need to hit up
                         # the collection to retrieve the whole document
                         elif not covering:
-                            documentIds = cache.collection_docIds.get(op['query_id'], None)
-                            if documentIds is None:
+                            documentId = cache.collection_docIds.get(op['query_id'], None)
+                            if documentId is None:
                                 values = catalog.getAllValues(content)
                                 try:
-                                    documentIds = [ hash(values) ]
+                                    documentId = hash(values)
                                 except:
                                     LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s",\
                                               op['query_id'], values, pformat(op))
                                     raise
                                 if self.cache_enable:
                                     self.cache_miss_ctr.put("collection_docIds")
-                                    cache.collection_docIds[op['query_id']] = documentIds
+                                    cache.collection_docIds[op['query_id']] = documentId
                             else:
                                 self.cache_hit_ctr.put("collection_docIds")
                             ## IF
-                            hits = lru.getDocumentsFromCollection(op['collection'], documentIds)
+                            hits = lru.getDocumentFromCollection(op['collection'], documentId)
                             pageHits += hits
                             maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:
@@ -399,7 +399,7 @@ class CostModel(object):
         assert totalCost <= totalWorst, \
             "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
         final_cost = totalCost / totalWorst if totalWorst else 0
-        evicted = sum([ lru.evicted for lru in self.buffers.itervalues() ])
+        evicted = sum([ lru.evicted for lru in self.buffers ])
         LOG.info("Computed Disk Cost: %.03f [pageHits=%d / worstCase=%d / evicted=%d]", \
                  final_cost, totalCost, totalWorst, evicted)
         return final_cost
