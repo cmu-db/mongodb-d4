@@ -200,6 +200,14 @@ class CostModel(object):
             self.cache_handles[col_name].reset()
     ## DEF
 
+    def getCacheHandle(self, col_info):
+        cache = self.cache_handles.get(col_info['name'], None)
+        if cache is None:
+            cache = CostModel.Cache(col_info, self.num_nodes)
+            self.cache_handles[col_info['name']] = cache
+        return cache
+    ## DEF
+
     def reset(self):
         """
             Reset all of the internal state and cache information
@@ -285,10 +293,7 @@ class CostModel(object):
 
                 # Initialize cache if necessary
                 # We will always want to do this regardless of whether caching is enabled
-                cache = self.cache_handles.get(col_info['name'], None)
-                if cache is None:
-                    cache = CostModel.Cache(col_info, self.num_nodes)
-                    self.cache_handles[col_info['name']] = cache
+                cache = self.getCacheHandle(col_info)
 
                 # Check whether we have a cache index selection based on query_hashes
                 indexKeys, covering = cache.best_index.get(op["query_hash"], (None, None))
@@ -301,35 +306,14 @@ class CostModel(object):
                     self.cache_hit_ctr.put("best_index")
                 pageHits = 0
                 maxHits = 0
-
-                isRegex = cache.op_regex.get(op["query_hash"], None)
-                if isRegex is None:
-                    isRegex = workload.isOpRegex(op)
-                    if self.cache_enable:
-                        self.cache_miss_ctr.put("op_regex")
-                        cache.op_regex[op["query_hash"]] = isRegex
-                else:
-                    self.cache_hit_ctr.put("op_regex")
-#                print pformat(op)
+                isRegex = self.__getIsOpRegex__(cache, op)
 
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
 #                    print "-"*50
 #                    print pformat(content)
 
-                    node_ids = cache.op_nodeIds.get(op['query_id'], None)
-                    if node_ids is None:
-                        node_ids = self.estimator.estimateNodes(design, op)
-                        if self.cache_enable:
-                            self.cache_miss_ctr.put("op_nodeIds")
-                            cache.op_nodeIds[op['query_id']] = node_ids
-                        if self.debug:
-                            LOG.debug("Estimated Touched Nodes for Op #%d: %d", \
-                                      op['query_id'], len(node_ids))
-                    else:
-                        self.cache_hit_ctr.put("op_nodeIds")
-
-                    for node_id in node_ids:
+                    for node_id in self.__getNodeIds__(cache, design, op):
                         lru = self.buffers[node_id]
 
                         # TODO: Need to handle whether it's a scan or an equality predicate
@@ -415,7 +399,9 @@ class CostModel(object):
         assert totalCost <= totalWorst, \
             "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
         final_cost = totalCost / totalWorst if totalWorst else 0
-        LOG.info("Computed Disk Cost: %.03f [pageHits=%d worstCase=%d]", final_cost, totalCost, totalWorst)
+        evicted = sum([ lru.evicted for lru in self.buffers.itervalues() ])
+        LOG.info("Computed Disk Cost: %.03f [pageHits=%d / worstCase=%d / evicted=%d]", \
+                 final_cost, totalCost, totalWorst, evicted)
         return final_cost
     ## DEF
 
@@ -558,11 +544,15 @@ class CostModel(object):
                         if self.debug:
                             LOG.debug("SKIP - %s Op #%d on %s", op['type'], op['query_id'], op['collection'])
                         continue
+                    col_info = self.collections[op['collection']]
+                    cache = self.getCacheHandle(col_info)
 
                     #  This just returns an estimate of which nodes  we expect
                     #  the op to touch. We don't know exactly which ones they will
                     #  be because auto-sharding could put shards anywhere...
-                    self.estimator.estimateNodes(design, op)
+                    node_ids = self.__getNodeIds__(cache, design, op)
+                    # TODO: Do something with the nodeIds. Don't rely on the NodeEstimator's
+                    #       internal histogram
             ## FOR
 
         if self.debug: LOG.debug("Node Count Histogram:\n%s", self.estimator.nodeCounts)
@@ -571,7 +561,7 @@ class CostModel(object):
 
         best = 1 / float(self.num_nodes)
         skew = 0.0
-        for i in xrange(0, self.num_nodes):
+        for i in xrange(self.num_nodes):
             ratio = self.estimator.nodeCounts.get(i, 0) / float(total)
             if ratio < best:
                 ratio = best + ((1 - ratio/best) * (1 - best))
@@ -590,14 +580,13 @@ class CostModel(object):
         for sess in self.workload:
             previous_op = None
             for op in sess['operations']:
-                # Check to see if the queried collection exists in the design's 
-                # de-normalization scheme
-
                 # Collection is not in design.. don't count query
                 if not design.hasCollection(op['collection']):
                     if self.debug: LOG.debug("SKIP - %s Op #%d on %s", \
                                              op['type'], op['query_id'], op['collection'])
                     continue
+                col_info = self.collections[op['collection']]
+                cache = self.getCacheHandle(col_info)
 
                 # Check whether this collection is embedded inside of another
                 # TODO: Need to get ancestor
@@ -625,7 +614,7 @@ class CostModel(object):
                 # Process this op!
                 if process:
                     query_count += 1
-                    result += len(self.estimator.estimateNodes(design, op))
+                    result += len(self.__getNodeIds__(cache, design, op))
                 else:
                     if self.debug: LOG.debug("SKIP - %s Op #%d on %s [parent=%s / previous=%s]", \
                                              op['type'], op['query_id'], op['collection'], \
@@ -642,6 +631,38 @@ class CostModel(object):
 
         return cost
     ## DEF
+
+    ## -----------------------------------------------------------------------
+    ## UTILITY CODE
+    ## -----------------------------------------------------------------------
+
+    def __getIsOpRegex__(self, cache, op):
+        isRegex = cache.op_regex.get(op["query_hash"], None)
+        if isRegex is None:
+            isRegex = workload.isOpRegex(op)
+            if self.cache_enable:
+                self.cache_miss_ctr.put("op_regex")
+                cache.op_regex[op["query_hash"]] = isRegex
+        else:
+            self.cache_hit_ctr.put("op_regex")
+        return isRegex
+    ## DEF
+
+
+    def __getNodeIds__(self, cache, design, op):
+        node_ids = cache.op_nodeIds.get(op['query_id'], None)
+        if node_ids is None:
+            node_ids = self.estimator.estimateNodes(design, op)
+            if self.cache_enable:
+                self.cache_miss_ctr.put("op_nodeIds")
+                cache.op_nodeIds[op['query_id']] = node_ids
+            if self.debug:
+                LOG.debug("Estimated Touched Nodes for Op #%d: %d", op['query_id'], len(node_ids))
+        else:
+            self.cache_hit_ctr.put("op_nodeIds")
+        return node_ids
+    ## DEF
+
 
     ## -----------------------------------------------------------------------
     ## WORKLOAD SEGMENTATION
