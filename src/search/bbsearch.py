@@ -396,16 +396,16 @@ class BBNode():
     def prepareChildren(self):
         # initialize iterators 
         # --> determine which collection is yet to be assigned
-        for col in self.bbsearch.designCandidate.collections:
-            if col not in self.design.collections:
-                self.currentCol = col
+        for col_name in self.bbsearch.designCandidate.collections:
+            if not self.design.hasCollection(col_name):
+                self.currentCol = col_name
                 break
         # create the iterators
         self.shardIter = CompoundKeyIterator(self.bbsearch.designCandidate.shardKeys[self.currentCol], SHARD_KEY_MAX_COMPOUND_COUNT)
         self.denormIter = SimpleKeyIterator(self.bbsearch.designCandidate.denorm[self.currentCol])
         self.indexIter = CompoundKeyIterator(self.bbsearch.designCandidate.indexKeys[self.currentCol], INDEX_KEY_MAX_COMPOUND_COUNT)
         
-        LOG.debug("COL: %s / denorm: %s", col, self.bbsearch.designCandidate.denorm[self.currentCol])
+        LOG.debug("COL: %s / denorm: %s", col_name, self.bbsearch.designCandidate.denorm[self.currentCol])
         #for f in self.denormIter:
         #    print str(f)
         #self.indexIter.rewind()

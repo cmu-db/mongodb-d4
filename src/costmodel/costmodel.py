@@ -184,11 +184,10 @@ class CostModel(object):
         cache_ratio = cache_success / float(cache_success + cache_miss)
         LOG.info("Overall Cost %.3f / Computed in %.2f seconds [Cache: %.1f%% %d/%d]", \
                  self.last_cost, (stop - start), cache_ratio*100, cache_success, cache_miss+cache_success)
-#        for col_name in sorted(self.cache_handles.iterkeys()):
-#            LOG.info("CACHE HANDLE: %s\n%s", col_name, self.cache_handles[col_name])
-        LOG.info("Cache Hits:\n%s", self.cache_hit_ctr)
-        LOG.info("Cache Misses:\n%s", self.cache_miss_ctr)
-        LOG.info("-"*100)
+        if self.debug:
+            LOG.debug("Cache Hits:\n%s", self.cache_hit_ctr)
+            LOG.debug("Cache Misses:\n%s", self.cache_miss_ctr)
+            LOG.debug("-"*100)
 
 
 

@@ -33,7 +33,13 @@ class Design(object):
             'denorm' : None
         }
     ## DEF
-    
+
+#    @DeprecationWarning
+    def addCollections(self, collections) :
+        for collection in collections :
+            self.addCollection(collection)
+    ## DEF
+
     def hasCollection(self, col_name) :
         return col_name in self.data
     ## DEF

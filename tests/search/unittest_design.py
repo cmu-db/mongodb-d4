@@ -64,7 +64,7 @@ class TestDesign (unittest.TestCase):
         d = design.Design()
         collections = ['Test 1', 'Test 2']
         d.addCollections(collections)
-        self.assertEqual(d.getCollections(), collections)
+        self.assertEqual(sorted(d.getCollections()), sorted(collections))
         
     def testAddShardKey(self) :
         d = design.Design()
