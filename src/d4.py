@@ -75,6 +75,11 @@ if __name__ == '__main__':
                         help='Skip loading input files into system. ' +
                              'Use this option if schema statistics and the workload have ' +
                              'already been loaded into the catalog database.')
+    agroup.add_argument('--sess-limit', type=int, metavar='S', default=None,
+                        help='Limit the number of sessions to process from the sample workload.')
+    agroup.add_argument('--op-limit', type=int, metavar='N', default=None,
+                        help='Limit the number of operations to process from the sample workload.')
+
     # TODO: This is a development option that should be removed
     agroup.add_argument('--no-post-process', action='store_true',
                         help='Skip post-processing the workload trace after loading it into ' +
@@ -90,8 +95,6 @@ if __name__ == '__main__':
                         help="Path to the MongoSniff file with the sample workload. Use '-' if you would like to read from stdin")
     agroup.add_argument('--mongo-skip', type=int, metavar='N', default=None,
                         help='Skip the first N lines in the MongoSniff input file.')
-    agroup.add_argument('--mongo-limit', type=int, metavar='N', default=None,
-                        help='Limit the number of operations to process in the MongoSniff input file.')
     # TODO: These are development option that should be removed
     agroup.add_argument('--no-mongo-parse', action='store_true',
                         help='Skip parsing and loading MongoSniff workload trace file into the internal catalog.'),

@@ -716,7 +716,7 @@ class Sql2Mongo (object) :
             if len(self.sort_cols[table]) > 0 :
                 mongo += '.sort(' + ','.join(self.sort_cols[table]) + ')'
             if self.limit[table] <> None and int(self.limit[table]) > 0:
-                mongo += ".limit(%s)" % self.limit[table]
+                mongo += ".op_limit(%s)" % self.limit[table]
             if self.skip[table] <> None and int(self.skip[table]) > 0:
                 mongo += ".skip(%s)" % self.skip[table]
             output.append(unicode(mongo))

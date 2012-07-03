@@ -34,14 +34,8 @@ class Design(object):
         }
     ## DEF
     
-    def removeCollection(self, col_name):
-        if col_name not in list(self.data) :
-            raise LookupError("Collection not found: " + col_name)
-        del self.data[col_name]
-	## DEF
-	    
-    def hasCollection(self, collection) :
-        return collection in self.data
+    def hasCollection(self, col_name) :
+        return col_name in self.data
     ## DEF
 
     def getDelta(self, other):
@@ -151,8 +145,8 @@ class Design(object):
     ## INDEXES
     ## ----------------------------------------------
 
-    def getIndexes(self, collection) :
-        return self.data[collection]['indexes']
+    def getIndexes(self, col_name) :
+        return self.data[col_name]['indexes']
     ## DEF
 
     def getAllIndexes(self) :
@@ -173,9 +167,9 @@ class Design(object):
             self.data[col_name]['indexes'].append(indexKeys)
     ## DEF
     
-    def hasIndex(self, collection, list) :
+    def hasIndex(self, col_name, list) :
         for field in list :
-           for i in self.data[collection]['indexes'] :
+           for i in self.data[col_name]['indexes'] :
                if field in i :
                    return True
         return False
@@ -191,7 +185,7 @@ class Design(object):
         ctr = 0
         for col_name in sorted(self.data.iterkeys()):
             ret += "[%02d] %s\n" % (ctr, col_name)
-            for k, v in data[col_name].iteritems():
+            for k, v in self.data[col_name].iteritems():
                 ret += "  %-10s %s\n" % (k+":", v)
             ctr += 1
         return ret

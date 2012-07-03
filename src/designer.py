@@ -63,6 +63,9 @@ class Designer():
         self.page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
         self.sample_rate = self.cparser.getint(config.SECT_DESIGNER, 'sample_rate')
 
+        self.sess_limit = None
+        self.op_limit = None
+
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
 
@@ -91,19 +94,19 @@ class Designer():
         import inputs.mongodb
 
         # MongoDB Trace
-        convertor = inputs.mongodb.MongoSniffConverter( \
+        converter = inputs.mongodb.MongoSniffConverter( \
             self.metadata_db, \
             self.dataset_db, \
             fd \
         )
-        convertor.stop_on_error = self.stop_on_error
-        convertor.no_mongo_parse = self.no_mongo_parse
-        convertor.no_mongo_reconstruct = self.no_mongo_reconstruct
-        convertor.no_mongo_sessionizer = self.no_mongo_sessionizer
-        convertor.mongo_skip = self.mongo_skip
-        convertor.mongo_limit = self.mongo_limit
+        converter.stop_on_error = self.stop_on_error
+        converter.no_mongo_parse = self.no_mongo_parse
+        converter.no_mongo_reconstruct = self.no_mongo_reconstruct
+        converter.no_mongo_sessionizer = self.no_mongo_sessionizer
+        converter.mongo_skip = self.mongo_skip
+        converter.op_limit = self.op_limit
 
-        convertor.process(\
+        converter.process(\
             no_load=no_load,\
             no_post_process=no_post_process,\
             page_size=self.page_size,\
@@ -114,7 +117,7 @@ class Designer():
         from inputs.mysql import MySQLConverter
 
         # MySQL Trace
-        convertor = MySQLConverter( \
+        converter = MySQLConverter( \
             self.metadata_db,\
             self.dataset_db, \
             dbHost=self.cparser.get(config.SECT_MYSQL, 'host'), \
@@ -124,7 +127,7 @@ class Designer():
             dbPass=self.cparser.get(config.SECT_MYSQL, 'pass'))
 
         # Process the inputs and then save the results in mongodb
-        convertor.process( \
+        converter.process( \
             no_load=no_load, \
             no_post_process=no_post_process, \
             page_size=self.page_size, \
@@ -160,12 +163,24 @@ class Designer():
             raise Exception("No collections were found in metadata catalog")
         LOG.info("Loaded %d collections from metadata catalog" % len(collectionsDict))
 
-        # TODO: This is probably a bad idea because it means that we will have
-        #       to bring the entire collection into RAM in order to keep processing it
+        # We want to bring down all of the sessions that we are going to use to compute the
+        # cost of each design
+        workload = [ ]
         workloadQuery = {"operations.collection": {"$in": collectionsDict.keys()}}
-        workload = [ sess for sess in self.metadata_db.Session.fetch(workloadQuery) ]
+        op_ctr = 0
+        cursor = self.metadata_db.Session.fetch(workloadQuery)
+        if not self.sess_limit is None:
+            assert self.sess_limit >= 0
+            cursor.limit(self.sess_limit)
+        for sess in cursor:
+            if not self.op_limit is None and op_ctr >= self.op_limit:
+                break
+            workload.append(sess)
+            op_ctr += len(sess['operations'])
+        ## FOR
         if not len(workload):
             raise Exception("No workload sessions were found in database\n%s" % pformat(workloadQuery))
+        LOG.info("Loaded %d sessions with %d operations from worklaod database", len(workload), op_ctr)
 
         # Instantiate cost model
         cm = costmodel.CostModel(collectionsDict, workload, cmConfig)

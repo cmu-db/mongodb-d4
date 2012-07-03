@@ -210,7 +210,7 @@ class Parser:
                 if self.line_ctr % 10000 == 0: self.saveSessions()
             
             if self.op_limit != None and self.op_ctr >= self.op_limit:
-                LOG.warn("Operation Limit Reached. Halting processing [limit=%d]" % (self.op_limit))
+                LOG.warn("Operation Limit Reached. Halting processing [op_limit=%d]" % (self.op_limit))
                 break
         ## FOR
         if self.currentOp:
