@@ -67,7 +67,7 @@ class CostModel(object):
             # The worst case for all other operations is if we have to do
             # a full scan that requires us to evict the entire buffer
             # Hence, we multiple the max pages by two
-            self.fullscan_pages = (col_info['max_pages'] * 2) / num_nodes
+            self.fullscan_pages = (col_info['max_pages'] * 2) # / num_nodes
 
             # Cache of Best Index Tuples
             # QueryHash -> BestIndex
@@ -263,12 +263,27 @@ class CostModel(object):
                     isRegex = workload.isOpRegex(op)
                     if self.cache_enable: cache.op_regex[op["query_hash"]] = isRegex
 
+#                print pformat(op)
+
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
+#                    print "-"*50
+#                    print pformat(content)
+
                     node_ids = cache.op_nodeIds.get(op['query_id'], None)
                     if node_ids is None:
                         node_ids = self.estimator.estimateNodes(design, op)
                         if self.cache_enable: cache.op_nodeIds[op['query_id']] = node_ids
+                        if self.debug:
+                            LOG.debug("Estimated Touched Nodes for Op #%d: %d", \
+                                      op['query_id'], len(node_ids))
+
+                    # The worst case for an insert is if we have to a evict
+                    # another record to make space for our new one
+                    if op['type'] == constants.OP_TYPE_INSERT:
+                        worst = 1
+                    else:
+                        worst = cache.fullscan_pages * len(node_ids)
 
                     for node_id in node_ids:
                         lru = self.buffers[node_id]
@@ -291,11 +306,18 @@ class CostModel(object):
                                     raise
                                 if self.cache_enable: cache.index_docIds[op['query_id']] = documentIds
                             ## IF
-                            pageHits += lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
+                            hits = lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
+                            pageHits += hits
+                            if self.debug:
+                                LOG.debug("Node #%02d: Estimated %d index scan pageHits for op #%d on %s.%s",\
+                                          node_id, hits, op["query_id"], op["collection"], indexKeys)
 
                         # If we don't have an index, then we know that it's a full scan because the
                         # collections are unordered
                         if not indexKeys:
+                            if self.debug:
+                                LOG.debug("No index available for op #%d. Will have to do full scan on '%s'", \
+                                          op["query_id"], op["collection"])
                             pageHits += cache.fullscan_pages
 
                         # Otherwise, if it's not a covering index, then we need to hit up
@@ -312,23 +334,22 @@ class CostModel(object):
                                     raise
                                 if self.cache_enable: cache.collection_docIds[op['query_id']] = documentIds
                             ## IF
-                            pageHits += lru.getDocumentsFromCollection(op['collection'], documentIds)
-
+                            hits = lru.getDocumentsFromCollection(op['collection'], documentIds)
+                            pageHits += hits
+                            if self.debug:
+                                LOG.debug("Node #%02d: Estimated %d collection scan pageHits for op #%d on %s",\
+                                          node_id, hits, op["query_id"], op["collection"])
                     ## FOR (node)
                 ## FOR (content)
+
                 cost += pageHits
-
-                if op['type'] == constants.OP_TYPE_INSERT:
-                    # The worst case for an insert is if we have to a evict
-                    # another record to make space for our new one
-                    worst_case += 1
-                else:
-                    worst_case += cache.fullscan_pages
-
+                worst_case += worst
                 if self.debug:
-                    LOG.debug("Op #%d on '%s' -> PAGES[hits:%d / worst:%d]", \
-                              op["query_id"], op["collection"], pageHits, worst_case)
-            ## FOR (op)
+                    LOG.debug("Op #%d on '%s' -> [pageHits:%d / worst:%d]", \
+                              op["query_id"], op["collection"], pageHits, worst)
+                assert pageHits <= worst,\
+                    "Estimated pageHits [%d] is greater than worst [%d] for op #%d" % (pageHits, worst, op["query_id"])
+        ## FOR (op)
             sess_ctr += 1
             if sess_ctr % 1000 == 0: LOG.info("Session %5d / %d", sess_ctr, num_sessions)
         ## FOR (sess)
@@ -336,9 +357,11 @@ class CostModel(object):
         # The final disk cost is the ratio of our estimated disk access cost divided
         # by the worst possible cost for this design. If we don't have a worst case,
         # then the cost is simply zero
-        cost = cost / worst_case if worst_case else 0
-        LOG.info("Computed Disk Cost: %f [worstCase=%d]", cost, worst_case)
-        return cost
+        assert cost <= worst_case, \
+            "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (cost, worst_case)
+        final_cost = cost / worst_case if worst_case else 0
+        LOG.info("Computed Disk Cost: %.03f [pageHits=%d worstCase=%d]", final_cost, cost, worst_case)
+        return final_cost
     ## DEF
 
     def guessIndex(self, design, op):

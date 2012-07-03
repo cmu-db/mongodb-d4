@@ -100,7 +100,7 @@ class TestCostModel(MongoDBTestCase):
             col_info['avg_doc_size'] = 1024 # bytes
             col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / (4 * 1024)
             col_info.save()
-            print pformat(col_info)
+#            print pformat(col_info)
 
         # Setup CostModel
         self.costModelConfig = {
@@ -112,31 +112,33 @@ class TestCostModel(MongoDBTestCase):
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
     ## DEF
 
-#    def testDiskCost(self):
-#        """Check whether disk cost calculations work correctly"""
-#
-#        # First get the disk cost when there are no indexes
-#        d = Design()
-#        for i in xrange(len(COLLECTION_NAMES)):
-#            col_info = self.collections[COLLECTION_NAMES[i]]
-#            d.addCollection(col_info['name'])
-#        ## FOR
-#        cost0 = self.cm.diskCost(d)
-#        print "diskCost0:", cost0
-#        self.assertGreater(cost0, 0.0)
-#
-#        # Now add the indexes. The disk cost should be lower
-#        d = Design()
-#        for i in xrange(len(COLLECTION_NAMES)):
-#            col_info = self.collections[COLLECTION_NAMES[i]]
-#            d.addCollection(col_info['name'])
-#            d.addIndex(col_info['name'], col_info['interesting'])
-#            self.cm.invalidateCache(col_info['name'])
-#        ## FOR
-#        cost1 = self.cm.diskCost(d)
-#        print "diskCost1:", cost1
-#        self.assertGreater(cost0, cost1)
-#    ## DEF
+    def testDiskCost(self):
+        """Check whether disk cost calculations work correctly"""
+
+        # First get the disk cost when there are no indexes
+        d = Design()
+        for i in xrange(len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+        ## FOR
+        cost0 = self.cm.diskCost(d)
+        print "diskCost0:", cost0
+        # The cost should be exactly equal to one, which means that every operation
+        # has to perform a full sequential scan on the collection
+        self.assertEqual(cost0, 1.0)
+
+        # Now add the indexes. The disk cost should be lower
+        d = Design()
+        for i in xrange(len(COLLECTION_NAMES)):
+            col_info = self.collections[COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+            d.addIndex(col_info['name'], col_info['interesting'])
+            self.cm.invalidateCache(col_info['name'])
+        ## FOR
+        cost1 = self.cm.diskCost(d)
+        print "diskCost1:", cost1
+        self.assertGreater(cost0, cost1)
+    ## DEF
 
     def testDiskCostCaching(self):
         """Check whether disk cost calculations work correctly with caching enabled"""
