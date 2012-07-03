@@ -15,13 +15,11 @@ def get_long_string(strings, iters):
     #print str
     return str
 
-
-
 class TestSanitizer (unittest.TestCase):
     
     def setUp(self):
         self.s = anonymize.Sanitizer(None, None, True)
-        pass
+    ## DEF
 
     def testHashStringSimple(self):
         # other tests
@@ -29,6 +27,7 @@ class TestSanitizer (unittest.TestCase):
         hash1 = anonymize.hash_string("THIS SHOULD BE SIMPLY HASHED", 0, True)
         result1 = self.s.sanitize(str1, 0)
         self.assertEqual(hash1, result1)
+    ## DEF
 
     def testHashMultiline(self):
         # short strings
@@ -45,6 +44,7 @@ class TestSanitizer (unittest.TestCase):
         real_sanitized_json = self.s.sanitize(json, 0)
         
         self.assertEqual(expected_sanitized_json, real_sanitized_json)
+    ## DEF
 
     def testHashLongStrings(self):
         # very very long strings
@@ -62,7 +62,6 @@ class TestSanitizer (unittest.TestCase):
         self.assertEqual(expected_sanitized_long_json, real_sanitized_long_json)
     ## DEF
         
-
     def testHashStringMany(self):
         # many strings in json
         s = anonymize.Sanitizer(None, None, True)
@@ -94,8 +93,6 @@ class TestSanitizer (unittest.TestCase):
         traceAnon = os.path.join(basedir, "trace-anon.out")
         anon_lines = open(traceAnon, "r").readlines()
 
-        s = anonymize.Sanitizer(None, None, True) # test: True
-
         for i in range(len(clean_lines)):
             source = clean_lines[i]
             expected = anon_lines[i]
@@ -103,8 +100,7 @@ class TestSanitizer (unittest.TestCase):
             #print result
             #print expected
             self.assertEqual(expected, result)
-
-        print "done"
+    ## DEF
 
 ## CLASS
 
