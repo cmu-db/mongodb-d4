@@ -95,12 +95,14 @@ class TestNodeEstimator(unittest.TestCase):
         # Make sure that the buffer is in the right order as we evict records
         lastDocId = None
         while len(self.buffer.buffer) > 0:
-            typeId, key, docId = self.buffer.evictNext(self.col_info['name'])
-            self.assertIsNotNone(typeId)
-            self.assertIsNotNone(key)
-            self.assertIsNotNone(docId)
-            if lastDocId: self.assertLess(lastDocId, docId)
-            lastDocId = docId
+            evicted = self.buffer.evictNext(self.col_info['name'])
+            self.assertIsNotNone(evicted)
+
+            # We can't check this anymore because it's faster for us
+            # if we just store the hash of the tuple instead of the
+            # actualy tuple values
+            # if lastDocId: self.assertLess(lastDocId, docId)
+            # lastDocId = docId
         ## WHILE
         self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
     ## DEF
@@ -129,23 +131,25 @@ class TestNodeEstimator(unittest.TestCase):
 
         # Make sure that we get back two entries for each documentId (except for one)
         lastDocId = None
-        docIds_h = Histogram()
+#        docIds_h = Histogram()
         while len(self.buffer.buffer) > 0:
-            typeId, key, docId = self.buffer.evictNext(COLLECTION_NAME)
-            self.assertIsNotNone(typeId)
-            self.assertIsNotNone(key)
-            self.assertIsNotNone(docId)
-            docIds_h.put(docId)
+#            typeId, key, docId = self.buffer.evictNext(COLLECTION_NAME)
+            evicted = self.buffer.evictNext(COLLECTION_NAME)
+            self.assertIsNotNone(evicted)
+#            self.assertIsNotNone(typeId)
+#            self.assertIsNotNone(key)
+#            self.assertIsNotNone(docId)
+#            docIds_h.put(docId)
         ## WHILE
 
-        foundSingleDocId = False
-        for documentId,cnt in docIds_h.iteritems():
-            if cnt == 1:
-                self.assertFalse(foundSingleDocId)
-                foundSingleDocId = True
-            else:
-                self.assertEqual(2, cnt)
-        ## FOR
+#        foundSingleDocId = False
+#        for documentId,cnt in docIds_h.iteritems():
+#            if cnt == 1:
+#                self.assertFalse(foundSingleDocId)
+#                foundSingleDocId = True
+#            else:
+#                self.assertEqual(2, cnt)
+#        ## FOR
 
         self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
     ## DEF

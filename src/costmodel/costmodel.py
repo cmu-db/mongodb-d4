@@ -163,8 +163,8 @@ class CostModel(object):
 
         if self.debug:
             LOG.debug("New Design:\n%s", design)
-        self.cache_hit_ctr.clear()
-        self.cache_miss_ctr.clear()
+            self.cache_hit_ctr.clear()
+            self.cache_miss_ctr.clear()
         start = time.time()
 
         cost = 0.0
@@ -179,17 +179,16 @@ class CostModel(object):
         stop = time.time()
 
         # Calculate cache hit/miss ratio
-        cache_success = sum([ x for x in self.cache_hit_ctr.itervalues() ])
-        cache_miss = sum([ x for x in self.cache_miss_ctr.itervalues() ])
-        cache_ratio = cache_success / float(cache_success + cache_miss)
-        LOG.info("Overall Cost %.3f / Computed in %.2f seconds [Cache: %.1f%% %d/%d]", \
-                 self.last_cost, (stop - start), cache_ratio*100, cache_success, cache_miss+cache_success)
+        LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
+                 self.last_cost, (stop - start))
         if self.debug:
-            LOG.debug("Cache Hits:\n%s", self.cache_hit_ctr)
-            LOG.debug("Cache Misses:\n%s", self.cache_miss_ctr)
+            cache_success = sum([ x for x in self.cache_hit_ctr.itervalues() ])
+            cache_miss = sum([ x for x in self.cache_miss_ctr.itervalues() ])
+            cache_ratio = cache_success / float(cache_success + cache_miss)
+            LOG.debug("Internal Cache Ratio %.2f [total=%d]", cache_ratio*100, (cache_miss+cache_success))
+            LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.cache_hit_ctr)
+            LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.cache_miss_ctr)
             LOG.debug("-"*100)
-
-
 
         return self.last_cost
     ## DEF
@@ -300,9 +299,9 @@ class CostModel(object):
                 if indexKeys is None:
                     indexKeys, covering = self.guessIndex(design, op)
                     if self.cache_enable:
-                        self.cache_miss_ctr.put("best_index")
+                        if self.debug: self.cache_miss_ctr.put("best_index")
                         cache.best_index[op["query_hash"]] = (indexKeys, covering)
-                else:
+                elif self.debug:
                     self.cache_hit_ctr.put("best_index")
                 pageHits = 0
                 maxHits = 0
@@ -333,9 +332,9 @@ class CostModel(object):
                                               op['query_id'], values, pformat(op))
                                     raise
                                 if self.cache_enable:
-                                    self.cache_miss_ctr.put("index_docIds")
+                                    if self.debug: self.cache_miss_ctr.put("index_docIds")
                                     cache.index_docIds[op['query_id']] = documentId
-                            else:
+                            elif self.debug:
                                 self.cache_hit_ctr.put("index_docIds")
                             ## IF
                             hits = lru.getDocumentFromIndex(op['collection'], indexKeys, documentId)
@@ -367,9 +366,9 @@ class CostModel(object):
                                               op['query_id'], values, pformat(op))
                                     raise
                                 if self.cache_enable:
-                                    self.cache_miss_ctr.put("collection_docIds")
+                                    if self.debug: self.cache_miss_ctr.put("collection_docIds")
                                     cache.collection_docIds[op['query_id']] = documentId
-                            else:
+                            elif self.debug:
                                 self.cache_hit_ctr.put("collection_docIds")
                             ## IF
                             hits = lru.getDocumentFromCollection(op['collection'], documentId)
@@ -641,9 +640,9 @@ class CostModel(object):
         if isRegex is None:
             isRegex = workload.isOpRegex(op)
             if self.cache_enable:
-                self.cache_miss_ctr.put("op_regex")
+                if self.debug: self.cache_miss_ctr.put("op_regex")
                 cache.op_regex[op["query_hash"]] = isRegex
-        else:
+        elif self.debug:
             self.cache_hit_ctr.put("op_regex")
         return isRegex
     ## DEF
@@ -654,11 +653,11 @@ class CostModel(object):
         if node_ids is None:
             node_ids = self.estimator.estimateNodes(design, op)
             if self.cache_enable:
-                self.cache_miss_ctr.put("op_nodeIds")
+                if self.debug: self.cache_miss_ctr.put("op_nodeIds")
                 cache.op_nodeIds[op['query_id']] = node_ids
             if self.debug:
                 LOG.debug("Estimated Touched Nodes for Op #%d: %d", op['query_id'], len(node_ids))
-        else:
+        elif self.debug:
             self.cache_hit_ctr.put("op_nodeIds")
         return node_ids
     ## DEF

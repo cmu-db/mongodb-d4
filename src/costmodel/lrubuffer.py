@@ -109,12 +109,20 @@ class LRUBuffer:
 
     def getDocument(self, typeId, col_name, key, size, documentId):
         page_hits = 0
-        buffer_tuple = (typeId, key, documentId)
+
+        # Pre-hashing the tuple greatly improves the performance of this
+        # method because we don't need to keep redoing it when we update
+        buffer_tuple = hash((typeId, key, documentId))
+
+        try:
+            offset = self.buffer.index(buffer_tuple)
+        except ValueError:
+            offset = None
 
         # The tuple is in our buffer, so we don't need to fetch anything from disk
         # We will need to push the tuple back on to the end of our buffer list
-        if buffer_tuple in self.buffer:
-            self.buffer.remove(buffer_tuple)
+        if not offset is None:
+            del self.buffer[offset]
             self.buffer.append(buffer_tuple)
 
         # It's not in the buffer for this index, so we're going to have
