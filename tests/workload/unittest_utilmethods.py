@@ -15,7 +15,7 @@ class TestUtilMethods(unittest.TestCase):
     def testIsOpRegex(self):
         op = {
             'collection': 'exfm.site.songs',
-            'predicates': {'_id': 'range'},
+            'predicates': {'_id': constants.PRED_TYPE_REGEX},
             'query_aggregate': True,
             'query_content': [
                     {'#query': {'_id': {'#options': 'XXXXXXX',

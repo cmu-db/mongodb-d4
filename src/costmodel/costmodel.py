@@ -98,7 +98,7 @@ class CostModel(object):
 
     def __init__(self, collections, workload, config):
         assert isinstance(collections, dict)
-        LOG.setLevel(logging.DEBUG)
+#        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.collections = collections
