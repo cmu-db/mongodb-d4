@@ -27,6 +27,7 @@ import logging
 import math
 import random
 from pprint import pformat
+import time
 import catalog
 
 import workload
@@ -125,7 +126,7 @@ class CostModel(object):
         ## ----------------------------------------------
         ## CACHING
         ## ----------------------------------------------
-        self.cache_enable = False
+        self.cache_enable = True
 
         # ColName -> CacheHandle
         self.cache_handles = { }
@@ -145,10 +146,19 @@ class CostModel(object):
         delta = design.getDelta(self.last_design)
         map(self.invalidateCache, delta)
 
+#        if self.debug:
+        LOG.info("New Design:\n%s", design)
+        start = time.time()
+
+
         cost = 0.0
         cost += self.weight_disk * self.diskCost(design)
         cost += self.weight_network * self.networkCost(design)
         cost += self.weight_skew * self.skewCost(design)
+
+#        if self.debug:
+        stop = time.time()
+        LOG.info("Computed Overall Cost in %.2f seconds", (stop - start))
 
         self.last_cost = cost / float(self.weight_network + self.weight_disk + self.weight_skew)
         self.last_design = design
@@ -158,6 +168,7 @@ class CostModel(object):
 
     def invalidateCache(self, col_name):
         if col_name in self.cache_handles:
+            if self.debug: LOG.debug("Invalidating cache for collection '%s'", col_name)
             self.cache_handles[col_name].reset()
     ## DEF
 

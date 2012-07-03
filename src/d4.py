@@ -209,8 +209,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     ## ----------------------------------------------
-    ## STEP 6
-    ## Execute the LNS/BB Search design algorithm
+    ## STEP 2: Execute the LNS/BB Search design algorithm
     ## ----------------------------------------------
     finalSolution = designer.search()
     LOG.info("Final Solution:\n%s", finalSolution)

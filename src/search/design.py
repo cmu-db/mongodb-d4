@@ -13,7 +13,6 @@ class Design(object):
 
     def __init__(self):
         self.data = {}
-        self.collections = []
     # DEF
 
     def isComplete(self, totalNumberOfCollections):
@@ -22,33 +21,27 @@ class Design(object):
     ## DEF
     
     def getCollections(self):
-        return self.collections
+        return self.data.keys()
     ## DEF
     
-    def addCollection(self, collection) :
-        if collection not in list(self.data) :
-            self.collections.append(collection)
-            self.data[collection] = {
-                'indexes' : [],
-                'shardKeys' : [],
-                'denorm' : None
-            }
+    def addCollection(self, col_name):
+        assert not col_name in self.data, \
+            "Trying to add collection '%s' more than once" % col_name
+        self.data[col_name] = {
+            'indexes' : [],
+            'shardKeys' : [],
+            'denorm' : None
+        }
     ## DEF
     
-    def addCollections(self, collections) :
-        for collection in collections :
-            self.addCollection(collection)
-    ## DEF
-    
-    def removeCollection(self, collection):
-        if collection not in list(self.data) :
-            raise LookupError("Collection not found: " + collection)
-        self.data.pop(collection)
-        self.collections.remove(collection)
+    def removeCollection(self, col_name):
+        if col_name not in list(self.data) :
+            raise LookupError("Collection not found: " + col_name)
+        del self.data[col_name]
 	## DEF
 	    
     def hasCollection(self, collection) :
-        return collection in list(self.data)
+        return collection in self.data
     ## DEF
 
     def getDelta(self, other):
@@ -59,9 +52,9 @@ class Design(object):
             that will count as a difference
         """
         result = [ ]
-        for col_name in self.collections:
+        for col_name in self.data.iterkeys():
             match = True
-            if not other or not col_name in other.collections:
+            if not other or not col_name in other.data:
                 match = False
             else:
                 for k, v in self.data[col_name].iteritems():
@@ -91,37 +84,37 @@ class Design(object):
     ## DENORMALIZATION
     ## ----------------------------------------------
 
-    def isDenormalized(self, collection):
-        return self.getDenormalizationParent(collection) != None
+    def isDenormalized(self, col_name):
+        return not self.getDenormalizationParent(col_name) is None
     ## DEF
     
-    def setDenormalizationParent(self, collection, parent):
-        self.data[collection]['denorm'] = parent
+    def setDenormalizationParent(self, col_name, parent):
+        self.data[col_name]['denorm'] = parent
     ## DEF
     
-    def getDenormalizationParent(self, collection):
-        if collection in list(self.data) and \
-           self.data[collection]['denorm'] and \
-           self.data[collection]['denorm'] != collection:
-            return self.data[collection]['denorm']
+    def getDenormalizationParent(self, col_name):
+        if col_name in self.data and \
+           self.data[col_name]['denorm'] and \
+           self.data[col_name]['denorm'] != col_name:
+            return self.data[col_name]['denorm']
         return None
     ## DEF
     
-    def getDenormalizationHierarchy(self, collection, ret=None):
+    def getDenormalizationHierarchy(self, col_name, ret=None):
         if not ret: ret = [ ]
-        parent = self.getDenormalizationParent(collection)
+        parent = self.getDenormalizationParent(col_name)
         if parent:
             ret.insert(0, parent) 
             return self.getDenormalizationHierarchy(parent, ret)
         return ret
     ## DEF
             
-    def getParentCollection(self, collection) :
-        if collection in self.data:
-            if not self.data[collection]['denorm'] :
+    def getParentCollection(self, col_name) :
+        if col_name in self.data:
+            if not self.data[col_name]['denorm'] :
                 return None
             else :
-                return self.getParentCollection(self.data[collection]['denorm'])
+                return self.getParentCollection(self.data[col_name]['denorm'])
         else :
             return None
     ## DEF
@@ -130,12 +123,12 @@ class Design(object):
     ## SHARD KEYS
     ## ----------------------------------------------
 
-    def addShardKey(self, collection, key) :
-        self.data[collection]['shardKeys'] = key
+    def addShardKey(self, col_name, key) :
+        self.data[col_name]['shardKeys'] = key
     ## DEF
 
-    def getShardKeys(self, collection) :
-        return self.data[collection]['shardKeys']
+    def getShardKeys(self, col_name) :
+        return self.data[col_name]['shardKeys']
     ## DEF
     
     def getAllShardKeys(self) :
@@ -150,8 +143,8 @@ class Design(object):
             self.data[k]['shardKeys'] = v
     ## DEF
 
-    def inShardKeyPattern(self, collection, attr) :
-        return attr in self.data[collection]['shardKeys']
+    def inShardKeyPattern(self, col_name, attr) :
+        return attr in self.data[col_name]['shardKeys']
     ## DEF
 
     ## ----------------------------------------------
@@ -166,18 +159,18 @@ class Design(object):
         return dict(self.data.iteritems())
     ## DEF
 
-    def addIndex(self, collection, indexKeys):
+    def addIndex(self, col_name, indexKeys):
         if not type(indexKeys) == tuple:
             indexKeys = tuple(indexKeys)
         add = True
-        for i in self.data[collection]['indexes'] :
+        for i in self.data[col_name]['indexes'] :
             if i == indexKeys:
                 add = False
                 break
         if add:
             LOG.debug("Adding index '%s/%s' for collection %s", \
-                      indexKeys, type(indexKeys), collection)
-            self.data[collection]['indexes'].append(indexKeys)
+                      indexKeys, type(indexKeys), col_name)
+            self.data[col_name]['indexes'].append(indexKeys)
     ## DEF
     
     def hasIndex(self, collection, list) :
@@ -194,13 +187,14 @@ class Design(object):
     ## ----------------------------------------------
 
     def __str__(self):
-        s=""
-        for k, v in self.data.iteritems() :
-            s += " COLLECTION: " + k
-            s += " indexes: " + str(v['indexes'])
-            s += " shardKey: " + str(v['shardKeys'])
-            s += " denorm: " + str(v['denorm']) + "\n"
-        return s
+        ret = ""
+        ctr = 0
+        for col_name in sorted(self.data.iterkeys()):
+            ret += "[%02d] %s\n" % (ctr, col_name)
+            for k, v in data[col_name].iteritems():
+                ret += "  %-10s %s\n" % (k+":", v)
+            ctr += 1
+        return ret
     ## DEF
 
     def toJSON(self) :

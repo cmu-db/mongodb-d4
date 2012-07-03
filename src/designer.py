@@ -72,6 +72,7 @@ class Designer():
             if self.debug: LOG.debug("%s => %s" % (key, args[key]))
             self.__dict__[key] = args[key]
         ## FOR
+        if self.debug: LOG.setLevel(logging.DEBUG)
     ## DEF
 
     def getCollectionCatalog(self):
@@ -168,6 +169,9 @@ class Designer():
 
         # Instantiate cost model
         cm = costmodel.CostModel(collectionsDict, workload, cmConfig)
+#        if self.debug:
+#            cm.debug = True
+#            costmodel.LOG.setLevel(logging.DEBUG)
 
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
@@ -175,12 +179,18 @@ class Designer():
         upper_bound = cm.overallCost(initialSolution)
         if self.debug: LOG.debug("Computed initial design [COST=%f]\n%s", upper_bound, initialSolution)
 
+        cm.overallCost(initialSolution)
+        raise Exception("XXX")
+
         # Now generate the design candidates
         # These are the different options that we are going to explore
         # in the branch-and-bound search
         dc = self.generateDesignCandidates(collectionsDict)
 #        if self.debug:
         LOG.info("Design Candidates:\n%s", dc)
+
+        cm.debug = True
+        costmodel.LOG.setLevel(logging.DEBUG)
 
         LOG.info("Executing D4 search algorithm...")
         bb = bbsearch.BBSearch(dc, cm, initialSolution, upper_bound, 10)
