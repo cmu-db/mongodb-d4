@@ -234,8 +234,8 @@ class CostModel(object):
 
         # Worst case is when every query requires a full collection scan
         # Best case, every query is satisfied by main memory
-        worst_case = 0
-        cost = 0
+        totalWorst = 0
+        totalCost = 0
         sess_ctr = 0
         for sess in self.workload:
             for op in sess['operations']:
@@ -257,7 +257,7 @@ class CostModel(object):
                     indexKeys, covering = self.guessIndex(design, op)
                     if self.cache_enable: cache.best_index[op["query_hash"]] = (indexKeys, covering)
                 pageHits = 0
-                worst = 0
+                maxHits = 0
 
                 isRegex = cache.op_regex.get(op["query_hash"], None)
                 if isRegex is None:
@@ -282,10 +282,8 @@ class CostModel(object):
                     # TODO: Need to think about what the true worst-case pageHit could be for an insert?
                     #       It's not one, because that ignores that fact that we also need to update indexes.
                     #       But it's also could never be a full table scan...
-                    if op['type'] == constants.OP_TYPE_INSERT:
-                        worst += 1 # FIXME: This not 100% accurate
-                    else:
-                        worst += cache.fullscan_pages * len(node_ids)
+                    # if op['type'] <> constants.OP_TYPE_INSERT:
+                    #     maxHits += cache.fullscan_pages * len(node_ids)
 
                     for node_id in node_ids:
                         lru = self.buffers[node_id]
@@ -310,6 +308,7 @@ class CostModel(object):
                             ## IF
                             hits = lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
                             pageHits += hits
+                            maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:
                                 LOG.debug("Node #%02d: Estimated %d index scan pageHits for op #%d on %s.%s",\
                                           node_id, hits, op["query_id"], op["collection"], indexKeys)
@@ -321,6 +320,7 @@ class CostModel(object):
                                 LOG.debug("No index available for op #%d. Will have to do full scan on '%s'", \
                                           op["query_id"], op["collection"])
                             pageHits += cache.fullscan_pages
+                            maxHits += cache.fullscan_pages
 
                         # Otherwise, if it's not a covering index, then we need to hit up
                         # the collection to retrieve the whole document
@@ -338,19 +338,20 @@ class CostModel(object):
                             ## IF
                             hits = lru.getDocumentsFromCollection(op['collection'], documentIds)
                             pageHits += hits
+                            maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:
                                 LOG.debug("Node #%02d: Estimated %d collection scan pageHits for op #%d on %s",\
                                           node_id, hits, op["query_id"], op["collection"])
                     ## FOR (node)
                 ## FOR (content)
 
-                cost += pageHits
-                worst_case += worst
+                totalCost += pageHits
+                totalWorst += maxHits
                 if self.debug:
                     LOG.debug("Op #%d on '%s' -> [pageHits:%d / worst:%d]", \
-                              op["query_id"], op["collection"], pageHits, worst)
-                assert pageHits <= worst,\
-                    "Estimated pageHits [%d] is greater than worst [%d] for op #%d\n%s" % (pageHits, worst, op["query_id"], pformat(op))
+                              op["query_id"], op["collection"], pageHits, maxHits)
+                assert pageHits <= maxHits,\
+                    "Estimated pageHits [%d] is greater than worst [%d] for op #%d\n%s" % (pageHits, maxHits, op["query_id"], pformat(op))
         ## FOR (op)
             sess_ctr += 1
             if sess_ctr % 1000 == 0: LOG.info("Session %5d / %d", sess_ctr, num_sessions)
@@ -359,10 +360,10 @@ class CostModel(object):
         # The final disk cost is the ratio of our estimated disk access cost divided
         # by the worst possible cost for this design. If we don't have a worst case,
         # then the cost is simply zero
-        assert cost <= worst_case, \
-            "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (cost, worst_case)
-        final_cost = cost / worst_case if worst_case else 0
-        LOG.info("Computed Disk Cost: %.03f [pageHits=%d worstCase=%d]", final_cost, cost, worst_case)
+        assert totalCost <= totalWorst, \
+            "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
+        final_cost = totalCost / totalWorst if totalWorst else 0
+        LOG.info("Computed Disk Cost: %.03f [pageHits=%d worstCase=%d]", final_cost, totalCost, totalWorst)
         return final_cost
     ## DEF
 

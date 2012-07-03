@@ -155,6 +155,9 @@ class Designer():
                 continue
             collectionsDict[col_info['name']] = col_info
         ## FOR
+        if not collectionsDict:
+            raise Exception("No collections were found in metadata catalog")
+        LOG.info("Loaded %d collections from metadata catalog" % len(collectionsDict))
 
         # TODO: This is probably a bad idea because it means that we will have
         #       to bring the entire collection into RAM in order to keep processing it

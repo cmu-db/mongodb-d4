@@ -57,7 +57,7 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 if __name__ == '__main__':
     aparser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-                                      description="%s - Distributed Document Database Designer" % (constants.PROJECT_NAME))
+                                      description="%s - Distributed Document Database Designer" % constants.PROJECT_NAME)
                                       
     # Configuration File Options
     aparser.add_argument('--config', type=file,
@@ -75,6 +75,7 @@ if __name__ == '__main__':
                         help='Skip loading input files into system. ' +
                              'Use this option if schema statistics and the workload have ' +
                              'already been loaded into the catalog database.')
+    # TODO: This is a development option that should be removed
     agroup.add_argument('--no-post-process', action='store_true',
                         help='Skip post-processing the workload trace after loading it into ' +
                              'the internal catalog database.')
@@ -87,16 +88,17 @@ if __name__ == '__main__':
     agroup = aparser.add_argument_group('MongoDB Processing')
     agroup.add_argument('--mongo', type=str, metavar='FILE',
                         help="Path to the MongoSniff file with the sample workload. Use '-' if you would like to read from stdin")
+    agroup.add_argument('--mongo-skip', type=int, metavar='N', default=None,
+                        help='Skip the first N lines in the MongoSniff input file.')
+    agroup.add_argument('--mongo-limit', type=int, metavar='N', default=None,
+                        help='Limit the number of operations to process in the MongoSniff input file.')
+    # TODO: These are development option that should be removed
     agroup.add_argument('--no-mongo-parse', action='store_true',
                         help='Skip parsing and loading MongoSniff workload trace file into the internal catalog.'),
     agroup.add_argument('--no-mongo-reconstruct', action='store_true',
                         help='Skip reconstructing the MongoDB database schema after loading.')
     agroup.add_argument('--no-mongo-sessionizer', action='store_true',
                         help='Skip splitting the MongoSniff workload into separate sessions.')
-    agroup.add_argument('--mongo-skip', type=int, metavar='N', default=None,
-                        help='Skip the first N lines in the MongoSniff input file.')
-    agroup.add_argument('--mongo-limit', type=int, metavar='N', default=None,
-                        help='Limit the number of operations to process in the MongoSniff input file.')
 
     # MySQL Processing Options
     agroup = aparser.add_argument_group('MySQL Processing')
