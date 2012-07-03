@@ -25,6 +25,7 @@ import itertools
 import logging
 
 # mongodb-d4
+from pprint import pformat
 import catalog
 from costmodel import costmodel
 from search import InitialDesigner, DesignCandidates, bbsearch
@@ -157,7 +158,10 @@ class Designer():
 
         # TODO: This is probably a bad idea because it means that we will have
         #       to bring the entire collection into RAM in order to keep processing it
-        workload = [x for x in self.metadata_db.Session.fetch()]
+        workloadQuery = {"operations.collection": {"$in": collectionsDict.keys()}}
+        workload = [ sess for sess in self.metadata_db.Session.fetch(workloadQuery) ]
+        if not len(workload):
+            raise Exception("No workload sessions were found in database\n%s" % pformat(workloadQuery))
 
         # Instantiate cost model
         cm = costmodel.CostModel(collectionsDict, workload, cmConfig)

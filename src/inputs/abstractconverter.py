@@ -116,9 +116,9 @@ class AbstractConverter():
         page_size *= 1024
         for col_info in self.metadata_db.Collection.find():
             for k in ['doc_count', 'workload_queries', 'avg_doc_size']:
-                assert col_info[k] != None, "%s.%s == None"  % (col_info['name'], k)
+                assert not col_info[k] is None, "%s.%s == None"  % (col_info['name'], k)
             col_info['workload_percent'] = col_info['workload_queries'] / float(self.total_queries)
-            col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / page_size
+            col_info['max_pages'] = min(1, col_info['doc_count'] * col_info['avg_doc_size'] / page_size)
             col_info.save()
         ## FOR
     ## DEF

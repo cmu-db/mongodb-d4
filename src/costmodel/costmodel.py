@@ -257,6 +257,7 @@ class CostModel(object):
                     indexKeys, covering = self.guessIndex(design, op)
                     if self.cache_enable: cache.best_index[op["query_hash"]] = (indexKeys, covering)
                 pageHits = 0
+                worst = 0
 
                 isRegex = cache.op_regex.get(op["query_hash"], None)
                 if isRegex is None:
@@ -278,12 +279,13 @@ class CostModel(object):
                             LOG.debug("Estimated Touched Nodes for Op #%d: %d", \
                                       op['query_id'], len(node_ids))
 
-                    # The worst case for an insert is if we have to a evict
-                    # another record to make space for our new one
+                    # TODO: Need to think about what the true worst-case pageHit could be for an insert?
+                    #       It's not one, because that ignores that fact that we also need to update indexes.
+                    #       But it's also could never be a full table scan...
                     if op['type'] == constants.OP_TYPE_INSERT:
-                        worst = 1
+                        worst += 1 # FIXME: This not 100% accurate
                     else:
-                        worst = cache.fullscan_pages * len(node_ids)
+                        worst += cache.fullscan_pages * len(node_ids)
 
                     for node_id in node_ids:
                         lru = self.buffers[node_id]
@@ -348,7 +350,7 @@ class CostModel(object):
                     LOG.debug("Op #%d on '%s' -> [pageHits:%d / worst:%d]", \
                               op["query_id"], op["collection"], pageHits, worst)
                 assert pageHits <= worst,\
-                    "Estimated pageHits [%d] is greater than worst [%d] for op #%d" % (pageHits, worst, op["query_id"])
+                    "Estimated pageHits [%d] is greater than worst [%d] for op #%d\n%s" % (pageHits, worst, op["query_id"], pformat(op))
         ## FOR (op)
             sess_ctr += 1
             if sess_ctr % 1000 == 0: LOG.info("Session %5d / %d", sess_ctr, num_sessions)
@@ -602,8 +604,10 @@ class CostModel(object):
                 start_time = self.workload[i]['start_time']
             if end_time is None or end_time > self.workload[i]['end_time']:
                 end_time = self.workload[i]['end_time']
-        assert start_time
-        assert end_time
+        assert start_time, \
+            "Failed to find start time in %d sessions" % len(self.workload)
+        assert end_time, \
+            "Failed to find end time in %d sessions" % len(self.workload)
 
         if self.debug:
             LOG.debug("Workload Segments - START:%d / END:%d", start_time, end_time)
