@@ -98,12 +98,14 @@ class CostModel(object):
 
         def __str__(self):
             ret = ""
+            max_len = max(map(len, self.__dict__.iterkeys()))+1
+            f = "  %-" + str(max_len) + "s %s\n"
             for k,v in self.__dict__.iteritems():
                 if isinstance(v, dict):
                     v_str = "[%d entries]" % len(v)
                 else:
                     v_str = str(v)
-                ret += "  %-10s %s\n" % (k+":", v_str)
+                ret += f % (k+":", v_str)
             return ret
         ## DEF
     ## CLASS
@@ -138,8 +140,8 @@ class CostModel(object):
         ## CACHING
         ## ----------------------------------------------
         self.cache_enable = True
-        self.cache_ctr_fail = 0
-        self.cache_ctr_success = 0
+        self.cache_miss_ctr = Histogram()
+        self.cache_hit_ctr = Histogram()
 
         # ColName -> CacheHandle
         self.cache_handles = { }
@@ -161,6 +163,8 @@ class CostModel(object):
 
         if self.debug:
             LOG.debug("New Design:\n%s", design)
+        self.cache_hit_ctr.clear()
+        self.cache_miss_ctr.clear()
         start = time.time()
 
         cost = 0.0
@@ -168,18 +172,25 @@ class CostModel(object):
         cost += self.weight_network * self.networkCost(design)
         cost += self.weight_skew * self.skewCost(design)
 
-#        if self.debug:
-        stop = time.time()
-        cache_ratio = self.cache_ctr_success / float(self.cache_ctr_success + self.cache_ctr_fail)
-        LOG.info("Computed Overall Cost in %.2f seconds [Cache: %.1f%% %d/%d]", \
-                (stop - start), cache_ratio, self.cache_ctr_success, self.cache_ctr_fail)
-        print repr(self.cache_handles)
-        for col_name in sorted(self.cache_handles.iterkeys()):
-            LOG.info("CACHE HANDLE: %s\n%s", col_name, self.cache_handles[col_name])
-        LOG.info("-"*100)
-
         self.last_cost = cost / float(self.weight_network + self.weight_disk + self.weight_skew)
         self.last_design = design
+
+#        if self.debug:
+        stop = time.time()
+
+        # Calculate cache hit/miss ratio
+        cache_success = sum([ x for x in self.cache_hit_ctr.itervalues() ])
+        cache_miss = sum([ x for x in self.cache_miss_ctr.itervalues() ])
+        cache_ratio = cache_success / float(cache_success + cache_miss)
+        LOG.info("Overall Cost %.3f / Computed in %.2f seconds [Cache: %.1f%% %d/%d]", \
+                 self.last_cost, (stop - start), cache_ratio*100, cache_success, cache_miss+cache_success)
+#        for col_name in sorted(self.cache_handles.iterkeys()):
+#            LOG.info("CACHE HANDLE: %s\n%s", col_name, self.cache_handles[col_name])
+        LOG.info("Cache Hits:\n%s", self.cache_hit_ctr)
+        LOG.info("Cache Misses:\n%s", self.cache_miss_ctr)
+        LOG.info("-"*100)
+
+
 
         return self.last_cost
     ## DEF
@@ -285,10 +296,10 @@ class CostModel(object):
                 if indexKeys is None:
                     indexKeys, covering = self.guessIndex(design, op)
                     if self.cache_enable:
-                        self.cache_ctr_fail += 1
+                        self.cache_miss_ctr.put("best_index")
                         cache.best_index[op["query_hash"]] = (indexKeys, covering)
                 else:
-                    self.cache_ctr_success += 1
+                    self.cache_hit_ctr.put("best_index")
                 pageHits = 0
                 maxHits = 0
 
@@ -296,10 +307,10 @@ class CostModel(object):
                 if isRegex is None:
                     isRegex = workload.isOpRegex(op)
                     if self.cache_enable:
-                        self.cache_ctr_fail += 1
+                        self.cache_miss_ctr.put("op_regex")
                         cache.op_regex[op["query_hash"]] = isRegex
                 else:
-                    self.cache_ctr_success += 1
+                    self.cache_hit_ctr.put("op_regex")
 #                print pformat(op)
 
                 # Grab all of the query contents
@@ -311,19 +322,13 @@ class CostModel(object):
                     if node_ids is None:
                         node_ids = self.estimator.estimateNodes(design, op)
                         if self.cache_enable:
-                            self.cache_ctr_fail += 1
+                            self.cache_miss_ctr.put("op_nodeIds")
                             cache.op_nodeIds[op['query_id']] = node_ids
                         if self.debug:
                             LOG.debug("Estimated Touched Nodes for Op #%d: %d", \
                                       op['query_id'], len(node_ids))
                     else:
-                        self.cache_ctr_success += 1
-
-                    # TODO: Need to think about what the true worst-case pageHit could be for an insert?
-                    #       It's not one, because that ignores that fact that we also need to update indexes.
-                    #       But it's also could never be a full table scan...
-                    # if op['type'] <> constants.OP_TYPE_INSERT:
-                    #     maxHits += cache.fullscan_pages * len(node_ids)
+                        self.cache_hit_ctr.put("op_nodeIds")
 
                     for node_id in node_ids:
                         lru = self.buffers[node_id]
@@ -345,10 +350,10 @@ class CostModel(object):
                                               op['query_id'], values, pformat(op))
                                     raise
                                 if self.cache_enable:
-                                    self.cache_ctr_fail += 1
+                                    self.cache_miss_ctr.put("index_docIds")
                                     cache.index_docIds[op['query_id']] = documentIds
                             else:
-                                self.cache_ctr_success += 1
+                                self.cache_hit_ctr.put("index_docIds")
                             ## IF
                             hits = lru.getDocumentsFromIndex(op['collection'], indexKeys, documentIds)
                             pageHits += hits
@@ -379,10 +384,10 @@ class CostModel(object):
                                               op['query_id'], values, pformat(op))
                                     raise
                                 if self.cache_enable:
-                                    self.cache_ctr_fail += 1
+                                    self.cache_miss_ctr.put("collection_docIds")
                                     cache.collection_docIds[op['query_id']] = documentIds
                             else:
-                                self.cache_ctr_success += 1
+                                self.cache_hit_ctr.put("collection_docIds")
                             ## IF
                             hits = lru.getDocumentsFromCollection(op['collection'], documentIds)
                             pageHits += hits

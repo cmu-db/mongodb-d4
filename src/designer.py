@@ -192,7 +192,7 @@ class Designer():
         # This will be the upper bound from starting design
         initialSolution = InitialDesigner(collectionsDict.values()).generate()
         upper_bound = cm.overallCost(initialSolution)
-        if self.debug: LOG.debug("Computed initial design [COST=%f]\n%s", upper_bound, initialSolution)
+        if self.debug: LOG.debug("Computed initial design [COST=%f]", upper_bound)
 
         cm.overallCost(initialSolution)
         raise Exception("XXX")
