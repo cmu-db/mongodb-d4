@@ -9,8 +9,8 @@ LOG = logging.getLogger(__name__)
 def isOpRegex(op, field=None):
     """Returns true if this operation contains a regex query"""
 
-    if "predicates" in op:
-        return constants.PRED_TYPE_REGEX in op["predicates"].itervalues()
+#    if "predicates" in op:
+#        return constants.PRED_TYPE_REGEX in op["predicates"].itervalues()
 
     regex_flag = constants.REPLACE_KEY_DOLLAR_PREFIX + "regex"
     for contents in getOpContents(op):

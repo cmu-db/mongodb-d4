@@ -662,7 +662,11 @@ class CostModel(object):
     def __getNodeIds__(self, cache, design, op):
         node_ids = cache.op_nodeIds.get(op['query_id'], None)
         if node_ids is None:
-            node_ids = self.estimator.estimateNodes(design, op)
+            try:
+                node_ids = self.estimator.estimateNodes(design, op)
+            except:
+                LOG.error("Failed to estimate touched nodes for op #%d\n%s", op['query_id'], pformat(op))
+                raise
             if self.cache_enable:
                 if self.debug: self.cache_miss_ctr.put("op_nodeIds")
                 cache.op_nodeIds[op['query_id']] = node_ids
