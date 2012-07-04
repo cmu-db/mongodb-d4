@@ -73,16 +73,36 @@ class LRUBuffer:
             This will automatically initialize any indexes for the collection as well.
         """
         self.reset()
+        self.design = design
+
+        percent_total = 0.0
         for col_name in design.getCollections():
             col_info = self.collections[col_name]
             self.collection_sizes[col_name] = col_info['avg_doc_size']
+            percent_total += col_info['workload_percent']
 
             # For each collection, get the indexes that are included in the design.
             col_index_sizes = { }
             for index_keys in design.getIndexes(col_name):
                 col_index_sizes[index_keys] = self.getIndexSize(col_info, index_keys)
             self.index_sizes[col_name] = col_index_sizes
-        self.design = design
+        assert percent_total > 0.0 and percent_total <= 1.0, \
+            "Invalid workload percent total %f" % percent_total
+
+        # We are going to preload the buffer with documents according to how
+        # often collections are referenced by operations. Without this, then it
+        # is unlikely that the sample workload will ever fill up the buffer
+        # and casuse evictions. Fortunately we can do this deterministically
+        # so that the evictions are deterministic. This also means that we can
+        # cache this setup so that we can reuse it everytime we are reset.
+        for col_name in design.getCollections():
+            col_info = self.collections[col_name]
+
+            # How much space are they allow to have in the initial configuration
+            col_size = self.buffer_size *
+
+
+
     ## DEF
 
     def computeTupleHash(self, typeId, key, size, documentId):

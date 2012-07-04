@@ -37,7 +37,6 @@ class Collection(Document):
                 'parent_conf':      float,      # TODO(ckeith)
             }
         }
-
     }
     required_fields = [
         'name', 'doc_count'

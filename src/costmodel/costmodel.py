@@ -516,6 +516,10 @@ class CostModel(object):
     def skewCost(self, design):
         """Calculate the network cost for each segment for skew analysis"""
 
+        # If there is only one node, then the cost is always zero
+        if self.num_nodes == 1:
+            return 0.0
+
         op_counts = [ 0 ] *  self.skew_segments
         segment_skew = [ 0 ] *  self.skew_segments
         for i in range(0, len(self.workload_segments)):
