@@ -126,7 +126,7 @@ class CostModel(object):
         self.last_design = None
         self.last_cost = None
 
-        # Convert MB to KB
+        # Convert MB to bytes
         self.max_memory = config['max_memory'] * 1024 * 1024
         self.skew_segments = config['skew_intervals'] # Why? "- 1"
         self.address_size = config['address_size'] / 4
@@ -181,11 +181,18 @@ class CostModel(object):
         # Calculate cache hit/miss ratio
         LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
                  self.last_cost, (stop - start))
+
+        buffer_total = sum([ lru.buffer_size for lru in self.buffers ])
+        buffer_remaining = sum([ lru.remaining for lru in self.buffers ])
+        buffer_ratio = (buffer_total - buffer_remaining) / float(buffer_total)
+        LOG.info("Buffer Usage %.2f%% [total=%d / used=%d]", \
+                  buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
+
         if self.debug:
             cache_success = sum([ x for x in self.cache_hit_ctr.itervalues() ])
             cache_miss = sum([ x for x in self.cache_miss_ctr.itervalues() ])
             cache_ratio = cache_success / float(cache_success + cache_miss)
-            LOG.debug("Internal Cache Ratio %.2f [total=%d]", cache_ratio*100, (cache_miss+cache_success))
+            LOG.debug("Internal Cache Ratio %.2f%% [total=%d]", cache_ratio*100, (cache_miss+cache_success))
             LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.cache_hit_ctr)
             LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.cache_miss_ctr)
             LOG.debug("-"*100)

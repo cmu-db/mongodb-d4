@@ -85,6 +85,11 @@ class LRUBuffer:
         self.design = design
     ## DEF
 
+    def computeTupleHash(self, typeId, key, size, documentId):
+        return long(hash((typeId, key, documentId)) | size<<32)
+    ## DEF
+
+
     def getDocumentFromIndex(self, col_name, indexKeys, documentId):
         """
             Get the documents from the given index
@@ -112,7 +117,7 @@ class LRUBuffer:
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
-        buffer_tuple = hash((typeId, key, documentId))
+        buffer_tuple = self.computeTupleHash(typeId, key, size, documentId)
 
         try:
             offset = self.buffer.index(buffer_tuple)
@@ -148,19 +153,28 @@ class LRUBuffer:
     ## DEF
 
     def evictNext(self, col_name):
-        typeId, key, docId = self.buffer.pop(0)
-        if typeId == LRUBuffer.DOC_TYPE_INDEX:
-            size = self.index_sizes[col_name][key]
-        elif typeId == LRUBuffer.DOC_TYPE_COLLECTION:
-            size = self.collection_sizes[key]
-        else:
-            raise Exception("Unexpected LRUBuffer type id '%s'" % typeId)
+        # TODO: Ok so we switched to prehashing the tuple before we add it to our
+        #       buffer. But now we don't know what the original typeId and key, which
+        #       means that we don't know it's size.
+        #       We may want to try to encoding the size in the tuple id...
+
+        buffer_tuple = self.buffer.pop(0)
+        size = buffer_tuple >> 32
+
+#        typeId, key, docId = self.buffer.pop(0)
+#        if typeId == LRUBuffer.DOC_TYPE_INDEX:
+#            size = self.index_sizes[col_name][key]
+#        elif typeId == LRUBuffer.DOC_TYPE_COLLECTION:
+#            size = self.collection_sizes[key]
+#        else:
+#            raise Exception("Unexpected LRUBuffer type id '%s'" % typeId)
         self.remaining += size
         if self.debug:
             LOG.debug("Evicted document - Remaining:%d", self.remaining)
 
         self.evicted += 1
-        return typeId, key, docId
+#        return typeId, key, docId
+        return buffer_tuple
     ## DEF
 
     def getIndexSize(self, col_info, indexKeys):
