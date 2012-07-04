@@ -184,6 +184,7 @@ class AbstractConverter():
                         col_info = self.metadata_db.Collection()
                         col_info['name'] = op['collection']
                     collectionCache[op['collection']] = col_info
+                    col_info['workload_queries'] = 0
 
                 col_info = collectionCache[op['collection']]
                 col_info['workload_queries'] += 1

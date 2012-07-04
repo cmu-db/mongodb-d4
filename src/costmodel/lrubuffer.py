@@ -106,6 +106,8 @@ class LRUBuffer:
 
             # How much space are they allow to have in the initial configuration
             col_remaining = int(self.buffer_size * (delta * col_info['workload_percent']))
+            LOG.info("%s Pre-load Percentage: %.1f%% [bytes=%d]", \
+                     col_name, (delta * col_info['workload_percent'])*100, col_remaining)
 
             # Now we could read the reconstructed database to generate tuples,
             # but that would be a bit slow for larger data sets. So we're just going
@@ -116,14 +118,14 @@ class LRUBuffer:
             rng = random.Random()
             rng.seed(col_name)
             ctr = 0
-            while col_remaining > 0 and self.evicted > 0:
+            while col_remaining > 0 and self.evicted == 0:
                 documentId = rng.random()
-                self.getDocumentFromCollection(col_name, documentId)
+                self.getDocumentFromCollection(col_name, documentId, noLookUp=True)
                 col_remaining -= self.collection_sizes[col_name]
                 ctr += 1
             ## WHILE
 #            if self.debug:
-            LOG.info("Pre-loaded %d documents for %s", ctr, col_name)
+            LOG.info("Pre-loaded %d documents for %s [evicted=%d]", ctr, col_name, self.evicted)
         ## FOR
     ## DEF
 
@@ -131,7 +133,7 @@ class LRUBuffer:
         return long(hash((typeId, key, documentId)) | size<<32)
     ## DEF
 
-    def getDocumentFromIndex(self, col_name, indexKeys, documentId):
+    def getDocumentFromIndex(self, col_name, indexKeys, documentId, noLookUp=False):
         """
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
@@ -139,10 +141,10 @@ class LRUBuffer:
         size = self.index_sizes[col_name].get(indexKeys, 0)
         assert size > 0, \
             "Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
-        return self.getDocument(LRUBuffer.DOC_TYPE_INDEX, col_name, indexKeys, size, documentId)
+        return self.getDocument(LRUBuffer.DOC_TYPE_INDEX, col_name, indexKeys, size, documentId, noLookUp)
     ## DEF
 
-    def getDocumentFromCollection(self, col_name, documentId):
+    def getDocumentFromCollection(self, col_name, documentId, noLookUp=False):
         """
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
@@ -150,20 +152,23 @@ class LRUBuffer:
         size = self.collection_sizes.get(col_name, 0)
         assert size > 0, \
             "Missing collection size for '%s'" % col_name
-        return self.getDocument(LRUBuffer.DOC_TYPE_COLLECTION, col_name, col_name, size, documentId)
+        return self.getDocument(LRUBuffer.DOC_TYPE_COLLECTION, col_name, col_name, size, documentId, noLookUp)
     ## DEF
 
-    def getDocument(self, typeId, col_name, key, size, documentId):
+    def getDocument(self, typeId, col_name, key, size, documentId, noLookUp=False):
         page_hits = 0
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
         buffer_tuple = self.computeTupleHash(typeId, key, size, documentId)
 
-        try:
-            offset = self.buffer.index(buffer_tuple)
-        except ValueError:
+        if noLookUp:
             offset = None
+        else:
+            try:
+                offset = self.buffer.index(buffer_tuple)
+            except ValueError:
+                offset = None
 
         # The tuple is in our buffer, so we don't need to fetch anything from disk
         # We will need to push the tuple back on to the end of our buffer list
