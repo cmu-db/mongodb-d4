@@ -22,6 +22,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
+import random
 import logging
 from pprint import pformat
 from util import constants
@@ -35,6 +36,7 @@ class LRUBuffer:
     def __init__(self, collections, buffer_size):
 #        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.preload = True
 
         self.collections = collections
         self.collection_sizes = { }
@@ -95,20 +97,39 @@ class LRUBuffer:
         # and casuse evictions. Fortunately we can do this deterministically
         # so that the evictions are deterministic. This also means that we can
         # cache this setup so that we can reuse it everytime we are reset.
+        delta = 1.0 + ((1.0 - percent_total) / percent_total)
         for col_name in design.getCollections():
+            if not self.preload: break
+
             col_info = self.collections[col_name]
+            col_size = self.collection_sizes[col_name]
 
             # How much space are they allow to have in the initial configuration
-            col_size = self.buffer_size *
+            col_remaining = int(self.buffer_size * (delta * col_info['workload_percent']))
 
-
-
+            # Now we could read the reconstructed database to generate tuples,
+            # but that would be a bit slow for larger data sets. So we're just going
+            # to loop through and generate synthetic tuples
+            # We'll use a random generator that is seeded on the cluster name, so that
+            # the results are always the same. This is safe to do because it is unlikely that
+            # there will be a hash collision when we are processing the real workload
+            rng = random.Random()
+            rng.seed(col_name)
+            ctr = 0
+            while col_remaining > 0 and self.evicted > 0:
+                documentId = rng.random()
+                self.getDocumentFromCollection(col_name, documentId)
+                col_remaining -= self.collection_sizes[col_name]
+                ctr += 1
+            ## WHILE
+#            if self.debug:
+            LOG.info("Pre-loaded %d documents for %s", ctr, col_name)
+        ## FOR
     ## DEF
 
     def computeTupleHash(self, typeId, key, size, documentId):
         return long(hash((typeId, key, documentId)) | size<<32)
     ## DEF
-
 
     def getDocumentFromIndex(self, col_name, indexKeys, documentId):
         """
