@@ -61,7 +61,7 @@ class AbstractConverter():
         self.no_reconstruct = False
         self.no_sessionizer = False
 
-        self.total_queries = 0
+        self.total_ops = 0
         self.hasher = OpHasher()
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
@@ -114,13 +114,18 @@ class AbstractConverter():
 
         # Finalize workload percentage statistics for each collection
         page_size *= 1024
+        percent_total = 0.0
         for col_info in self.metadata_db.Collection.find():
             for k in ['doc_count', 'workload_queries', 'avg_doc_size']:
                 assert not col_info[k] is None, "%s.%s == None"  % (col_info['name'], k)
-            col_info['workload_percent'] = col_info['workload_queries'] / float(self.total_queries)
+            col_info['workload_percent'] = col_info['workload_queries'] / float(self.total_ops)
+            percent_total += col_info['workload_percent']
+
             col_info['max_pages'] = min(1, col_info['doc_count'] * col_info['avg_doc_size'] / page_size)
             col_info.save()
         ## FOR
+        assert percent_total > 0.0 and percent_total <= 1.0,\
+            "Invalid workload percent total %f [totalOps=%d]" % (percent_total, self.total_ops)
     ## DEF
 
     def addQueryHashes(self):
@@ -157,7 +162,7 @@ class AbstractConverter():
 
             for op in sess['operations']:
                 # We need to know the total number of queries that we've seen
-                self.total_queries += 1
+                self.total_ops += 1
 
                 # The start_time is the timestamp of when the first query occurs
                 if not start_time: start_time = op['query_time']
@@ -284,7 +289,7 @@ class AbstractConverter():
                     try:
                         self.processDataFields(col_info, col_info['fields'], doc)
                     except:
-                        msg = "Unexpected error when processing %s data fields" % colName
+                        msg = "Unexpected error when processing '%s' data fields" % colName
                         msg += "\n" + pformat(doc)
                         LOG.error(msg)
                         raise
@@ -352,7 +357,13 @@ class AbstractConverter():
                 # Check for a special data field
                 if len(v) == 1 and v.keys()[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
                     v = v[v.keys()[0]]
-                    size = catalog.getEstimatedSize(fields[k]['type'], v)
+                    fields[k]['type'] = catalog.fieldTypeToString(type(v))
+                    try:
+                        size = catalog.getEstimatedSize(fields[k]['type'], v)
+                    except:
+                        LOG.error("Failed to estimate size for field '%s' in collection '%s'\n%s", \
+                                  k, col_info['name'], pformat(fields[k]))
+                        raise
                     col_info['data_size'] += size
                     fields[k]['size_histogram'].put(size)
                     fields[k]['distinct_values'].add(v)
@@ -372,7 +383,7 @@ class AbstractConverter():
                 if self.debug: LOG.debug("Extracting keys in nested list for '%s'" % k)
                 if not 'fields' in fields[k]: fields[k]['fields'] = { }
 
-                for i in xrange(0, len(doc[k])):
+                for i in xrange(len(doc[k])):
                     inner_type = type(doc[k][i])
                     # More nested documents...
                     if inner_type == dict:
@@ -383,8 +394,15 @@ class AbstractConverter():
                         #       the list has different types of values
                         inner = fields[k]['fields'].get(constants.LIST_INNER_FIELD, {})
                         inner['type'] = catalog.fieldTypeToString(inner_type)
+                        try:
+                            inner_size = catalog.getEstimatedSize(inner['type'], doc[k][i])
+                        except:
+                            LOG.error("Failed to estimate size for list entry #%d for field '%s' in collection '%s'\n%s",\
+                                      i, k, col_info['name'], pformat(fields[k]))
+                            raise
+
                         fields[k]['fields'][constants.LIST_INNER_FIELD] = inner
-                        fields[k]['size_histogram'].put(catalog.getEstimatedSize(inner['type'], doc[k][i]))
+                        fields[k]['size_histogram'].put(inner_size)
                         fields[k]['distinct_values'].add(doc[k][i])
 
                 ## FOR (list)
@@ -392,7 +410,12 @@ class AbstractConverter():
             ## SCALAR VALUES
             ## ----------------------------------------------
             else:
-                size = catalog.getEstimatedSize(fields[k]['type'], v)
+                try:
+                    size = catalog.getEstimatedSize(fields[k]['type'], v)
+                except:
+                    LOG.error("Failed to estimate size for field %s in collection %s\n%s",\
+                              k, col_info['name'], pformat(fields[k]))
+                    raise
                 col_info['data_size'] += size
                 fields[k]['size_histogram'].put(size)
                 fields[k]['distinct_values'].add(v)
