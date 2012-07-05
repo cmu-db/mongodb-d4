@@ -167,17 +167,20 @@ if __name__ == '__main__':
 
     if args['reset']:
         LOG.warn("Dropping collections from %s and %s databases" % (metadata_db.name, dataset_db.name))
-        for col in metadata_db.collection_names():
-            if col.startswith("system"): continue
+        for col_name in [metadata_db.Session.collection.name, metadata_db.Collection.collection.name]:
             if LOG.isEnabledFor(logging.DEBUG):
-                LOG.warn("Dropping %s.%s" % (metadata_db.name, col))
-            metadata_db.drop_collection(col)
-        for col in dataset_db.collection_names():
-            if col.startswith("system"): continue
+                LOG.warn("Dropping %s.%s", metadata_db.name, col_name)
+            metadata_db.drop_collection(col_name)
+        ## FOR
+
+        for col_name in dataset_db.collection_names():
+            if col_name.startswith("system"): continue
             if LOG.isEnabledFor(logging.DEBUG):
-                LOG.warn("Dropping %s.%s" % (dataset_db.name, col))
-            dataset_db.drop_collection(col)
+                LOG.warn("Dropping %s.%s" % (dataset_db.name, col_name))
+            dataset_db.drop_collection(col_name)
+        ## FOR
     ## IF
+    sys.exit(1)
 
     designer = Designer(cparser, metadata_db, dataset_db)
     designer.setOptionsFromArguments(args)
