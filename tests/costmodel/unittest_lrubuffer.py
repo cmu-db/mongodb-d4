@@ -113,6 +113,28 @@ class TestNodeEstimator(unittest.TestCase):
 #        self.buffer.reset()
 #        self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
 #    ## DEF
+
+    def testComputeTupleHash(self):
+        num_entries = 10000
+        rng = random.Random()
+        rng.seed(self.__init__.im_class)
+        for i in xrange(num_entries):
+            # Construct a tuple and make sure that the size that we get out
+            # of it is the size that we put into it
+            typeId = rng.choice([LRUBuffer.DOC_TYPE_COLLECTION, LRUBuffer.DOC_TYPE_INDEX])
+            key = rng.random()
+            size = rng.randint(1024, constants.DEFAULT_PAGE_SIZE)
+            documentId = rng.random()
+            buffer_tuple = self.buffer.__computeTupleHash__(typeId, key, size, documentId)
+            self.assertIsNotNone(buffer_tuple)
+
+            extracted = self.buffer.__getTupleSize__(buffer_tuple)
+            self.assertEqual(size, extracted)
+        ## FOR
+
+    ## DEF
+
+
 #
 #    def testGetDocumentFromCollection(self):
 #        """Check whether the LRUBuffer updates internal buffer for new collection documents"""
