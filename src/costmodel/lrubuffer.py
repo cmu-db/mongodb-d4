@@ -46,7 +46,7 @@ class LRUBuffer:
     DOC_TYPE_COLLECTION = 1
 
     def __init__(self, collections, buffer_size, preload=constants.DEFAULT_LRU_PRELOAD):
-        LOG.setLevel(logging.DEBUG)
+#        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.preload = preload
 
@@ -265,11 +265,11 @@ class LRUBuffer:
 
     def __computeTupleHash__(self, typeId, key, size, documentId):
         size /= 1024
-        return long(abs(hash((typeId, key, documentId)))>>8 | size<<56)
+        return long(abs(hash((typeId, key, documentId)))>>4 | size<<60)
     ## DEF
 
     def __getTupleSize__(self, buffer_tuple):
-        return (buffer_tuple >> 56)*1024
+        return (buffer_tuple >> 60)*1024
     ## DEF
 
     def __getIndexSize__(self, col_info, indexKeys):
@@ -289,7 +289,7 @@ class LRUBuffer:
 
     def __str__(self):
         buffer_ratio = (self.buffer_size - self.remaining) / float(self.buffer_size)
-        return "Buffer Usage %.2f%% [evicted=%d / refreshed=%d / entries=%d / ids=%d / used=%d / total=%d ]" % (\
+        return "Buffer Usage %.2f%% [evicted=%d / refreshed=%d / entries=%d / ids=%d / used=%d / total=%d]" % (\
                    buffer_ratio*100,
                    self.evicted,
                    self.refreshed,

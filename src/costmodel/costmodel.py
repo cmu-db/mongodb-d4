@@ -121,7 +121,7 @@ class CostModel(object):
 
     def __init__(self, collections, workload, config):
         assert isinstance(collections, dict)
-        LOG.setLevel(logging.DEBUG)
+#        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.collections = collections
@@ -410,7 +410,8 @@ class CostModel(object):
                     (pageHits, maxHits, op["query_id"], pformat(op))
             ## FOR (op)
             sess_ctr += 1
-            if sess_ctr % complete_marker == 0: LOG.info("Session %5d / %d", sess_ctr, num_sessions)
+            if sess_ctr % complete_marker == 0:
+                LOG.info("Session %5d / %d [%3d%%]", sess_ctr, num_sessions, (sess_ctr / num_sessions)*100)
         ## FOR (sess)
 
         # The final disk cost is the ratio of our estimated disk access cost divided
