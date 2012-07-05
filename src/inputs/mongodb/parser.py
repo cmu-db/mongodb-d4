@@ -393,32 +393,38 @@ class Parser:
         return
     ## DEF
 
-    def splitSession(self, session):
+    def splitSession(self, orig_sess):
         # HACK: If the number of operations in the session gets too big, then
         # we have to spill the session into another object.
         # This kind of messes up
 
         new_sess = Session()
-        for k in session.iterkeys():
+        for k in orig_sess.iterkeys():
             if not k in ['operations', 'session_id']:
-                new_sess[k] = copy.deepcopy(session[k])
+                new_sess[k] = copy.deepcopy(orig_sess[k])
                 ## FOR
         new_sess['session_id'] = self.__nextSessionId__()
 
         # Split the operations list in half
-        split = len(session['operations']) / 2
-        new_sess['operations'] = session['operations'][split:]
-        session['operations'] = session['operations'][:split]
+        num_operations = len(orig_sess['operations'])
+        split = num_operations / 2
+        new_sess['operations'] = orig_sess['operations'][split:]
+        orig_sess['operations'] = orig_sess['operations'][:split]
 
         # Keep track of how we split them in case we want to combine them
         # later on when we sessionize the workload
-        new_sess['parent_session_id'] = session['session_id']
+        new_sess['parent_session_id'] = orig_sess['session_id']
 
         # Try to save the original session again
-        self.saveSessions([session], noSplit=True)
+        self.saveSessions([orig_sess], noSplit=True)
 
-        # Now update
+        # Now update the session map so that the next time that we need
+        # to add an operation for this client we get our new Session
+        self.session_map[orig_sess['ip_client']] = new_sess
 
+        if self.debug:
+            LOG.debug("Split Session #%d with %d operations into new Session #%d", \
+                      orig_sess['session_id'], num_operations, new_sess['session_id'])
     ## DEF
 
     def getOrCreateSession(self, ip_client, ip_server):
