@@ -243,7 +243,7 @@ class Parser:
                 continue
             try:
                 session.save()
-            except InvalidDocument as err:
+            except (mongokit.MaxDocumentSizeError, InvalidDocument) as err:
                 if noSplit: raise
                 self.splitSession(session)
                 pass
