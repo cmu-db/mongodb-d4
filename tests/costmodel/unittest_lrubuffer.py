@@ -5,7 +5,7 @@ import os, sys
 import random
 import time
 import unittest
-from pprint import pprint
+from pprint import pprint, pformat
 
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../"))
@@ -72,47 +72,47 @@ class TestNodeEstimator(unittest.TestCase):
         self.buffer.initialize(self.design)
     ## DEF
 
-#    def testInitialize(self):
-#        """Check whether we can initialize the buffer properly for a design"""
-#        col_name = self.col_info['name']
-#        self.assertIsNotNone(self.buffer.collection_sizes[col_name])
-#        self.assertEqual(len(self.design.getIndexes(col_name)), len(self.buffer.index_sizes[col_name]))
-#        for indexKeys in self.design.getIndexes(col_name):
-#            self.assertIsNotNone(self.buffer.index_sizes[col_name][indexKeys])
-#    ## DEF
+    def testInitialize(self):
+        """Check whether we can initialize the buffer properly for a design"""
+        col_name = self.col_info['name']
+        self.assertIsNotNone(self.buffer.collection_sizes[col_name])
+        self.assertEqual(len(self.design.getIndexes(col_name)), len(self.buffer.index_sizes[col_name]))
+        for indexKeys in self.design.getIndexes(col_name):
+            self.assertIsNotNone(self.buffer.index_sizes[col_name][indexKeys])
+    ## DEF
 
-#    def testInitializePreloading(self):
-#        """Check whether preloading the buffer works properly"""
-#
-#        num_collections = 5
-#        collections = dict()
-#        self.design = Design()
-#        for i in xrange(num_collections):
-#            col_name = "col%02d" % i
-#            col_info = catalog.Collection()
-#            col_info['name'] = col_name
-#            col_info['doc_count'] = NUM_DOCUMENTS
-#            col_info['workload_percent'] = 1 / float(num_collections)
-#            col_info['avg_doc_size'] = 1024
-#            collections[col_name] = col_info
-#            self.design.addCollection(col_name)
-#        ## FOR
-#
-#        self.buffer = LRUBuffer(collections, BUFFER_SIZE, preload=True)
-#
-#        try:
-#            self.buffer.initialize(self.design)
-#            self.buffer.validate()
-#        except:
-#            print self.buffer
-#            raise
-#    ## DEF
+    def testInitializePreloading(self):
+        """Check whether preloading the buffer works properly"""
 
-#    def testReset(self):
-#        """Check whether the LRUBuffer will reset its internal state properly"""
-#        self.buffer.reset()
-#        self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
-#    ## DEF
+        num_collections = 5
+        collections = dict()
+        self.design = Design()
+        for i in xrange(num_collections):
+            col_name = "col%02d" % i
+            col_info = catalog.Collection()
+            col_info['name'] = col_name
+            col_info['doc_count'] = NUM_DOCUMENTS
+            col_info['workload_percent'] = 1 / float(num_collections)
+            col_info['avg_doc_size'] = 1024
+            collections[col_name] = col_info
+            self.design.addCollection(col_name)
+        ## FOR
+
+        self.buffer = LRUBuffer(collections, BUFFER_SIZE, preload=True)
+
+        try:
+            self.buffer.initialize(self.design)
+            self.buffer.validate()
+        except:
+            print self.buffer
+            raise
+    ## DEF
+
+    def testReset(self):
+        """Check whether the LRUBuffer will reset its internal state properly"""
+        self.buffer.reset()
+        self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
+    ## DEF
 
     def testComputeTupleHash(self):
         num_entries = 10000
@@ -129,95 +129,93 @@ class TestNodeEstimator(unittest.TestCase):
             self.assertIsNotNone(buffer_tuple)
 
             extracted = self.buffer.__getTupleSize__(buffer_tuple)
-            self.assertEqual(size, extracted)
+            self.assertEqual(size, extracted, pformat(locals())) # "BufferTuple: %d / ExpectedSize: %d" % (buffer_tuple, size))
         ## FOR
 
     ## DEF
 
+    def testGetDocumentFromCollection(self):
+        """Check whether the LRUBuffer updates internal buffer for new collection documents"""
 
-#
-#    def testGetDocumentFromCollection(self):
-#        """Check whether the LRUBuffer updates internal buffer for new collection documents"""
-#
-#        documentId = 0
-#        pageHits = 0
-#        while self.buffer.remaining > self.col_info['avg_doc_size']:
-#            pageHits += self.buffer.getDocumentFromCollection(self.col_info['name'], documentId)
-#            before = self.buffer.remaining
-#
-#            # If we insert the same document, we should not get any pageHits and our
-#            # remaining memory should be the same
-#            _pageHits = self.buffer.getDocumentFromCollection(self.col_info['name'], documentId)
-#            self.assertEqual(0, _pageHits)
-#            self.assertEqual(before, self.buffer.remaining)
-#
-#            documentId += 1
-#        ## WHILE
-#
-#        # We should only have one pageHit per document
-#        self.assertEqual(documentId, pageHits)
-#
-#        # Make sure that the buffer is in the right order as we evict records
-#        lastDocId = None
-#        while len(self.buffer.buffer) > 0:
-#            evicted = self.buffer.evictNext(self.col_info['name'])
-#            self.assertIsNotNone(evicted)
-#
-#            # We can't check this anymore because it's faster for us
-#            # if we just store the hash of the tuple instead of the
-#            # actualy tuple values
-#            # if lastDocId: self.assertLess(lastDocId, docId)
-#            # lastDocId = docId
-#        ## WHILE
-#        self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
-#    ## DEF
-#
-#    def testGetDocumentFromIndex(self):
-#        """Check whether the LRUBuffer updates internal buffer for new index documents"""
-#
-#        # Roll through each index and add a bunch of documents. Note that the documents
-#        # will have the same documentId, but they should be represented as separated objects
-#        # in the internal buffer (because they are for different indexes)
-#        documentId = 0
-#        pageHits = 0
-#        while not self.buffer.evicted:
-#            for indexKeys in self.design.getIndexes(COLLECTION_NAME):
-#                pageHits += self.buffer.getDocumentFromIndex(self.col_info['name'], indexKeys, documentId)
-#                before = self.buffer.remaining
-#
-#                # If we insert the same document, we should not get any pageHits
-#                _pageHits = self.buffer.getDocumentFromIndex(self.col_info['name'], indexKeys, documentId)
-#                self.assertEqual(0, _pageHits)
-#                self.assertEqual(before, self.buffer.remaining)
-#
-#                if self.buffer.evicted: break
-#            documentId += 1
-#        ## WHILE
-#
-#        # Make sure that we get back two entries for each documentId (except for one)
-#        lastDocId = None
-##        docIds_h = Histogram()
-#        while len(self.buffer.buffer) > 0:
-##            typeId, key, docId = self.buffer.evictNext(COLLECTION_NAME)
-#            evicted = self.buffer.evictNext(COLLECTION_NAME)
-#            self.assertIsNotNone(evicted)
-##            self.assertIsNotNone(typeId)
-##            self.assertIsNotNone(key)
-##            self.assertIsNotNone(docId)
-##            docIds_h.put(docId)
-#        ## WHILE
-#
-##        foundSingleDocId = False
-##        for documentId,cnt in docIds_h.iteritems():
-##            if cnt == 1:
-##                self.assertFalse(foundSingleDocId)
-##                foundSingleDocId = True
-##            else:
-##                self.assertEqual(2, cnt)
-##        ## FOR
-#
-#        self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
-#    ## DEF
+        documentId = 0
+        pageHits = 0
+        while self.buffer.remaining > self.col_info['avg_doc_size']:
+            pageHits += self.buffer.getDocumentFromCollection(self.col_info['name'], documentId)
+            before = self.buffer.remaining
+
+            # If we insert the same document, we should not get any pageHits and our
+            # remaining memory should be the same
+            _pageHits = self.buffer.getDocumentFromCollection(self.col_info['name'], documentId)
+            self.assertEqual(0, _pageHits)
+            self.assertEqual(before, self.buffer.remaining)
+
+            documentId += 1
+        ## WHILE
+
+        # We should only have one pageHit per document
+        self.assertEqual(documentId, pageHits)
+
+        # Make sure that the buffer is in the right order as we evict records
+        lastDocId = None
+        while len(self.buffer.buffer) > 0:
+            evicted = self.buffer.evictNext(self.col_info['name'])
+            self.assertIsNotNone(evicted)
+
+            # We can't check this anymore because it's faster for us
+            # if we just store the hash of the tuple instead of the
+            # actualy tuple values
+            # if lastDocId: self.assertLess(lastDocId, docId)
+            # lastDocId = docId
+        ## WHILE
+        self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
+    ## DEF
+
+    def testGetDocumentFromIndex(self):
+        """Check whether the LRUBuffer updates internal buffer for new index documents"""
+
+        # Roll through each index and add a bunch of documents. Note that the documents
+        # will have the same documentId, but they should be represented as separated objects
+        # in the internal buffer (because they are for different indexes)
+        documentId = 0
+        pageHits = 0
+        while not self.buffer.evicted:
+            for indexKeys in self.design.getIndexes(COLLECTION_NAME):
+                pageHits += self.buffer.getDocumentFromIndex(self.col_info['name'], indexKeys, documentId)
+                before = self.buffer.remaining
+
+                # If we insert the same document, we should not get any pageHits
+                _pageHits = self.buffer.getDocumentFromIndex(self.col_info['name'], indexKeys, documentId)
+                self.assertEqual(0, _pageHits)
+                self.assertEqual(before, self.buffer.remaining)
+
+                if self.buffer.evicted: break
+            documentId += 1
+        ## WHILE
+
+        # Make sure that we get back two entries for each documentId (except for one)
+        lastDocId = None
+#        docIds_h = Histogram()
+        while len(self.buffer.buffer) > 0:
+#            typeId, key, docId = self.buffer.evictNext(COLLECTION_NAME)
+            evicted = self.buffer.evictNext(COLLECTION_NAME)
+            self.assertIsNotNone(evicted)
+#            self.assertIsNotNone(typeId)
+#            self.assertIsNotNone(key)
+#            self.assertIsNotNone(docId)
+#            docIds_h.put(docId)
+        ## WHILE
+
+#        foundSingleDocId = False
+#        for documentId,cnt in docIds_h.iteritems():
+#            if cnt == 1:
+#                self.assertFalse(foundSingleDocId)
+#                foundSingleDocId = True
+#            else:
+#                self.assertEqual(2, cnt)
+#        ## FOR
+
+        self.assertEqual(BUFFER_SIZE, self.buffer.remaining)
+    ## DEF
 
 
 ## CLASS

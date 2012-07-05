@@ -259,7 +259,7 @@ class LRUBuffer:
     ## -----------------------------------------------------------------------
 
     def __computeTupleHash__(self, typeId, key, size, documentId):
-        return long(hash((typeId, key, documentId)) | size<<32)
+        return long(abs(hash((typeId, key, documentId)))>>32 | size<<32)
     ## DEF
 
     def __getTupleSize__(self, buffer_tuple):
