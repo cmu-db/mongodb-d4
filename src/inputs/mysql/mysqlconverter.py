@@ -161,8 +161,6 @@ class MySQLConverter(AbstractConverter):
     def extractWorkload(self):
         LOG.info("Extracting workload from MySQL query log")
 
-        # Drop everything in the sessions collection first
-        self.metadata_db.drop_collection(constants.COLLECTION_WORKLOAD)
         quick_look = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
 
         c4 = self.mysql_conn.cursor()
@@ -204,8 +202,8 @@ class MySQLConverter(AbstractConverter):
                 if success:
                     if mongo.query_type <> 'UNKNOWN' :
                         operations = mongo.generate_operations(stamp)
-                        if len(operations) == 0 :
-                            print row[5]
+                        if not len(operations):
+                            LOG.warn(row[5])
                         for op in operations:
                             op['query_type'] = sql2mongo.get_op_type(op['query_type'])
                             op['query_id'] = self.next_query_id
