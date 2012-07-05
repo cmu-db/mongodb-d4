@@ -136,7 +136,7 @@ class LRUBuffer:
             # the results are always the same. This is safe to do because it is unlikely that
             # there will be a hash collision when we are processing the real workload
             rng = random.Random()
-            rng.seed(col_name)
+            # rng.seed(col_name)
             ctr = 0
             while (col_remaining-col_size) > 0 and self.evicted == 0:
                 documentId = rng.random()
