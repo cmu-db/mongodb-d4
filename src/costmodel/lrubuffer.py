@@ -29,6 +29,18 @@ from util import constants
 
 LOG = logging.getLogger(__name__)
 
+"""
+    Notes 2012-07-05
+    The current estimations with the LRUBuffer are too slow. This is because we
+    are allocating a large buffer space and assume that there is one document per page.
+    This is obviously inaccurate, but I didn't want to get into actually simulating the
+    OS's memory model of packing documents into pages. But now the problem is that we
+    have way too many documents in our buffer, which slows down the look-up and eviction
+    process.
+
+    
+"""
+
 class LRUBuffer:
     DOC_TYPE_INDEX = 0
     DOC_TYPE_COLLECTION = 1
@@ -106,8 +118,9 @@ class LRUBuffer:
 
             # How much space are they allow to have in the initial configuration
             col_remaining = int(self.buffer_size * (delta * col_info['workload_percent']))
-            LOG.info("%s Pre-load Percentage: %.1f%% [bytes=%d]", \
-                     col_name, (delta * col_info['workload_percent'])*100, col_remaining)
+            if self.debug:
+                LOG.info("%s Pre-load Percentage: %.1f%% [bytes=%d]", \
+                         col_name, (delta * col_info['workload_percent'])*100, col_remaining)
 
             # Now we could read the reconstructed database to generate tuples,
             # but that would be a bit slow for larger data sets. So we're just going
@@ -124,8 +137,8 @@ class LRUBuffer:
                 col_remaining -= self.collection_sizes[col_name]
                 ctr += 1
             ## WHILE
-#            if self.debug:
-            LOG.info("Pre-loaded %d documents for %s [evicted=%d]", ctr, col_name, self.evicted)
+            if self.debug:
+                LOG.info("Pre-loaded %d documents for %s [evicted=%d]", ctr, col_name, self.evicted)
         ## FOR
     ## DEF
 

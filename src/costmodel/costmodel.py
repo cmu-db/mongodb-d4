@@ -62,13 +62,22 @@ config {
 class CostModel(object):
 
     class Cache():
+        """
+            Internal cache for a single collection.
+            Note that this is different than the LRUBuffer cache stuff. These are
+            cached look-ups that the CostModel uses for figuring out what operations do.
+        """
+
         def __init__(self, col_info, num_nodes):
 
             # The number of pages needed to do a full scan of this collection
             # The worst case for all other operations is if we have to do
             # a full scan that requires us to evict the entire buffer
             # Hence, we multiple the max pages by two
-            self.fullscan_pages = (col_info['max_pages'] * 2) # / num_nodes
+#            self.fullscan_pages = (col_info['max_pages'] * 2)
+            self.fullscan_pages = (col_info['doc_count'] * 2)
+            assert self.fullscan_pages > 0, \
+                "Zero max_pages for collection '%s'" % col_info['name']
 
             # Cache of Best Index Tuples
             # QueryHash -> BestIndex
@@ -393,7 +402,8 @@ class CostModel(object):
                     LOG.debug("Op #%d on '%s' -> [pageHits:%d / worst:%d]", \
                               op["query_id"], op["collection"], pageHits, maxHits)
                 assert pageHits <= maxHits,\
-                    "Estimated pageHits [%d] is greater than worst [%d] for op #%d\n%s" % (pageHits, maxHits, op["query_id"], pformat(op))
+                    "Estimated pageHits [%d] is greater than worst [%d] for op #%d\n%s" % \
+                    (pageHits, maxHits, op["query_id"], pformat(op))
         ## FOR (op)
             sess_ctr += 1
             if sess_ctr % 1000 == 0: LOG.info("Session %5d / %d", sess_ctr, num_sessions)
