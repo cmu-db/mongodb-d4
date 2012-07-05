@@ -85,7 +85,7 @@ class AbstractConverter():
     ## DEF
 
     def loadImpl(self):
-        raise NotImplementedError("Unimplemented %s.loadImpl()" % (self.__init__.im_class))
+        raise NotImplementedError("Unimplemented %s.loadImpl()" % self.__init__.im_class)
     ## DEF
 
     def postProcess(self, page_size=constants.DEFAULT_PAGE_SIZE):
@@ -494,6 +494,3 @@ class AbstractConverter():
     ## DEF
 
 ## CLASS
-
-
-    

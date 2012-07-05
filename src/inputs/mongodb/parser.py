@@ -426,8 +426,8 @@ class Parser:
         # to add an operation for this client we get our new Session
         self.session_map[orig_sess['ip_client']] = new_sess
 
-        if self.debug:
-            LOG.debug("Split Session #%d with %d operations into new Session #%d", \
+#        if self.debug:
+        LOG.info("Split Session #%d with %d operations into new Session #%d", \
                       orig_sess['session_id'], num_operations, new_sess['session_id'])
     ## DEF
 
