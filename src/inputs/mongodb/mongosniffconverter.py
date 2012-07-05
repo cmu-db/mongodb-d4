@@ -53,6 +53,7 @@ class MongoSniffConverter(AbstractConverter):
     
     def __init__(self, metadata_db, dataset_db, fd=None):
         AbstractConverter.__init__(self, metadata_db, dataset_db)
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.fd = fd
         self.no_mongo_parse = False
@@ -60,8 +61,6 @@ class MongoSniffConverter(AbstractConverter):
         self.no_mongo_sessionizer = False
         self.mongo_skip = None
         self.op_limit = None
-
-        pass
     ## DEF
         
     def loadImpl(self):
@@ -122,7 +121,7 @@ class MongoSniffConverter(AbstractConverter):
         r.process()
         LOG.info("Processed %d sessions with %d operations into '%s'" % (\
                  r.getSessionCount(), r.getOpCount(), self.dataset_db.name))
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("Skipped Operations: %d" % r.getOpSkipCount())
             LOG.debug("Fixed Operations: %d" % r.getOpFixCount())
             LOG.debug("Collection Sizes:\n%s" % pformat(r.getCollectionCounts()))
@@ -143,11 +142,13 @@ class MongoSniffConverter(AbstractConverter):
         nextSessId = -1
         origTotal = 0
         origHistogram = Histogram()
-        for sess in self.workload_col.find():
+        sessions = [ ]
+        for sess in self.metadata_db.Session.fetch():
             s.process(sess['session_id'], sess['operations'])
             nextSessId = max(nextSessId, sess['session_id'])
             origHistogram.put(len(sess['operations']))
             origTotal += len(sess['operations'])
+            sessions.append(sess)
         ## FOR
         LOG.info("ORIG - Sessions: %d" % origHistogram.getSampleCount())
         LOG.info("ORIG - Avg Ops per Session: %.2f" % (origTotal / float(origHistogram.getSampleCount())))
@@ -159,25 +160,27 @@ class MongoSniffConverter(AbstractConverter):
 
         # We have to do this because otherwise we will start to process
         # the new sessions that we just inserted... I know...
-        for sess in [sess for sess in self.workload_col.find()]:
+        deletable = [ ]
+        for sess in sessions:
             newSessions = s.sessionize(sess, nextSessId)
             nextSessId += len(newSessions)
             
             # Mark the original session as deletable
-            sess['deletable'] = True
-            self.workload_col.save(sess)
-            
+            deletable.append(sess)
+
             # And then add all of our new sessions
             # Count the number of operations so that can see the change
-            LOG.debug("Split Session %d [%d ops] into %d separate sessions",
-                     sess['session_id'], len(sess['operations']), len(newSessions))
+            if self.debug:
+                LOG.debug("Split Session %d [%d ops] into %d separate sessions", \
+                          sess['session_id'], len(sess['operations']), len(newSessions))
             totalOps = 0
             for newSess in newSessions:
-                self.workload_col.save(newSess)
+                self.metadata_db.Session.save(newSess)
                 newOpCtr = len(newSess['operations'])
                 totalOps += newOpCtr
                 newHistogram.put(newOpCtr)
-                LOG.debug("Session %d -> %d Ops" % (newSess['session_id'], newOpCtr))
+                if self.debug:
+                    LOG.debug("Session %d -> %d Ops" % (newSess['session_id'], newOpCtr))
             # Make sure that all of our operations end up in a session
             assert len(sess['operations']) == totalOps, \
                 "Expected %d operations, but new sessions only had %d" % (len(sess['operations']), totalOps)
@@ -185,11 +188,10 @@ class MongoSniffConverter(AbstractConverter):
         ## FOR
         LOG.info("NEW  - Sessions: %d" % newHistogram.getSampleCount())
         LOG.info("NEW  - Avg Ops per Session: %.2f" % (newTotal / float(newHistogram.getSampleCount())))
-
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("NEW - Ops per Session\n%s" % newHistogram)
 
-        self.workload_col.remove({"deletable": True})
+        self.metadata_db.Session.remove(deletable)
 
         return
     ## DEF

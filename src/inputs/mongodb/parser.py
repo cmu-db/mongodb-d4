@@ -21,6 +21,8 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
+from bson.errors import InvalidDocument
+import copy
 
 import os
 import sys
@@ -104,6 +106,7 @@ class Parser:
         self.op_limit = None
         self.recreated_db = None
         self.stop_on_error = False
+        self.save_checkpoints = False
         
         # This is used to generate deterministic identifiers
         # for similar operations
@@ -125,7 +128,7 @@ class Parser:
         
         # current session map holds all session objects. Mapping client_id --> Session()
         self.session_map = {} 
-        self.session_uid = constants.INITIAL_SESSION_UID # first session_id
+        self.next_session_id = constants.INITIAL_SESSION_ID # first session_id
 
         # used to pair up queries & replies by their mongosniff ID
         self.query_response_map = {} 
@@ -207,10 +210,11 @@ class Parser:
                 raise
             finally:
                 # Checkpoint!
-                if self.line_ctr % 10000 == 0: self.saveSessions()
+                if self.save_checkpoints and self.line_ctr % 10000 == 0:
+                    self.saveSessions(self.session_map.itervalues())
             
-            if self.op_limit != None and self.op_ctr >= self.op_limit:
-                LOG.warn("Operation Limit Reached. Halting processing [op_limit=%d]" % (self.op_limit))
+            if not self.op_limit is None and self.op_ctr >= self.op_limit:
+                LOG.warn("Operation Limit Reached. Halting processing [op_limit=%d]" % self.op_limit)
                 break
         ## FOR
         if self.currentOp:
@@ -220,21 +224,37 @@ class Parser:
         # If only Emanuel was still alive to see this!
         self.postProcess()
         
-        self.saveSessions()
-        
-        pass
+        self.saveSessions(self.session_map.itervalues())
     ## DEF
     
-    def saveSessions(self):
+    def saveSessions(self, sessions):
         """Save all sessions!"""
-        for session in self.session_map.itervalues():
-            if len(session['operations']) == 0: 
+        for session in sessions:
+            if not len(session['operations']):
                 if self.debug:
                     LOG.warn("Ignoring Session %(session_id)d because it doesn't have any operations" % session)
                 continue
             try:
                 self.workload_col.save(session)
-            except (Exception) as err:
+            except InvalidDocument as err:
+                # HACK: If the number of operations in the session gets too big, then
+                # we have to spill the session into another object.
+                # This kind of messes up
+
+                nextPartialId = session.get("partial_id", -1) + 1
+                new_sess = Session()
+                for k, v in session.itervalues():
+                    if k != 'operations':
+                        new_sess[k] = copy.deepcopy(session[k])
+                ## FOR
+
+                # Split the operations list in half
+                split = len(session['operations']) / 2
+                new_sess['operations'] = session['operations'][split:]
+                session['operations'] = session['operations'][:split]
+
+                raise
+            except Exception as err:
                 dump = pformat(session)
                 #if len(dump) > 1024: dump = dump[:1024].strip() + "..."
                 LOG.error("Failed to save session: %s\n%s" % (err.message, dump))
@@ -396,21 +416,26 @@ class Parser:
         if ip_client in self.session_map:
             session = self.session_map[ip_client] 
         else:
-            # verify a session with the uid does not exist
-            if self.workload_col.find({'session_id': self.session_uid}).count() > 0:
-                msg = "Session with UID %s already exists.\n" % self.session_uid
+            # verify a session with the same id does not exist
+            if self.workload_col.find({'session_id': self.next_session_id}).count() > 0:
+                msg = "Session with UID %s already exists.\n" % self.next_session_id
                 msg += "Maybe you want to clean the database / use a different collection?"
                 raise Exception(msg)
 
             session = Session()
             session['ip_client'] = unicode(ip_client)
             session['ip_server'] = unicode(ip_server)
-            session['session_id'] = self.session_uid
+            session['session_id'] = self.__nextSessionId__()
             self.session_map[ip_client] = session
-            self.session_uid += 1
         ## IF
         
         return session
+    ## DEF
+
+    def __nextSessionId__(self):
+        _id = self.next_session_id
+        self.next_session_id += 1
+        return _id
     ## DEF
     
     def process_header_line(self, header):
