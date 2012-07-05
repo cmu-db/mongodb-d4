@@ -60,6 +60,7 @@ class MongoSniffConverter(AbstractConverter):
         self.no_mongo_reconstruct = False
         self.no_mongo_sessionizer = False
         self.mongo_skip = None
+        self.sess_limit = None
         self.op_limit = None
     ## DEF
         
@@ -90,8 +91,11 @@ class MongoSniffConverter(AbstractConverter):
             LOG.info("Will skip processing the first %d lines" % self.mongo_skip)
             p.op_skip =  self.mongo_skip
         # Processing Limit
+        if self.sess_limit:
+            LOG.info("Will stop reading workload trace after %d Sessions are processed", self.sess_limit)
+            p.sess_limit =  self.sess_limit
         if self.op_limit:
-            LOG.info("Will stop reading workload trace after %d operations are processed" % self.op_limit)
+            LOG.info("Will stop reading workload trace after %d Operations are processed", self.op_limit)
             p.op_limit =  self.op_limit
         
         # Clear our existing data

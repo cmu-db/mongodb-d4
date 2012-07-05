@@ -100,8 +100,10 @@ class Parser:
         self.line_ctr = 0
         self.resp_ctr = 0
         self.skip_ctr = 0
+        self.sess_ctr = 0
         self.op_ctr = 0
         self.op_skip = None
+        self.sess_limit = None
         self.op_limit = None
         self.recreated_db = None
         self.stop_on_error = False
@@ -214,9 +216,12 @@ class Parser:
                 # Checkpoint!
                 if self.save_checkpoints and self.line_ctr % 10000 == 0:
                     self.saveSessions(self.session_map.itervalues())
-            
-            if not self.op_limit is None and self.op_ctr >= self.op_limit:
-                LOG.warn("Operation Limit Reached. Halting processing [op_limit=%d]" % self.op_limit)
+
+            if not self.sess_limit is None and self.sess_ctr >= self.sess_limit:
+                LOG.warn("Session Limit Reached. Halting processing [sess_limit=%d]", self.sess_limit)
+                break
+            elif not self.op_limit is None and self.op_ctr >= self.op_limit:
+                LOG.warn("Operation Limit Reached. Halting processing [op_limit=%d]", self.op_limit)
                 break
         ## FOR
         if self.currentOp:
@@ -453,6 +458,7 @@ class Parser:
     def __nextSessionId__(self):
         _id = self.next_session_id
         self.next_session_id += 1
+        self.sess_ctr += 1
         return _id
     ## DEF
     

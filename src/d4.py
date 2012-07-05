@@ -180,7 +180,6 @@ if __name__ == '__main__':
             dataset_db.drop_collection(col_name)
         ## FOR
     ## IF
-    sys.exit(1)
 
     designer = Designer(cparser, metadata_db, dataset_db)
     designer.setOptionsFromArguments(args)

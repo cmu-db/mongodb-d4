@@ -105,6 +105,7 @@ class Designer():
         converter.no_mongo_reconstruct = self.no_mongo_reconstruct
         converter.no_mongo_sessionizer = self.no_mongo_sessionizer
         converter.mongo_skip = self.mongo_skip
+        converter.sess_limit = self.sess_limit
         converter.op_limit = self.op_limit
 
         converter.process(
