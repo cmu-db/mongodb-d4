@@ -80,7 +80,7 @@ class MongoSniffConverter(AbstractConverter):
     ## ----------------------------------------------
     def parseWorkload(self, fd):
         # Create the Parser object that will go to town on our input file 
-        p = parser.Parser(self.workload_col, fd)
+        p = parser.Parser(self.metadata_db, fd)
         
         # Stop on Error
         if self.stop_on_error:
@@ -106,7 +106,7 @@ class MongoSniffConverter(AbstractConverter):
         p.process()
         LOG.info("Finishing processing")
         LOG.info("Added %d sessions with %d operations to '%s'" % (\
-            p.getSessionCount(), p.getOpCount(), self.workload_col.full_name))
+            p.getSessionCount(), p.getOpCount(), self.metadata_db.collection.full_name))
         LOG.info("Skipped Responses: %d" % p.getOpSkipCount())
     ## IF
     

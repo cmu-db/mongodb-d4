@@ -47,6 +47,8 @@ class Reconstructor:
     """MongoDB Database Reconstructor"""
     
     def __init__(self, metadata_db, dataset_db):
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
+
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
 
@@ -58,15 +60,15 @@ class Reconstructor:
 
     def process(self):
         """Iterates through all operations of all sessions and recreates the dataset..."""
-        cnt = self.metadata_db.Session.find().count()
+        cnt = self.metadata_db.Session.fetch().count()
         LOG.info("Found %d sessions in the workload collection. Processing... ", cnt)
 
         # HACK: Skip any operations with invalid collection names
         #       We will go back later and fix these up
         toIgnore = [constants.INVALID_COLLECTION_MARKER] + constants.IGNORED_COLLECTIONS
 
-        LOG.info("Reconstructing dataset from %d Sessions" % self.metadata_db.Session.find().count())
-        for session in self.metadata_db.Session.find():
+        LOG.info("Reconstructing dataset from %d Sessions" % self.metadata_db.Session.fetch().count())
+        for session in self.metadata_db.Session.fetch():
             self.sess_ctr += 1
             for op in session["operations"]:
                 self.op_ctr += 1
@@ -126,7 +128,7 @@ class Reconstructor:
     def processInsert(self, op):
         payload = op["query_content"]
         col = op["collection"]
-        LOG.debug("Inserting %d documents into collection %s", len(payload), col)
+        if self.debug: LOG.debug("Inserting %d documents into collection %s", len(payload), col)
         for doc in payload:
             self.dataset_db[col].save(doc)
         return True
@@ -135,7 +137,7 @@ class Reconstructor:
     def processDelete(self, op):
         payload = op["query_content"]
         col = op["collection"]
-        LOG.debug("Deleting documents from collection %s..", col)
+        if self.debug: LOG.debug("Deleting documents from collection %s..", col)
         self.dataset_db[col].remove(payload)
         return True
     ## DEF
@@ -143,8 +145,8 @@ class Reconstructor:
     def processUpdate(self, op):
         payload = op["query_content"]
         col = op["collection"]
-        
-        LOG.debug("Updating Collection '%s' [upsert=%s, multi=%s]" % (col, op["update_upsert"], op["update_multi"]))
+
+        if self.debug: LOG.debug("Updating Collection '%s' [upsert=%s, multi=%s]" % (col, op["update_upsert"], op["update_multi"]))
         assert len(payload) == 2, \
             "Update operation payload is expected to have exactly 2 entries."
         self.dataset_db[col].update(payload[0], payload[1], op["update_upsert"], op["update_multi"])
@@ -156,17 +158,17 @@ class Reconstructor:
         
         # We have to skip aggregates since the response contains computed values
         if op["query_aggregate"]:
-            if LOG.isEnabledFor(logging.DEBUG):
+            if self.debug: 
                 LOG.warn("Skipping operation #%d on '%s' because it is an aggregate function" % (op['query_id'], col))
         
         # Skip anything that doesn't have a response
         elif 'resp_content' not in op:
-            if LOG.isEnabledFor(logging.DEBUG):
+            if self.debug: 
                 LOG.warn("Skipping operation #%d on '%s' because it does not have a response" % (op['query_id'], col))
         
         # The query is irrelevant, we simply add the content of the reply...
         elif len(op["resp_content"]) > 0:
-            if LOG.isEnabledFor(logging.DEBUG):
+            if self.debug: 
                 LOG.debug("Adding %d query results to collection %s", len(op["resp_content"]), col)
         
             # Note that this is an upsert operation: insert if not present
