@@ -79,6 +79,7 @@ class TestNodeEstimator(unittest.TestCase):
         self.assertEqual(len(self.design.getIndexes(col_name)), len(self.buffer.index_sizes[col_name]))
         for indexKeys in self.design.getIndexes(col_name):
             self.assertIsNotNone(self.buffer.index_sizes[col_name][indexKeys])
+        self.buffer.validate()
     ## DEF
 
     def testInitializePreloading(self):
@@ -150,6 +151,7 @@ class TestNodeEstimator(unittest.TestCase):
             self.assertEqual(before, self.buffer.remaining)
 
             documentId += 1
+            self.buffer.validate()
         ## WHILE
 
         # We should only have one pageHit per document
@@ -160,6 +162,7 @@ class TestNodeEstimator(unittest.TestCase):
         while len(self.buffer.buffer) > 0:
             evicted = self.buffer.evictNext(self.col_info['name'])
             self.assertIsNotNone(evicted)
+            self.buffer.validate()
 
             # We can't check this anymore because it's faster for us
             # if we just store the hash of the tuple instead of the
@@ -190,6 +193,7 @@ class TestNodeEstimator(unittest.TestCase):
 
                 if self.buffer.evicted: break
             documentId += 1
+            self.buffer.validate()
         ## WHILE
 
         # Make sure that we get back two entries for each documentId (except for one)
@@ -199,6 +203,7 @@ class TestNodeEstimator(unittest.TestCase):
 #            typeId, key, docId = self.buffer.evictNext(COLLECTION_NAME)
             evicted = self.buffer.evictNext(COLLECTION_NAME)
             self.assertIsNotNone(evicted)
+            self.buffer.validate()
 #            self.assertIsNotNone(typeId)
 #            self.assertIsNotNone(key)
 #            self.assertIsNotNone(docId)
