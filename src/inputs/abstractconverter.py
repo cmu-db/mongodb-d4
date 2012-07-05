@@ -86,7 +86,7 @@ class AbstractConverter():
         ## FOR
     ## DEF
 
-    def process(self, no_load=False, no_post_process=False, page_size=4):
+    def process(self, no_load=False, no_post_process=False, page_size=constants.DEFAULT_PAGE_SIZE):
         if not no_load: self.loadImpl()
         if not no_post_process: self.postProcess(page_size)
     ## DEF
@@ -95,7 +95,7 @@ class AbstractConverter():
         raise NotImplementedError("Unimplemented %s.loadImpl()" % (self.__init__.im_class))
     ## DEF
 
-    def postProcess(self, page_size=4):
+    def postProcess(self, page_size=constants.DEFAULT_PAGE_SIZE):
         """
             The PostProcessor performs final calculations on an already loaded metadata
             and workload database. These calculations can be computed regardless of whether
@@ -113,7 +113,6 @@ class AbstractConverter():
         self.extractSchemaCatalog()
 
         # Finalize workload percentage statistics for each collection
-        page_size *= 1024
         percent_total = 0.0
         for col_info in self.metadata_db.Collection.find():
             for k in ['doc_count', 'workload_queries', 'avg_doc_size']:

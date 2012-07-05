@@ -60,7 +60,8 @@ class Designer():
         self.initialSolution = None
         self.finalSolution = None
 
-        self.page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
+        # self.page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
+        self.page_size = constants.DEFAULT_PAGE_SIZE
         self.sample_rate = self.cparser.getint(config.SECT_DESIGNER, 'sample_rate')
 
         self.sess_limit = None
@@ -180,7 +181,7 @@ class Designer():
         ## FOR
         if not len(workload):
             raise Exception("No workload sessions were found in database\n%s" % pformat(workloadQuery))
-        LOG.info("Loaded %d sessions with %d operations from worklaod database", len(workload), op_ctr)
+        LOG.info("Loaded %d sessions with %d operations from workload database", len(workload), op_ctr)
 
         # Instantiate cost model
         cm = costmodel.CostModel(collectionsDict, workload, cmConfig)

@@ -38,17 +38,17 @@ LOG = logging.getLogger(__name__)
     have way too many documents in our buffer, which slows down the look-up and eviction
     process.
 
-    
+    As an alternative, we will increase the size of each document to be exactly a single page.
 """
 
 class LRUBuffer:
     DOC_TYPE_INDEX = 0
     DOC_TYPE_COLLECTION = 1
 
-    def __init__(self, collections, buffer_size):
+    def __init__(self, collections, buffer_size, preload=False):
 #        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
-        self.preload = True
+        self.preload = preload
 
         self.collections = collections
         self.collection_sizes = { }
@@ -58,6 +58,7 @@ class LRUBuffer:
         # The buffer is just a list of uniquely identifable objects
         # The elements are ordered from the least used to most recent
         self.buffer = [ ]
+        self.buffer_ids = set()
 
         # This is the total amount of space available in this buffer (bytes)
         self.buffer_size = buffer_size
@@ -76,6 +77,7 @@ class LRUBuffer:
         """
         self.remaining = self.buffer_size
         self.buffer = [ ]
+        self.buffer_ids.clear()
         self.evicted = 0
         self.collection_sizes = { }
         self.index_sizes = { }
@@ -92,13 +94,17 @@ class LRUBuffer:
         percent_total = 0.0
         for col_name in design.getCollections():
             col_info = self.collections[col_name]
-            self.collection_sizes[col_name] = col_info['avg_doc_size']
             percent_total += col_info['workload_percent']
+
+            # Collection Document Size
+            # self.collection_sizes[col_name] = col_info['avg_doc_size']
+            self.collection_sizes[col_name] = constants.DEFAULT_PAGE_SIZE
 
             # For each collection, get the indexes that are included in the design.
             col_index_sizes = { }
             for index_keys in design.getIndexes(col_name):
-                col_index_sizes[index_keys] = self.getIndexSize(col_info, index_keys)
+                # col_index_sizes[index_keys] = self.__getIndexSize__(col_info, index_keys)
+                col_index_sizes[index_keys] = constants.DEFAULT_PAGE_SIZE
             self.index_sizes[col_name] = col_index_sizes
         assert percent_total > 0.0 and percent_total <= 1.0, \
             "Invalid workload percent total %f" % percent_total
@@ -118,8 +124,8 @@ class LRUBuffer:
 
             # How much space are they allow to have in the initial configuration
             col_remaining = int(self.buffer_size * (delta * col_info['workload_percent']))
-            if self.debug:
-                LOG.info("%s Pre-load Percentage: %.1f%% [bytes=%d]", \
+#            if self.debug:
+            LOG.info("%s Pre-load Percentage: %.1f%% [bytes=%d]", \
                          col_name, (delta * col_info['workload_percent'])*100, col_remaining)
 
             # Now we could read the reconstructed database to generate tuples,
@@ -134,16 +140,13 @@ class LRUBuffer:
             while col_remaining > 0 and self.evicted == 0:
                 documentId = rng.random()
                 self.getDocumentFromCollection(col_name, documentId, noLookUp=True)
-                col_remaining -= self.collection_sizes[col_name]
+                col_remaining -= col_size
                 ctr += 1
             ## WHILE
-            if self.debug:
-                LOG.info("Pre-loaded %d documents for %s [evicted=%d]", ctr, col_name, self.evicted)
+#            if self.debug:
+            LOG.info("Pre-loaded %d documents for %s [evicted=%d]", ctr, col_name, self.evicted)
         ## FOR
-    ## DEF
-
-    def computeTupleHash(self, typeId, key, size, documentId):
-        return long(hash((typeId, key, documentId)) | size<<32)
+        LOG.info("Total # of Pre-loaded Documents: %d", len(self.buffer_ids))
     ## DEF
 
     def getDocumentFromIndex(self, col_name, indexKeys, documentId, noLookUp=False):
@@ -173,9 +176,9 @@ class LRUBuffer:
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
-        buffer_tuple = self.computeTupleHash(typeId, key, size, documentId)
+        buffer_tuple = self.__computeTupleHash__(typeId, key, size, documentId)
 
-        if noLookUp:
+        if noLookUp or not documentId in self.buffer_ids:
             offset = None
         else:
             try:
@@ -206,6 +209,7 @@ class LRUBuffer:
                 page_hits += 1
 
             self.buffer.append(buffer_tuple)
+            self.buffer_ids.add(buffer_tuple)
             self.remaining -= size
             page_hits += 1
         return page_hits
@@ -236,7 +240,15 @@ class LRUBuffer:
         return buffer_tuple
     ## DEF
 
-    def getIndexSize(self, col_info, indexKeys):
+    ## -----------------------------------------------------------------------
+    ## UTILITY METHODS
+    ## -----------------------------------------------------------------------
+
+    def __computeTupleHash__(self, typeId, key, size, documentId):
+        return long(hash((typeId, key, documentId)) | size<<32)
+    ## DEF
+
+    def __getIndexSize__(self, col_info, indexKeys):
         """Estimate the amount of memory required by the indexes of a given design"""
         # TODO: This should be precomputed ahead of time. No need to do this
         #       over and over again.
@@ -249,5 +261,25 @@ class LRUBuffer:
         if self.debug: LOG.debug("%s Index %s Memory: %d bytes",\
             col_info['name'], repr(indexKeys), index_size)
         return index_size
+    ## DEF
+
+    def __str__(self):
+        buffer_ratio = (self.buffer_size - self.remaining) / float(self.buffer_size)
+        return "Buffer Usage %.2f%% [total=%d / used=%d / entries=%d / ids=%d]" % (\
+                   buffer_ratio*100, \
+                   self.buffer_size, \
+                   self.buffer_size - self.remaining, \
+                   len(self.buffer), \
+                   len(self.buffer_ids))
+    ## DEF
+
+    def validate(self):
+        """Check that the buffer is in a valid state"""
+        assert self.remaining >= 0,\
+        "The buffer has a negative remaining space"
+        assert self.remaining <= self.buffer_size,\
+        "The buffer has more remaining space than the original buffer size"
+        assert len(self.buffer_ids) == len(self.buffer),\
+        "There are %d buffer ids but %d buffer entries" % (len(self.buffer_ids), len(self.buffer))
     ## DEF
 ## CLASS

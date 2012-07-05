@@ -26,8 +26,7 @@ DEFAULT_CONFIG = {
     # Target Cluster Configuration
     SECT_CLUSTER: {
         "nodes": ("The number of machines in the target MongoDB cluster.", 10),
-        "node_memory":  ("The amount of memory available for each MongoDB database nodes.", 15360),
-        "page_size": ("The size of pages (kb) on disk for each MongoDB database node.", 4),
+        "node_memory":  ("The amount of memory available (MB) for each MongoDB database nodes.", 15360),
     },
     
     # Designer Configuration

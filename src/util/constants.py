@@ -80,3 +80,6 @@ PRED_TYPE_REGEX     = 'regex'
 ## ==============================================
 DEFAULT_ADDRESS_SIZE = 8 # bytes
 DEFAULT_TIME_INTERVALS = 10
+
+# The size of pages on disk for each MongoDB database node
+DEFAULT_PAGE_SIZE = 4096 # bytes

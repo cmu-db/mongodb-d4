@@ -167,8 +167,7 @@ class CostModel(object):
 
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
-        delta = design.getDelta(self.last_design)
-        map(self.invalidateCache, delta)
+        map(self.invalidateCache, design.getDelta(self.last_design))
 
         if self.debug:
             LOG.debug("New Design:\n%s", design)
@@ -196,6 +195,8 @@ class CostModel(object):
         buffer_ratio = (buffer_total - buffer_remaining) / float(buffer_total)
         LOG.info("Buffer Usage %.2f%% [total=%d / used=%d]", \
                   buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
+
+        map(LRUBuffer.validate, self.buffers)
 
         if self.debug:
             cache_success = sum([ x for x in self.cache_hit_ctr.itervalues() ])
@@ -254,6 +255,8 @@ class CostModel(object):
         # Initialize all of the LRU buffers
         for lru in self.buffers:
             lru.initialize(design)
+            LOG.info(lru)
+            lru.validate()
 
         # Ok strap on your helmet, this is the magical part of the whole thing!
         #
