@@ -136,22 +136,23 @@ class LRUBuffer:
             # the results are always the same. This is safe to do because it is unlikely that
             # there will be a hash collision when we are processing the real workload
             rng = random.Random()
-            # rng.seed(col_name)
+            rng.seed(col_name)
             ctr = 0
             while (col_remaining-col_size) > 0 and self.evicted == 0:
                 documentId = rng.random()
-                self.getDocumentFromCollection(col_name, documentId, noLookUp=True)
+                self.getDocumentFromCollection(col_name, documentId)
                 col_remaining -= col_size
                 ctr += 1
             ## WHILE
 #            if self.debug:
             LOG.info("Pre-loaded %d documents for %s - %s", ctr, col_name, self)
+            self.validate()
         ## FOR
         if self.preload:
             LOG.info("Total # of Pre-loaded Documents: %d", len(self.buffer_ids))
     ## DEF
 
-    def getDocumentFromIndex(self, col_name, indexKeys, documentId, noLookUp=False):
+    def getDocumentFromIndex(self, col_name, indexKeys, documentId):
         """
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
@@ -159,10 +160,10 @@ class LRUBuffer:
         size = self.index_sizes[col_name].get(indexKeys, 0)
         assert size > 0, \
             "Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
-        return self.getDocument(LRUBuffer.DOC_TYPE_INDEX, col_name, indexKeys, size, documentId, noLookUp)
+        return self.getDocument(LRUBuffer.DOC_TYPE_INDEX, col_name, indexKeys, size, documentId)
     ## DEF
 
-    def getDocumentFromCollection(self, col_name, documentId, noLookUp=False):
+    def getDocumentFromCollection(self, col_name, documentId):
         """
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
@@ -170,17 +171,17 @@ class LRUBuffer:
         size = self.collection_sizes.get(col_name, 0)
         assert size > 0, \
             "Missing collection size for '%s'" % col_name
-        return self.getDocument(LRUBuffer.DOC_TYPE_COLLECTION, col_name, col_name, size, documentId, noLookUp)
+        return self.getDocument(LRUBuffer.DOC_TYPE_COLLECTION, col_name, col_name, size, documentId)
     ## DEF
 
-    def getDocument(self, typeId, col_name, key, size, documentId, noLookUp=False):
+    def getDocument(self, typeId, col_name, key, size, documentId):
         page_hits = 0
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
         buffer_tuple = self.__computeTupleHash__(typeId, key, size, documentId)
 
-        if noLookUp or not documentId in self.buffer_ids:
+        if not buffer_tuple in self.buffer_ids:
             offset = None
         else:
             try:
@@ -202,6 +203,8 @@ class LRUBuffer:
         #       that out would be too expensive for this estimate, since we don't
         #       actually know how many documents are in that page that it needs to write
         else:
+            assert not buffer_tuple in self.buffer_ids,\
+                "Duplicate entry '%s'" % buffer_tuple
             assert size < self.buffer_size
             while (self.remaining - size) < 0:
                 if self.debug:
@@ -214,6 +217,16 @@ class LRUBuffer:
             self.buffer_ids.add(buffer_tuple)
             self.remaining -= size
             page_hits += 1
+
+#        try:
+#            self.validate()
+#        except:
+#            LOG.error("Invalid state after inserting %s / %d", (typeId, key, size, documentId), buffer_tuple)
+#            LOG.error("offset=%s", offset)
+#            LOG.error("InBuffer=%s", (documentId in self.buffer))
+#            LOG.error("InBufferIds=%s", (documentId in self.buffer_ids))
+#            raise
+
         return page_hits
     ## DEF
 
