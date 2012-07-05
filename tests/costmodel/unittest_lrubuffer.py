@@ -124,7 +124,7 @@ class TestNodeEstimator(unittest.TestCase):
             # of it is the size that we put into it
             typeId = rng.choice([LRUBuffer.DOC_TYPE_COLLECTION, LRUBuffer.DOC_TYPE_INDEX])
             key = rng.random()
-            size = rng.randint(1024, constants.DEFAULT_PAGE_SIZE)
+            size = rng.randint(1, 8) * 1024
             documentId = rng.random()
             buffer_tuple = self.buffer.__computeTupleHash__(typeId, key, size, documentId)
             self.assertIsNotNone(buffer_tuple)

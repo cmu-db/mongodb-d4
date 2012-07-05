@@ -46,7 +46,7 @@ class LRUBuffer:
     DOC_TYPE_COLLECTION = 1
 
     def __init__(self, collections, buffer_size, preload=constants.DEFAULT_LRU_PRELOAD):
-#        LOG.setLevel(logging.DEBUG)
+        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.preload = preload
 
@@ -65,6 +65,7 @@ class LRUBuffer:
         # This is the amount of space that is unallocated in this buffer (bytes)
         self.remaining = buffer_size
         self.evicted = 0
+        self.refreshed = 0
 
         self.address_size = constants.DEFAULT_ADDRESS_SIZE # FIXME
 
@@ -79,6 +80,7 @@ class LRUBuffer:
         self.buffer = [ ]
         self.buffer_ids.clear()
         self.evicted = 0
+        self.refreshed = 0
         self.collection_sizes = { }
         self.index_sizes = { }
     ## DEF
@@ -182,6 +184,8 @@ class LRUBuffer:
         if not buffer_tuple in self.buffer_ids:
             offset = None
         else:
+#            if self.debug:
+#                LOG.debug("Looking up %d from buffer", buffer_tuple)
             try:
                 offset = self.buffer.index(buffer_tuple)
             except ValueError:
@@ -192,6 +196,7 @@ class LRUBuffer:
         if not offset is None:
             del self.buffer[offset]
             self.buffer.append(buffer_tuple)
+            self.refreshed += 1
 
         # It's not in the buffer for this index, so we're going to have
         # go fetch it from disk. Check whether we can just fetch
@@ -259,11 +264,12 @@ class LRUBuffer:
     ## -----------------------------------------------------------------------
 
     def __computeTupleHash__(self, typeId, key, size, documentId):
-        return long(abs(hash((typeId, key, documentId)))>>32 | size<<32)
+        size /= 1024
+        return long(abs(hash((typeId, key, documentId)))>>8 | size<<56)
     ## DEF
 
     def __getTupleSize__(self, buffer_tuple):
-        return buffer_tuple >> 32
+        return (buffer_tuple >> 56)*1024
     ## DEF
 
     def __getIndexSize__(self, col_info, indexKeys):
@@ -283,13 +289,15 @@ class LRUBuffer:
 
     def __str__(self):
         buffer_ratio = (self.buffer_size - self.remaining) / float(self.buffer_size)
-        return "Buffer Usage %.2f%% [total=%d / used=%d / evicted=%d / entries=%d / ids=%d]" % (\
-                   buffer_ratio*100, \
-                   self.buffer_size, \
-                   self.buffer_size - self.remaining, \
-                   self.evicted, \
-                   len(self.buffer), \
-                   len(self.buffer_ids))
+        return "Buffer Usage %.2f%% [evicted=%d / refreshed=%d / entries=%d / ids=%d / used=%d / total=%d ]" % (\
+                   buffer_ratio*100,
+                   self.evicted,
+                   self.refreshed,
+                   len(self.buffer),
+                   len(self.buffer_ids),
+                   self.buffer_size - self.remaining,
+                   self.buffer_size,
+        )
     ## DEF
 
     def validate(self):

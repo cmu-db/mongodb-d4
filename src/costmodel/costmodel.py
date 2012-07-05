@@ -121,7 +121,7 @@ class CostModel(object):
 
     def __init__(self, collections, workload, config):
         assert isinstance(collections, dict)
-#        LOG.setLevel(logging.DEBUG)
+        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.collections = collections
@@ -143,7 +143,7 @@ class CostModel(object):
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
         self.buffers = [ ]
         for i in xrange(self.num_nodes):
-            lru = LRUBuffer(self.collections, self.max_memory, preload=False) # constants.DEFAULT_LRU_PRELOAD)
+            lru = LRUBuffer(self.collections, self.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
             self.buffers.append(lru)
         ## ----------------------------------------------
         ## CACHING
@@ -249,6 +249,7 @@ class CostModel(object):
         """
 
         num_sessions = len(self.workload)
+        complete_marker = num_sessions / 10
 #        if self.debug:
         LOG.info("Calculating diskCost for %d sessions", num_sessions)
 
@@ -407,9 +408,9 @@ class CostModel(object):
                 assert pageHits <= maxHits,\
                     "Estimated pageHits [%d] is greater than worst [%d] for op #%d\n%s" % \
                     (pageHits, maxHits, op["query_id"], pformat(op))
-        ## FOR (op)
+            ## FOR (op)
             sess_ctr += 1
-            if sess_ctr % 1000 == 0: LOG.info("Session %5d / %d", sess_ctr, num_sessions)
+            if sess_ctr % complete_marker == 0: LOG.info("Session %5d / %d", sess_ctr, num_sessions)
         ## FOR (sess)
 
         # The final disk cost is the ratio of our estimated disk access cost divided
