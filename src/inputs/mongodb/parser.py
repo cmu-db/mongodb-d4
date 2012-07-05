@@ -227,7 +227,7 @@ class Parser:
         self.saveSessions(self.session_map.itervalues())
     ## DEF
     
-    def saveSessions(self, sessions):
+    def saveSessions(self, sessions, noSplit=False):
         """Save all sessions!"""
         for session in sessions:
             if not len(session['operations']):
@@ -237,23 +237,9 @@ class Parser:
             try:
                 self.workload_col.save(session)
             except InvalidDocument as err:
-                # HACK: If the number of operations in the session gets too big, then
-                # we have to spill the session into another object.
-                # This kind of messes up
-
-                nextPartialId = session.get("partial_id", -1) + 1
-                new_sess = Session()
-                for k, v in session.itervalues():
-                    if k != 'operations':
-                        new_sess[k] = copy.deepcopy(session[k])
-                ## FOR
-
-                # Split the operations list in half
-                split = len(session['operations']) / 2
-                new_sess['operations'] = session['operations'][split:]
-                session['operations'] = session['operations'][:split]
-
-                raise
+                if noSplit: raise
+                self.splitSession(session)
+                pass
             except Exception as err:
                 dump = pformat(session)
                 #if len(dump) > 1024: dump = dump[:1024].strip() + "..."
@@ -261,8 +247,7 @@ class Parser:
                 raise
         ## FOR
     ## DEF
-    
-    
+
     def storeCurrentOpInSession(self):
         """Stores the currentOp in a session. We will create a new session if one does not already exist."""
         
@@ -407,7 +392,35 @@ class Parser:
         
         return
     ## DEF
-    
+
+    def splitSession(self, session):
+        # HACK: If the number of operations in the session gets too big, then
+        # we have to spill the session into another object.
+        # This kind of messes up
+
+        new_sess = Session()
+        for k in session.iterkeys():
+            if not k in ['operations', 'session_id']:
+                new_sess[k] = copy.deepcopy(session[k])
+                ## FOR
+        new_sess['session_id'] = self.__nextSessionId__()
+
+        # Split the operations list in half
+        split = len(session['operations']) / 2
+        new_sess['operations'] = session['operations'][split:]
+        session['operations'] = session['operations'][:split]
+
+        # Keep track of how we split them in case we want to combine them
+        # later on when we sessionize the workload
+        new_sess['parent_session_id'] = session['session_id']
+
+        # Try to save the original session again
+        self.saveSessions([session], noSplit=True)
+
+        # Now update
+
+    ## DEF
+
     def getOrCreateSession(self, ip_client, ip_server):
         """this function initializes a new Session() object (in workload/traces.py)
            and stores it in the collection"""
