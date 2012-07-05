@@ -45,7 +45,7 @@ class LRUBuffer:
     DOC_TYPE_INDEX = 0
     DOC_TYPE_COLLECTION = 1
 
-    def __init__(self, collections, buffer_size, preload=False):
+    def __init__(self, collections, buffer_size, preload=constants.DEFAULT_LRU_PRELOAD):
 #        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.preload = preload
@@ -116,7 +116,6 @@ class LRUBuffer:
         # so that the evictions are deterministic. This also means that we can
         # cache this setup so that we can reuse it everytime we are reset.
         delta = 1.0 + ((1.0 - percent_total) / percent_total)
-        preload_ctr = 0
         for col_name in design.getCollections():
             if not self.preload: break
 
@@ -125,8 +124,8 @@ class LRUBuffer:
 
             # How much space are they allow to have in the initial configuration
             col_remaining = int(self.buffer_size * (delta * col_info['workload_percent']))
-#            if self.debug:
-            LOG.info("%s Pre-load Percentage: %.1f%% [bytes=%d]", \
+            if self.debug:
+                LOG.debug("%s Pre-load Percentage: %.1f%% [bytes=%d]", \
                          col_name, (delta * col_info['workload_percent'])*100, col_remaining)
 
             # Now we could read the reconstructed database to generate tuples,
@@ -144,12 +143,11 @@ class LRUBuffer:
                 col_remaining -= col_size
                 ctr += 1
             ## WHILE
-#            if self.debug:
-            LOG.info("Pre-loaded %d documents for %s - %s", ctr, col_name, self)
-            self.validate()
+            if self.debug:
+                LOG.debug("Pre-loaded %d documents for %s - %s", ctr, col_name, self)
         ## FOR
-        if self.preload:
-            LOG.info("Total # of Pre-loaded Documents: %d", len(self.buffer_ids))
+        if self.debug and self.preload:
+            LOG.debug("Total # of Pre-loaded Documents: %d", len(self.buffer_ids))
     ## DEF
 
     def getDocumentFromIndex(self, col_name, indexKeys, documentId):
@@ -238,7 +236,7 @@ class LRUBuffer:
 
         buffer_tuple = self.buffer.pop(0)
         self.buffer_ids.remove(buffer_tuple)
-        size = buffer_tuple >> 32
+        size = self.__getTupleSize__(buffer_tuple)
 
 #        typeId, key, docId = self.buffer.pop(0)
 #        if typeId == LRUBuffer.DOC_TYPE_INDEX:
@@ -262,6 +260,10 @@ class LRUBuffer:
 
     def __computeTupleHash__(self, typeId, key, size, documentId):
         return long(hash((typeId, key, documentId)) | size<<32)
+    ## DEF
+
+    def __getTupleSize__(self, buffer_tuple):
+        return buffer_tuple >> 32
     ## DEF
 
     def __getIndexSize__(self, col_info, indexKeys):

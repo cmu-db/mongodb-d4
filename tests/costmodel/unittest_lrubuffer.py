@@ -81,32 +81,32 @@ class TestNodeEstimator(unittest.TestCase):
 #            self.assertIsNotNone(self.buffer.index_sizes[col_name][indexKeys])
 #    ## DEF
 
-    def testInitializePreloading(self):
-        """Check whether preloading the buffer works properly"""
-
-        num_collections = 5
-        collections = dict()
-        self.design = Design()
-        for i in xrange(num_collections):
-            col_name = "col%02d" % i
-            col_info = catalog.Collection()
-            col_info['name'] = col_name
-            col_info['doc_count'] = NUM_DOCUMENTS
-            col_info['workload_percent'] = 1 / float(num_collections)
-            col_info['avg_doc_size'] = 1024
-            collections[col_name] = col_info
-            self.design.addCollection(col_name)
-        ## FOR
-
-        self.buffer = LRUBuffer(collections, BUFFER_SIZE, preload=True)
-
-        try:
-            self.buffer.initialize(self.design)
-            self.buffer.validate()
-        except:
-            print self.buffer
-            raise
-    ## DEF
+#    def testInitializePreloading(self):
+#        """Check whether preloading the buffer works properly"""
+#
+#        num_collections = 5
+#        collections = dict()
+#        self.design = Design()
+#        for i in xrange(num_collections):
+#            col_name = "col%02d" % i
+#            col_info = catalog.Collection()
+#            col_info['name'] = col_name
+#            col_info['doc_count'] = NUM_DOCUMENTS
+#            col_info['workload_percent'] = 1 / float(num_collections)
+#            col_info['avg_doc_size'] = 1024
+#            collections[col_name] = col_info
+#            self.design.addCollection(col_name)
+#        ## FOR
+#
+#        self.buffer = LRUBuffer(collections, BUFFER_SIZE, preload=True)
+#
+#        try:
+#            self.buffer.initialize(self.design)
+#            self.buffer.validate()
+#        except:
+#            print self.buffer
+#            raise
+#    ## DEF
 
 #    def testReset(self):
 #        """Check whether the LRUBuffer will reset its internal state properly"""

@@ -95,10 +95,10 @@ class Designer():
         import inputs.mongodb
 
         # MongoDB Trace
-        converter = inputs.mongodb.MongoSniffConverter( \
-            self.metadata_db, \
-            self.dataset_db, \
-            fd \
+        converter = inputs.mongodb.MongoSniffConverter(
+            self.metadata_db,
+            self.dataset_db,
+            fd
         )
         converter.stop_on_error = self.stop_on_error
         converter.no_mongo_parse = self.no_mongo_parse
@@ -107,10 +107,10 @@ class Designer():
         converter.mongo_skip = self.mongo_skip
         converter.op_limit = self.op_limit
 
-        converter.process(\
-            no_load=no_load,\
-            no_post_process=no_post_process,\
-            page_size=self.page_size,\
+        converter.process(
+            no_load=no_load,
+            no_post_process=no_post_process,
+            page_size=self.page_size,
         )
     ## DEF
 
@@ -118,20 +118,20 @@ class Designer():
         from inputs.mysql import MySQLConverter
 
         # MySQL Trace
-        converter = MySQLConverter( \
-            self.metadata_db,\
-            self.dataset_db, \
-            dbHost=self.cparser.get(config.SECT_MYSQL, 'host'), \
-            dbPort=self.cparser.getint(config.SECT_MYSQL, 'port'), \
-            dbName=self.cparser.get(config.SECT_MYSQL, 'name'), \
-            dbUser=self.cparser.get(config.SECT_MYSQL, 'user'), \
+        converter = MySQLConverter(
+            self.metadata_db,
+            self.dataset_db,
+            dbHost=self.cparser.get(config.SECT_MYSQL, 'host'),
+            dbPort=self.cparser.getint(config.SECT_MYSQL, 'port'),
+            dbName=self.cparser.get(config.SECT_MYSQL, 'name'),
+            dbUser=self.cparser.get(config.SECT_MYSQL, 'user'),
             dbPass=self.cparser.get(config.SECT_MYSQL, 'pass'))
 
         # Process the inputs and then save the results in mongodb
-        converter.process( \
-            no_load=no_load, \
-            no_post_process=no_post_process, \
-            page_size=self.page_size, \
+        converter.process(
+            no_load=no_load,
+            no_post_process=no_post_process,
+            page_size=self.page_size,
         )
     ## DEF
 
