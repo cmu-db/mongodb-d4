@@ -38,6 +38,7 @@ class TestNodeEstimator(unittest.TestCase):
         self.col_info['name'] = COLLECTION_NAME
         self.col_info['doc_count'] = NUM_DOCUMENTS
         self.col_info['workload_queries'] = 1000
+        self.col_info['workload_percent'] = 1.0
 
         for f in xrange(NUM_FIELDS+1):
             # We always need the _id field
@@ -71,14 +72,14 @@ class TestNodeEstimator(unittest.TestCase):
         self.buffer.initialize(self.design)
     ## DEF
 
-    def testInitialize(self):
-        """Check whether we can initialize the buffer properly for a design"""
-        col_name = self.col_info['name']
-        self.assertIsNotNone(self.buffer.collection_sizes[col_name])
-        self.assertEqual(len(self.design.getIndexes(col_name)), len(self.buffer.index_sizes[col_name]))
-        for indexKeys in self.design.getIndexes(col_name):
-            self.assertIsNotNone(self.buffer.index_sizes[col_name][indexKeys])
-    ## DEF
+#    def testInitialize(self):
+#        """Check whether we can initialize the buffer properly for a design"""
+#        col_name = self.col_info['name']
+#        self.assertIsNotNone(self.buffer.collection_sizes[col_name])
+#        self.assertEqual(len(self.design.getIndexes(col_name)), len(self.buffer.index_sizes[col_name]))
+#        for indexKeys in self.design.getIndexes(col_name):
+#            self.assertIsNotNone(self.buffer.index_sizes[col_name][indexKeys])
+#    ## DEF
 
     def testInitializePreloading(self):
         """Check whether preloading the buffer works properly"""
@@ -98,9 +99,13 @@ class TestNodeEstimator(unittest.TestCase):
         ## FOR
 
         self.buffer = LRUBuffer(collections, BUFFER_SIZE, preload=True)
-        self.buffer.initialize(self.design)
 
-        self.buffer.validate()
+        try:
+            self.buffer.initialize(self.design)
+            self.buffer.validate()
+        except:
+            print self.buffer
+            raise
     ## DEF
 
 #    def testReset(self):

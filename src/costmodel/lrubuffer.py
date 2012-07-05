@@ -116,6 +116,7 @@ class LRUBuffer:
         # so that the evictions are deterministic. This also means that we can
         # cache this setup so that we can reuse it everytime we are reset.
         delta = 1.0 + ((1.0 - percent_total) / percent_total)
+        preload_ctr = 0
         for col_name in design.getCollections():
             if not self.preload: break
 
@@ -137,16 +138,17 @@ class LRUBuffer:
             rng = random.Random()
             rng.seed(col_name)
             ctr = 0
-            while col_remaining > 0 and self.evicted == 0:
+            while (col_remaining-col_size) > 0 and self.evicted == 0:
                 documentId = rng.random()
                 self.getDocumentFromCollection(col_name, documentId, noLookUp=True)
                 col_remaining -= col_size
                 ctr += 1
             ## WHILE
 #            if self.debug:
-            LOG.info("Pre-loaded %d documents for %s [evicted=%d]", ctr, col_name, self.evicted)
+            LOG.info("Pre-loaded %d documents for %s - %s", ctr, col_name, self)
         ## FOR
-        LOG.info("Total # of Pre-loaded Documents: %d", len(self.buffer_ids))
+        if self.preload:
+            LOG.info("Total # of Pre-loaded Documents: %d", len(self.buffer_ids))
     ## DEF
 
     def getDocumentFromIndex(self, col_name, indexKeys, documentId, noLookUp=False):
@@ -222,6 +224,7 @@ class LRUBuffer:
         #       We may want to try to encoding the size in the tuple id...
 
         buffer_tuple = self.buffer.pop(0)
+        self.buffer_ids.remove(buffer_tuple)
         size = buffer_tuple >> 32
 
 #        typeId, key, docId = self.buffer.pop(0)
@@ -265,10 +268,11 @@ class LRUBuffer:
 
     def __str__(self):
         buffer_ratio = (self.buffer_size - self.remaining) / float(self.buffer_size)
-        return "Buffer Usage %.2f%% [total=%d / used=%d / entries=%d / ids=%d]" % (\
+        return "Buffer Usage %.2f%% [total=%d / used=%d / evicted=%d / entries=%d / ids=%d]" % (\
                    buffer_ratio*100, \
                    self.buffer_size, \
                    self.buffer_size - self.remaining, \
+                   self.evicted, \
                    len(self.buffer), \
                    len(self.buffer_ids))
     ## DEF
