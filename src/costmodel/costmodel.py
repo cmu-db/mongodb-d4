@@ -143,7 +143,7 @@ class CostModel(object):
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
         self.buffers = [ ]
         for i in xrange(self.num_nodes):
-            lru = LRUBuffer(self.collections, self.max_memory, preload=constants.DEFAULT_LRU_PRELOAD)
+            lru = LRUBuffer(self.collections, self.max_memory, preload=False) # constants.DEFAULT_LRU_PRELOAD)
             self.buffers.append(lru)
         ## ----------------------------------------------
         ## CACHING
