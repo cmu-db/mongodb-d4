@@ -242,7 +242,7 @@ class Parser:
                     LOG.warn("Ignoring Session %(session_id)d because it doesn't have any operations" % session)
                 continue
             try:
-                self.metadata_db.Session.save(session)
+                session.save()
             except InvalidDocument as err:
                 if noSplit: raise
                 self.splitSession(session)
@@ -344,7 +344,7 @@ class Parser:
             # Always add the query_hash
             try:
                 op['query_hash'] = self.opHasher.hash(op)
-            except:
+            except Exception:
                 msg = "Failed to compute hash on operation\n%s" % pformat(op)
                 if self.debug: LOG.warn(msg)
                 if self.stop_on_error: raise Exception(msg)
@@ -775,7 +775,7 @@ class Parser:
             
             # save the session if it was changed
             if dirty: 
-                self.metadata_db.Session.save(session)
+                session.save()
                 cnt += 1
         ## FOR (sessions)
         LOG.info("Done. Fixed %d operations." % cnt)

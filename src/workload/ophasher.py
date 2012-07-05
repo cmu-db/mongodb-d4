@@ -105,7 +105,7 @@ class OpHasher:
         updateHash = self.computeFieldsHash(updateFields) if updateFields else None
         
         t = (op["collection"], op["type"], fieldsHash, updateHash)
-        h = hash(t)
+        h = long(hash(t))
         LOG.debug("%s %s => HASH:%d" % (fields, t, h))
         self.histogram.put(h)
         return h
