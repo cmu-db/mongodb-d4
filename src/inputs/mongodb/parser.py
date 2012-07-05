@@ -29,7 +29,6 @@ import sys
 import re
 import yaml
 import json
-import hashlib
 import logging
 from pprint import pformat
 
@@ -41,9 +40,9 @@ import mongokit
 # mongodb-d4
 sys.path.append(os.path.join(basedir, ".."))
 import util
-import workload
 from sanitizer import anonymize
 from workload import Session
+from workload import OpHasher
 from util import constants
 
 LOG = logging.getLogger(__name__)
@@ -106,11 +105,14 @@ class Parser:
         self.op_limit = None
         self.recreated_db = None
         self.stop_on_error = False
-        self.save_checkpoints = False
+
+        # If set to true, then we will periodically save the Sessions out to the
+        # metatdata_db in case we crash and want to inspect what happened
+        self.save_checkpoints = True
         
         # This is used to generate deterministic identifiers
         # for similar operations
-        self.opHasher = workload.ophasher.OpHasher()
+        self.opHasher = OpHasher()
         
         # If this flag is true, then mongosniff got an invalid message packet
         # So we'll skip until we find the next matching header
@@ -256,7 +258,7 @@ class Parser:
         # what it really should be after we recreate the schema
         try:
             self.currentOp['collection'].decode('ascii')
-        except:
+        except Exception as err:
             if self.debug:
                 LOG.warn("Operation %(query_id)d has an invalid collection name '%(collection)s'. Will fix later... [opCtr=%(op_ctr)d / lineCtr=%(line_ctr)d]" % self.currentOp)
             self.currentOp['collection'] = constants.INVALID_COLLECTION_MARKER
