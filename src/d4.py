@@ -26,15 +26,14 @@ from __future__ import division
 from __future__ import with_statement
 
 import os
+from pprint import pformat
 import sys
 import argparse
 import logging
-import json
+import time
 from ConfigParser import SafeConfigParser
 
 # Third-Party Dependencies
-import time
-
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../libs"))
 import mongokit
@@ -165,6 +164,7 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
+
     if args['reset']:
         LOG.warn("Dropping collections from %s and %s databases" % (metadata_db.name, dataset_db.name))
         for col in metadata_db.collection_names():

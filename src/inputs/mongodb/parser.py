@@ -94,8 +94,8 @@ NTOSKIP_MASK = ".*ntoskip: (?P<ntoskip>\d+).*" #int
 class Parser:
     """Mongosniff Trace Parser"""
     
-    def __init__(self, workload_col, fd):
-        self.workload_col = workload_col
+    def __init__(self, metadata_db, fd):
+        self.metadata_db = metadata_db
         self.fd = fd
         self.line_ctr = 0
         self.resp_ctr = 0
@@ -128,7 +128,7 @@ class Parser:
         # based on the keys that they reference
         self.bustedOps = [ ]
         
-        # current session map holds all session objects. Mapping client_id --> Session()
+        # current session map holds all session objects. Mapping client_id --> Session
         self.session_map = {} 
         self.next_session_id = constants.INITIAL_SESSION_ID # first session_id
 
@@ -159,7 +159,7 @@ class Parser:
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
-        assert self.workload_col
+        assert self.metadata_db
         assert self.fd
         pass
     ## DEF
@@ -181,8 +181,8 @@ class Parser:
     
     def clean(self):
         """Remove all existing sessions in the workload collection"""
-        LOG.warn("Purging existing sessions collection '%s.%s'" % (self.workload_col.database.name, self.workload_col.name))
-        self.workload_col.remove()
+        LOG.warn("Purging existing sessions collection '%s.%s'" % (self.metadata_db.name, self.metadata_db.Session))
+        self.metadata_db.Session.delete()
     ## DEF
     
     def getOnlyIP(self, ipAndPort):
@@ -237,7 +237,7 @@ class Parser:
                     LOG.warn("Ignoring Session %(session_id)d because it doesn't have any operations" % session)
                 continue
             try:
-                self.workload_col.save(session)
+                self.metadata_db.Session.save(session)
             except InvalidDocument as err:
                 if noSplit: raise
                 self.splitSession(session)
@@ -389,9 +389,6 @@ class Parser:
         else:
             raise Exception("Unexpected message type '%s'" % self.currentOp['type'])
                 
-        # TODO: Decide when to save sessions
-        # self.workload_col.save(session)
-        
         return
     ## DEF
 
@@ -400,7 +397,7 @@ class Parser:
         # we have to spill the session into another object.
         # This kind of messes up
 
-        new_sess = Session()
+        new_sess = self.metadata_db.Session()
         for k in orig_sess.iterkeys():
             if not k in ['operations', 'session_id']:
                 new_sess[k] = copy.deepcopy(orig_sess[k])
@@ -438,12 +435,12 @@ class Parser:
             session = self.session_map[ip_client] 
         else:
             # verify a session with the same id does not exist
-            if self.workload_col.find({'session_id': self.next_session_id}).count() > 0:
+            if self.metadata_db.Session.fetch({'session_id': self.next_session_id}).count() > 0:
                 msg = "Session with UID %s already exists.\n" % self.next_session_id
                 msg += "Maybe you want to clean the database / use a different collection?"
                 raise Exception(msg)
 
-            session = Session()
+            session = self.metadata_db.Session()
             session['ip_client'] = unicode(ip_client)
             session['ip_server'] = unicode(ip_server)
             session['session_id'] = self.__nextSessionId__()
@@ -772,7 +769,7 @@ class Parser:
             
             # save the session if it was changed
             if dirty: 
-                self.workload_col.save(session)
+                self.metadata_db.Session.save(session)
                 cnt += 1
         ## FOR (sessions)
         LOG.info("Done. Fixed %d operations." % cnt)
