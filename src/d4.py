@@ -33,6 +33,8 @@ import json
 from ConfigParser import SafeConfigParser
 
 # Third-Party Dependencies
+import time
+
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../libs"))
 import mongokit
@@ -179,51 +181,54 @@ if __name__ == '__main__':
 
     designer = Designer(cparser, metadata_db, dataset_db)
     designer.setOptionsFromArguments(args)
-    
-    ## ----------------------------------------------
-    ## STEP 1: INPUT PROCESSING
-    ## ----------------------------------------------
-    if not args['no_load'] or not args['no_post_process']:
-        if not args['mysql']:
-            # If the user passed in '-', then we'll read from stdin
-            inputFile = args['mongo']
-            if not inputFile:
-                if not args['no_load']:
-                    LOG.warn("A mongonsiff trace file was not provided. Reading from standard input...")
-                inputFile = "-"
-            with open(inputFile, 'r') if inputFile != '-' else sys.stdin as fd:
-                designer.processMongoInput(\
-                    fd, \
-                    no_load=args['no_load'], \
+
+    start = time.time()
+    try:
+        ## ----------------------------------------------
+        ## STEP 1: INPUT PROCESSING
+        ## ----------------------------------------------
+        if not args['no_load'] or not args['no_post_process']:
+            if not args['mysql']:
+                # If the user passed in '-', then we'll read from stdin
+                inputFile = args['mongo']
+                if not inputFile:
+                    if not args['no_load']:
+                        LOG.warn("A mongonsiff trace file was not provided. Reading from standard input...")
+                    inputFile = "-"
+                with open(inputFile, 'r') if inputFile != '-' else sys.stdin as fd:
+                    designer.processMongoInput(\
+                        fd, \
+                        no_load=args['no_load'], \
+                        no_post_process=args['no_post_process'], \
+                    )
+                ## WITH
+            else:
+                designer.processMySQLInput(\
+                    no_load=args['no_load'],\
                     no_post_process=args['no_post_process'], \
                 )
-            ## WITH
         else:
-            designer.processMySQLInput(\
-                no_load=args['no_load'],\
-                no_post_process=args['no_post_process'], \
-            )
-    else:
-        LOG.warn("Skipping workload trace loading and processing...")
-    ## IF
+            LOG.warn("Skipping workload trace loading and processing...")
+        ## IF
 
-    if args['no_search']:
-        LOG.warn("Not performing design search. Halting")
-        sys.exit(0)
+        if args['no_search']:
+            LOG.warn("Not performing design search. Halting")
+            sys.exit(0)
 
-    ## ----------------------------------------------
-    ## STEP 2: Execute the LNS/BB Search design algorithm
-    ## ----------------------------------------------
-
-#    import pycallgraph
-#    pycallgraph.start_trace()
-
-    try:
-        finalSolution = designer.search()
+        ## ----------------------------------------------
+        ## STEP 2: Execute the LNS/BB Search design algorithm
+        ## ----------------------------------------------
+        # import pycallgraph
+        # pycallgraph.start_trace()
+        try:
+            finalSolution = designer.search()
+        finally:
+            # pycallgraph.make_dot_graph('d4.png')
+            pass
         LOG.info("Final Solution:\n%s", finalSolution)
     finally:
-#        pycallgraph.make_dot_graph('d4.png')
-        pass
+        stop = time.time()
+        LOG.info("Total Time: %.1f sec", (stop - start))
 
     # solutions['final'] = solution.toDICT()
     # print json.dumps(solutions, sort_keys=False, indent=4)
