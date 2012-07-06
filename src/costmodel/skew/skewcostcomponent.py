@@ -50,7 +50,7 @@ class SkewCostComponent(AbstractCostComponent):
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
 
-    def skewCost(self, design):
+    def getCostImpl(self, design):
         """Calculate the network cost for each segment for skew analysis"""
 
         # If there is only one node, then the cost is always zero
