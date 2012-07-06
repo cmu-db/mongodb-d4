@@ -18,7 +18,7 @@ from workload import Session
 from util import constants
 from inputs.mongodb import MongoSniffConverter
 
-class CostModelComponentTestCase(MongoDBTestCase):
+class CostModelTestCase(MongoDBTestCase):
     """
         Base test case for cost model components
     """
@@ -36,14 +36,14 @@ class CostModelComponentTestCase(MongoDBTestCase):
         # WORKLOAD
         self.workload = [ ]
         timestamp = time.time()
-        for i in xrange(CostModelComponentTestCase.NUM_SESSIONS):
+        for i in xrange(CostModelTestCase.NUM_SESSIONS):
             sess = self.metadata_db.Session()
             sess['session_id'] = i
             sess['ip_client'] = "client:%d" % (1234+i)
             sess['ip_server'] = "server:5678"
             sess['start_time'] = timestamp
 
-            for j in xrange(0, len(CostModelComponentTestCase.COLLECTION_NAMES)):
+            for j in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
                 _id = str(random.random())
                 queryId = long((i<<16) + j)
                 queryContent = { }
@@ -51,7 +51,7 @@ class CostModelComponentTestCase(MongoDBTestCase):
 
                 responseContent = {"_id": _id}
                 responseId = (queryId<<8)
-                for f in xrange(0, CostModelComponentTestCase.NUM_FIELDS):
+                for f in xrange(0, CostModelTestCase.NUM_FIELDS):
                     f_name = "field%02d" % f
                     if f % 2 == 0:
                         responseContent[f_name] = random.randint(0, 100)
@@ -63,7 +63,7 @@ class CostModelComponentTestCase(MongoDBTestCase):
 
                 queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
                 op = Session.operationFactory()
-                op['collection']    = CostModelComponentTestCase.COLLECTION_NAMES[j]
+                op['collection']    = CostModelTestCase.COLLECTION_NAMES[j]
                 op['type']          = constants.OP_TYPE_QUERY
                 op['query_id']      = queryId
                 op['query_content'] = [ queryContent ]
@@ -86,14 +86,14 @@ class CostModelComponentTestCase(MongoDBTestCase):
         converter.no_mongo_parse = True
         converter.no_mongo_sessionizer = True
         converter.process()
-        self.assertEqual(CostModelComponentTestCase.NUM_SESSIONS, self.metadata_db.Session.find().count())
+        self.assertEqual(CostModelTestCase.NUM_SESSIONS, self.metadata_db.Session.find().count())
 
         self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
-        self.assertEqual(len(CostModelComponentTestCase.COLLECTION_NAMES), len(self.collections))
+        self.assertEqual(len(CostModelTestCase.COLLECTION_NAMES), len(self.collections))
 
         # Increase the database size beyond what the converter derived from the workload
         for col_name, col_info in self.collections.iteritems():
-            col_info['doc_count'] = CostModelComponentTestCase.NUM_DOCUMENTS
+            col_info['doc_count'] = CostModelTestCase.NUM_DOCUMENTS
             col_info['avg_doc_size'] = 1024 # bytes
             col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / (4 * 1024)
             col_info.save()
@@ -101,9 +101,9 @@ class CostModelComponentTestCase(MongoDBTestCase):
 
         self.costModelConfig = {
             'max_memory':     1024, # MB
-            'skew_intervals': CostModelComponentTestCase.NUM_INTERVALS,
+            'skew_intervals': CostModelTestCase.NUM_INTERVALS,
             'address_size':   64,
-            'nodes':          CostModelComponentTestCase.NUM_NODES,
+            'nodes':          CostModelTestCase.NUM_NODES,
         }
 
         self.state = State(self.collections, self.workload, self.costModelConfig)

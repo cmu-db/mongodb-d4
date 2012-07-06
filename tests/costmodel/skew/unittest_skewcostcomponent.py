@@ -9,22 +9,22 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../"))
 
 # mongodb-d4
-from costmodelcomponenttestcase import CostModelComponentTestCase
+from costmodeltestcase import CostModelTestCase
 from search import Design
 from workload import Session
 from util import constants
 from costmodel.skew import SkewCostComponent
 
-class TestSkewCostComponent(CostModelComponentTestCase):
+class TestSkewCost(CostModelTestCase):
 
     def setUp(self):
-        CostModelComponentTestCase.setUp(self)
+        CostModelTestCase.setUp(self)
         self.cm = SkewCostComponent(self.state)
     ## DEF
 
     def testSkewCost(self):
         """Check whether skew cost calculations work correctly"""
-        col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[0]]
+        col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[0]]
         shard_key = col_info['interesting'][0]
 
         d = Design()
@@ -37,7 +37,7 @@ class TestSkewCostComponent(CostModelComponentTestCase):
         for sess in self.workload:
             for op in sess['operations']:
                 query_content = [ {constants.REPLACE_KEY_DOLLAR_PREFIX + "query":\
-                           {shard_key: op_ctr % CostModelComponentTestCase.NUM_NODES }\
+                           {shard_key: op_ctr % CostModelTestCase.NUM_NODES }\
                 } ]
                 op['collection'] = col_info['name']
                 op['query_content'] = query_content
@@ -73,12 +73,12 @@ class TestSkewCostComponent(CostModelComponentTestCase):
     def testGetSplitWorkload(self):
         """Check that the workload is split into intervals"""
 
-        self.assertEqual(CostModelComponentTestCase.NUM_SESSIONS, sum(map(len, self.cm.workload_segments)))
-        for i in xrange(0, CostModelComponentTestCase.NUM_INTERVALS):
+        self.assertEqual(CostModelTestCase.NUM_SESSIONS, sum(map(len, self.cm.workload_segments)))
+        for i in xrange(0, CostModelTestCase.NUM_INTERVALS):
         #            print "[%02d]: %d" % (i, len(self.cm.workload_segments[i]))
             self.assertGreater(len(self.cm.workload_segments[i]), 0)
         ## FOR
-        self.assertEqual(CostModelComponentTestCase.NUM_INTERVALS, len(self.cm.workload_segments))
+        self.assertEqual(CostModelTestCase.NUM_INTERVALS, len(self.cm.workload_segments))
     ## DEF
 
 

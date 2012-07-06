@@ -8,13 +8,13 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../"))
 
 # mongodb-d4
-from costmodelcomponenttestcase import CostModelComponentTestCase
+from costmodeltestcase import CostModelTestCase
 import costmodel
 
-class TestCostModel(CostModelComponentTestCase):
+class TestCostModel(CostModelTestCase):
 
     def setUp(self):
-        CostModelComponentTestCase.setUp(self)
+        CostModelTestCase.setUp(self)
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
     ## DEF
 

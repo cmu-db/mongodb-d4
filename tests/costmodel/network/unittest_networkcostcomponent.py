@@ -9,22 +9,22 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../"))
 
 # mongodb-d4
-from costmodelcomponenttestcase import CostModelComponentTestCase
+from costmodeltestcase import CostModelTestCase
 from search import Design
 from workload import Session
 from util import constants
 from costmodel.network import NetworkCostComponent
 
-class TestNetworkCostComponent(CostModelComponentTestCase):
+class TestNetworkCost(CostModelTestCase):
 
     def setUp(self):
-        CostModelComponentTestCase.setUp(self)
+        CostModelTestCase.setUp(self)
         self.cm = NetworkCostComponent(self.state)
     ## DEF
 
     def testNetworkCost(self):
         """Check network cost for equality predicate queries"""
-        col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[0]]
+        col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[0]]
         self.assertTrue(col_info['interesting'])
 
         # If we shard the collection on the interesting fields, then
@@ -55,8 +55,8 @@ class TestNetworkCostComponent(CostModelComponentTestCase):
         # Get the "base" design cost when all of the collections
         # are sharded on their "interesting" fields
         d = Design()
-        for i in xrange(len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
             d.addCollection(col_info['name'])
             if i == 0:
                 d.addShardKey(col_info['name'], col_info['interesting'])
@@ -70,14 +70,14 @@ class TestNetworkCostComponent(CostModelComponentTestCase):
         # second collection inside of the first one
         # We should have a lower cost because there should now be fewer queries
         d = Design()
-        for i in xrange(0, len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
             self.assertTrue(col_info['interesting'])
             d.addCollection(col_info['name'])
             if i == 0:
                 d.addShardKey(col_info['name'], col_info['interesting'])
             else:
-                parent = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[0]]
+                parent = self.collections[CostModelTestCase.COLLECTION_NAMES[0]]
                 self.assertIsNotNone(parent)
                 d.setDenormalizationParent(col_info['name'], parent['name'])
                 self.assertTrue(d.isDenormalized(col_info['name']), col_info['name'])
@@ -92,12 +92,12 @@ class TestNetworkCostComponent(CostModelComponentTestCase):
         # when we remove all of the ops one the second collection
         for sess in self.workload:
             for op in sess["operations"]:
-                if op["collection"] <> CostModelComponentTestCase.COLLECTION_NAMES[0]:
+                if op["collection"] <> CostModelTestCase.COLLECTION_NAMES[0]:
                     sess["operations"].remove(op)
             ## FOR (op)
         ## FOR (sess)
-        for i in xrange(1, len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            del self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+        for i in xrange(1, len(CostModelTestCase.COLLECTION_NAMES)):
+            del self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
         self.cm.reset()
         cost2 = self.cm.getCost(d)
         #        print "cost2:", cost2

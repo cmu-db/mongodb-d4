@@ -9,16 +9,16 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../"))
 
 # mongodb-d4
-from costmodelcomponenttestcase import CostModelComponentTestCase
+from costmodeltestcase import CostModelTestCase
 from search import Design
 from workload import Session
 from util import constants
 from costmodel.disk import DiskCostComponent
 
-class TestDiskCostComponent(CostModelComponentTestCase):
+class TestDiskCost(CostModelTestCase):
 
     def setUp(self):
-        CostModelComponentTestCase.setUp(self)
+        CostModelTestCase.setUp(self)
         self.cm = DiskCostComponent(self.state)
     ## DEF
 
@@ -27,8 +27,8 @@ class TestDiskCostComponent(CostModelComponentTestCase):
 
         # First get the disk cost when there are no indexes
         d = Design()
-        for i in xrange(len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
             d.addCollection(col_info['name'])
         ## FOR
         cost0 = self.cm.getCost(d)
@@ -39,8 +39,8 @@ class TestDiskCostComponent(CostModelComponentTestCase):
 
         # Now add the indexes. The disk cost should be lower
         d = Design()
-        for i in xrange(len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
             d.addCollection(col_info['name'])
             d.addIndex(col_info['name'], col_info['interesting'])
             self.state.invalidateCache(col_info['name'])
@@ -56,8 +56,8 @@ class TestDiskCostComponent(CostModelComponentTestCase):
 
         # Give the mofo a full Design with indexes
         d = Design()
-        for i in xrange(len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
             d.addCollection(col_info['name'])
             d.addIndex(col_info['name'], col_info['interesting'])
         ## FOR
@@ -75,8 +75,8 @@ class TestDiskCostComponent(CostModelComponentTestCase):
         """Check the working set size estimator for collections"""
 
         d = Design()
-        for i in xrange(0, len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
             d.addCollection(col_info['name'])
         ## FOR
 
@@ -84,8 +84,8 @@ class TestDiskCostComponent(CostModelComponentTestCase):
         workingSets = self.cm.estimateWorkingSets(d, max_memory)
         self.assertIsNotNone(workingSets)
 
-        for i in xrange(0, len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
             self.assertIn(col_info['name'], workingSets)
             setSize = workingSets[col_info['name']]
             print col_info['name'], "->", setSize
