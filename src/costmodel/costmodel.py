@@ -71,7 +71,7 @@ class CostModel(object):
         self.state = State(collections, workload, config)
 
         self.weights_sum = 0
-        for k, v in self.state.__dict__.itervalues():
+        for k, v in self.state.__dict__.iteritems():
             if k.startswith("weight_"): self.weights_sum += v
 
         ## ----------------------------------------------
