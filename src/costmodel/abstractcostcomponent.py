@@ -48,4 +48,8 @@ class AbstractCostComponent():
         raise NotImplementedError("Unimplemented %s.getCostImpl()" % self.__init__.im_class)
     ## DEF
 
+    def finish(self):
+        """Optional callback for when the cost model is finished a round"""
+        pass
+
 ## CLASS

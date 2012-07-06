@@ -1,1 +1,2 @@
-__author__ = 'pavlo'
+
+from diskcostcomponent import DiskCostComponent

@@ -29,6 +29,7 @@ import logging
 # mongodb-d4
 import math
 import catalog
+from costmodel.lrubuffer import LRUBuffer
 import workload
 
 basedir = os.path.realpath(os.path.dirname(__file__))
@@ -44,9 +45,9 @@ from util import Histogram, constants
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
-## Skew Cost
+## Disk Cost
 ## ==============================================
-class SkewCostComponent(AbstractCostComponent):
+class DiskCostComponent(AbstractCostComponent):
 
     def __init__(self, costModel):
         AbstractCostComponent.__init__(self, costModel)
@@ -235,6 +236,25 @@ class SkewCostComponent(AbstractCostComponent):
         LOG.info("Computed Disk Cost: %.03f [pageHits=%d / worstCase=%d / evicted=%d]",\
                  final_cost, totalCost, totalWorst, evicted)
         return final_cost
+    ## DEF
+
+    def finish(self):
+        buffer_total = sum([ lru.buffer_size for lru in self.buffers ])
+        buffer_remaining = sum([ lru.remaining for lru in self.buffers ])
+        buffer_ratio = (buffer_total - buffer_remaining) / float(buffer_total)
+        LOG.info("Buffer Usage %.2f%% [total=%d / used=%d]",\
+            buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
+
+        map(LRUBuffer.validate, self.buffers)
+
+        if self.debug:
+            cache_success = sum([ x for x in self.cache_hit_ctr.itervalues() ])
+            cache_miss = sum([ x for x in self.cache_miss_ctr.itervalues() ])
+            cache_ratio = cache_success / float(cache_success + cache_miss)
+            LOG.debug("Internal Cache Ratio %.2f%% [total=%d]", cache_ratio*100, (cache_miss+cache_success))
+            LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.cache_hit_ctr)
+            LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.cache_miss_ctr)
+            LOG.debug("-"*100)
     ## DEF
 
     def guessIndex(self, design, op):

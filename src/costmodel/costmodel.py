@@ -29,6 +29,8 @@ import random
 from pprint import pformat
 import time
 import catalog
+from costmodel import disk
+from costmodel.abstractcostcomponent import AbstractCostComponent
 
 import workload
 from lrubuffer import LRUBuffer
@@ -145,6 +147,15 @@ class CostModel(object):
         for i in xrange(self.num_nodes):
             lru = LRUBuffer(self.collections, self.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
             self.buffers.append(lru)
+
+
+        ## ----------------------------------------------
+        ## COST COMPONENTS
+        ## ----------------------------------------------
+        self.diskComponent = disk.
+        self.skewComponent = None
+        self.networkComponent = None
+
         ## ----------------------------------------------
         ## CACHING
         ## ----------------------------------------------
@@ -190,22 +201,7 @@ class CostModel(object):
         LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
                  self.last_cost, (stop - start))
 
-        buffer_total = sum([ lru.buffer_size for lru in self.buffers ])
-        buffer_remaining = sum([ lru.remaining for lru in self.buffers ])
-        buffer_ratio = (buffer_total - buffer_remaining) / float(buffer_total)
-        LOG.info("Buffer Usage %.2f%% [total=%d / used=%d]", \
-                  buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
-
-        map(LRUBuffer.validate, self.buffers)
-
-        if self.debug:
-            cache_success = sum([ x for x in self.cache_hit_ctr.itervalues() ])
-            cache_miss = sum([ x for x in self.cache_miss_ctr.itervalues() ])
-            cache_ratio = cache_success / float(cache_success + cache_miss)
-            LOG.debug("Internal Cache Ratio %.2f%% [total=%d]", cache_ratio*100, (cache_miss+cache_success))
-            LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.cache_hit_ctr)
-            LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.cache_miss_ctr)
-            LOG.debug("-"*100)
+        map(AbstractCostComponent.finish, [self.diskComponent, self.skewComponent, self.networkComponent])
 
         return self.last_cost
     ## DEF
