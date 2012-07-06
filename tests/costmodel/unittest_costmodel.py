@@ -18,7 +18,6 @@ class TestCostModel(CostModelComponentTestCase):
         self.cm = costmodel.CostModel(self.collections, self.workload, self.costModelConfig)
     ## DEF
 
-
     def testIgnore(self):
         pass
 

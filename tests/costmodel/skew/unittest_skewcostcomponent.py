@@ -43,9 +43,9 @@ class TestSkewCostComponent(CostModelComponentTestCase):
                 op['query_content'] = query_content
                 op['predicates'] = { shard_key: constants.PRED_TYPE_EQUALITY }
                 op_ctr += 1
-                ## FOR (op)
-            ## FOR (session)
-        cost0 = self.cm.skewCost(d)
+            ## FOR (op)
+        ## FOR (session)
+        cost0 = self.cm.getCost(d)
         self.assertLessEqual(cost0, 1.0)
         #        print "skewCost0:", cost0
 
@@ -60,15 +60,15 @@ class TestSkewCostComponent(CostModelComponentTestCase):
                 op['query_content'] = query_content
                 op['predicates'] = { shard_key: constants.PRED_TYPE_EQUALITY }
             ## FOR
+        self.state.reset()
         self.cm.reset()
-        cost1 = self.cm.skewCost(d)
+        cost1 = self.cm.getCost(d)
         self.assertLessEqual(cost1, 1.0)
         #        print "skewCost1:", cost1
 
         self.assertGreater(cost1, cost0)
 
     ## DEF
-
 
     def testGetSplitWorkload(self):
         """Check that the workload is split into intervals"""
