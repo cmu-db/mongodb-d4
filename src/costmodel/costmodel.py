@@ -70,13 +70,17 @@ class CostModel(object):
         self.last_cost = None
         self.state = State(collections, workload, config)
 
+        self.weights_sum = 0
+        for k, v in self.state.__dict__.itervalues():
+            if k.startswith("weight_"): self.weights_sum += v
+
         ## ----------------------------------------------
         ## COST COMPONENTS
         ## ----------------------------------------------
         self.diskComponent = disk.DiskCostComponent(self.state)
         self.skewComponent = skew.SkewCostComponent(self.state)
         self.networkComponent = network.NetworkCostComponent(self.state)
-
+        self.allComponents = (self.diskComponent, self.skewComponent, self.networkComponent)
     ## DEF
 
     def overallCost(self, design):
@@ -92,11 +96,11 @@ class CostModel(object):
         start = time.time()
 
         cost = 0.0
-        cost += self.state.weight_disk * self.diskCost(design)
-        cost += self.state.weight_network * self.networkCost(design)
-        cost += self.state.weight_skew * self.skewCost(design)
+        cost += self.state.weight_disk * self.diskComponent.getCost(design)
+        cost += self.state.weight_network * self.networkComponent.getCost(design)
+        cost += self.state.weight_skew * self.skewComponent.getCost(design)
 
-        self.last_cost = cost / float(self.state.weight_network + self.state.weight_disk + self.state.weight_skew)
+        self.last_cost = cost / float(self.weights_sum)
         self.last_design = design
 
 #        if self.debug:
@@ -106,42 +110,19 @@ class CostModel(object):
         LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
                  self.last_cost, (stop - start))
 
-        map(AbstractCostComponent.finish, [self.diskComponent, self.skewComponent, self.networkComponent])
-
+        map(AbstractCostComponent.finish, self.allComponents)
         return self.last_cost
     ## DEF
 
+    def invalidateCache(self, col_name):
+        self.state.invalidateCache(col_name)
+        for c in self.allComponents:
+            c.invalidateCache(col_name)
+    ## DEF
+
     def reset(self):
-        """
-            Reset all of the internal state and cache information
-        """
+        """Reset all of the internal state and cache information"""
         self.state.reset()
-        map(AbstractCostComponent.reset, [self.diskComponent, self.skewComponent, self.networkComponent])
+        map(AbstractCostComponent.reset, self.allComponents)
     ## DEF
-
-    ## -----------------------------------------------------------------------
-    ## DISK COST
-    ## -----------------------------------------------------------------------
-
-    def diskCost(self, design):
-        self.diskComponent.getCost(design)
-    ## DEF
-
-    ## -----------------------------------------------------------------------
-    ## SKEW COST
-    ## -----------------------------------------------------------------------
-
-    def skewCost(self, design):
-        return self.skewComponent.getCost(design)
-
-    ## -----------------------------------------------------------------------
-    ## NETWORK COST
-    ## -----------------------------------------------------------------------
-
-    def networkCost(self, design):
-        return self.networkComponent.getCost(design)
-    ## DEF
-
-
-
 ## CLASS

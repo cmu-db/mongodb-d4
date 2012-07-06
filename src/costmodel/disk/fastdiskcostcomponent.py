@@ -21,38 +21,53 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
-
+import os
+import sys
+import math
 import logging
+from pprint import pformat
+
+# mongodb-d4
+import workload
+
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, ".."))
+
+import catalog
+from costmodel import AbstractCostComponent
+from costmodel.lrubuffer import LRUBuffer
+from workload import Session
+from util import Histogram, constants
 
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
-## Abstract Cost Model Component
+## Faster Disk Cost Calculator
 ## ==============================================
-class AbstractCostComponent():
-    
+class FastDiskCostComponent(AbstractCostComponent):
+
     def __init__(self, state):
-        self.state = state
+        AbstractCostComponent.__init__(self, state)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
-    ## DEF
-        
-    def getCost(self, design):
-        return self.getCostImpl(design)
+
     ## DEF
 
     def getCostImpl(self, design):
-        raise NotImplementedError("Unimplemented %s.getCostImpl()" % self.__init__.im_class)
+        """
+        """
 
-    def invalidateCache(self, col_name):
-        """Optional callback for when the cost model needs to invalidate a collection's cache"""
-        pass
+        final_cost = 0.0
 
-    def reset(self):
-        """Optional callback for when the cost model needs to reset itself"""
-        pass
+        return final_cost
+    ## DEF
 
     def finish(self):
-        """Optional callback for when the cost model is finished a round"""
         pass
+    ## DEF
+
+    def reset(self):
+        pass
+    ## DEF
+
 
 ## CLASS

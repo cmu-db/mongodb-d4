@@ -34,23 +34,26 @@ LOG = logging.getLogger(__name__)
 class State():
     """Cost Model State"""
 
+    ## -----------------------------------------------------------------------
+    ## INTERNAL CACHE STATE
+    ## -----------------------------------------------------------------------
+
     class Cache():
         """
             Internal cache for a single collection.
             Note that this is different than the LRUBuffer cache stuff. These are
             cached look-ups that the CostModel uses for figuring out what operations do.
         """
-
         def __init__(self, col_info, num_nodes):
 
-        # The number of pages needed to do a full scan of this collection
-        # The worst case for all other operations is if we have to do
-        # a full scan that requires us to evict the entire buffer
-        # Hence, we multiple the max pages by two
-        #            self.fullscan_pages = (col_info['max_pages'] * 2)
+            # The number of pages needed to do a full scan of this collection
+            # The worst case for all other operations is if we have to do
+            # a full scan that requires us to evict the entire buffer
+            # Hence, we multiple the max pages by two
+            # self.fullscan_pages = (col_info['max_pages'] * 2)
             self.fullscan_pages = (col_info['doc_count'] * 2)
             assert self.fullscan_pages > 0,\
-            "Zero max_pages for collection '%s'" % col_info['name']
+                "Zero max_pages for collection '%s'" % col_info['name']
 
             # Cache of Best Index Tuples
             # QueryHash -> BestIndex
