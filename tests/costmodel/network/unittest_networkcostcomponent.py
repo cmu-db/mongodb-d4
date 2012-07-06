@@ -94,8 +94,8 @@ class TestNetworkCostComponent(CostModelComponentTestCase):
             for op in sess["operations"]:
                 if op["collection"] <> CostModelComponentTestCase.COLLECTION_NAMES[0]:
                     sess["operations"].remove(op)
-                    ## FOR (op)
-                    ## FOR (sess)
+            ## FOR (op)
+        ## FOR (sess)
         for i in xrange(1, len(CostModelComponentTestCase.COLLECTION_NAMES)):
             del self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
         self.cm.reset()
@@ -104,27 +104,6 @@ class TestNetworkCostComponent(CostModelComponentTestCase):
 
         self.assertLess(cost1, cost0)
         self.assertEqual(cost1, cost2)
-    ## DEF
-
-    def testEstimateWorkingSets(self):
-        """Check the working set size estimator for collections"""
-
-        d = Design()
-        for i in xrange(0, len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
-        ## FOR
-
-        max_memory = self.costModelConfig['max_memory'] * 1024 * 1024
-        workingSets = self.cm.estimateWorkingSets(d, max_memory)
-        self.assertIsNotNone(workingSets)
-
-        for i in xrange(0, len(CostModelComponentTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
-            self.assertIn(col_info['name'], workingSets)
-            setSize = workingSets[col_info['name']]
-            print col_info['name'], "->", setSize
-            self.assertGreater(setSize, 0.0)
     ## DEF
 
 ## CLASS

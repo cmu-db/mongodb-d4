@@ -71,6 +71,27 @@ class TestDiskCostComponent(CostModelComponentTestCase):
         self.assertEqual(cost0, cost1)
     ## DEF
 
+    def testEstimateWorkingSets(self):
+        """Check the working set size estimator for collections"""
+
+        d = Design()
+        for i in xrange(0, len(CostModelComponentTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+        ## FOR
+
+        max_memory = self.costModelConfig['max_memory'] * 1024 * 1024
+        workingSets = self.cm.estimateWorkingSets(d, max_memory)
+        self.assertIsNotNone(workingSets)
+
+        for i in xrange(0, len(CostModelComponentTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelComponentTestCase.COLLECTION_NAMES[i]]
+            self.assertIn(col_info['name'], workingSets)
+            setSize = workingSets[col_info['name']]
+            print col_info['name'], "->", setSize
+            self.assertGreater(setSize, 0.0)
+    ## DEF
+
 ## CLASS
 
 if __name__ == '__main__':

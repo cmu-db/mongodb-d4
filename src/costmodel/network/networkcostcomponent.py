@@ -105,5 +105,3 @@ class NetworkCostComponent(AbstractCostComponent):
         return cost
     ## DEF
 ## CLASS
-
-
