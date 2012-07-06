@@ -187,7 +187,7 @@ class Designer():
         # Instantiate cost model
         cm = costmodel.CostModel(collectionsDict, workload, cmConfig)
 #        if self.debug:
-#            cm.debug = True
+#            state.debug = True
 #            costmodel.LOG.setLevel(logging.DEBUG)
 
         # Compute initial solution and calculate its cost

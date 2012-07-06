@@ -31,8 +31,8 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class AbstractCostComponent():
     
-    def __init__(self, costModel):
-        self.cm = costModel
+    def __init__(self, state):
+        self.state = state
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
         

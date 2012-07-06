@@ -54,11 +54,11 @@ class SkewCostComponent(AbstractCostComponent):
         """Calculate the network cost for each segment for skew analysis"""
 
         # If there is only one node, then the cost is always zero
-        if self.cm.num_nodes == 1:
+        if self.state.num_nodes == 1:
             return 0.0
 
-        op_counts = [ 0 ] *  self.cm.skew_segments
-        segment_skew = [ 0 ] *  self.cm.skew_segments
+        op_counts = [ 0 ] *  self.state.skew_segments
+        segment_skew = [ 0 ] *  self.state.skew_segments
         for i in range(0, len(self.workload_segments)):
             # TODO: We should cache this so that we don't have to call it twice
             segment_skew[i], op_counts[i] = self.calculateSkew(design, self.workload_segments[i])
@@ -76,12 +76,13 @@ class SkewCostComponent(AbstractCostComponent):
             http://hstore.cs.brown.edu/papers/hstore-partitioning.pdf
         """
         if self.debug:
-            LOG.debug("Computing skew cost for %d sessions over %d segments", len(segment), self.cm.skew_segments)
+            LOG.debug("Computing skew cost for %d sessions over %d segments", \
+                      len(segment), self.state.skew_segments)
 
         # Check whether we already have a histogram of how often each of the
         # nodes are touched from the NodeEstimator. This will have been computed
         # in diskCost()
-        if not self.cm.estimator.getOpCount():
+        if not self.state.estimator.getOpCount():
             # Iterate over each session and get the list of nodes
             # that we estimate that each of its operations will need to touch
             for sess in segment:
@@ -91,29 +92,29 @@ class SkewCostComponent(AbstractCostComponent):
                         if self.debug:
                             LOG.debug("SKIP - %s Op #%d on %s", op['type'], op['query_id'], op['collection'])
                         continue
-                    col_info = self.cm.collections[op['collection']]
-                    cache = self.cm.getCacheHandle(col_info)
+                    col_info = self.state.collections[op['collection']]
+                    cache = self.state.getCacheHandle(col_info)
 
                     #  This just returns an estimate of which nodes  we expect
                     #  the op to touch. We don't know exactly which ones they will
                     #  be because auto-sharding could put shards anywhere...
-                    node_ids = self.cm.__getNodeIds__(cache, design, op)
+                    node_ids = self.state.__getNodeIds__(cache, design, op)
                     # TODO: Do something with the nodeIds. Don't rely on the NodeEstimator's
                     #       internal histogram
                 ## FOR
 
-        if self.debug: LOG.debug("Node Count Histogram:\n%s", self.cm.estimator.nodeCounts)
-        total = self.cm.estimator.nodeCounts.getSampleCount()
-        if not total: return 0.0, self.cm.estimator.getOpCount()
+        if self.debug: LOG.debug("Node Count Histogram:\n%s", self.state.estimator.nodeCounts)
+        total = self.state.estimator.nodeCounts.getSampleCount()
+        if not total: return 0.0, self.state.estimator.getOpCount()
 
-        best = 1 / float(self.cm.num_nodes)
+        best = 1 / float(self.state.num_nodes)
         skew = 0.0
-        for i in xrange(self.cm.num_nodes):
-            ratio = self.cm.estimator.nodeCounts.get(i, 0) / float(total)
+        for i in xrange(self.state.num_nodes):
+            ratio = self.state.estimator.nodeCounts.get(i, 0) / float(total)
             if ratio < best:
                 ratio = best + ((1 - ratio/best) * (1 - best))
             skew += math.log(ratio / best)
-        return skew / (math.log(1 / best) * self.cm.num_nodes), self.cm.estimator.getOpCount()
+        return skew / (math.log(1 / best) * self.state.num_nodes), self.state.estimator.getOpCount()
     ## DEF
 
         ## -----------------------------------------------------------------------
@@ -125,24 +126,24 @@ class SkewCostComponent(AbstractCostComponent):
 
         start_time = None
         end_time = None
-        for i in xrange(len(self.cm.workload)):
-            if start_time is None or start_time < self.cm.workload[i]['start_time']:
-                start_time = self.cm.workload[i]['start_time']
-            if end_time is None or end_time > self.cm.workload[i]['end_time']:
-                end_time = self.cm.workload[i]['end_time']
+        for i in xrange(len(self.state.workload)):
+            if start_time is None or start_time < self.state.workload[i]['start_time']:
+                start_time = self.state.workload[i]['start_time']
+            if end_time is None or end_time > self.state.workload[i]['end_time']:
+                end_time = self.state.workload[i]['end_time']
         assert start_time,\
-            "Failed to find start time in %d sessions" % len(self.cm.workload)
+            "Failed to find start time in %d sessions" % len(self.state.workload)
         assert end_time,\
-            "Failed to find end time in %d sessions" % len(self.cm.workload)
+            "Failed to find end time in %d sessions" % len(self.state.workload)
 
         if self.debug:
             LOG.debug("Workload Segments - START:%d / END:%d", start_time, end_time)
-        self.workload_segments = [ [] for i in xrange(0, self.cm.skew_segments) ]
+        self.workload_segments = [ [] for i in xrange(0, self.state.skew_segments) ]
         segment_h = Histogram()
-        for sess in self.cm.workload:
+        for sess in self.state.workload:
             idx = self.getSessionSegment(sess, start_time, end_time)
             segment_h.put(idx)
-            assert idx >= 0 and idx < self.cm.skew_segments,\
+            assert idx >= 0 and idx < self.state.skew_segments,\
                 "Invalid workload segment '%d' for Session #%d\n%s" % (idx, sess['session_id'], segment_h)
             self.workload_segments[idx].append(sess)
         ## FOR
@@ -153,6 +154,6 @@ class SkewCostComponent(AbstractCostComponent):
         timestamp = sess['start_time']
         if timestamp == end_time: timestamp -= 1
         ratio = (timestamp - start_time) / float(end_time - start_time)
-        return min(self.cm.skew_segments-1, int(self.cm.skew_segments * ratio)) # HACK
+        return min(self.state.skew_segments-1, int(self.state.skew_segments * ratio)) # HACK
     ## DEF
 ## CLASS

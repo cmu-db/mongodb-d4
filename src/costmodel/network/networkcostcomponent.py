@@ -47,10 +47,10 @@ class NetworkCostComponent(AbstractCostComponent):
     ## DEF
 
     def getCostImpl(self, design):
-        if self.debug: LOG.debug("Computing network cost for %d sessions", len(self.cm.workload))
+        if self.debug: LOG.debug("Computing network cost for %d sessions", len(self.state.workload))
         result = 0
         query_count = 0
-        for sess in self.cm.workload:
+        for sess in self.state.workload:
             previous_op = None
             for op in sess['operations']:
                 # Collection is not in design.. don't count query
@@ -58,8 +58,8 @@ class NetworkCostComponent(AbstractCostComponent):
                     if self.debug: LOG.debug("SKIP - %s Op #%d on %s",\
                                              op['type'], op['query_id'], op['collection'])
                     continue
-                col_info = self.cm.collections[op['collection']]
-                cache = self.cm.getCacheHandle(col_info)
+                col_info = self.state.collections[op['collection']]
+                cache = self.state.getCacheHandle(col_info)
 
                 # Check whether this collection is embedded inside of another
                 # TODO: Need to get ancestor
@@ -87,7 +87,7 @@ class NetworkCostComponent(AbstractCostComponent):
                 # Process this op!
                 if process:
                     query_count += 1
-                    result += len(self.cm.__getNodeIds__(cache, design, op))
+                    result += len(self.state.__getNodeIds__(cache, design, op))
                 elif self.debug:
                     LOG.debug("SKIP - %s Op #%d on %s [parent=%s / previous=%s]",\
                         op['type'], op['query_id'], op['collection'],\
@@ -97,7 +97,7 @@ class NetworkCostComponent(AbstractCostComponent):
         if not query_count:
             cost = 0
         else:
-            cost = result / float(query_count * self.cm.num_nodes)
+            cost = result / float(query_count * self.state.num_nodes)
 
         LOG.info("Computed Network Cost: %f [result=%d / queryCount=%d]",\
             cost, result, query_count)

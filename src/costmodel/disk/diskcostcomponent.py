@@ -28,6 +28,8 @@ import logging
 from pprint import pformat
 
 # mongodb-d4
+import workload
+
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, ".."))
 
@@ -44,13 +46,13 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class DiskCostComponent(AbstractCostComponent):
 
-    def __init__(self, costModel):
-        AbstractCostComponent.__init__(self, costModel)
+    def __init__(self, state):
+        AbstractCostComponent.__init__(self, state)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.buffers = [ ]
-        for i in xrange(self.cm.num_nodes):
-            lru = LRUBuffer(self.cm.collections, self.cm.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
+        for i in xrange(self.state.num_nodes):
+            lru = LRUBuffer(self.state.collections, self.state.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
             self.buffers.append(lru)
     ## DEF
 
@@ -62,7 +64,7 @@ class DiskCostComponent(AbstractCostComponent):
             histogram of how often nodes are touched in the workload
         """
 
-        num_sessions = len(self.cm.workload)
+        num_sessions = len(self.state.workload)
         complete_marker = num_sessions / 10
         #        if self.debug:
         LOG.info("Calculating diskCost for %d sessions", num_sessions)
@@ -117,34 +119,34 @@ class DiskCostComponent(AbstractCostComponent):
         totalWorst = 0
         totalCost = 0
         sess_ctr = 0
-        for sess in self.cm.workload:
+        for sess in self.state.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
                 if not design.hasCollection(op['collection']):
                     continue
-                col_info = self.cm.collections[op['collection']]
+                col_info = self.state.collections[op['collection']]
 
                 # Initialize cache if necessary
                 # We will always want to do this regardless of whether caching is enabled
-                cache = self.cm.getCacheHandle(col_info)
+                cache = self.state.getCacheHandle(col_info)
 
                 # Check whether we have a cache index selection based on query_hashes
                 indexKeys, covering = cache.best_index.get(op["query_hash"], (None, None))
                 if indexKeys is None:
                     indexKeys, covering = self.guessIndex(design, op)
-                    if self.cm.cache_enable:
-                        if self.debug: self.cm.cache_miss_ctr.put("best_index")
+                    if self.state.cache_enable:
+                        if self.debug: self.state.cache_miss_ctr.put("best_index")
                         cache.best_index[op["query_hash"]] = (indexKeys, covering)
                 elif self.debug:
-                    self.cm.cache_hit_ctr.put("best_index")
+                    self.state.cache_hit_ctr.put("best_index")
                 pageHits = 0
                 maxHits = 0
-                isRegex = self.cm.__getIsOpRegex__(cache, op)
+                isRegex = self.state.__getIsOpRegex__(cache, op)
 
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
 
-                    for node_id in self.cm.__getNodeIds__(cache, design, op):
+                    for node_id in self.state.__getNodeIds__(cache, design, op):
                         lru = self.buffers[node_id]
 
                         # TODO: Need to handle whether it's a scan or an equality predicate
@@ -163,11 +165,11 @@ class DiskCostComponent(AbstractCostComponent):
                                     LOG.error("Failed to compute index documentIds for op #%d - %s\n%s",\
                                         op['query_id'], values, pformat(op))
                                     raise
-                                if self.cm.cache_enable:
-                                    if self.debug: self.cm.cache_miss_ctr.put("index_docIds")
+                                if self.state.cache_enable:
+                                    if self.debug: self.state.cache_miss_ctr.put("index_docIds")
                                     cache.index_docIds[op['query_id']] = documentId
                             elif self.debug:
-                                self.cm.cache_hit_ctr.put("index_docIds")
+                                self.state.cache_hit_ctr.put("index_docIds")
                                 ## IF
                             hits = lru.getDocumentFromIndex(op['collection'], indexKeys, documentId)
                             pageHits += hits
@@ -197,11 +199,11 @@ class DiskCostComponent(AbstractCostComponent):
                                     LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s",\
                                         op['query_id'], values, pformat(op))
                                     raise
-                                if self.cm.cache_enable:
-                                    if self.debug: self.cm.cache_miss_ctr.put("collection_docIds")
+                                if self.state.cache_enable:
+                                    if self.debug: self.state.cache_miss_ctr.put("collection_docIds")
                                     cache.collection_docIds[op['query_id']] = documentId
                             elif self.debug:
-                                self.cm.cache_hit_ctr.put("collection_docIds")
+                                self.state.cache_hit_ctr.put("collection_docIds")
                                 ## IF
                             hits = lru.getDocumentFromCollection(op['collection'], documentId)
                             pageHits += hits
@@ -248,12 +250,12 @@ class DiskCostComponent(AbstractCostComponent):
         map(LRUBuffer.validate, self.buffers)
 
         if self.debug:
-            cache_success = sum([ x for x in self.cm.cache_hit_ctr.itervalues() ])
-            cache_miss = sum([ x for x in self.cm.cache_miss_ctr.itervalues() ])
+            cache_success = sum([ x for x in self.state.cache_hit_ctr.itervalues() ])
+            cache_miss = sum([ x for x in self.state.cache_miss_ctr.itervalues() ])
             cache_ratio = cache_success / float(cache_success + cache_miss)
             LOG.debug("Internal Cache Ratio %.2f%% [total=%d]", cache_ratio*100, (cache_miss+cache_success))
-            LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.cm.cache_hit_ctr)
-            LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.cm.cache_miss_ctr)
+            LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.state.cache_hit_ctr)
+            LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.state.cache_miss_ctr)
             LOG.debug("-"*100)
     ## DEF
 
@@ -302,7 +304,7 @@ class DiskCostComponent(AbstractCostComponent):
                 projectionFields = op['query_content'][1]
             # Otherwise just check whether the index encompasses all fields
             else:
-                col_info = self.cm.collections[op['collection']]
+                col_info = self.state.collections[op['collection']]
                 projectionFields = col_info['fields']
 
             if projectionFields and len(best_index) == len(projectionFields):
@@ -326,9 +328,9 @@ class DiskCostComponent(AbstractCostComponent):
             LOG.debug("Estimating collection working sets [capacity=%d]", capacity)
 
         # iterate over sorted tuples to process in descending order of usage
-        _collections = sorted(self.cm.collections.keys(), key=lambda k: self.cm.collections[k]['workload_percent'], reverse=True)
+        _collections = sorted(self.state.collections.keys(), key=lambda k: self.state.collections[k]['workload_percent'], reverse=True)
         for col_name in _collections:
-            col_info = self.cm.collections[col_name]
+            col_info = self.state.collections[col_name]
             memory_available = capacity * col_info['workload_percent']
             memory_needed = col_info['avg_doc_size'] * col_info['doc_count']
 
@@ -349,8 +351,8 @@ class DiskCostComponent(AbstractCostComponent):
         for still_needs, col_info in needs_memory:
             memory_available = buffer
             memory_needed = (1 - (working_set_counts[col_name] / 100)) *\
-                            self.cm.collections[col_name]['avg_doc_size'] *\
-                            self.cm.collections[col_name]['doc_count']
+                            self.state.collections[col_name]['avg_doc_size'] *\
+                            self.state.collections[col_name]['doc_count']
 
             if memory_needed <= memory_available :
                 working_set_counts[col_name] = 100

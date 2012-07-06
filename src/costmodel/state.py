@@ -24,6 +24,9 @@
 import logging
 import os
 import sys
+
+# mongodb-d4
+from nodeestimator import NodeEstimator
 from util.histogram import Histogram
 
 LOG = logging.getLogger(__name__)
@@ -107,6 +110,8 @@ class State():
         self.skew_segments = config['skew_intervals'] # Why? "- 1"
         self.address_size = config['address_size'] / 4
 
+        self.estimator = NodeEstimator(self.collections, self.num_nodes)
+
         ## ----------------------------------------------
         ## CACHING
         ## ----------------------------------------------
@@ -139,5 +144,39 @@ class State():
         # Clear out caches for all collections
         self.cache_handles.clear()
         self.estimator.reset()
+
+    ## -----------------------------------------------------------------------
+    ## UTILITY CODE
+    ## -----------------------------------------------------------------------
+
+    def __getIsOpRegex__(self, cache, op):
+        isRegex = cache.op_regex.get(op["query_hash"], None)
+        if isRegex is None:
+            isRegex = workload.isOpRegex(op)
+            if self.cache_enable:
+                if self.debug: self.cache_miss_ctr.put("op_regex")
+                cache.op_regex[op["query_hash"]] = isRegex
+        elif self.debug:
+            self.cache_hit_ctr.put("op_regex")
+        return isRegex
+    ## DEF
+
+    def __getNodeIds__(self, cache, design, op):
+        node_ids = cache.op_nodeIds.get(op['query_id'], None)
+        if node_ids is None:
+            try:
+                node_ids = self.estimator.estimateNodes(design, op)
+            except:
+                LOG.error("Failed to estimate touched nodes for op #%d\n%s", op['query_id'], pformat(op))
+                raise
+            if self.cache_enable:
+                if self.debug: self.cache_miss_ctr.put("op_nodeIds")
+                cache.op_nodeIds[op['query_id']] = node_ids
+            if self.debug:
+                LOG.debug("Estimated Touched Nodes for Op #%d: %d", op['query_id'], len(node_ids))
+        elif self.debug:
+            self.cache_hit_ctr.put("op_nodeIds")
+        return node_ids
+    ## DEF
 
 ## CLASS

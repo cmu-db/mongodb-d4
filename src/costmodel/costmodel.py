@@ -37,6 +37,7 @@ import catalog
 import disk
 import skew
 import network
+from state import State
 from abstractcostcomponent import AbstractCostComponent
 
 LOG = logging.getLogger(__name__)
@@ -67,17 +68,14 @@ class CostModel(object):
     def __init__(self, collections, workload, config):
         self.last_design = None
         self.last_cost = None
-
-
-
-        self.estimator = NodeEstimator(self.collections, self.num_nodes)
+        self.state = State(collections, workload, config)
 
         ## ----------------------------------------------
         ## COST COMPONENTS
         ## ----------------------------------------------
-        self.diskComponent = disk.DiskCostComponent(self)
-        self.skewComponent = skew.SkewCostComponent(self)
-        self.networkComponent = network.NetworkCostComponent(self)
+        self.diskComponent = disk.DiskCostComponent(self.state)
+        self.skewComponent = skew.SkewCostComponent(self.state)
+        self.networkComponent = network.NetworkCostComponent(self.state)
 
     ## DEF
 
@@ -89,16 +87,16 @@ class CostModel(object):
 
         if self.debug:
             LOG.debug("New Design:\n%s", design)
-            self.cache_hit_ctr.clear()
-            self.cache_miss_ctr.clear()
+            self.state.cache_hit_ctr.clear()
+            self.state.cache_miss_ctr.clear()
         start = time.time()
 
         cost = 0.0
-        cost += self.weight_disk * self.diskCost(design)
-        cost += self.weight_network * self.networkCost(design)
-        cost += self.weight_skew * self.skewCost(design)
+        cost += self.state.weight_disk * self.diskCost(design)
+        cost += self.state.weight_network * self.networkCost(design)
+        cost += self.state.weight_skew * self.skewCost(design)
 
-        self.last_cost = cost / float(self.weight_network + self.weight_disk + self.weight_skew)
+        self.last_cost = cost / float(self.state.weight_network + self.state.weight_disk + self.state.weight_skew)
         self.last_design = design
 
 #        if self.debug:
@@ -117,10 +115,8 @@ class CostModel(object):
         """
             Reset all of the internal state and cache information
         """
-        self.estimator.reset()
-
+        self.state.reset()
         map(AbstractCostComponent.reset, [self.diskComponent, self.skewComponent, self.networkComponent])
-
     ## DEF
 
     ## -----------------------------------------------------------------------
@@ -146,39 +142,6 @@ class CostModel(object):
         return self.networkComponent.getCost(design)
     ## DEF
 
-    ## -----------------------------------------------------------------------
-    ## UTILITY CODE
-    ## -----------------------------------------------------------------------
 
-    def __getIsOpRegex__(self, cache, op):
-        isRegex = cache.op_regex.get(op["query_hash"], None)
-        if isRegex is None:
-            isRegex = workload.isOpRegex(op)
-            if self.cache_enable:
-                if self.debug: self.cache_miss_ctr.put("op_regex")
-                cache.op_regex[op["query_hash"]] = isRegex
-        elif self.debug:
-            self.cache_hit_ctr.put("op_regex")
-        return isRegex
-    ## DEF
-
-
-    def __getNodeIds__(self, cache, design, op):
-        node_ids = cache.op_nodeIds.get(op['query_id'], None)
-        if node_ids is None:
-            try:
-                node_ids = self.estimator.estimateNodes(design, op)
-            except:
-                LOG.error("Failed to estimate touched nodes for op #%d\n%s", op['query_id'], pformat(op))
-                raise
-            if self.cache_enable:
-                if self.debug: self.cache_miss_ctr.put("op_nodeIds")
-                cache.op_nodeIds[op['query_id']] = node_ids
-            if self.debug:
-                LOG.debug("Estimated Touched Nodes for Op #%d: %d", op['query_id'], len(node_ids))
-        elif self.debug:
-            self.cache_hit_ctr.put("op_nodeIds")
-        return node_ids
-    ## DEF
 
 ## CLASS
