@@ -22,23 +22,18 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 import os
-from pprint import pformat
 import sys
+import math
 import logging
+from pprint import pformat
 
 # mongodb-d4
-import math
-import catalog
-from costmodel.lrubuffer import LRUBuffer
-import workload
-
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, ".."))
-from costmodel import AbstractCostComponent
 
-import parser
-import reconstructor
-import sessionizer
+import catalog
+from costmodel import AbstractCostComponent
+from costmodel.lrubuffer import LRUBuffer
 from workload import Session
 from util import Histogram, constants
 
@@ -260,6 +255,11 @@ class DiskCostComponent(AbstractCostComponent):
             LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.cm.cache_hit_ctr)
             LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.cm.cache_miss_ctr)
             LOG.debug("-"*100)
+    ## DEF
+
+    def reset(self):
+        for lru in self.buffers:
+            lru.reset()
     ## DEF
 
     def guessIndex(self, design, op):

@@ -23,18 +23,14 @@
 # -----------------------------------------------------------------------
 import os
 import sys
+import math
 import logging
 
 # mongodb-d4
-import math
-
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, ".."))
-from costmodel import AbstractCostComponent
 
-import parser
-import reconstructor
-import sessionizer
+from costmodel import AbstractCostComponent
 from workload import Session
 from util import Histogram, constants
 

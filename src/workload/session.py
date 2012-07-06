@@ -11,6 +11,7 @@ from util import constants
 ## ==============================================
 class Session(Document):
     __collection__ = constants.COLLECTION_WORKLOAD
+    use_schemaless = True
     structure = {
         'session_id':  int,      # unique identifier for this session
         'ip_client':   basestring,  # IP:port of the client
@@ -85,7 +86,7 @@ class Session(Document):
         ],
     }
     required_fields = [
-        'session_id', 'ip_client', 'ip_server',
+        'session_id', 'ip_client', 'ip_server', 'operations', 'start_time'
         # 'operations.collection', 'operations.type'
     ]
     indexes = [

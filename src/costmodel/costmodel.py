@@ -28,15 +28,16 @@ import math
 import random
 from pprint import pformat
 import time
-import catalog
-from costmodel import disk, skew, network
-from costmodel.abstractcostcomponent import AbstractCostComponent
 
 import workload
-from lrubuffer import LRUBuffer
 from nodeestimator import NodeEstimator
 from util import constants
 from util import Histogram
+import catalog
+import disk
+import skew
+import network
+from abstractcostcomponent import AbstractCostComponent
 
 LOG = logging.getLogger(__name__)
 
@@ -217,8 +218,8 @@ class CostModel(object):
         self.cache_handles.clear()
         self.estimator.reset()
 
-        for lru in self.buffers:
-            lru.reset()
+        map(AbstractCostComponent.reset, [self.diskComponent, self.skewComponent, self.networkComponent])
+
     ## DEF
 
     ## -----------------------------------------------------------------------
@@ -278,7 +279,5 @@ class CostModel(object):
             self.cache_hit_ctr.put("op_nodeIds")
         return node_ids
     ## DEF
-
-
 
 ## CLASS

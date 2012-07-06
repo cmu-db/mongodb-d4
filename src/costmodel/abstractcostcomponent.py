@@ -36,17 +36,16 @@ class AbstractCostComponent():
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
         
-    def reset(self):
-        pass
-    ## DEF
-
     def getCost(self, design):
         return self.getCostImpl(design)
     ## DEF
 
     def getCostImpl(self, design):
         raise NotImplementedError("Unimplemented %s.getCostImpl()" % self.__init__.im_class)
-    ## DEF
+
+    def reset(self):
+        """Optional callback for when the cost model needs to reset itself"""
+        pass
 
     def finish(self):
         """Optional callback for when the cost model is finished a round"""
