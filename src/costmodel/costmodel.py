@@ -64,96 +64,13 @@ config {
 '''
 class CostModel(object):
 
-    class Cache():
-        """
-            Internal cache for a single collection.
-            Note that this is different than the LRUBuffer cache stuff. These are
-            cached look-ups that the CostModel uses for figuring out what operations do.
-        """
-
-        def __init__(self, col_info, num_nodes):
-
-            # The number of pages needed to do a full scan of this collection
-            # The worst case for all other operations is if we have to do
-            # a full scan that requires us to evict the entire buffer
-            # Hence, we multiple the max pages by two
-#            self.fullscan_pages = (col_info['max_pages'] * 2)
-            self.fullscan_pages = (col_info['doc_count'] * 2)
-            assert self.fullscan_pages > 0, \
-                "Zero max_pages for collection '%s'" % col_info['name']
-
-            # Cache of Best Index Tuples
-            # QueryHash -> BestIndex
-            self.best_index = { }
-
-            # Cache of Regex Operations
-            # QueryHash -> Boolean
-            self.op_regex = { }
-
-            # Cache of Touched Node Ids
-            # QueryId -> [NodeId]
-            self.op_nodeIds = { }
-
-            # Cache of Document Ids
-            # QueryId -> Index/Collection DocumentIds
-            self.collection_docIds = { }
-            self.index_docIds = { }
-        ## DEF
-
-        def reset(self):
-            self.best_index.clear()
-            self.op_regex.clear()
-            self.op_nodeIds.clear()
-            self.collection_docIds.clear()
-            self.index_docIds.clear()
-        ## DEF
-
-        def __str__(self):
-            ret = ""
-            max_len = max(map(len, self.__dict__.iterkeys()))+1
-            f = "  %-" + str(max_len) + "s %s\n"
-            for k,v in self.__dict__.iteritems():
-                if isinstance(v, dict):
-                    v_str = "[%d entries]" % len(v)
-                else:
-                    v_str = str(v)
-                ret += f % (k+":", v_str)
-            return ret
-        ## DEF
-    ## CLASS
-
     def __init__(self, collections, workload, config):
-        assert isinstance(collections, dict)
-#        LOG.setLevel(logging.DEBUG)
-        self.debug = LOG.isEnabledFor(logging.DEBUG)
-
-        self.collections = collections
-        self.workload = workload
-
-        self.weight_network = config.get('weight_network', 1.0)
-        self.weight_disk = config.get('weight_disk', 1.0)
-        self.weight_skew = config.get('weight_skew', 1.0)
-        self.num_nodes = config.get('nodes', 1)
-
         self.last_design = None
         self.last_cost = None
 
-        # Convert MB to bytes
-        self.max_memory = config['max_memory'] * 1024 * 1024
-        self.skew_segments = config['skew_intervals'] # Why? "- 1"
-        self.address_size = config['address_size'] / 4
+
 
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
-
-        ## ----------------------------------------------
-        ## CACHING
-        ## ----------------------------------------------
-        self.cache_enable = True
-        self.cache_miss_ctr = Histogram()
-        self.cache_hit_ctr = Histogram()
-
-        # ColName -> CacheHandle
-        self.cache_handles = { }
 
         ## ----------------------------------------------
         ## COST COMPONENTS
@@ -196,26 +113,10 @@ class CostModel(object):
         return self.last_cost
     ## DEF
 
-    def invalidateCache(self, col_name):
-        if col_name in self.cache_handles:
-            if self.debug: LOG.debug("Invalidating cache for collection '%s'", col_name)
-            self.cache_handles[col_name].reset()
-    ## DEF
-
-    def getCacheHandle(self, col_info):
-        cache = self.cache_handles.get(col_info['name'], None)
-        if cache is None:
-            cache = CostModel.Cache(col_info, self.num_nodes)
-            self.cache_handles[col_info['name']] = cache
-        return cache
-    ## DEF
-
     def reset(self):
         """
             Reset all of the internal state and cache information
         """
-        # Clear out caches for all collections
-        self.cache_handles.clear()
         self.estimator.reset()
 
         map(AbstractCostComponent.reset, [self.diskComponent, self.skewComponent, self.networkComponent])

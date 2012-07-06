@@ -293,7 +293,9 @@ class Parser:
         
         # Get the session to store this operation in
         session = self.getOrCreateSession(ip_client, ip_server)
-        
+        if session["start_time"] is None and "timestamp" in self.currentOp:
+            session["start_time"] = self.currentOp['timestamp']
+
         # Escape any invalid key names
         for i in xrange(0, len(self.currentContent)):
             # HACK: Rename the 'query' key to '$query'
