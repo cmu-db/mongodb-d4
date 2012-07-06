@@ -206,8 +206,8 @@ class Designer():
 #        if self.debug:
         LOG.info("Design Candidates:\n%s", dc)
 
-        cm.debug = True
-        costmodel.LOG.setLevel(logging.DEBUG)
+#        cm.debug = True
+#        costmodel.LOG.setLevel(logging.DEBUG)
 
         LOG.info("Executing D4 search algorithm...")
         bb = bbsearch.BBSearch(dc, cm, initialSolution, upper_bound, 10)
