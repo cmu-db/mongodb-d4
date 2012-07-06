@@ -3,8 +3,6 @@
 
 import os, sys
 from pprint import pformat
-import random
-import time
 import unittest
 
 basedir = os.path.realpath(os.path.dirname(__file__))

@@ -22,10 +22,10 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 import logging
-import os
-import sys
+from pprint import pformat
 
 # mongodb-d4
+import workload
 from nodeestimator import NodeEstimator
 from util.histogram import Histogram
 
