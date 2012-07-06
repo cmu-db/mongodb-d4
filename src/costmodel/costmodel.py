@@ -29,7 +29,7 @@ import random
 from pprint import pformat
 import time
 import catalog
-from costmodel import disk
+from costmodel import disk, skew, network
 from costmodel.abstractcostcomponent import AbstractCostComponent
 
 import workload
@@ -143,18 +143,6 @@ class CostModel(object):
         self.address_size = config['address_size'] / 4
 
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
-        self.buffers = [ ]
-        for i in xrange(self.num_nodes):
-            lru = LRUBuffer(self.collections, self.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
-            self.buffers.append(lru)
-
-
-        ## ----------------------------------------------
-        ## COST COMPONENTS
-        ## ----------------------------------------------
-        self.diskComponent = disk.
-        self.skewComponent = None
-        self.networkComponent = None
 
         ## ----------------------------------------------
         ## CACHING
@@ -167,11 +155,12 @@ class CostModel(object):
         self.cache_handles = { }
 
         ## ----------------------------------------------
-        ## PREP
+        ## COST COMPONENTS
         ## ----------------------------------------------
+        self.diskComponent = disk.DiskCostComponent(self)
+        self.skewComponent = skew.SkewCostComponent(self)
+        self.networkComponent = network.NetworkCostComponent(self)
 
-        # Pre-split the workload into separate intervals
-        self.splitWorkload()
     ## DEF
 
     def overallCost(self, design):
@@ -240,8 +229,6 @@ class CostModel(object):
         self.diskComponent.getCost(design)
     ## DEF
 
-
-
     ## -----------------------------------------------------------------------
     ## SKEW COST
     ## -----------------------------------------------------------------------
@@ -293,43 +280,5 @@ class CostModel(object):
     ## DEF
 
 
-    ## -----------------------------------------------------------------------
-    ## WORKLOAD SEGMENTATION
-    ## -----------------------------------------------------------------------
 
-    def splitWorkload(self):
-        """Divide the workload up into segments for skew analysis"""
-
-        start_time = None
-        end_time = None
-        for i in xrange(len(self.workload)):
-            if start_time is None or start_time < self.workload[i]['start_time']:
-                start_time = self.workload[i]['start_time']
-            if end_time is None or end_time > self.workload[i]['end_time']:
-                end_time = self.workload[i]['end_time']
-        assert start_time, \
-            "Failed to find start time in %d sessions" % len(self.workload)
-        assert end_time, \
-            "Failed to find end time in %d sessions" % len(self.workload)
-
-        if self.debug:
-            LOG.debug("Workload Segments - START:%d / END:%d", start_time, end_time)
-        self.workload_segments = [ [] for i in xrange(0, self.skew_segments) ]
-        segment_h = Histogram()
-        for sess in self.workload:
-            idx = self.getSessionSegment(sess, start_time, end_time)
-            segment_h.put(idx)
-            assert idx >= 0 and idx < self.skew_segments, \
-                "Invalid workload segment '%d' for Session #%d\n%s" % (idx, sess['session_id'], segment_h)
-            self.workload_segments[idx].append(sess)
-        ## FOR
-    ## DEF
-
-    def getSessionSegment(self, sess, start_time, end_time):
-        """Return the segment offset that the given Session should be assigned to"""
-        timestamp = sess['start_time']
-        if timestamp == end_time: timestamp -= 1
-        ratio = (timestamp - start_time) / float(end_time - start_time)
-        return min(self.skew_segments-1, int(self.skew_segments * ratio)) # HACK
-    ## DEF
 ## CLASS

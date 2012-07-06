@@ -52,7 +52,12 @@ class DiskCostComponent(AbstractCostComponent):
     def __init__(self, costModel):
         AbstractCostComponent.__init__(self, costModel)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
-        ## DEF
+
+        self.buffers = [ ]
+        for i in xrange(self.cm.num_nodes):
+            lru = LRUBuffer(self.cm.collections, self.cm.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
+            self.buffers.append(lru)
+    ## DEF
 
     def getCostImpl(self, design):
         """
@@ -68,7 +73,7 @@ class DiskCostComponent(AbstractCostComponent):
         LOG.info("Calculating diskCost for %d sessions", num_sessions)
 
         # Initialize all of the LRU buffers
-        for lru in self.cm.buffers:
+        for lru in self.buffers:
             lru.initialize(design)
             LOG.info(lru)
             lru.validate()
@@ -126,7 +131,7 @@ class DiskCostComponent(AbstractCostComponent):
 
                 # Initialize cache if necessary
                 # We will always want to do this regardless of whether caching is enabled
-                cache = self.getCacheHandle(col_info)
+                cache = self.cm.getCacheHandle(col_info)
 
                 # Check whether we have a cache index selection based on query_hashes
                 indexKeys, covering = cache.best_index.get(op["query_hash"], (None, None))
@@ -145,7 +150,7 @@ class DiskCostComponent(AbstractCostComponent):
                 for content in workload.getOpContents(op):
 
                     for node_id in self.cm.__getNodeIds__(cache, design, op):
-                        lru = self.cm.buffers[node_id]
+                        lru = self.buffers[node_id]
 
                         # TODO: Need to handle whether it's a scan or an equality predicate
                         # TODO: We need to handle when we have a regex predicate. These are tricky
@@ -218,8 +223,8 @@ class DiskCostComponent(AbstractCostComponent):
                     LOG.debug("Op #%d on '%s' -> [pageHits:%d / worst:%d]",\
                         op["query_id"], op["collection"], pageHits, maxHits)
                 assert pageHits <= maxHits,\
-                "Estimated pageHits [%d] is greater than worst [%d] for op #%d\n%s" %\
-                (pageHits, maxHits, op["query_id"], pformat(op))
+                    "Estimated pageHits [%d] is greater than worst [%d] for op #%d\n%s" %\
+                    (pageHits, maxHits, op["query_id"], pformat(op))
                 ## FOR (op)
             sess_ctr += 1
             if sess_ctr % complete_marker == 0:
@@ -230,9 +235,9 @@ class DiskCostComponent(AbstractCostComponent):
         # by the worst possible cost for this design. If we don't have a worst case,
         # then the cost is simply zero
         assert totalCost <= totalWorst,\
-                "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
+            "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
         final_cost = totalCost / totalWorst if totalWorst else 0
-        evicted = sum([ lru.evicted for lru in self.cm.buffers ])
+        evicted = sum([ lru.evicted for lru in self.buffers ])
         LOG.info("Computed Disk Cost: %.03f [pageHits=%d / worstCase=%d / evicted=%d]",\
                  final_cost, totalCost, totalWorst, evicted)
         return final_cost
@@ -248,12 +253,12 @@ class DiskCostComponent(AbstractCostComponent):
         map(LRUBuffer.validate, self.buffers)
 
         if self.debug:
-            cache_success = sum([ x for x in self.cache_hit_ctr.itervalues() ])
-            cache_miss = sum([ x for x in self.cache_miss_ctr.itervalues() ])
+            cache_success = sum([ x for x in self.cm.cache_hit_ctr.itervalues() ])
+            cache_miss = sum([ x for x in self.cm.cache_miss_ctr.itervalues() ])
             cache_ratio = cache_success / float(cache_success + cache_miss)
             LOG.debug("Internal Cache Ratio %.2f%% [total=%d]", cache_ratio*100, (cache_miss+cache_success))
-            LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.cache_hit_ctr)
-            LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.cache_miss_ctr)
+            LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.cm.cache_hit_ctr)
+            LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.cm.cache_miss_ctr)
             LOG.debug("-"*100)
     ## DEF
 
