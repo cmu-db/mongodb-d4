@@ -39,6 +39,7 @@ The following is a rough outline of the source code for **D4** as of September 2
     collection in the database. The most important element of this object is the *fields* document. This
     contains a list of objects that represent a unique element of the parent collection. Note that each field element
     is recursive: it also contains a *fields* element for other fields that are embedded inside of that field.
+    This catalog information is generated from the sample database provided by the user.
 
 + **costmodel**  
     The costmodel directory contains the code that will estimate the performance cost of executing a sample workload on
@@ -65,8 +66,25 @@ The following is a rough outline of the source code for **D4** as of September 2
     so that we do not need to completely reevaluate the entire workload every time the search algorithm changes an
     aspect of the current design.
     
-+ parser  
++ **inputs**  
+    This contains code for loading in sample workloads and databases into **D4**'s internal catalog database. There are
+    currently two different types of inputs that **D4** can ingest:
     
+    +   The *mongodb* input converter takes in a `mongosniff` trace file and extract the workload queries.
+        The *Reconstructor* will recreate the documents in the original database. This necessary in order to extract
+        the schema *Catalog* objects.
+        **Important:** The workload traces must come from our customized version of `mongosniff` because the one
+        shipped by 10gen does not dump the entire contents of queries.
+    
+    +   The *mysql* input converter takes in a `mysqldump` file and corresponding a
+        [general log](http://dev.mysql.com/doc/refman/5.1/en/query-log.html) trace database. It will first extract the
+        schema catalog from MySQL's internal
+        [INFORMATION_SCHEMA](http://dev.mysql.com/doc/refman/5.1/en/information-schema.html) tables and populate the
+        *Collection* metadata catalog. It will then convert all of the queries from the trace into equivalent MongoDB
+        queries. The queries within a transaction will be combined into a `Session`, and those queries will be
+        converted into `Operations`. Queries that join multiple tables will be converted into multiple `Operations` that
+        are linked together by a unique `query_group` identifier.
+        Note that not all SQL features are supported for this conversion (e.g., functions, aggregates).
     
 + sanitizer  
 
