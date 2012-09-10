@@ -169,7 +169,14 @@ class Sessionizer:
             lastOp = op
         ## FOR
         
-        return newSessions
+        # Remove any Session that doesn't have any operations
+        newSessionsClean = [ ]
+        for sess in newSessions:
+            if len(sess["operations"]) > 0:
+                newSessionsClean.append(sess)
+                print len(newSessionsClean), "->", len(sess["operations"])
+        ## FOR
+        return newSessionsClean
     ## FOR
 
 ## CLASS

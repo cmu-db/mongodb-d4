@@ -655,8 +655,8 @@ class Parser:
             LOG.warn("No plaintext collections were found in operations. Unable to perform post-processing")
             return
         
-        LOG.info("Performing post processing on %s sessions with %d operations" % (self.getSessionCount(), self.getOpCount()))
         if self.debug:
+            LOG.debug("Performing post processing on %s sessions with %d operations" % (self.getSessionCount(), self.getOpCount()))
             LOG.debug("-- Aggregate Collection Names --")
             LOG.debug("Encountered %d collection names in plaintext." % len(self.known_collections))
             LOG.debug(pformat(self.known_collections))
@@ -690,7 +690,7 @@ class Parser:
         """this functions returns a set of some hashed strings, which are most likely hashed collection names"""
         
         candidate_hashes = set()
-        LOG.info("Retrieving hashed collection names...")
+        LOG.debug("Retrieving hashed collection names...")
         for session in self.session_map.itervalues():
             for op in session['operations']:
                 if op['query_aggregate']:
@@ -703,7 +703,7 @@ class Parser:
                         #print query
                         candidate_hashes.add(query['count'])
         ## FOR
-        LOG.info("Found %d hashed collection names. " % len(candidate_hashes))
+        LOG.debug("Found %d hashed collection names. " % len(candidate_hashes))
         LOG.debug(candidate_hashes)
         return candidate_hashes
     ## DEF
@@ -715,7 +715,7 @@ class Parser:
     def infer_salt(self, candidate_hashes, known_collections):
         """this is a ridiculous hack. Let's hope the salt is 0. But even if not..."""
         max_salt = 100000
-        LOG.info("Trying to brute-force the salt 0-%d..." % max_salt)
+        LOG.debug("Trying to brute-force the salt 0-%d..." % max_salt)
         salt = 0
         while True:
             if salt % (max_salt / 100) == 0:
@@ -724,12 +724,12 @@ class Parser:
                 hashed_string = self.get_hash_string(known_col) # the col names are hashed with quotes around them 
                 hash = anonymize.hash_string(hashed_string, salt) # imported from anonymize.py
                 if hash in candidate_hashes:
-                    LOG.info("SUCCESS! %s hashes to a known value. SALT: %d", hashed_string, salt)
+                    LOG.debug("SUCCESS! %s hashes to a known value. SALT: %d", hashed_string, salt)
                     return salt
             salt += 1
             if salt > max_salt:
                 break
-        LOG.warn("FAIL. The salt value is unknown :(")
+        LOG.warn("FAIL. The salt value is unknown")
         return None
     ## DEF
 

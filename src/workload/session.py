@@ -21,82 +21,81 @@ class Session(Document):
         
         ## ----------------------------------------------
         ## OPERATIONS
-        ## These are all of the queries that the client executed
-        ## during the session.
+        ## These are all of the queries that the client executed during the session.
         ## ----------------------------------------------
-        'operations': [
-            {
-                # The name of the collection targeted in this operation
-                'collection':       basestring,
-                # The type of the query ($delete, $insert, $update, $query)
-                # See OPT_TYPE_* in util/constants.py
-                'type':             basestring, # IS(constants.OP_TYPE_ALL),
+        'operations': [ {
+            # The name of the collection targeted in this operation
+            'collection':       basestring,
+            # The type of the query ($delete, $insert, $update, $query)
+            # See OPT_TYPE_* in util/constants.py
+            'type':             basestring, # IS(constants.OP_TYPE_ALL),
 
-                ## ----------------------------------------------
-                ## QUERY ATTRIBUTES
-                ## ----------------------------------------------
+            ## ----------------------------------------------
+            ## QUERY ATTRIBUTES
+            ## ----------------------------------------------
 
-                # The relative timestamp of when the query was sent to the server (in seconds)
-                'query_time':       float,
-                # Query payload (BSON)
-                'query_content':    list,
-                # Query payload size [bytes]
-                'query_size':       int,
-                # Unique identifier of this query invocation
-                # query_id and resp_id are used to pair up queries & responses
-                'query_id':         long,
+            # The relative timestamp of when the query was sent to the server (in seconds)
+            'query_time':       float,
+            # Query payload (BSON)
+            'query_content':    list,
+            # Query payload size [bytes]
+            'query_size':       int,
+            # Unique identifier of this query invocation
+            # query_id and resp_id are used to pair up queries & responses
+            'query_id':         long,
 
-                # A hash code compute from this query's payload signature. Different
-                # invocations of queries that reference the same keys in this collection
-                # but have different input parameters will have the same hash
-                # See workload/ophasher.py
-                'query_hash':       long,
+            # A hash code compute from this query's payload signature. Different
+            # invocations of queries that reference the same keys in this collection
+            # but have different input parameters will have the same hash
+            # See workload/ophasher.py
+            'query_hash':       long,
 
-                # If the query group is not None, then it identifies that this operation
-                # was derived from a SQL query that contain multiple table references
-                # and was therefore split into separate operations.
-                'query_group':      int,
+            # If the query group is not None, then it identifies that this operation
+            # was derived from a SQL query that contain multiple table references
+            # and was therefore split into separate operations.
+            'query_group':      int,
 
-                # query flags & props
-                # flags: 1==upsert:TRUE, multi:FALSE, 2==upsert:FALSE, multi:TRUE
-                'update_upsert':    bool,    # T/F from flags
-                'update_multi':     bool,    # T/F from flags
-                'query_limit':      int,     # ntoreturn, -1: all
-                'query_offset':     int,     # ntoskip
-                'query_aggregate':  bool,    # T/F aggregate yes or no
+            # query flags & props
+            # flags: 1==upsert:TRUE, multi:FALSE, 2==upsert:FALSE, multi:TRUE
+            'update_upsert':    bool,    # T/F from flags
+            'update_multi':     bool,    # T/F from flags
+            'query_limit':      int,     # ntoreturn, -1: all
+            'query_offset':     int,     # ntoskip
+            'query_aggregate':  bool,    # T/F aggregate yes or no
 
-                ## ----------------------------------------------
-                ## RESPONSE ATTRIBUTES
-                ## ----------------------------------------------
+            ## ----------------------------------------------
+            ## RESPONSE ATTRIBUTES
+            ## ----------------------------------------------
 
-                # The relative timestamp of when the server returned the response (in seconds)
-                'resp_time':        float,
-                # Response payload (list of BSON objs)
-                'resp_content':     list,
-                # Response payload size [bytes]
-                'resp_size':        int,
-                # Unique identifier of the response packet
-                'resp_id':          long,
+            # The relative timestamp of when the server returned the response (in seconds)
+            'resp_time':        float,
+            # Response payload (list of BSON objs)
+            'resp_content':     list,
+            # Response payload size [bytes]
+            'resp_size':        int,
+            # Unique identifier of the response packet
+            'resp_id':          long,
 
-                ## ----------------------------------------------
-                ## INTERNAL DATA
-                ## ----------------------------------------------
-                
-                # A mapping from keys to their predicate types
-                'predicates':       dict,
-            }
-        ],
+            ## ----------------------------------------------
+            ## INTERNAL DATA
+            ## ----------------------------------------------
+            
+            # A mapping from keys to their predicate types
+            'predicates':       dict,
+        } ],
     }
     required_fields = [
-        'session_id', 'ip_client', 'ip_server', 'operations', 'start_time'
+        'session_id',
+        'ip_client',
+        'ip_server',
+        'start_time',
+        'operations', 
         # 'operations.collection', 'operations.type'
     ]
-    indexes = [
-        {
+    indexes = [ {
             'fields': ['session_id'],
             'unique': True,
-        },
-    ]
+    } ]
     default_values = {
         'operations': [ ],
     }

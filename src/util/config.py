@@ -90,9 +90,9 @@ def setDefaultValues(cparser):
     """Set the default values for the given SafeConfigParser"""
     for section in cparser.sections():
         assert section in DEFAULT_CONFIG, "Unexpected configuration section '%s'" % section
-        for option in DEFAULT_CONFIG[section]:
-            if not cparser.has_option(section, option):
-                cparser.set(section, option, DEFAULT_CONFIG[key][-1])
+        for key, desc, default in DEFAULT_CONFIG[section]:
+            if not cparser.has_option(section, key):
+                cparser.set(section, key, default)
         ## FOR
     ## FOR
     return (cparser)

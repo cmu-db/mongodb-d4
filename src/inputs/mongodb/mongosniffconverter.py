@@ -174,13 +174,19 @@ class MongoSniffConverter(AbstractConverter):
 
             # And then add all of our new sessions
             # Count the number of operations so that can see the change
-            if self.debug:
-                LOG.debug("Split Session %d [%d ops] into %d separate sessions", \
+            #if self.debug:
+            LOG.info("Split Session %d [%d ops] into %d separate sessions", \
                           sess['session_id'], len(sess['operations']), len(newSessions))
             totalOps = 0
             for newSess in newSessions:
-                self.metadata_db.Session.save(newSess)
                 newOpCtr = len(newSess['operations'])
+                assert newOpCtr > 0
+                print newSess, "->", newOpCtr
+                try:
+                    self.metadata_db.Session.save(newSess)
+                except:
+                    # print pformat(newSess)
+                    raise
                 totalOps += newOpCtr
                 newHistogram.put(newOpCtr)
                 if self.debug:
