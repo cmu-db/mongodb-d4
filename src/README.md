@@ -25,7 +25,7 @@
    
    If you are just testing and do not want to process the entire workload trace file,  you can use the *--sess-limit* and *--op-limit* options to limit the number of records processed. For example, the following command will halt loading after processing 1000 new Sessions from the trace:
    
-    gunzip -c sniff.out.gz | ./d4.py --config=application.config --reset --no-search --sess-limit=1000
+        gunzip -c sniff.out.gz | ./d4.py --config=application.config --reset --no-search --sess-limit=1000
    
 3. Now execute the search algorithm to find the optimal design. Note that we use the *--no-load* option and 
    exclude the *--reset* option because we will use the workload that was loaded in the previous step:
