@@ -33,7 +33,8 @@ LOG = logging.getLogger(__name__)
 class Sessionizer:
     """Takes a series of operations and figures out session boundaries"""
     
-    def __init__(self):
+    def __init__(self, metadata_db):
+        self.metadata_db = metadata_db
         self.op_ctr = 0
         
         # Reverse look-up for op hashes
@@ -142,10 +143,10 @@ class Sessionizer:
     ## DEF
         
     def sessionize(self, origSess, nextId):
-        """Once we have our session boundaries, we need to then
-        loop through each of the sessOps again and generate our
-         boundaries"""
-        
+        """
+            Once we have our session boundaries, we need to then loop through 
+            each of the sessOps again and generate our boundaries.
+        """
         sess = None
         newSessions = [ ]
         lastOp = None
@@ -154,29 +155,24 @@ class Sessionizer:
         # we always loop through one extra time in order
         # to make sure the lastOp is given a home!
         for op in origSess["operations"] + [ None ]:
-            if not sess:
-                sess = Session()
+            if sess is None:
+                sess = self.metadata_db.Session()
                 sess["operations"] = [ ]
                 sess["ip_client"] = origSess["ip_client"]
                 sess["ip_server"] = origSess["ip_server"]
                 sess["session_id"] = nextId
                 nextId += 1
                 newSessions.append(sess)
-            if lastOp:
+            if not lastOp is None:
+                if len(sess["operations"]) == 0:
+                    sess["start_time"] = lastOp["query_time"]
                 sess["operations"].append(lastOp)
                 if op and (lastOp["query_hash"], op["query_hash"]) in self.sessionBoundaries:
                     sess = None
             lastOp = op
         ## FOR
         
-        # Remove any Session that doesn't have any operations
-        newSessionsClean = [ ]
-        for sess in newSessions:
-            if len(sess["operations"]) > 0:
-                newSessionsClean.append(sess)
-                print len(newSessionsClean), "->", len(sess["operations"])
-        ## FOR
-        return newSessionsClean
+        return newSessions
     ## FOR
 
 ## CLASS

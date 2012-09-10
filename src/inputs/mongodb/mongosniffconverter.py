@@ -140,7 +140,7 @@ class MongoSniffConverter(AbstractConverter):
         """
         LOG.info("Sessionizing sample workload")
         
-        s = sessionizer.Sessionizer()
+        s = sessionizer.Sessionizer(self.metadata_db)
         
         # We first feed in all of the operations in for each session
         nextSessId = -1
@@ -154,8 +154,11 @@ class MongoSniffConverter(AbstractConverter):
             origTotal += len(sess['operations'])
             sessions.append(sess)
         ## FOR
-        LOG.info("ORIG - Sessions: %d" % origHistogram.getSampleCount())
-        LOG.info("ORIG - Avg Ops per Session: %.2f" % (origTotal / float(origHistogram.getSampleCount())))
+        LOG.info("BEFORE Sessionization\n" +
+                 "  # of Sessions: %d\n" +
+                 "  Avg Ops per Session: %.2f", \
+                 origHistogram.getSampleCount(), \
+                 (origTotal / float(origHistogram.getSampleCount())))
         
         # Then split them into separate sessions
         s.calculateSessions()
@@ -164,29 +167,19 @@ class MongoSniffConverter(AbstractConverter):
 
         # We have to do this because otherwise we will start to process
         # the new sessions that we just inserted... I know...
-        deletable = [ ]
         for sess in sessions:
             newSessions = s.sessionize(sess, nextSessId)
             nextSessId += len(newSessions)
             
-            # Mark the original session as deletable
-            deletable.append(sess)
-
             # And then add all of our new sessions
             # Count the number of operations so that can see the change
-            #if self.debug:
-            LOG.info("Split Session %d [%d ops] into %d separate sessions", \
+            if self.debug:
+                LOG.debug("Split Session %d [%d ops] into %d separate sessions", \
                           sess['session_id'], len(sess['operations']), len(newSessions))
             totalOps = 0
             for newSess in newSessions:
+                newSess.save()
                 newOpCtr = len(newSess['operations'])
-                assert newOpCtr > 0
-                print newSess, "->", newOpCtr
-                try:
-                    self.metadata_db.Session.save(newSess)
-                except:
-                    # print pformat(newSess)
-                    raise
                 totalOps += newOpCtr
                 newHistogram.put(newOpCtr)
                 if self.debug:
@@ -195,14 +188,19 @@ class MongoSniffConverter(AbstractConverter):
             assert len(sess['operations']) == totalOps, \
                 "Expected %d operations, but new sessions only had %d" % (len(sess['operations']), totalOps)
             newTotal += totalOps
+            
+            # Mark the original session as deletable
+            # deletable.append(sess)
+            sess.delete()
         ## FOR
-        LOG.info("NEW  - Sessions: %d" % newHistogram.getSampleCount())
-        LOG.info("NEW  - Avg Ops per Session: %.2f" % (newTotal / float(newHistogram.getSampleCount())))
+        LOG.info("AFTER Sessionization\n" +
+                 "  # of Sessions: %d\n" +
+                 "  Avg Ops per Session: %.2f", \
+                 newHistogram.getSampleCount(), \
+                 (newTotal / float(newHistogram.getSampleCount())))
         if self.debug:
-            LOG.debug("NEW - Ops per Session\n%s" % newHistogram)
-
-        self.metadata_db.Session.remove(deletable)
-
+            LOG.debug("Ops per Session\n%s" % newHistogram)
+            
         return
     ## DEF
 ## CLASS
