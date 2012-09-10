@@ -22,8 +22,12 @@ For More Information: <http://database.cs.brown.edu/projects/mongodb/>
 
 ## Authors
 + [Andy Pavlo](http://www.cs.brown.edu/~pavlo)
-+ [Emanuel Buzek](http://www.linkedin.com/pub/emanuel-buzek/2/655/b04)
++ [Yang Zou](http://www.cs.brown.edu/~yang)
++ [Stan Zdonik](http://www.cs.brown.edu/~sbz)
 
+## Past Contributors
++ [Christopher Keith](http://www.linkedin.com/pub/christopher-keith/38/882/81a)
++ [Emanuel Buzek](http://www.linkedin.com/pub/emanuel-buzek/2/655/b04)
 
 ## Acknowledgements
 This work is supported (in part) by an [Amazon AWS Research Grant](http://aws.amazon.com/education/).

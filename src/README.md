@@ -65,13 +65,13 @@ The following is a rough outline of the source code for **D4** as of September 2
     so that we do not need to completely reevaluate the entire workload every time the search algorithm changes an
     aspect of the current design.
     
-+ parser
++ parser  
+    
+    
++ sanitizer  
 
-+ sanitizer
++ search  
 
-+ search
++ util  
 
-+ util
-
-+ workload
-
++ workload  
