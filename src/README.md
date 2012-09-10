@@ -29,3 +29,23 @@ TODO: Need to discuss how to enable the debug log and where to report issues.
         
 ## MySQL Example
 *To be written*
+
+## Source Code Hierarchy
+
+There are two main objects in **D4**. The first is the *Collection* catalog object. This represents 
+
++ catalog
+  This directory contains 
+
++ costmodel
+
++ parser
+
++ sanitizer
+
++ search
+
++ util
+
++ workload
+

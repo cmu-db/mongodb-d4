@@ -22,7 +22,6 @@ For More Information: <http://database.cs.brown.edu/projects/mongodb/>
 
 ## Authors
 + [Andy Pavlo](http://www.cs.brown.edu/~pavlo)
-+ [Christopher Keith](http://www.linkedin.com/pub/christopher-keith/38/882/81a)
 + [Emanuel Buzek](http://www.linkedin.com/pub/emanuel-buzek/2/655/b04)
 
 
