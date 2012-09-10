@@ -136,7 +136,7 @@ class MongoSniffConverter(AbstractConverter):
     ## ----------------------------------------------
     def sessionizeWorkload(self):
         """
-
+            Split the Sessions based on the gap between operation times
         """
         LOG.info("Sessionizing sample workload")
         

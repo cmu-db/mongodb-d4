@@ -81,6 +81,8 @@ class CostModel(object):
         self.skewComponent = skew.SkewCostComponent(self.state)
         self.networkComponent = network.NetworkCostComponent(self.state)
         self.allComponents = (self.diskComponent, self.skewComponent, self.networkComponent)
+        
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
 
     def overallCost(self, design):
