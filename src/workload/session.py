@@ -52,8 +52,10 @@ class Session(Document):
                 # See workload/ophasher.py
                 'query_hash':       long,
 
-                # mysql
-                'query_group':      int,        # mysql split join
+                # If the query group is not None, then it identifies that this operation
+                # was derived from a SQL query that contain multiple table references
+                # and was therefore split into separate operations.
+                'query_group':      int,
 
                 # query flags & props
                 # flags: 1==upsert:TRUE, multi:FALSE, 2==upsert:FALSE, multi:TRUE

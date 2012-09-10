@@ -2,7 +2,7 @@
 
 The following is a rough outline of the source code for **D4** as of September 2012.
 
-## **catalog**
+## catalog
 This directory contains the *Collection* catalog object. This object contains the metadata about a high-level single
 collection in the database. The most important element of this object is the *fields* document. This
 contains a list of objects that represent a unique element of the parent collection. Note that each field element
@@ -69,12 +69,18 @@ This directory contains all of the code to execute the search algorithm for find
 The *InitialDesigner* is a heuristic-based algorithm that selects the different design options for the target
 database based on the most frequently accessed attributes in each collection. This provides a quick upper bound
 on the solution space.
-The *LNSearch* class is **D4**'s large-neighborhood search algorithm implementation that will explore the different
+The *LNSearch* class is **D4**'s large-neighborhood search algorithm implementation that explores the different
 solutions for the target database. It will invoke the branch-and-bound implementation (*BBSearch*) in multiple
 rounds and use the *CostModel* to guide it to an optimal design.
 
 ## util
-Utility code for various aspects of the system. 
+Utility code for various aspects of the system.
++   *config*: Configuration file schema use by **D4**.
++   *constants*: Global internal configuration parameters.
    
-## workload  
+## workload
+The workload directory contains the other MongoKit-backed object used in **D4**. The `Session` object contains
+an ordered list of `Operations` invoked by a single client thread to complete some action (e.g., a `Session`
+could be all of the queries executed to retrieve the data needed to serve a page request). This `operations` list is
+sorted by the order that the client executed them (we assume that the client is single-threaded). 
     
