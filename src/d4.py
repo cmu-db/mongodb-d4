@@ -45,6 +45,7 @@ from designer import Designer
 from search import bbsearch
 from util import config
 from util import constants
+from util import termcolor
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -67,7 +68,7 @@ if __name__ == '__main__':
                          help='Print out the default configuration file.')
 
     # General Processing Options
-    agroup = aparser.add_argument_group('General Control')
+    agroup = aparser.add_argument_group(termcolor.bold('General Options'))
     agroup.add_argument('--reset', action='store_true',
                          help='Reset the internal catalog databases before processing. ' +
                               'Warning: This will delete all of the collections in the ' +
@@ -76,22 +77,15 @@ if __name__ == '__main__':
                         help='Skip loading input files into system. ' +
                              'Use this option if schema statistics and the workload have ' +
                              'already been loaded into the catalog database.')
+    agroup.add_argument('--no-search', action='store_true',
+                        help='Do not perform a search for a database design.')
     agroup.add_argument('--sess-limit', type=int, metavar='S', default=None,
                         help='Limit the number of sessions to process from the sample workload.')
     agroup.add_argument('--op-limit', type=int, metavar='N', default=None,
                         help='Limit the number of operations to process from the sample workload.')
 
-    # TODO: This is a development option that should be removed
-    agroup.add_argument('--no-post-process', action='store_true',
-                        help='Skip post-processing the workload trace after loading it into ' +
-                             'the internal catalog database.')
-    agroup.add_argument('--no-search', action='store_true',
-                        help='Do not perform a search for a database design.')
-    agroup.add_argument('--stop-on-error', action='store_true',
-                        help='Stop processing when an invalid record is encountered.')
-
     # MongoDB Trace Processing Options
-    agroup = aparser.add_argument_group('MongoDB Processing')
+    agroup = aparser.add_argument_group(termcolor.bold('MongoDB Workload Processing Options'))
     agroup.add_argument('--mongo', type=str, metavar='FILE',
                         help="Path to the MongoSniff file with the sample workload. Use '-' if you would like to read from stdin")
     agroup.add_argument('--mongo-skip', type=int, metavar='N', default=None,
@@ -105,16 +99,23 @@ if __name__ == '__main__':
                         help='Skip splitting the MongoSniff workload into separate sessions.')
 
     # MySQL Processing Options
-    agroup = aparser.add_argument_group('MySQL Processing')
+    agroup = aparser.add_argument_group(termcolor.bold('MySQL Workload Processing Options'))
     agroup.add_argument('--mysql', action='store_true',
                         help='Whether to process inputs from MySQL. Use must also define ' +
                              'the database connection parameters in the config file.'),
 
     # Debugging Options
-    agroup = aparser.add_argument_group('Debugging Options')
+    agroup = aparser.add_argument_group(termcolor.bold('Debugging Options'))
 
     agroup.add_argument('--debug', action='store_true',
                          help='Enable debug log messages.')
+    # TODO: These are development options that should be removed
+    agroup.add_argument('--no-post-process', action='store_true',
+                        help='Skip post-processing the workload trace after loading it into ' +
+                             'the internal catalog database.')
+    agroup.add_argument('--stop-on-error', action='store_true',
+                        help='Stop processing when an invalid record is encountered.')
+                         
     args = vars(aparser.parse_args())
 
     if args['debug']: LOG.setLevel(logging.DEBUG)
@@ -189,7 +190,7 @@ if __name__ == '__main__':
         ## ----------------------------------------------
         ## STEP 1: INPUT PROCESSING
         ## ----------------------------------------------
-        if not args['no_load'] or not args['no_post_process']:
+        if not (args['no_load'] or args['no_post_process']):
             if not args['mysql']:
                 # If the user passed in '-', then we'll read from stdin
                 inputFile = args['mongo']
