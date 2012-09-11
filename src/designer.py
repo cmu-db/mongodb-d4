@@ -216,7 +216,15 @@ class Designer():
     ## DEF
 
     def generateDesignCandidates(self, collections):
+        isShardingEnabled = self.cparser.get(SECT_DESIGNER, 'enable_sharding')
+        isIndexesEnabled = self.cparser.get(SECT_DESIGNER, 'enable_indexes')
+        isDenormalizationEnabled = self.cparser.get(SECT_DESIGNER, 'enable_denormalization')
+        
+        shardKeys = []
+        indexKeys = [[]]
+        denorm = []
         dc = DesignCandidates()
+        
         for col_info in collections.itervalues():
             interesting = col_info['interesting']
             if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
@@ -224,19 +232,24 @@ class Designer():
                 interesting.remove("_id")
 
             # deal with shards
-            shardKeys = interesting
+            if isShardingEnabled == 'True':
+                if self.debug: LOG.debug("Sharding is enabled")
+                shardKeys = interesting
 
             # deal with indexes
-            indexKeys = [[]]
-            for o in xrange(1, len(interesting) + 1) :
-                for i in itertools.combinations(interesting, o) :
-                    indexKeys.append(i)
+            if isIndexesEnabled == 'True':
+                if self.debug: LOG.debug("Indexes is enabled")
+                for o in xrange(1, len(interesting) + 1) :
+                    for i in itertools.combinations(interesting, o) :
+                        indexKeys.append(i)
 
             # deal with de-normalization
-            denorm = []
-            for k,v in col_info['fields'].iteritems() :
-                if v['parent_col'] <> '' and v['parent_col'] not in denorm :
-                    denorm.append(v['parent_col'])
+            if isDenormalizationEnabled == 'True':
+                if self.debug: LOG.debug("Demormalization is enabled")
+                for k,v in col_info['fields'].iteritems() :
+                    if v['parent_col'] <> '' and v['parent_col'] not in denorm :
+                        denorm.append(v['parent_col'])
+                        
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
         ## FOR
         return dc

@@ -77,7 +77,7 @@ class CostModel(object):
         ## ----------------------------------------------
         ## COST COMPONENTS
         ## ----------------------------------------------
-        self.diskComponent = disk.DiskCostComponent(self.state)
+        self.diskComponent = disk.FastDiskCostComponent(self.state)
         self.skewComponent = skew.SkewCostComponent(self.state)
         self.networkComponent = network.NetworkCostComponent(self.state)
         self.allComponents = (self.diskComponent, self.skewComponent, self.networkComponent)

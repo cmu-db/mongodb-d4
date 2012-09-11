@@ -1,2 +1,2 @@
 
-from diskcostcomponent import DiskCostComponent
+from fastdiskcostcomponent import FastDiskCostComponent

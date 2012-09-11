@@ -3,7 +3,7 @@
 
 1. Create a default configuration file that you will use for your application:
 
-        d4.py --print-config > application.config
+        ./d4.py --print-config > application.config
         
 2. Edit the settings in this configuration file according to your local environment.
 
