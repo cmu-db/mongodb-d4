@@ -155,9 +155,6 @@ if __name__ == '__main__':
             raise Exception("Missing the configuration option '%s.%s'" % (config.SECT_MONGODB, key))
         elif not cparser.get(config.SECT_MONGODB, key):
             raise Exception("Empty configuration option '%s.%s'" % (config.SECT_MONGODB, key))
-        db_name = cparser.get(config.SECT_MONGODB, key)
-        if not db_name in db_names:
-            raise Exception("The %s database '%s' does not exist" % (key.upper(), db_name))
     ## FOR
 
     ## ----------------------------------------------
