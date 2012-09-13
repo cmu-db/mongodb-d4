@@ -28,7 +28,7 @@ import logging
 from pprint import pformat
 import catalog
 from costmodel import costmodel
-from search import InitialDesigner, DesignCandidates, bbsearch
+from search import InitialDesigner, lnsearch
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -192,67 +192,18 @@ class Designer():
 
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
-        initialSolution = InitialDesigner(collectionsDict.values()).generate()
-        upper_bound = cm.overallCost(initialSolution)
-        if self.debug: LOG.debug("Computed initial design [COST=%f]", upper_bound)
-
-        cm.overallCost(initialSolution)
-        raise Exception("XXX")
-
-        # Now generate the design candidates
-        # These are the different options that we are going to explore
-        # in the branch-and-bound search
-        dc = self.generateDesignCandidates(collectionsDict)
-#        if self.debug:
-        LOG.info("Design Candidates:\n%s", dc)
+        initialDesign = InitialDesigner(collectionsDict.values()).generate()
+        upper_bound = cm.overallCost(initialDesign)
+        if self.debug:
+            LOG.debug("Initial Design\n%s", initialDesign)
+            LOG.debug("Computed initial design [COST=%f]", upper_bound)
 
 #        cm.debug = True
 #        costmodel.LOG.setLevel(logging.DEBUG)
-
         LOG.info("Executing D4 search algorithm...")
-        bb = bbsearch.BBSearch(dc, cm, initialSolution, upper_bound, 10)
-        solution = bb.solve()
+        ln = lnsearch.LNSearch(self.cparser, collectionsDict, cm, initialDesign, upper_bound, 10)
+        solution = ln.solve()
         return solution
-    ## DEF
-
-    def generateDesignCandidates(self, collections):
-        isShardingEnabled = self.cparser.get(SECT_DESIGNER, 'enable_sharding')
-        isIndexesEnabled = self.cparser.get(SECT_DESIGNER, 'enable_indexes')
-        isDenormalizationEnabled = self.cparser.get(SECT_DESIGNER, 'enable_denormalization')
-        
-        shardKeys = []
-        indexKeys = [[]]
-        denorm = []
-        dc = DesignCandidates()
-        
-        for col_info in collections.itervalues():
-            interesting = col_info['interesting']
-            if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
-                interesting = interesting[:]
-                interesting.remove("_id")
-
-            # deal with shards
-            if isShardingEnabled == 'True':
-                if self.debug: LOG.debug("Sharding is enabled")
-                shardKeys = interesting
-
-            # deal with indexes
-            if isIndexesEnabled == 'True':
-                if self.debug: LOG.debug("Indexes is enabled")
-                for o in xrange(1, len(interesting) + 1) :
-                    for i in itertools.combinations(interesting, o) :
-                        indexKeys.append(i)
-
-            # deal with de-normalization
-            if isDenormalizationEnabled == 'True':
-                if self.debug: LOG.debug("Demormalization is enabled")
-                for k,v in col_info['fields'].iteritems() :
-                    if v['parent_col'] <> '' and v['parent_col'] not in denorm :
-                        denorm.append(v['parent_col'])
-                        
-            dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
-        ## FOR
-        return dc
     ## DEF
 
 ## CLASS

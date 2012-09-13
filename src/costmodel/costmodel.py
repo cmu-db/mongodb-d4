@@ -109,7 +109,7 @@ class CostModel(object):
         stop = time.time()
 
         # Calculate cache hit/miss ratio
-        LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
+        LOG.debug("Overall Cost %.3f / Computed in %.2f seconds", \
                  self.last_cost, (stop - start))
 
         map(AbstractCostComponent.finish, self.allComponents)

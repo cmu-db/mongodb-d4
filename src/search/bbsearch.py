@@ -40,7 +40,7 @@ class BBSearch ():
         initialized, solving, solved, timed_out, user_terminated
     """
 
-    def __init__(self, designCandidate, costModel, initialDesign, bestCost, timeout):
+    def __init__(self, designCandidate, costModel, relaxedDesingn, bestCost, timeout):
         """
             class constructor
             args:
@@ -55,14 +55,15 @@ class BBSearch ():
         # in order to access bounding function, optimial solution and current bound
         self.terminated = False
         # store keys list... used only to translate integer iterators back to real key values...
-        self.rootNode = BBNode(design.Design(), self, True, 0) #rootNode: True
+        self.rootNode = BBNode(relaxedDesingn, self, True, 0) #rootNode: True
         self.designCandidate = designCandidate
         self.costModel = costModel
-        self.bestDesign = initialDesign
+        self.bestDesign = relaxedDesingn
         self.bestCost = bestCost
         self.totalBacktracks = 0
         self.timeout = timeout
         self.status = "initialized"
+        self.usedTime = 0 # track how much time it runs
         return
 
     
@@ -84,7 +85,11 @@ class BBSearch ():
         self.rootNode.solve()
         if self.status is "solving":
             self.status = "solved"
+
         self.onTerminate()
+
+        self.usedTime = time.time() - self.startTime
+
         return self.bestDesign
 
     def listAllNodes(self):
@@ -248,27 +253,24 @@ BBNode - basic building block of the BBSearch tree
 This class is basically a wrapper around Design
 '''
 class BBNode():
-
    # this is depth first search for now
     def solve(self):
-    
+
         LOG.debug(("\n ==Node Solve== "))
     
         self.bbsearch.checkTimeout()
         if self.bbsearch.terminated:
             return
-            
-        
+
         # do not branch if the solution is complete
         if not self.isLeaf():
-        
+
             self.prepareChildren()
             child = self.getNextChild()
             while child is not None:
-                
                 LOG.debug("DEPTH: %d", child.depth)
-                LOG.debug(child.design)
-                
+                LOG.debug(child.design.data)
+
                 if child.evaluate():
                     self.children.append(child)
                     child.solve()
@@ -378,15 +380,13 @@ class BBNode():
         # make the child
         # inherit the parent assignment plus the new assignment
         child_design = self.design.copy()
-        child_design.addCollection(self.currentCol)
+        if not child_design.hasCollection(self.currentCol):
+            child_design.addCollection(self.currentCol)
         
         for i in indexes :
             child_design.addIndex(self.currentCol, i)
         child_design.addShardKey(self.currentCol, shardKey)
         child_design.setDenormalizationParent(self.currentCol, denorm)
-        #child_design.indexes[self.currentCol] = indexes
-        #child_design.shardKeys[self.currentCol] = shardKey
-        #child_design.denorm[self.currentCol] = denorm
         
         child = BBNode(child_design, self.bbsearch, False, self.depth + 1)
         
@@ -397,7 +397,7 @@ class BBNode():
         # initialize iterators 
         # --> determine which collection is yet to be assigned
         for col_name in self.bbsearch.designCandidate.collections:
-            if not self.design.hasCollection(col_name):
+            if self.design.isRelaxed(col_name):
                 self.currentCol = col_name
                 break
         # create the iterators
@@ -442,7 +442,7 @@ class BBNode():
             c.addChildrenToList(result)
 
     def isLeaf(self):
-        return self.design.isComplete(len(self.bbsearch.designCandidate.collections))
+        return self.design.isComplete()
 
     def __str__(self):
         tab="\n"

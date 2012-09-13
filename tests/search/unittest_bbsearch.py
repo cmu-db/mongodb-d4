@@ -53,6 +53,11 @@ class TestSearchSpace (unittest.TestCase) :
 
     def setUp(self):
         self.initialDesign = design.Design()
+        self.initialDesign.addCollection("col1")
+        self.initialDesign.addCollection("col2")
+        self.initialDesign.reset("col1")
+        self.initialDesign.reset("col2")
+
         self.upper_bound = 1
         self.timeout = 1000000000
 
@@ -68,15 +73,18 @@ class TestSearchSpace (unittest.TestCase) :
         --> this test verifies that bbsearch does not omit any nodes
         '''
         LOG.info("\n\n === BBSearch Simple Test - empty === \n")
+
         dc = designcandidates.DesignCandidates()
         dc.addCollection("col1", [], [], [])
         dc.addCollection("col2", [], [], [])
+        LOG.info("Design Candidates\n%s", dc)
+        LOG.info("Initial Design\n%s", self.initialDesign.data)
         bb = bbsearch.BBSearch(dc, self.costmodel, self.initialDesign, self.upper_bound, self.timeout)
         bb.solve()
         nodeList = bb.listAllNodes()
-        
+
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 3)
+        self.assertEqual(bb.totalNodes, 2)
         self.assertEqual(bb.leafNodes, 1)
 
     def testShardingKeys(self):
@@ -86,6 +94,7 @@ class TestSearchSpace (unittest.TestCase) :
         shard key ([]), ("key1"), ("key2"), ("key1", "key2")
         '''
         LOG.info("\n\n === BBSearch Simple Test - shard keys === \n")
+
         dc = designcandidates.DesignCandidates()
         dc.addCollection("col1", [], [], [])
         dc.addCollection("col2", [], ["key1", "key2"], [])
@@ -96,7 +105,7 @@ class TestSearchSpace (unittest.TestCase) :
         #for n in nodeList:
         #    print n
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 9)
+        self.assertEqual(bb.totalNodes, 5)
         self.assertEqual(bb.leafNodes, 4)
         self.assertTrue(checkShardKeyExist(nodeList, ([])))
         self.assertTrue(checkShardKeyExist(nodeList, ("key1",)))
@@ -110,6 +119,7 @@ class TestSearchSpace (unittest.TestCase) :
         and 8*2 + 1 nodes in total
         '''
         LOG.info("\n\n === BBSearch Simple Test -  more shard keys === \n")
+
         dc = designcandidates.DesignCandidates()
         dc.addCollection("col1", [], [], [])
         dc.addCollection("col2", [], ["key1", "key2", "key3"], [])
@@ -120,7 +130,7 @@ class TestSearchSpace (unittest.TestCase) :
         #for n in nodeList:
         #    print n
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 17)
+        self.assertEqual(bb.totalNodes, 9)
         self.assertEqual(bb.leafNodes, 8)
         self.assertTrue(checkShardKeyExist(nodeList, ([])))
         self.assertTrue(checkShardKeyExist(nodeList, ("key1",)))
@@ -138,6 +148,7 @@ class TestSearchSpace (unittest.TestCase) :
         and 26*2 + 1 = 53 nodes in total
         '''
         LOG.info("\n\n === BBSearch Simple Test -  even more shard keys === \n")
+
         dc = designcandidates.DesignCandidates()
         dc.addCollection("col1", [], [], [])
         dc.addCollection("col2", [], ["key1", "key2", "key3", "key4", "key5"], [])
@@ -145,20 +156,21 @@ class TestSearchSpace (unittest.TestCase) :
         bb = bbsearch.BBSearch(dc, self.costmodel, self.initialDesign, self.upper_bound, self.timeout)
         bb.solve()
         nodeList = bb.listAllNodes()
-        
+
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 53)
+        self.assertEqual(bb.totalNodes, 27)
         self.assertEqual(bb.leafNodes, 26)
-        
-   
+
+
     def testIndexes(self):
         '''
         now with some indexes...
-        this should contain 
+        this should contain
         (3 choose 0) + (3 choose 1) + (3 choose 2) + (3 choose 3) = 8leaf nodes,
         and 17 nodes in total
         '''
         LOG.info("\n\n === BBSearch Simple Test - 3 indexes === \n")
+
         dc = designcandidates.DesignCandidates()
         dc.addCollection("col1", [], [], [])
         dc.addCollection("col2", [("key1",), ("key1", "key2"), ("key1", "key3")], [], [])
@@ -166,9 +178,9 @@ class TestSearchSpace (unittest.TestCase) :
         bb = bbsearch.BBSearch(dc, self.costmodel, self.initialDesign, self.upper_bound, self.timeout)
         bb.solve()
         nodeList = bb.listAllNodes()
-        
+
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 17)
+        self.assertEqual(bb.totalNodes, 9)
         self.assertEqual(bb.leafNodes, 8)
         self.assertTrue(checkIndexKeyExist(nodeList, ([])))
         self.assertTrue(checkIndexKeyExist(nodeList, [("key1",)] ))
@@ -178,13 +190,14 @@ class TestSearchSpace (unittest.TestCase) :
         self.assertTrue(checkIndexKeyExist(nodeList, [("key1",), ("key1", "key3")] ))
         self.assertTrue(checkIndexKeyExist(nodeList, [("key1", "key2"), ("key1", "key3")] ))
         self.assertTrue(checkIndexKeyExist(nodeList, [("key1",), ("key1", "key2"), ("key1", "key3")] ))
-        
+
     def testDenormalization(self):
         '''
         now with some denorm...
         3 leaf nodes: no denorm, col1->col2, col2->col1
         '''
         LOG.info("\n\n === BBSearch Simple Test - denorm === \n")
+
         dc = designcandidates.DesignCandidates()
         dc.addCollection("col1", [], [], ["col2"])
         dc.addCollection("col2", [], [], ["col1"])
@@ -195,8 +208,8 @@ class TestSearchSpace (unittest.TestCase) :
         for n in nodeList:
             print n
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 6)
-        self.assertEqual(bb.leafNodes, 3)
+        self.assertEqual(bb.totalNodes, 2)
+        self.assertEqual(bb.leafNodes, 1)
 
 ### END Test 1
 

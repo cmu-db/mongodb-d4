@@ -15,9 +15,19 @@ class Design(object):
         self.data = {}
     # DEF
 
-    def isComplete(self, totalNumberOfCollections):
-        """returns True when all collections are assigned"""
-        return len(self.data) == totalNumberOfCollections
+    def reset(self, collectionName):
+        self.data[collectionName] = None
+
+    def isRelaxed(self, collectionName):
+        return self.data[collectionName] is None
+
+    def isComplete(self):
+        """returns True when all collections are assigned designs"""
+        for value in self.data.values():
+            if value is None:
+                return False
+
+        return True
     ## DEF
     
     def getCollections(self):
@@ -76,14 +86,15 @@ class Design(object):
             d.addShardKey(k, self.getShardKeys(k))
             d.setDenormalizationParent(k, self.getDenormalizationParent(k))
             indexes = self.getIndexes(k)
-            for i in indexes :
-                d.addIndex(k, i)
+            if indexes:
+                for i in indexes :
+                    d.addIndex(k, i)
         return d
 
     ## ----------------------------------------------
     ## DENORMALIZATION
     ## ----------------------------------------------
-
+        
     def isDenormalized(self, col_name):
         return not self.getDenormalizationParent(col_name) is None
     ## DEF
@@ -94,8 +105,9 @@ class Design(object):
     
     def getDenormalizationParent(self, col_name):
         if col_name in self.data and \
-           self.data[col_name]['denorm'] and \
-           self.data[col_name]['denorm'] != col_name:
+            self.data[col_name] and \
+            self.data[col_name]['denorm'] and \
+            self.data[col_name]['denorm'] != col_name:
             return self.data[col_name]['denorm']
         return None
     ## DEF
@@ -122,13 +134,15 @@ class Design(object):
     ## ----------------------------------------------
     ## SHARD KEYS
     ## ----------------------------------------------
-
+        
     def addShardKey(self, col_name, key) :
-        self.data[col_name]['shardKeys'] = key
+        if key:
+            self.data[col_name]['shardKeys'] = key
     ## DEF
 
     def getShardKeys(self, col_name) :
-        return self.data[col_name]['shardKeys']
+        if self.data[col_name]:
+            return self.data[col_name]['shardKeys']
     ## DEF
     
     def getAllShardKeys(self) :
@@ -139,8 +153,9 @@ class Design(object):
     ## DEF
     
     def addShardKeys(self, keys) :
-        for k, v in keys.iteritems() :
-            self.data[k]['shardKeys'] = v
+        if keys:
+            for k, v in keys.iteritems() :
+                self.data[k]['shardKeys'] = v
     ## DEF
 
     def inShardKeyPattern(self, col_name, attr) :
@@ -150,9 +165,10 @@ class Design(object):
     ## ----------------------------------------------
     ## INDEXES
     ## ----------------------------------------------
-
+        
     def getIndexes(self, col_name) :
-        return self.data[col_name]['indexes']
+        if self.data[col_name]:
+            return self.data[col_name]['indexes']
     ## DEF
 
     def getAllIndexes(self) :
@@ -160,20 +176,24 @@ class Design(object):
     ## DEF
 
     def addIndex(self, col_name, indexKeys):
-        if not type(indexKeys) == tuple:
-            indexKeys = tuple(indexKeys)
-        add = True
-        for i in self.data[col_name]['indexes'] :
-            if i == indexKeys:
-                add = False
-                break
-        if add:
-            LOG.debug("Adding index '%s/%s' for collection %s", \
-                      indexKeys, type(indexKeys), col_name)
-            self.data[col_name]['indexes'].append(indexKeys)
+        if indexKeys:
+            if not type(indexKeys) == tuple:
+                indexKeys = tuple(indexKeys)
+            add = True
+            for i in self.data[col_name]['indexes'] :
+                if i == indexKeys:
+                    add = False
+                    break
+            if add:
+                LOG.debug("Adding index '%s/%s' for collection %s", \
+                          indexKeys, type(indexKeys), col_name)
+                self.data[col_name]['indexes'].append(indexKeys)
     ## DEF
     
     def hasIndex(self, col_name, list) :
+        if self.data[col_name]:
+            return False
+
         for field in list :
            for i in self.data[col_name]['indexes'] :
                if field in i :
@@ -189,10 +209,12 @@ class Design(object):
     def __str__(self):
         ret = ""
         ctr = 0
+        LOG.debug("Data\n%s", self.data)
         for col_name in sorted(self.data.iterkeys()):
             ret += "[%02d] %s\n" % (ctr, col_name)
-            for k, v in self.data[col_name].iteritems():
-                ret += "  %-10s %s\n" % (k+":", v)
+            if self.data[col_name]:
+                for k, v in self.data[col_name].iteritems():
+                    ret += "  %-10s %s\n" % (k+":", v)
             ctr += 1
         return ret
     ## DEF

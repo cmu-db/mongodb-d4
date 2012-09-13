@@ -99,7 +99,7 @@ class NetworkCostComponent(AbstractCostComponent):
         else:
             cost = result / float(query_count * self.state.num_nodes)
 
-        LOG.info("Computed Network Cost: %f [result=%d / queryCount=%d]",\
+        LOG.debug("Computed Network Cost: %f [result=%d / queryCount=%d]",\
             cost, result, query_count)
 
         return cost

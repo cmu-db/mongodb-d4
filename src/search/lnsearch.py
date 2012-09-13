@@ -26,31 +26,165 @@
 ## ==============================================
 ## Large Neighborhood Search
 ## ==============================================
+import random
+from util import *
+from search import DesignCandidates, bbsearch
+import logging
+import math
+import sys
+
+LOG = logging.getLogger(__name__)
+
+# Constants
+RELAX_RATIO_STEP = 0.1
+RELAX_RATIO_UPPER_BOUND = 0.5
+TIME_OUT_BBSEARCH = 2
+
+# Global Value
+PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = -1
+
 class LNSearch():
     """
         Implementation of the large-neighborhood search design algorithm
     """
 
-    def __init__(self, designCandidate, costModel, initialDesign, bestCost, timeout):
-        self.designCandidate = designCandidate
+    def __init__(self, cparser, collectionDict, costModel, initialDesign, bestCost, timeout):
+        self.collectionDict = collectionDict
         self.costModel = costModel
         self.initialDesign = initialDesign
         self.bestCost = bestCost
         self.timeout = timeout
+        self.cparser = cparser
 
-        self.round = 0
         self.relaxRatio = 0.25
-
+        
+        self.debug = LOG.isEnabledFor(logging.debug)
     ## DEF
 
     def solve(self):
         """
             main public method. Simply call to get the optimal solution
         """
-        pass
+        BestDesign = self.initialDesign.copy()
+        BestCost = self.bestCost
+        table = TemperatureTable(self.collectionDict)
+        
+        while self.relaxRatio <= RELAX_RATIO_UPPER_BOUND:
+            relaxedCollections, relaxedDesign = self.relax(table, BestDesign)
+            dc = self.generateDesignCandidates(relaxedCollections)
+            bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, BestCost, TIME_OUT_BBSEARCH)
+            bbDesign = bb.solve()
+            
+            if self.debug:
+                LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign.data)
+                LOG.info("\n====Design Candidates====\n%s", dc)
+                LOG.info("\n=====BBSearch Design=====\n%s", bbDesign.data)
+                LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
+                LOG.info("\n========Best Score=======\n%f", BestCost)
+                
+            if bb.bestCost < BestCost:
+                BestCost = bb.bestCost
+                BestDesign = bbDesign
+            
+            self.relaxRatio += RELAX_RATIO_STEP
+            self.timeout -= bb.usedTime
 
-    def relax(self):
+            if self.timeout <= 0:
+                break
 
-        pass
+        self.bestCost = BestCost
 
-## CLASS
+        return BestDesign
+    # DEF
+    
+    def relax(self, table, design):
+        global PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS
+
+        numberOfRelaxedCollections = int(round(len(self.collectionDict.keys()) * self.relaxRatio))
+
+        while numberOfRelaxedCollections == PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS:
+            self.relaxRatio += RELAX_RATIO_STEP
+            numberOfRelaxedCollections = int(round(len(self.collectionDict.keys()) * self.relaxRatio))
+
+        PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = numberOfRelaxedCollections
+        
+        counter = 0
+        collectionNameSet = set()
+        relaxedCollections = []
+        relaxedDesign = design.copy()
+        
+        while counter < numberOfRelaxedCollections:
+            collection = table.getRandomCollection();
+            collectionName = collection['name']
+
+            if collectionName not in collectionNameSet:
+                collectionNameSet.add(collectionName)
+                counter += 1
+                
+                if not relaxedDesign.hasCollection(collection['name']):
+                    relaxedDesign.addCollection(collection['name'])
+                relaxedDesign.reset(collection['name'])
+                relaxedCollections.append(collection)
+        
+        return relaxedCollections, relaxedDesign
+            
+    def generateDesignCandidates(self, collections):
+
+        isShardingEnabled = self.cparser.get(SECT_DESIGNER, 'enable_sharding')
+        isIndexesEnabled = self.cparser.get(SECT_DESIGNER, 'enable_indexes')
+        isDenormalizationEnabled = self.cparser.get(SECT_DESIGNER, 'enable_denormalization')
+        
+        shardKeys = []
+        indexKeys = [[]]
+        denorm = []
+        dc = DesignCandidates()
+        
+        for col_info in collections:
+            interesting = col_info['interesting']
+            if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
+                interesting = interesting[:]
+                interesting.remove("_id")
+
+            # deal with shards
+            if isShardingEnabled == 'True':
+                if self.debug: LOG.debug("Sharding is enabled")
+                shardKeys = interesting
+
+            # deal with indexes
+            if isIndexesEnabled == 'True':
+                if self.debug: LOG.debug("Indexes is enabled")
+                for o in xrange(1, len(interesting) + 1) :
+                    for i in itertools.combinations(interesting, o) :
+                        indexKeys.append(i)
+
+            # deal with de-normalization
+            if isDenormalizationEnabled == 'True':
+                if self.debug: LOG.debug("Demormalization is enabled")
+                for k,v in col_info['fields'].iteritems() :
+                    if v['parent_col'] <> '' and v['parent_col'] not in denorm :
+                        denorm.append(v['parent_col'])
+                        
+            dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
+        ## FOR
+        return dc
+    ## DEF
+    
+class TemperatureTable():
+    def __init__(self, collectionDict):
+        self.totalTemperature = 0.0
+        self.temperatureList = []
+        
+        for coll in collectionDict.itervalues():
+            temperature = coll['data_size'] / coll['workload_queries']
+            self.temperatureList.append((temperature, coll)) 
+            self.totalTemperature = self.totalTemperature + temperature
+    
+    def getRandomCollection(self):
+        r = random.randint(0, int(self.totalTemperature))
+        for temperature, coll in reversed(sorted(self.temperatureList)):
+            r_ratio = r / self.totalTemperature
+            cur_ratio = temperature / self.totalTemperature
+            if r_ratio >= cur_ratio:
+                return coll
+        
+        return sorted(self.temperatureList)[0][1]
