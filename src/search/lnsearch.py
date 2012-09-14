@@ -168,7 +168,7 @@ class LNSearch():
         ## FOR
         return dc
     ## DEF
-    
+
 class TemperatureTable():
     def __init__(self, collectionDict):
         self.totalTemperature = 0.0
