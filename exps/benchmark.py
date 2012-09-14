@@ -155,7 +155,7 @@ class Benchmark:
         self._channels = self.createChannels()
         
         # Step 0: Flush the cache on the MongoDB host
-        if not self._args['no_flush']:
+        if self._args['flush']:
             flushBuffer(self._config["default"]["host"])
         
         # Step 1: Initialize all of the Workers on the client nodes
@@ -327,8 +327,8 @@ if __name__=='__main__':
                          help='Instruct the driver to reset the contents of the database')
     aparser.add_argument('--stop-on-error', action='store_true',
                          help='Stop the transaction execution when the driver throws an exception.')
-    aparser.add_argument('--no-flush', action='store_true',
-                        help="Disable flushing the OS cache on the MongoDB host before executing the benchmark.")
+    aparser.add_argument('--flush', action='store_true',
+                        help="Flush the OS cache on the MongoDB host before executing the benchmark.")
     aparser.add_argument('--no-load', action='store_true',
                          help='Disable loading the benchmark data')
     aparser.add_argument('--no-execute', action='store_true',

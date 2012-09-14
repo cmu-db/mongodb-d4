@@ -1,4 +1,3 @@
-
 ## Setup
 
 1. Create a default configuration file that you will use for your application:
