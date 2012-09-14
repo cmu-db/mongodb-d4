@@ -5,8 +5,8 @@ on my TPC-C benchmark framework that I used in my NoSQL course in spring 2011. I
 forked by one of my students in the summer of 2011. I then grabbed his changes and modified
 it further to support the different types of experiments that we will need for this work.
 
-TLDR:
-This code is based on: https://github.com/yanglu/BigBenchmark
+**TLDR:**   
+This code is based on https://github.com/yanglu/BigBenchmark   
 which was originally based on: https://github.com/apavlo/py-tpcc
 
 
