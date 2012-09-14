@@ -149,9 +149,9 @@ class LNSearch():
 
     def generateDesignCandidates(self, collections):
 
-        isShardingEnabled = self.cparser.get(SECT_DESIGNER, 'enable_sharding')
-        isIndexesEnabled = self.cparser.get(SECT_DESIGNER, 'enable_indexes')
-        isDenormalizationEnabled = self.cparser.get(SECT_DESIGNER, 'enable_denormalization')
+        isShardingEnabled = self.cparser.getboolean(SECT_DESIGNER, 'enable_sharding')
+        isIndexesEnabled = self.cparser.getboolean(SECT_DESIGNER, 'enable_indexes')
+        isDenormalizationEnabled = self.cparser.getboolean(SECT_DESIGNER, 'enable_denormalization')
         
         shardKeys = []
         indexKeys = [[]]
@@ -165,19 +165,19 @@ class LNSearch():
                 interesting.remove("_id")
 
             # deal with shards
-            if isShardingEnabled == 'True':
+            if isShardingEnabled:
                 if self.debug: LOG.debug("Sharding is enabled")
                 shardKeys = interesting
 
             # deal with indexes
-            if isIndexesEnabled == 'True':
+            if isIndexesEnabled:
                 if self.debug: LOG.debug("Indexes is enabled")
                 for o in xrange(1, len(interesting) + 1) :
                     for i in itertools.combinations(interesting, o) :
                         indexKeys.append(i)
 
             # deal with de-normalization
-            if isDenormalizationEnabled == 'True':
+            if isDenormalizationEnabled:
                 if self.debug: LOG.debug("Demormalization is enabled")
                 for k,v in col_info['fields'].iteritems() :
                     if v['parent_col'] <> '' and v['parent_col'] not in denorm :
