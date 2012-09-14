@@ -41,7 +41,7 @@ RELAX_RATIO_UPPER_BOUND = 0.5
 TIME_OUT_BBSEARCH = 2
 
 # Global Value
-PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = -1
+PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = 0
 
 class LNSearch():
     """
@@ -71,6 +71,11 @@ class LNSearch():
         
         while self.relaxRatio <= RELAX_RATIO_UPPER_BOUND:
             relaxedCollections, relaxedDesign = self.relax(table, BestDesign)
+
+            # when relax cannot make any progress
+            if relaxedCollections is None and relaxedDesign is None:
+                return BestDesign
+
             dc = self.generateDesignCandidates(relaxedCollections)
             bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, BestCost, TIME_OUT_BBSEARCH)
             bbDesign = bb.solve()
@@ -98,15 +103,11 @@ class LNSearch():
     # DEF
     
     def relax(self, table, design):
-        global PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS
+        numberOfRelaxedCollections = self.getNumberOfRelaxedCollections()
 
-        numberOfRelaxedCollections = int(round(len(self.collectionDict.keys()) * self.relaxRatio))
-
-        while numberOfRelaxedCollections == PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS:
-            self.relaxRatio += RELAX_RATIO_STEP
-            numberOfRelaxedCollections = int(round(len(self.collectionDict.keys()) * self.relaxRatio))
-
-        PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = numberOfRelaxedCollections
+        # when numberOfRelaxedCollections reach the limit
+        if numberOfRelaxedCollections is None:
+            return None, None
         
         counter = 0
         collectionNameSet = set()
@@ -127,7 +128,25 @@ class LNSearch():
                 relaxedCollections.append(collection)
         
         return relaxedCollections, relaxedDesign
-            
+
+    def getNumberOfRelaxedCollections(self):
+        global PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS
+
+        num = int(round(len(self.collectionDict.keys()) * self.relaxRatio))
+
+        while num == PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS:
+            self.relaxRatio += RELAX_RATIO_STEP
+
+            # if the ratio is larger than one...the number of relaxed collection will
+            # be larger than the number of collections...it doesn't sound good
+            if self.relaxRatio > 1:
+                return None
+            num = int(round(len(self.collectionDict.keys()) * self.relaxRatio))
+
+        PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = num
+
+        return num
+
     def generateDesignCandidates(self, collections):
 
         isShardingEnabled = self.cparser.get(SECT_DESIGNER, 'enable_sharding')
