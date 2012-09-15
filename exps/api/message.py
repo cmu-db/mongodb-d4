@@ -62,7 +62,10 @@ for code in xrange(0, len(MSG_STATUS_CODES)):
 def getChannelsByHost(channels):
     ret = { }
     for ch in channels:
-        remoteaddress = ch.gateway.remoteaddress
+        if ch.gateway is None:
+            remoteaddress = 'direct'
+        else:
+            remoteaddress = ch.gateway.remoteaddress
         if not remoteaddress in ret:
             ret[remoteaddress] = [ ]
         ret[remoteaddress].append(ch)
@@ -74,20 +77,24 @@ def sendMessagesLimited(queue, limit):
     start = time.time()
     responses = [ ]
     threads = [ ]
-    
-    # Split the queue by channel host
+
+    # Send directly
     hostChannels = getChannelsByHost([x[-1] for x in queue])
-    for key in hostChannels.keys():
-        hostQueue = [ ]
-        for i in xrange(0, len(queue)):
-            if queue[i][-1] in hostChannels[key]:
-                hostQueue.append(queue[i])
+    if 'direct' in hostChannels and len(hostChannels) == 1:
+        sendMessagesLimitedThread(queue, limit, responses)
+    # Split the queue by channel host
+    else:
+        for key in hostChannels.keys():
+            hostQueue = [ ]
+            for i in xrange(0, len(queue)):
+                if queue[i][-1] in hostChannels[key]:
+                    hostQueue.append(queue[i])
+            ## FOR
+            t = threading.Thread(target=sendMessagesLimitedThread, args=(hostQueue, limit, responses))
+            t.start()
+            threads.append(t)
         ## FOR
-        t = threading.Thread(target=sendMessagesLimitedThread, args=(hostQueue, limit, responses))
-        t.start()
-        threads.append(t)
-    ## FOR
-    for t in threads: t.join()
+        for t in threads: t.join()
 
     duration = time.time() - start
     LOG.debug("Sent and recieved %d messages in %.2f seconds" % (len(responses), duration))

@@ -39,7 +39,7 @@ LOG = logging.getLogger(__name__)
 
 class BlogCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
-        ("experiment", "What type of experiment to execute. Value values = %s" % constants.EXP_ALL, constants.EXP_DENORMALIZATION),
+        ("experiment", "What type of experiment to execute. Valid values = %s" % constants.EXP_ALL, constants.EXP_DENORMALIZATION),
         ("sharding", "Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_SINGLE),
         ("indexes", "Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_ALL, constants.INDEXEXP_NONE),
         ("denormalize", "If set to true, then the COMMENTS are denormalized into ARTICLES", False),
