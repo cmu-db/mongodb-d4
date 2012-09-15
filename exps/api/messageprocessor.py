@@ -69,7 +69,8 @@ class MessageProcessor:
             elif msg.header == MSG_EMPTY:
                 pass
             else:
-                LOG.warn("Unexpected message type")
+                assert msg.header in MSG_NAME_MAPPING
+                LOG.warn("Unexpected message type: %s", MSG_NAME_MAPPING[msg.header])
                 return
     ## DEF
             

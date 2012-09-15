@@ -52,6 +52,7 @@ import mongokit
 
 # mongodb-d4
 sys.path.append(os.path.join(BASEDIR, "../src"))
+from util import termcolor
 
 ## ==============================================
 ## Benchmark Invocation
@@ -296,11 +297,14 @@ if __name__=='__main__':
     # Simplified args
     aparser = argparse.ArgumentParser(description='MongoDB Benchmark Framework')
     aparser.add_argument('benchmark', choices=allBenchmarks,
-                         help='The name of the benchmark to execute')
-    aparser.add_argument('--config', type=file,
-                         help='Path to benchmark configuration file')
-    aparser.add_argument('--print-config', action='store_true',
-                         help='Print out the default configuration file for the benchmark and exit')
+                         help='The name of the benchmark to execute.')
+                         
+    # Configuration Options
+    agroup = aparser.add_argument_group(termcolor.bold('Configuration Options'))
+    agroup.add_argument('--config', type=file,
+                         help='Path to benchmark configuration file.')
+    agroup.add_argument('--print-config', action='store_true',
+                         help='Print out the default configuration file for the benchmark and exit.')
                          
     # Config Override Parameters
     override = {
@@ -313,29 +317,32 @@ if __name__=='__main__':
         if not key in override: continue
         
         argMeta, argType = override[key]
-        aparser.add_argument('--' + key, \
+        agroup.add_argument('--' + key, \
                              default=default, \
                              type=argType, \
                              metavar=argMeta, \
                              help=desc)
     ## FOR
                 
-    ## Execution Parameters
-    aparser.add_argument('--direct', action='store_true',
-                         help='Execute the workers directly in this process')                            
-    aparser.add_argument('--reset', action='store_true',
+    # Database Parameters
+    agroup = aparser.add_argument_group(termcolor.bold('Database Options'))
+    agroup.add_argument('--reset', action='store_true',
                          help='Instruct the driver to reset the contents of the database')
-    aparser.add_argument('--stop-on-error', action='store_true',
-                         help='Stop the transaction execution when the driver throws an exception.')
-    aparser.add_argument('--flush', action='store_true',
-                        help="Flush the OS cache on the MongoDB host before executing the benchmark.")
-    aparser.add_argument('--no-load', action='store_true',
+    agroup.add_argument('--flush', action='store_true',
+                        help="Flush the OS cache on the MongoDB host before executing the benchmark. This requires passwordless sudo access.")
+    agroup.add_argument('--no-load', action='store_true',
                          help='Disable loading the benchmark data')
-    aparser.add_argument('--no-execute', action='store_true',
+    agroup.add_argument('--no-execute', action='store_true',
                          help='Disable executing the benchmark workload')
 
-    aparser.add_argument('--debug', action='store_true',
-                         help='Enable debug log messages')                       
+    # Debugging Options
+    agroup = aparser.add_argument_group(termcolor.bold('Debugging Options'))
+    agroup.add_argument('--direct', action='store_true',
+                         help='Execute the workers directly in this process')                            
+    agroup.add_argument('--stop-on-error', action='store_true',
+                         help='Stop the transaction execution when the driver throws an exception.')
+    agroup.add_argument('--debug', action='store_true',
+                         help='Enable debug log messages')
     args = vars(aparser.parse_args())
     
     if args['debug']: logging.getLogger().setLevel(logging.DEBUG)
