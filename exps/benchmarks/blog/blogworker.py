@@ -71,6 +71,8 @@ LOG = logging.getLogger(__name__)
 # key from the query's predicate, and (3) a covering index that has all of the keys 
 # referenced by that query.
 # 
+
+#commit change
 class BlogWorker(AbstractWorker):
     
     def initImpl(self, config):
