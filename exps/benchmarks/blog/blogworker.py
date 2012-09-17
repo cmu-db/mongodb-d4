@@ -261,6 +261,8 @@ class BlogWorker(AbstractWorker):
                 "slug": slug,
                 "content": randomString(contentSize)
             }
+            if config[self.name]["denormalize"]:
+                article["comments"] = [ ]
 
             ## ----------------------------------------------
             ## LOAD COMMENTS
@@ -287,8 +289,6 @@ class BlogWorker(AbstractWorker):
                 if config[self.name]["denormalize"]:
                     if self.debug: 
                         LOG.debug("Storing new comment for article %d directly in document" % articleId)
-                    if not "comments" in article:
-                        article["comments"] = [ ]
                     article["comments"].append(comment)
                 else:
                     if self.debug:
@@ -437,10 +437,12 @@ class BlogWorker(AbstractWorker):
         else:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
             #print(pformat(article))
-            comments=article[u'comments']
+            if not article is None:
+                assert 'comments' in article, pformat(article)
+                comments = article[u'comments']
             
             # TODO sorting in client side 
-        if not article:
+        if article is None:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
         assert article["id"] == articleId, \
