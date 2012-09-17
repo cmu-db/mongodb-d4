@@ -59,6 +59,7 @@ from util import termcolor
 ## ==============================================
 class Benchmark:
     DEFAULT_CONFIG = [
+        ("dbname","The database that is going to be used against for loading/resetting and benchmarks","microblog"), 
         ("host", "The host name of the MongoDB instance to use in this benchmark", "localhost"),
         ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
         ("scalefactor", "Benchmark database scale factor", 1.0),

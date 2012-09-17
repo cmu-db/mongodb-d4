@@ -71,8 +71,6 @@ LOG = logging.getLogger(__name__)
 # key from the query's predicate, and (3) a covering index that has all of the keys 
 # referenced by that query.
 # 
-
-#commit change
 class BlogWorker(AbstractWorker):
     
     def initImpl(self, config):
@@ -98,12 +96,12 @@ class BlogWorker(AbstractWorker):
         # Zipfian distribution on the number of comments & their ratings
         self.commentsZipf = ZipfGenerator(constants.MAX_NUM_COMMENTS, 1.0)
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.0)
-        self.db = self.conn[constants.DB_NAME]
+        self.db = self.conn[config['default']["dbname"]]
         
         if self.getWorkerId() == 0:
             if config['default']["reset"]:
-                LOG.info("Resetting database '%s'" % constants.DB_NAME)
-                self.conn.drop_database(constants.DB_NAME)
+                LOG.info("Resetting database '%s'" % config['default']["dbname"])
+                self.conn.drop_database(config['default']["dbname"])
             
             ## SHARDING
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
@@ -421,6 +419,25 @@ class BlogWorker(AbstractWorker):
             self.db[constants.COMMENT_COLL].insert(comment)
     
         return
+    ## DEF
+    
+    def readArticleTopTenComments(self,denormalize,articleId):
+        
+        # We are searching for the comments that had been written for the article with articleId 
+        # and we sort them in descending order of user rating
+        if not denormalize: 
+            article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort({"rating":-1})
+        else:
+            article = self.db[constants.ARTICLE_COLL].find({"id": articleId})
+            # TODO sorting in client side 
+        if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
+        assert article["id"] == articleId, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
+        
+        
     ## DEF
 
     def expIndexes(self, articleId):

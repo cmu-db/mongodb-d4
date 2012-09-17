@@ -25,7 +25,7 @@
 
 from datetime import datetime
 
-DB_NAME = 'microblog'
+#DB_NAME = 'microblog'
 ARTICLE_COLL = 'articles'
 COMMENT_COLL = 'comments'
 NUM_ARTICLES = 10000
