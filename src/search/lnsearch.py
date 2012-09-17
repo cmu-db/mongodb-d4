@@ -38,7 +38,7 @@ LOG = logging.getLogger(__name__)
 # Constants
 RELAX_RATIO_STEP = 0.1
 RELAX_RATIO_UPPER_BOUND = 0.5
-TIME_OUT_BBSEARCH = 2
+TIME_OUT_BBSEARCH = 5
 
 # Global Value
 PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = 0
@@ -57,8 +57,6 @@ class LNSearch():
         self.cparser = cparser
 
         self.relaxRatio = 0.25
-        
-        self.debug = LOG.isEnabledFor(logging.debug)
     ## DEF
 
     def solve(self):
@@ -79,13 +77,12 @@ class LNSearch():
             dc = self.generateDesignCandidates(relaxedCollections)
             bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, BestCost, TIME_OUT_BBSEARCH)
             bbDesign = bb.solve()
-            
-            if self.debug:
-                LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign.data)
-                LOG.info("\n====Design Candidates====\n%s", dc)
-                LOG.info("\n=====BBSearch Design=====\n%s", bbDesign.data)
-                LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
-                LOG.info("\n========Best Score=======\n%f", BestCost)
+
+            LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign.data)
+            LOG.info("\n====Design Candidates====\n%s", dc)
+            LOG.info("\n=====BBSearch Design=====\n%s", bbDesign.data)
+            LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
+            LOG.info("\n========Best Score=======\n%f", BestCost)
                 
             if bb.bestCost < BestCost:
                 BestCost = bb.bestCost
@@ -166,19 +163,19 @@ class LNSearch():
 
             # deal with shards
             if isShardingEnabled:
-                if self.debug: LOG.debug("Sharding is enabled")
+                LOG.debug("Sharding is enabled")
                 shardKeys = interesting
 
             # deal with indexes
             if isIndexesEnabled:
-                if self.debug: LOG.debug("Indexes is enabled")
+                LOG.debug("Indexes is enabled")
                 for o in xrange(1, len(interesting) + 1) :
                     for i in itertools.combinations(interesting, o) :
                         indexKeys.append(i)
 
             # deal with de-normalization
             if isDenormalizationEnabled:
-                if self.debug: LOG.debug("Demormalization is enabled")
+                LOG.debug("Demormalization is enabled")
                 for k,v in col_info['fields'].iteritems() :
                     if v['parent_col'] <> '' and v['parent_col'] not in denorm :
                         denorm.append(v['parent_col'])
@@ -199,11 +196,10 @@ class TemperatureTable():
             self.totalTemperature = self.totalTemperature + temperature
     
     def getRandomCollection(self):
+        upper_bound = self.totalTemperature
         r = random.randint(0, int(self.totalTemperature))
         for temperature, coll in reversed(sorted(self.temperatureList)):
-            r_ratio = r / self.totalTemperature
-            cur_ratio = temperature / self.totalTemperature
-            if r_ratio >= cur_ratio:
+            lower_bound = upper_bound - temperature
+            if lower_bound <= r <= upper_bound:
                 return coll
-        
-        return sorted(self.temperatureList)[0][1]
+            upper_bound = lower_bound
