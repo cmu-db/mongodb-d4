@@ -89,7 +89,7 @@ class BlogCoordinator(AbstractCoordinator):
         config[self.name]["maxCommentId"] = -1
         
         if not config['default']["reset"] and config[self.name]["denormalize"]:
-            assert False
+            #assert False
             pass
         elif not config['default']["reset"]:
             LOG.debug("Calculating maxCommentId for %s" % constants.COMMENT_COLL)

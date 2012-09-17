@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------
 # Copyright (C) 2012 by Brown University
 #
@@ -340,24 +340,30 @@ class BlogWorker(AbstractWorker):
     def next(self, config):
         assert "experiment" in config[self.name]
         
-        # Generate skewed target articleId if we're doing the
-        # sharding experiments
-        if config[self.name]["experiment"] == constants.EXP_SHARDING:
-            assert self.articleZipf
-            articleId = int(self.articleZipf.next())
-        # Otherwise pick one at random uniformly
-        else:
-            articleId = int(self.articleZipf.next())
-            # HACK articleId = random.randint(0, self.num_articles)
+        ## Generate skewed target articleId if we're doing the
+        ## sharding experiments
+        #if config[self.name]["experiment"] == constants.EXP_SHARDING:
+        #    assert self.articleZipf
+        #    articleId = int(self.articleZipf.next())
+        ## Otherwise pick one at random uniformly
+        #else:
+        #    articleId = int(self.articleZipf.next())
+        #    # HACK articleId = random.randint(0, self.num_articles)
         
-        # Check wether we're doing a read or a write txn
-        if random.choice(self.workloadWrite):
-            txnName = "writeComment"
-        else:
-            txnName = "readArticle"
         
+    
+        ## Check wether we're doing a read or a write txn
+        #if random.choice(self.workloadWrite):
+        #    txnName = "writeComment"
+        #else:
+        #    txnName = "readArticle"
+        
+        if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
+           articleId = random.randint(0, self.num_articles)
+           txnName="readArticleTopTenComments"
         return (txnName, (articleId))
-    ## DEF
+   
+   ## DEF
         
     def executeImpl(self, config, txn, params):
         assert self.conn != None
@@ -429,7 +435,10 @@ class BlogWorker(AbstractWorker):
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
             comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort({"rating":-1})
         else:
-            article = self.db[constants.ARTICLE_COLL].find({"id": articleId})
+            article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
+            #print(pformat(article))
+            comments=article[u'comments']
+            
             # TODO sorting in client side 
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
