@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------
 # Copyright (C) 2012 by Brown University
 #
@@ -261,11 +261,13 @@ class BlogWorker(AbstractWorker):
                 "slug": slug,
                 "content": randomString(contentSize)
             }
+            if config[self.name]["denormalize"]:
+                article["comments"] = [ ]
 
             ## ----------------------------------------------
             ## LOAD COMMENTS
             ## ----------------------------------------------
-            numComments = self.commentsZipf.next()
+            numComments = int(config[self.name]["commentsperarticle"])
             LOG.debug("Comments for article %d: %d" % (articleId, numComments))
             
             lastDate = articleDate
@@ -287,8 +289,6 @@ class BlogWorker(AbstractWorker):
                 if config[self.name]["denormalize"]:
                     if self.debug: 
                         LOG.debug("Storing new comment for article %d directly in document" % articleId)
-                    if not "comments" in article:
-                        article["comments"] = [ ]
                     article["comments"].append(comment)
                 else:
                     if self.debug:
@@ -340,24 +340,30 @@ class BlogWorker(AbstractWorker):
     def next(self, config):
         assert "experiment" in config[self.name]
         
-        # Generate skewed target articleId if we're doing the
-        # sharding experiments
-        if config[self.name]["experiment"] == constants.EXP_SHARDING:
-            assert self.articleZipf
-            articleId = int(self.articleZipf.next())
-        # Otherwise pick one at random uniformly
-        else:
-            articleId = int(self.articleZipf.next())
-            # HACK articleId = random.randint(0, self.num_articles)
+        ## Generate skewed target articleId if we're doing the
+        ## sharding experiments
+        #if config[self.name]["experiment"] == constants.EXP_SHARDING:
+        #    assert self.articleZipf
+        #    articleId = int(self.articleZipf.next())
+        ## Otherwise pick one at random uniformly
+        #else:
+        #    articleId = int(self.articleZipf.next())
+        #    # HACK articleId = random.randint(0, self.num_articles)
         
-        # Check wether we're doing a read or a write txn
-        if random.choice(self.workloadWrite):
-            txnName = "writeComment"
-        else:
-            txnName = "readArticle"
         
+    
+        ## Check wether we're doing a read or a write txn
+        #if random.choice(self.workloadWrite):
+        #    txnName = "writeComment"
+        #else:
+        #    txnName = "readArticle"
+        
+        if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
+           articleId = random.randint(0, self.num_articles)
+           txnName="readArticleTopTenComments"
         return (txnName, (articleId))
-    ## DEF
+   
+   ## DEF
         
     def executeImpl(self, config, txn, params):
         assert self.conn != None
@@ -427,11 +433,23 @@ class BlogWorker(AbstractWorker):
         # and we sort them in descending order of user rating
         if not denormalize: 
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort({"rating":-1})
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort("rating",-1)
+            #for comment in comments:
+            #    pprint(comment)
+            #    print("\n");
+            #print("~~~~~~~~~~~~~~");
         else:
-            article = self.db[constants.ARTICLE_COLL].find({"id": articleId})
-            # TODO sorting in client side 
-        if not article:
+            article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
+            #print(pformat(article))
+            if not article is None:
+                assert 'comments' in article, pformat(article)
+                comments = article[u'comments']
+                #sort by rating ascending and take top 10..
+                comments = sorted(comments, key=lambda k: -k[u'rating'])
+                comments = comments[0:10]
+                #    pprint(comments)
+                #    print("\n");
+        if article is None:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
         assert article["id"] == articleId, \
