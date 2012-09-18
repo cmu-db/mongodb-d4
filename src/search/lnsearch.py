@@ -63,30 +63,30 @@ class LNSearch():
         """
             main public method. Simply call to get the optimal solution
         """
-        BestDesign = self.initialDesign.copy()
-        BestCost = self.bestCost
+        bestDesign = self.initialDesign.copy()
+        bestCost = self.bestCost
         table = TemperatureTable(self.collectionDict)
         
         while self.relaxRatio <= RELAX_RATIO_UPPER_BOUND:
-            relaxedCollections, relaxedDesign = self.relax(table, BestDesign)
+            relaxedCollections, relaxedDesign = self.relax(table, bestDesign)
 
             # when relax cannot make any progress
             if relaxedCollections is None and relaxedDesign is None:
-                return BestDesign
+                return bestDesign
 
             dc = self.generateDesignCandidates(relaxedCollections)
-            bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, BestCost, TIME_OUT_BBSEARCH)
+            bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, TIME_OUT_BBSEARCH)
             bbDesign = bb.solve()
 
             LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign.data)
             LOG.info("\n====Design Candidates====\n%s", dc)
             LOG.info("\n=====BBSearch Design=====\n%s", bbDesign.data)
             LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
-            LOG.info("\n========Best Score=======\n%f", BestCost)
+            LOG.info("\n========Best Score=======\n%f", bestCost)
                 
-            if bb.bestCost < BestCost:
-                BestCost = bb.bestCost
-                BestDesign = bbDesign
+            if bb.bestCost < bestCost:
+                bestCost = bb.bestCost
+                bestDesign = bbDesign
             
             self.relaxRatio += RELAX_RATIO_STEP
             self.timeout -= bb.usedTime
@@ -94,9 +94,9 @@ class LNSearch():
             if self.timeout <= 0:
                 break
 
-        self.bestCost = BestCost
+        self.bestCost = bestCost
 
-        return BestDesign
+        return bestDesign
     # DEF
     
     def relax(self, table, design):
@@ -198,7 +198,7 @@ class TemperatureTable():
     def getRandomCollection(self):
         upper_bound = self.totalTemperature
         r = random.randint(0, int(self.totalTemperature))
-        for temperature, coll in reversed(sorted(self.temperatureList)):
+        for temperature, coll in sorted(self.temperatureList, reverse=True):
             lower_bound = upper_bound - temperature
             if lower_bound <= r <= upper_bound:
                 return coll

@@ -35,7 +35,7 @@ sys.path.append(os.path.join(basedir, ".."))
 
 import catalog
 from costmodel import AbstractCostComponent
-from costmodel.lrubuffer import LRUBuffer
+from lrubuffer import LRUBuffer
 from workload import Session
 from util import Histogram, constants
 
@@ -50,11 +50,21 @@ class FastDiskCostComponent(AbstractCostComponent):
         AbstractCostComponent.__init__(self, state)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
+        self.buffers = [ ]
+        for i in xrange(self.state.num_nodes):
+            lru = LRUBuffer(self.state.collections, self.state.max_memory, preload=constants.DEFAULT_LRU_PRELOAD)
+            self.buffers.append(lru)
     ## DEF
 
     def getCostImpl(self, design):
         """
         """
+        # Initialize all of the LRU buffers
+        for lru in self.buffers:
+            lru.initialize(design)
+            LOG.info(lru)
+            lru.validate()
+
 
         final_cost = 0.0
 

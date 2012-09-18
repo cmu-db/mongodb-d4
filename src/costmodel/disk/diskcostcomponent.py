@@ -35,7 +35,7 @@ sys.path.append(os.path.join(basedir, ".."))
 
 import catalog
 from costmodel import AbstractCostComponent
-from costmodel.lrubuffer import LRUBuffer
+from lrubuffer import LRUBuffer
 from workload import Session
 from util import Histogram, constants
 
@@ -63,11 +63,6 @@ class DiskCostComponent(AbstractCostComponent):
             should be calculated before skewCost() because we will reused the same
             histogram of how often nodes are touched in the workload
         """
-
-        num_sessions = len(self.state.workload)
-        complete_marker = num_sessions / 10
-        #        if self.debug:
-        LOG.info("Calculating diskCost for %d sessions", num_sessions)
 
         # Initialize all of the LRU buffers
         for lru in self.buffers:
@@ -224,8 +219,7 @@ class DiskCostComponent(AbstractCostComponent):
                     (pageHits, maxHits, op["query_id"], pformat(op))
                 ## FOR (op)
             sess_ctr += 1
-            if sess_ctr % complete_marker == 0:
-                LOG.info("Session %5d / %d [%3d%%]", sess_ctr, num_sessions, (sess_ctr / num_sessions)*100)
+
             ## FOR (sess)
 
         # The final disk cost is the ratio of our estimated disk access cost divided

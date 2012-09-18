@@ -218,12 +218,12 @@ if __name__ == '__main__':
         ## ----------------------------------------------
         ## STEP 2: Execute the LNS/BB Search design algorithm
         ## ----------------------------------------------
-        # import pycallgraph
-        # pycallgraph.start_trace()
+        import pycallgraph
+        pycallgraph.start_trace()
         try:
             finalSolution = designer.search()
         finally:
-            # pycallgraph.make_dot_graph('d4.png')
+            pycallgraph.make_dot_graph('d4.png')
             pass
         LOG.info("Final Solution:\n%s", finalSolution)
     finally:
