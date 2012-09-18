@@ -267,7 +267,7 @@ class BlogWorker(AbstractWorker):
             ## ----------------------------------------------
             ## LOAD COMMENTS
             ## ----------------------------------------------
-            numComments = self.commentsZipf.next()
+            numComments = int(config[self.name]["commentsperarticle"])
             LOG.debug("Comments for article %d: %d" % (articleId, numComments))
             
             lastDate = articleDate
@@ -433,15 +433,22 @@ class BlogWorker(AbstractWorker):
         # and we sort them in descending order of user rating
         if not denormalize: 
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort({"rating":-1})
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort("rating",-1)
+            #for comment in comments:
+            #    pprint(comment)
+            #    print("\n");
+            #print("~~~~~~~~~~~~~~");
         else:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
             #print(pformat(article))
             if not article is None:
                 assert 'comments' in article, pformat(article)
                 comments = article[u'comments']
-            
-            # TODO sorting in client side 
+                #sort by rating ascending and take top 10..
+                comments = sorted(comments, key=lambda k: -k[u'rating'])
+                comments = comments[0:10]
+                #    pprint(comments)
+                #    print("\n");
         if article is None:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
