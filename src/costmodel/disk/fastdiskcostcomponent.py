@@ -60,8 +60,10 @@ class FastDiskCostComponent(AbstractCostComponent):
         """
         """
         # Initialize all of the LRU buffers
+        delta = self.__getDelta__(design)
+
         for lru in self.buffers:
-            lru.initialize(design)
+            lru.initialize(design, delta)
             LOG.info(lru)
             lru.validate()
 
@@ -70,6 +72,22 @@ class FastDiskCostComponent(AbstractCostComponent):
 
         return final_cost
     ## DEF
+
+    def __getDelta__(self, design):
+        """
+            We calculate delta here so that it won't be executed
+            in every lru. All lrus will share the same delta value for it's
+            only related to the design and collections
+        """
+        percent_total = 0
+
+        for col_name in design.getCollections():
+            col_info = self.state.collections[col_name]
+            percent_total += col_info['workload_percent']
+
+        assert 0.0 < percent_total <= 1.0, "Invalid workload percent total %f" % percent_total
+
+        return 1.0 + ((1.0 - percent_total) / percent_total)
 
     def finish(self):
         pass
