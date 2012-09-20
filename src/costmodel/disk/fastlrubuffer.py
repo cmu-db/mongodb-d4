@@ -31,8 +31,8 @@ class FastLRUBuffer:
         self.preload = preload
 
         self.collections = collections
-        self.collection_sizes = { }
-        self.index_sizes = { }
+        self.document_sizes = { } # size of each document in each collection: collection -> document size
+        self.index_sizes = { } # size of indexes for each collection: collection -> index key size
 
         self.buffer = { }
         self.head = None # the top element in the buffer
@@ -44,6 +44,8 @@ class FastLRUBuffer:
         self.remaining = buffer_size
         self.evicted = 0
         self.refreshed = 0
+
+        self.address_size = constants.DEFAULT_ADDRESS_SIZE # FIXME
         ## DEF
 
     def reset(self):
@@ -54,51 +56,10 @@ class FastLRUBuffer:
         self.buffer = { }
         self.evicted = 0
         self.refreshed = 0
-        self.collection_sizes = { }
+        self.document_sizes = { }
         self.index_sizes = { }
-    ## DEF
-
-    def __init_index__(self, design):
-        for col_name in design.getCollections():
-            col_info = self.collections[col_name]
-
-            self.collection_sizes[col_name] = constants.DEFAULT_PAGE_SIZE
-
-            # For each collection, get the indexes that are included in the design.
-            col_index_sizes = { }
-            for index_keys in design.getIndexes(col_name):
-                col_index_sizes[index_keys] = constants.DEFAULT_PAGE_SIZE
-            self.index_sizes[col_name] = col_index_sizes
-
-    def __init_collections__(self, design, delta):
-
-        for col_name in design.getCollections():
-            if not self.preload: break
-
-            col_info = self.collections[col_name]
-            col_size = self.collection_sizes[col_name]
-
-            # How much space are they allow to have in the initial configuration
-            col_remaining = int(self.buffer_size * (delta * col_info['workload_percent']))
-            if self.debug:
-                LOG.debug("%s Pre-load Percentage: %.1f%% [bytes=%d]",
-                    col_name, (delta * col_info['workload_percent'])*100, col_remaining)
-
-            rng = random.Random()
-            rng.seed(col_name)
-            ctr = 0
-            while (col_remaining-col_size) > 0 and self.evicted == 0:
-                documentId = rng.random()
-                self.getDocumentFromCollection(col_name, documentId)
-                col_remaining -= col_size
-                ctr += 1
-                ## WHILE
-            if self.debug:
-                LOG.debug("Pre-loaded %d documents for %s - %s", ctr, col_name, self)
-                ## FOR
-
-        if self.debug and self.preload:
-            LOG.debug("Total # of Pre-loaded Documents: %d", len(self.buffer.keys()))
+        self.head = None
+        self.tail = None
     ## DEF
 
     def initialize(self, design, delta):
@@ -108,7 +69,7 @@ class FastLRUBuffer:
         """
         self.reset()
 
-        self.__init_index__(design)
+        self.__init_index_and_document_size__(design)
         self.__init_collections__(design, delta)
 
     def getDocumentFromIndex(self, col_name, indexKeys, documentId):
@@ -127,7 +88,7 @@ class FastLRUBuffer:
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
         """
-        size = self.collection_sizes.get(col_name, 0)
+        size = self.document_sizes.get(col_name, 0)
 
         assert size > 0, "Missing collection size for '%s'" % col_name
 
@@ -138,13 +99,12 @@ class FastLRUBuffer:
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
-        buffer_tuple = self.__computeTupleHash__(typeId, key, size, documentId)
+        buffer_tuple = self.__computeTupleHash__(typeId, key, documentId)
 
         if not buffer_tuple in self.buffer:
             offset = None
         else:
-        #            if self.debug:
-        #                LOG.debug("Looking up %d from buffer", buffer_tuple)
+            LOG.debug("Looking up %d from buffer", buffer_tuple)
             try:
                 offset = self.buffer[buffer_tuple]
             except ValueError:
@@ -167,7 +127,51 @@ class FastLRUBuffer:
         else:
             assert not buffer_tuple in self.buffer, "Duplicate entry '%s'" % buffer_tuple
             assert size < self.buffer_size
-            return self.__push__(buffer_tuple)
+            return self.__push__(buffer_tuple, size)
+        ## DEF
+
+    def __init_index_and_document_size__(self, design):
+
+        for col_name in design.getCollections():
+            col_info = self.collections[col_name]
+            self.document_sizes[col_name] = max(col_info['avg_doc_size'], constants.DEFAULT_PAGE_SIZE)
+
+            # For each collection, get the indexes that are included in the design.
+            col_index_sizes = { }
+            for index_keys in design.getIndexes(col_name):
+                col_index_sizes[index_keys] = max(self.__getIndexSize__(col_info, index_keys), constants.DEFAULT_PAGE_SIZE)
+
+            self.index_sizes[col_name] = col_index_sizes
+
+    def __init_collections__(self, design, delta):
+
+        for col_name in design.getCollections():
+            if not self.preload: break
+
+            col_info = self.collections[col_name]
+            doc_size = self.document_sizes[col_name]
+
+            # How much space are they allow to have in the initial configuration
+            col_remaining = int(self.buffer_size * (delta * col_info['workload_percent']))
+            if self.debug:
+                LOG.debug("%s Pre-load Percentage: %.1f%% [bytes=%d]",
+                    col_name, (delta * col_info['workload_percent'])*100, col_remaining)
+
+            rng = random.Random()
+            rng.seed(col_name)
+            ctr = 0
+            while (col_remaining - doc_size) > 0 and self.evicted == 0:
+                documentId = rng.random()
+                self.getDocumentFromCollection(col_name, documentId)
+                col_remaining -= doc_size
+                ctr += 1
+                ## WHILE
+            if self.debug:
+                LOG.debug("Pre-loaded %d documents for %s - %s", ctr, col_name, self)
+                ## FOR
+
+        if self.debug and self.preload:
+            LOG.debug("Total # of Pre-loaded Documents: %d", len(self.buffer.keys()))
         ## DEF
 
     ##  -----------------------------------------------------------------------
@@ -179,6 +183,7 @@ class FastLRUBuffer:
             pop out the least recent used buffer_tuple from the buffer
         """
         self.__remove__(self.head)
+        LOG.info("POP")
         self.evicted += 1
     ## DEF
 
@@ -187,8 +192,13 @@ class FastLRUBuffer:
             update the given buffer_tuple in the buffer
             Basically, it just puts the given buffer_tuple at the end of the queue
         """
-        if self.__remove__(buffer_tuple):
-            self.__push__(buffer_tuple)
+        if buffer_tuple == self.tail:
+            return
+
+        isRemoved, value = self.__remove__(buffer_tuple)
+        if isRemoved:
+            LOG.debug("updating: tuple value %s: ", value)
+            self.__push__(buffer_tuple, value[BUFFER_TUPLE_SIZE] if value[BUFFER_TUPLE_SIZE] else 0)
 
     ## DEF
 
@@ -197,54 +207,54 @@ class FastLRUBuffer:
             remove a tuple from the buffer
         """
         if buffer_tuple is None or buffer_tuple not in self.buffer:
-            return False
+            return False, None
         else:
-            tuple_value = self.buffer[buffer_tuple]
-            self.remaining += tuple_value[BUFFER_TUPLE_SIZE ]
-            prev_tuple_value = self.buffer[tuple_value[PREV_BUFFER_TUPLE]]
-            next_tuple_value = self.buffer[tuple_value[NEXT_BUFFER_TUPLE]]
+            tuple_value = self.buffer.pop(buffer_tuple)
+            LOG.debug("Removing: tuple value %s: ", tuple_value)
+            self.remaining += tuple_value[BUFFER_TUPLE_SIZE]
 
-            if prev_tuple_value is None: # if we remove the top tuple
-                self.buffer[self.head][NEXT_BUFFER_TUPLE] = tuple_value[NEXT_BUFFER_TUPLE]
+            # Reset Prev pointer
+            if tuple_value[PREV_BUFFER_TUPLE] is None and tuple_value[NEXT_BUFFER_TUPLE] is None: # if only one tuple
+                self.head = None
+                self.tail = None
+            elif tuple_value[PREV_BUFFER_TUPLE] is None: # if we remove the top tuple
+                self.head = tuple_value[NEXT_BUFFER_TUPLE]
+                self.buffer[self.head][PREV_BUFFER_TUPLE] = None # the second becomes the top now
+            elif tuple_value[NEXT_BUFFER_TUPLE] is None: # if we remove the bottom tuple
+                self.tail = tuple_value[PREV_BUFFER_TUPLE]
+                self.buffer[self.tail][NEXT_BUFFER_TUPLE] = None # the last second becomes the bottom now
             else:
-                prev_tuple_value[NEXT_BUFFER_TUPLE] = tuple_value[NEXT_BUFFER_TUPLE]
+                self.buffer[tuple_value[PREV_BUFFER_TUPLE]][NEXT_BUFFER_TUPLE] = tuple_value[NEXT_BUFFER_TUPLE]
+                self.buffer[tuple_value[NEXT_BUFFER_TUPLE]][PREV_BUFFER_TUPLE] = tuple_value[PREV_BUFFER_TUPLE]
 
-            if next_tuple_value is None: # if we remove the bottom tuple
-                self.buffer[self.tail][PREV_BUFFER_TUPLE] = tuple_value[PREV_BUFFER_TUPLE]
-            else:
-                next_tuple_value[PREV_BUFFER_TUPLE] = tuple_value[PREV_BUFFER_TUPLE]
-
-            return True
+            return True, tuple_value
     ## DEF
 
-    def __push__(self, buffer_tuple):
+    def __push__(self, buffer_tuple, size):
         """
             Add the given buffer_tuple to the bottom of the buffer
         """
+        LOG.debug("Adding")
         page_hits = 0
-
         if self.tail is None:
             self.head = buffer_tuple
             self.tail = buffer_tuple
-            buffer_size = self.__getTupleSize__(buffer_tuple)
-            assert buffer_size <= self.buffer_size,\
-            "This should not happen because the tuple size should be much smaller than buffer_size %s" % buffer_size
-            self.buffer[buffer_tuple] = [None, None, buffer_size]
-            self.remaining -= buffer_size
+
+            assert size <= self.buffer_size,\
+            "This should not happen because the tuple size should be much smaller than buffer_size %s" % size
+            self.buffer[buffer_tuple] = [None, None, size]
+            self.remaining -= size
             page_hits += 1
         else:
-            bottom_buffer_tuple_value = self.buffer[self.tail]
-            assert len(bottom_buffer_tuple_value) == 3,\
-            "Invalid buffer tuple value, it should contain exactly 3 elements %s" % bottom_buffer_tuple_value
             # pop out the least recent used tuples until we have enough space in buffer for this tuple
-            tuple_size = self.__getTupleSize__(buffer_tuple)
-            while self.remaining < tuple_size:
+            while self.remaining < size:
                 self.__pop__()
                 page_hits += 1
 
-            self.buffer[buffer_tuple] = [self.tail, None, tuple_size]
+            self.buffer[self.tail][NEXT_BUFFER_TUPLE] = buffer_tuple
+            self.buffer[buffer_tuple] = [self.tail, None, size]
             self.tail = buffer_tuple
-            self.remaining -= tuple_size
+            self.remaining -= size
             page_hits += 1
 
         return page_hits
@@ -255,13 +265,8 @@ class FastLRUBuffer:
     ## UTILITY METHODS
     ## -----------------------------------------------------------------------
 
-    def __computeTupleHash__(self, typeId, key, size, documentId):
-        size /= 1024
-        return long(abs(hash((typeId, key, documentId)))>>4 | size<<60)
-        ## DEF
-
-    def __getTupleSize__(self, buffer_tuple):
-        return (buffer_tuple >> 60)*1024
+    def __computeTupleHash__(self, typeId, key, documentId):
+        return hash((typeId, key, documentId))
         ## DEF
 
     def __getIndexSize__(self, col_info, indexKeys):
@@ -281,12 +286,11 @@ class FastLRUBuffer:
 
     def __str__(self):
         buffer_ratio = (self.buffer_size - self.remaining) / float(self.buffer_size)
-        return "Buffer Usage %.2f%% [evicted=%d / refreshed=%d / entries=%d / ids=%d / used=%d / total=%d]" % (\
+        return "Buffer Usage %.2f%% [evicted=%d / refreshed=%d / entries=%d / used=%d / total=%d]" % (\
             buffer_ratio*100,
             self.evicted,
             self.refreshed,
-            len(self.buffer),
-            len(self.buffer_ids),
+            len(self.buffer.keys()),
             self.buffer_size - self.remaining,
             self.buffer_size,
             )

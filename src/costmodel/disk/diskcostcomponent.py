@@ -35,7 +35,7 @@ sys.path.append(os.path.join(basedir, ".."))
 
 import catalog
 from costmodel import AbstractCostComponent
-from lrubuffer import LRUBuffer
+from fastlrubuffer import FastLRUBuffer
 from workload import Session
 from util import Histogram, constants
 
@@ -52,9 +52,25 @@ class DiskCostComponent(AbstractCostComponent):
 
         self.buffers = [ ]
         for i in xrange(self.state.num_nodes):
-            lru = LRUBuffer(self.state.collections, self.state.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
+            lru = FastLRUBuffer(self.state.collections, self.state.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
             self.buffers.append(lru)
     ## DEF
+
+    def __getDelta__(self, design):
+        """
+            We calculate delta here so that it won't be executed
+            in every lru. All lrus will share the same delta value for it's
+            only related to the design and collections
+        """
+        percent_total = 0
+
+        for col_name in design.getCollections():
+            col_info = self.state.collections[col_name]
+            percent_total += col_info['workload_percent']
+
+        assert 0.0 < percent_total <= 1.0, "Invalid workload percent total %f" % percent_total
+
+        return 1.0 + ((1.0 - percent_total) / percent_total)
 
     def getCostImpl(self, design):
         """
@@ -63,10 +79,11 @@ class DiskCostComponent(AbstractCostComponent):
             should be calculated before skewCost() because we will reused the same
             histogram of how often nodes are touched in the workload
         """
+        delta = self.__getDelta__(design)
 
         # Initialize all of the LRU buffers
         for lru in self.buffers:
-            lru.initialize(design)
+            lru.initialize(design, delta)
             LOG.info(lru)
             lru.validate()
 
@@ -241,7 +258,7 @@ class DiskCostComponent(AbstractCostComponent):
         LOG.info("Buffer Usage %.2f%% [total=%d / used=%d]",\
             buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
 
-        map(LRUBuffer.validate, self.buffers)
+        map(FastLRUBuffer.validate, self.buffers)
 
         if self.debug:
             cache_success = sum([ x for x in self.state.cache_hit_ctr.itervalues() ])
