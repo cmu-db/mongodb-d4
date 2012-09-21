@@ -153,26 +153,27 @@ class BlogWorker(AbstractWorker):
     
     def initIndexes(self, optType, denormalize=False):
         assert self.db != None
-        
+	
         # Nothing
         if optType == constants.INDEXEXP_NONE:
             pass
         # Regular Index
         elif optType == constants.INDEXEXP_PREDICATE:
-            self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING)])
+	    LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+            self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
         # Cover Index
         elif optType == constants.INDEXEXP_COVERING:
-            self.db[constants.ARTICLE_COLL].create_index([("id", pymongo.ASCENDING), \
+            self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING), \
                                                           ("date", pymongo.ASCENDING), \
                                                           ("author", pymongo.ASCENDING)])
         # Busted!
         else:
             raise Exception("Unexpected indexing configuration type '%d'" % optType)
-        
         if not denormalize:
-            LOG.info("Creating indexes for %s" % self.db[constants.COMMENT_COLL].full_name)
-            self.db[constants.COMMENT_COLL].create_index([("id", pymongo.ASCENDING), \
-                                                          ("article", pymongo.ASCENDING)])
+	   #drop useless comment._id index - if removed the drop_indexes doesn't do actually anything...
+           LOG.info("Creating indexes (articleId,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
+           self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
+                                                         ("rating", pymongo.DESCENDING)])
         ## IF
         
     ## DEF
@@ -239,6 +240,8 @@ class BlogWorker(AbstractWorker):
         articleTotal = self.lastArticle - self.firstArticle
         commentsBatch = [ ]
         commentCtr = 0
+        commentTotal= 0
+        numComments = int(config[self.name]["commentsperarticle"])
         for articleId in xrange(self.firstArticle, self.lastArticle+1):
             titleSize = int(random.gauss(constants.MAX_TITLE_SIZE/2, constants.MAX_TITLE_SIZE/4))
             contentSize = int(random.gauss(constants.MAX_CONTENT_SIZE/2, constants.MAX_CONTENT_SIZE/4))
@@ -259,15 +262,22 @@ class BlogWorker(AbstractWorker):
                 "date": articleDate,
                 "author": random.choice(authors),
                 "slug": slug,
-                "content": randomString(contentSize)
+                "content": randomString(contentSize),
+                "numComments": numComments,
             }
+            articleCtr+=1;
+            #if denormalize directly insert article else store it in batch
             if config[self.name]["denormalize"]:
                 article["comments"] = [ ]
-
+                self.db[constants.ARTICLE_COLL].insert(article)
+            else:
+	        articlesBatch.append(article)
+            
+            
             ## ----------------------------------------------
             ## LOAD COMMENTS
             ## ----------------------------------------------
-            numComments = int(config[self.name]["commentsperarticle"])
+            
             LOG.debug("Comments for article %d: %d" % (articleId, numComments))
             
             lastDate = articleDate
@@ -286,43 +296,73 @@ class BlogWorker(AbstractWorker):
                 }
                 commentCtr += 1
                 
-                if config[self.name]["denormalize"]:
-                    if self.debug: 
-                        LOG.debug("Storing new comment for article %d directly in document" % articleId)
-                    article["comments"].append(comment)
-                else:
-                    if self.debug:
-                        LOG.debug("Storing new comment for article %d in separate batch" % articleId)
-                    commentsBatch.append(comment)
-            ## FOR (comments)
-            if self.debug: LOG.debug("Comment Batch: %d" % len(commentsBatch))
-
-            # Always insert the article
-            articlesBatch.append(article)
-            articleCtr += 1
-            if articleCtr % 100 == 0 :
-                if articleCtr % 1000 == 0 :
-                    self.loadStatusUpdate(articleCtr / articleTotal)
-                    LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
-                    if len(commentsBatch) > 0:
-                        LOG.debug("COMMENTS: %6d" % (commentCtr))
-                self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-                articlesBatch = [ ]
-                
+		commentsBatch.append(comment) 
+		
+	    ## FOR (comments)
+	    
+	    #if denormalize insert in article else insert in separate collection of comments
+	    if config[self.name]["denormalize"]:
+	        self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})
+	
+            if articleCtr % 100 == 0 or articleCtr % 100 == 1 :
+                self.loadStatusUpdate(articleCtr / articleTotal)
+                LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
+                if len(commentsBatch) > 0:
+                    LOG.debug("COMMENTS: %6d" % (commentCtr))
+            #self.db[constants.ARTICLE_COLL].insert(articlesBatch)
+            
+            if not config[self.name]["denormalize"]:
+	        if len(articlesBatch) > 0:
+		    self.db[constants.ARTICLE_COLL].insert(articlesBatch)
                 if len(commentsBatch) > 0:
                     self.db[constants.COMMENT_COLL].insert(commentsBatch)
-                    commentsBatch = [ ]
+           
+            
+            
+             
+             
+            articlesBatch = [ ]
+            commentsBatch = [ ]
+            ## IF
+	## FOR (articles)    
+        LOG.info("FINAL-ARTICLES: %6d / %d" % (articleCtr-1, articleTotal))
+        LOG.info("FINAL-COMMENTS: %6d / %d" % (commentCtr,commentCtr))        
+                #if config[self.name]["denormalize"]:
+                #    if self.debug: 
+                #        LOG.debug("Storing new comment for article %d directly in document" % articleId)
+                #    article["comments"].append(comment)
+                #else:
+                #    if self.debug:
+                #        LOG.debug("Storing new comment for article %d in separate batch" % articleId)
+                #    commentsBatch.append(comment)
+            ## FOR (comments)
+            #if self.debug: LOG.debug("Comment Batch: %d" % len(commentsBatch))
+
+            # Always insert the article
+            #articlesBatch.append(article)
+            #articleCtr += 1
+            #if articleCtr % 100 == 0 :
+            #    if articleCtr % 1000 == 0 :
+            #        self.loadStatusUpdate(articleCtr / articleTotal)
+            #        LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
+            #        if len(commentsBatch) > 0:
+            #            LOG.debug("COMMENTS: %6d" % (commentCtr))
+            #    self.db[constants.ARTICLE_COLL].insert(articlesBatch)
+            #    articlesBatch = [ ]
+            #    
+            #    if len(commentsBatch) > 0:
+            #        self.db[constants.COMMENT_COLL].insert(commentsBatch)
+            #        commentsBatch = [ ]
             ## IF
                 
         ## FOR (articles)
-        if len(articlesBatch) > 0:
-            LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
-            self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-            if len(commentsBatch) > 0:
-                self.db[constants.COMMENT_COLL].insert(commentsBatch)
+        #if len(articlesBatch) > 0 and not config[self.name]["denormalize"]:
+        #    LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
+        #    self.db[constants.ARTICLE_COLL].insert(articlesBatch)
+        #    #if len(commentsBatch) > 0:
+        #        #self.db[constants.COMMENT_COLL].insert(commentsBatch)
         
-        LOG.info("# of ARTICLES: %d" % articleCtr)
-        LOG.info("# of COMMENTS: %d" % commentCtr)
+        
     ## DEF
     
     ## ---------------------------------------------------------------------------
