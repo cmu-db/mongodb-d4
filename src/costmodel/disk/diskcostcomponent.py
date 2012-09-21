@@ -34,6 +34,7 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, ".."))
 
 import catalog
+import threading
 from costmodel import AbstractCostComponent
 from fastlrubuffer import FastLRUBuffer
 from workload import Session
@@ -44,6 +45,18 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 ## Disk Cost
 ## ==============================================
+
+class CalculationUnit(threading.Thread):
+    def __init__(self, buffer, design, delta):
+        self.design = design
+        self.delta = delta
+        self.buffer = buffer
+        threading.Thread.__init__(self)
+    def run(self):
+        self.buffer.initialize(self.design, self.delta)
+        LOG.info(self.buffer)
+        self.buffer.validate()
+
 class DiskCostComponent(AbstractCostComponent):
 
     def __init__(self, state):
@@ -82,10 +95,18 @@ class DiskCostComponent(AbstractCostComponent):
         delta = self.__getDelta__(design)
 
         # Initialize all of the LRU buffers
+        threads = []
         for lru in self.buffers:
-            lru.initialize(design, delta)
-            LOG.info(lru)
-            lru.validate()
+            thread = CalculationUnit(lru, design, delta)
+            threads.append(thread)
+
+        # Run all the threads
+        for thread in threads:
+            thread.start()
+
+        # Join all the threads
+        for thread in threads:
+            thread.join()
 
         # Ok strap on your helmet, this is the magical part of the whole thing!
         #

@@ -99,12 +99,11 @@ class FastLRUBuffer:
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
-        buffer_tuple = self.__computeTupleHash__(typeId, key, documentId)
+        buffer_tuple = (typeId, key, documentId)
 
         if not buffer_tuple in self.buffer:
             offset = None
         else:
-            LOG.debug("Looking up %d from buffer", buffer_tuple)
             try:
                 offset = self.buffer[buffer_tuple]
             except ValueError:
@@ -183,7 +182,6 @@ class FastLRUBuffer:
             pop out the least recent used buffer_tuple from the buffer
         """
         self.__remove__(self.head)
-        LOG.info("POP")
         self.evicted += 1
     ## DEF
 
@@ -197,7 +195,6 @@ class FastLRUBuffer:
 
         isRemoved, value = self.__remove__(buffer_tuple)
         if isRemoved:
-            LOG.debug("updating: tuple value %s: ", value)
             self.__push__(buffer_tuple, value[BUFFER_TUPLE_SIZE] if value[BUFFER_TUPLE_SIZE] else 0)
 
     ## DEF
@@ -210,7 +207,6 @@ class FastLRUBuffer:
             return False, None
         else:
             tuple_value = self.buffer.pop(buffer_tuple)
-            LOG.debug("Removing: tuple value %s: ", tuple_value)
             self.remaining += tuple_value[BUFFER_TUPLE_SIZE]
 
             # Reset Prev pointer
@@ -234,7 +230,6 @@ class FastLRUBuffer:
         """
             Add the given buffer_tuple to the bottom of the buffer
         """
-        LOG.debug("Adding")
         page_hits = 0
         if self.tail is None:
             self.head = buffer_tuple
@@ -264,10 +259,6 @@ class FastLRUBuffer:
     ## -----------------------------------------------------------------------
     ## UTILITY METHODS
     ## -----------------------------------------------------------------------
-
-    def __computeTupleHash__(self, typeId, key, documentId):
-        return hash((typeId, key, documentId))
-        ## DEF
 
     def __getIndexSize__(self, col_info, indexKeys):
         """Estimate the amount of memory required by the indexes of a given design"""

@@ -64,6 +64,8 @@ class BBSearch ():
         self.timeout = timeout
         self.status = "initialized"
         self.usedTime = 0 # track how much time it runs
+
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
         return
 
     
@@ -77,8 +79,9 @@ class BBSearch ():
         self.leafNodes = 0 # for testing
         self.totalNodes = 0 # for testing
         self.status = "solving"
-        LOG.debug("===BBSearch Solve===")
-        LOG.debug(" timeout: %d", self.timeout)
+        if self.debug:
+            LOG.debug("===BBSearch Solve===")
+            LOG.debug(" timeout: %d", self.timeout)
         self.startTime = time.time()
 
         # set initial bound to infinity
@@ -133,16 +136,17 @@ class BBSearch ():
         """this event gets called when the algorithm terminates"""
         self.endTime = time.time()
         #self.restoreKeys() # change keys to collection names
-        LOG.debug("===Search ended===")
-        LOG.debug("  status: %s", self.status)
-        LOG.debug("STATISTICS:")
-        LOG.debug("  time elapsed: %d", (self.endTime - self.startTime))
-        LOG.debug("  best cost: %s", self.bestCost)
-        LOG.debug("  total backtracks: %d", self.totalBacktracks)
-        LOG.debug("  total nodes: %d", self.totalNodes)
-        LOG.debug("  leaf nodes: %d", self.leafNodes)
-        LOG.debug("BEST SOLUTION:\n%s", self.bestDesign)
-        LOG.debug("------------------\n")
+        if self.debug:
+            LOG.debug("===Search ended===")
+            LOG.debug("  status: %s", self.status)
+            LOG.debug("STATISTICS:")
+            LOG.debug("  time elapsed: %d", (self.endTime - self.startTime))
+            LOG.debug("  best cost: %s", self.bestCost)
+            LOG.debug("  total backtracks: %d", self.totalBacktracks)
+            LOG.debug("  total nodes: %d", self.totalNodes)
+            LOG.debug("  leaf nodes: %d", self.leafNodes)
+            LOG.debug("BEST SOLUTION:\n%s", self.bestDesign)
+            LOG.debug("------------------\n")
 
     
 ## CLASS
@@ -268,8 +272,9 @@ class BBNode():
             self.prepareChildren()
             child = self.getNextChild()
             while child is not None:
-                LOG.debug("DEPTH: %d", child.depth)
-                LOG.debug(child.design.data)
+                if self.debug:
+                    LOG.debug("DEPTH: %d", child.depth)
+                    LOG.debug(child.design.data)
 
                 if child.evaluate():
                     self.children.append(child)
@@ -469,6 +474,7 @@ class BBNode():
         self.design = d
         self.bbsearch = bb
         self.children = [] # list of BBNode
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
         return
         
 
