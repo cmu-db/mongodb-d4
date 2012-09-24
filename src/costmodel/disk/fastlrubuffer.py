@@ -1,4 +1,4 @@
-"""
+    """
     This is lrubuffer is intended to be faster version of the existing lrubuffer.
     In this version, the buffer will be implemented as a dictionary which maps the current key
     to its predecessor's and successor's key:
@@ -33,7 +33,8 @@ class FastLRUBuffer:
         self.collections = collections
         self.document_sizes = { } # size of each document in each collection: collection -> document size
         self.index_sizes = { } # size of indexes for each collection: collection -> index key size
-
+        self.rngs = dict([ (col_name, random.Random()) for col_name in self.collections.iterkeys()])
+        
         self.buffer = { }
         self.head = None # the top element in the buffer
         self.tail = None # the bottom element in the buffer
@@ -99,7 +100,7 @@ class FastLRUBuffer:
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
-        buffer_tuple = (typeId, key, documentId)
+        buffer_tuple = (documentId, key, typeId)
 
         if not buffer_tuple in self.buffer:
             offset = None
@@ -148,6 +149,9 @@ class FastLRUBuffer:
             if not self.preload: break
 
             col_info = self.collections[col_name]
+            
+            # TODO: We should think about whether we want to make the initial docuemnts
+            #       larger so that there are fewer of them.
             doc_size = self.document_sizes[col_name]
 
             # How much space are they allow to have in the initial configuration
@@ -156,15 +160,19 @@ class FastLRUBuffer:
                 LOG.debug("%s Pre-load Percentage: %.1f%% [bytes=%d]",
                     col_name, (delta * col_info['workload_percent'])*100, col_remaining)
 
-            rng = random.Random()
-            rng.seed(col_name)
+            # TODO: Rather than initializing the buffer from scratch everytime, it will be 
+            #       much faster if we cached this initial state and reused it everytime we 
+            #       need to recompute the disk cost. The problem is that we need to do a deepcopy
+            #       to ensure that we don't overwrite our buffer
             ctr = 0
+            rng = self.rngs[col_name]
+            rng.seed(col_name)
             while (col_remaining - doc_size) > 0 and self.evicted == 0:
                 documentId = rng.random()
                 self.getDocumentFromCollection(col_name, documentId)
                 col_remaining -= doc_size
                 ctr += 1
-                ## WHILE
+            ## WHILE
             if self.debug:
                 LOG.debug("Pre-loaded %d documents for %s - %s", ctr, col_name, self)
                 ## FOR
@@ -203,27 +211,42 @@ class FastLRUBuffer:
         """
             remove a tuple from the buffer
         """
-        if buffer_tuple is None or buffer_tuple not in self.buffer:
+        # TODO: Will the buffer_tuple ever really be None?
+        #       If no, then make this check an assert
+        if buffer_tuple is None:
             return False, None
+            
+            
+        tuple_value = self.buffer.pop(buffer_tuple, None)
+        if buffer_tuple is None:
+            return False, None
+            
+        # Add back the memory to the buffer based on what we allocated for the tuple
+        self.remaining += tuple_value[BUFFER_TUPLE_SIZE]
+
+        # TODO: Fix all of this code so that we are using references to
+        #       our lists in the buffer rather than buffer-tuples
+        
+        # Reset Prev pointer
+        if tuple_value[PREV_BUFFER_TUPLE] is None and tuple_value[NEXT_BUFFER_TUPLE] is None: # if only one tuple
+            self.head = None
+            self.tail = None
+        elif tuple_value[PREV_BUFFER_TUPLE] is None: # if we remove the top tuple
+            self.head = tuple_value[NEXT_BUFFER_TUPLE]
+            self.buffer[self.head][PREV_BUFFER_TUPLE] = None # the second becomes the top now
+        elif tuple_value[NEXT_BUFFER_TUPLE] is None: # if we remove the bottom tuple
+            self.tail = tuple_value[PREV_BUFFER_TUPLE]
+            assert isinstance(self.tail, list)
+            self.tail[NEXT_BUFFER_TUPLE] = None
+            # self.buffer[ # the last second becomes the bottom now
         else:
-            tuple_value = self.buffer.pop(buffer_tuple)
-            self.remaining += tuple_value[BUFFER_TUPLE_SIZE]
+            prev = tuple_value[PREV_BUFFER_TUPLE]
+            prev[NEXT_BUFFER_TUPLE] = tuple_value[NEXT_BUFFER_TUPLE]
+            
+            next = tuple_value[NEXT_BUFFER_TUPLE]
+            next[PREV_BUFFER_TUPLE] = tuple_value[PREV_BUFFER_TUPLE]
 
-            # Reset Prev pointer
-            if tuple_value[PREV_BUFFER_TUPLE] is None and tuple_value[NEXT_BUFFER_TUPLE] is None: # if only one tuple
-                self.head = None
-                self.tail = None
-            elif tuple_value[PREV_BUFFER_TUPLE] is None: # if we remove the top tuple
-                self.head = tuple_value[NEXT_BUFFER_TUPLE]
-                self.buffer[self.head][PREV_BUFFER_TUPLE] = None # the second becomes the top now
-            elif tuple_value[NEXT_BUFFER_TUPLE] is None: # if we remove the bottom tuple
-                self.tail = tuple_value[PREV_BUFFER_TUPLE]
-                self.buffer[self.tail][NEXT_BUFFER_TUPLE] = None # the last second becomes the bottom now
-            else:
-                self.buffer[tuple_value[PREV_BUFFER_TUPLE]][NEXT_BUFFER_TUPLE] = tuple_value[NEXT_BUFFER_TUPLE]
-                self.buffer[tuple_value[NEXT_BUFFER_TUPLE]][PREV_BUFFER_TUPLE] = tuple_value[PREV_BUFFER_TUPLE]
-
-            return True, tuple_value
+        return True, tuple_value
     ## DEF
 
     def __push__(self, buffer_tuple, size):
@@ -231,24 +254,29 @@ class FastLRUBuffer:
             Add the given buffer_tuple to the bottom of the buffer
         """
         page_hits = 0
-        if self.tail is None:
-            self.head = buffer_tuple
-            self.tail = buffer_tuple
-
-            assert size <= self.buffer_size,\
-            "This should not happen because the tuple size should be much smaller than buffer_size %s" % size
-            self.buffer[buffer_tuple] = [None, None, size]
-            self.remaining -= size
-            page_hits += 1
-        else:
+        if not self.tail is None:
             # pop out the least recent used tuples until we have enough space in buffer for this tuple
             while self.remaining < size:
-                self.__pop__()
+                # self.__pop__()
+                self.__remove__(self.head)
+                self.evicted += 1
                 page_hits += 1
 
+            # FIXME
             self.buffer[self.tail][NEXT_BUFFER_TUPLE] = buffer_tuple
             self.buffer[buffer_tuple] = [self.tail, None, size]
             self.tail = buffer_tuple
+            self.remaining -= size
+            page_hits += 1
+        else:
+            value = [None, None, size]
+            self.head = value
+            self.tail = value
+            self.buffer[buffer_tuple] = value
+            
+            assert size <= self.buffer_size,\
+            "This should not happen because the tuple size should be much smaller than buffer_size %s" % size
+            
             self.remaining -= size
             page_hits += 1
 
