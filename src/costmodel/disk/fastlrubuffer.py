@@ -18,8 +18,15 @@ from util import constants
 PREV_BUFFER_ENTRY = 0
 NEXT_BUFFER_ENTRY = 1
 BUFFER_TUPLE_SIZE = 2
+
 DOC_TYPE_INDEX = 0
 DOC_TYPE_COLLECTION = 1
+
+BUFFER = 0
+DOCUMENT_SIZES = 1
+INDEX_SIZES = 2
+HEAD = 3
+TAIL = 4
 
 LOG = logging.getLogger(__name__)
 
@@ -63,15 +70,32 @@ class FastLRUBuffer:
         self.tail = None
     ## DEF
 
-    def initialize(self, design, delta):
+    def initialize(self, design, delta, cache):
         """
             Add the given collection to our buffer.
             This will automatically initialize any indexes for the collection as well.
         """
         self.reset()
+        
+        if cache:
+          self.buffer = self.__clone_buffer__(cache[BUFFER])
+          self.document_sizes = self.__clone_buffer__(cache[DOCUMENT_SIZES])
+          self.index_sizes = self.__clone_buffer__(cache[INDEX_SIZES])
+          self.head = cache[HEAD][:]
+          self.tail = cache[TAIL][:]
+        else:
+          self.__init_index_and_document_size__(design)
+          self.__init_collections__(design, delta)
+          
+          return self.buffer, self.document_sizes, self.index_sizes, self.head, self.tail
 
-        self.__init_index_and_document_size__(design)
-        self.__init_collections__(design, delta)
+    def __clone_buffer__(self, buffer):
+        newBuffer = { }
+
+        for key, value in buffer.iteritems():
+            newBuffer[key] = value
+
+        return newBuffer
 
     def getDocumentFromIndex(self, col_name, indexKeys, documentId):
         """
@@ -79,7 +103,7 @@ class FastLRUBuffer:
             Returns the number of page hits incurred to read these documents.
         """
         size = self.index_sizes[col_name].get(indexKeys, 0)
-        assert size > 0,\
+#        assert size > 0,\
         "Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
         return self.getDocument(DOC_TYPE_INDEX, col_name, indexKeys, size, documentId)
         ## DEF
@@ -91,7 +115,7 @@ class FastLRUBuffer:
         """
         size = self.document_sizes.get(col_name, 0)
 
-        assert size > 0, "Missing collection size for '%s'" % col_name
+ #      assert size > 0, "Missing collection size for '%s'" % col_name
 
         return self.getDocument(DOC_TYPE_COLLECTION, col_name, col_name, size, documentId)
     ## DEF
@@ -102,17 +126,11 @@ class FastLRUBuffer:
         # method because we don't need to keep redoing it when we update
         buffer_tuple = (documentId, key, typeId)
 
-        if not buffer_tuple in self.buffer:
-            offset = None
-        else:
-            try:
-                offset = self.buffer[buffer_tuple]
-            except ValueError:
-                offset = None
+        offset = self.buffer.get(buffer_tuple, None)
 
         # The tuple is in our buffer, so we don't need to fetch anything from disk
         # We will need to push the tuple back on to the end of our buffer list
-        if not offset is None:
+        if offset:
             self.__update__(buffer_tuple)
             self.refreshed += 1
             return 0 # page_hits
@@ -125,8 +143,8 @@ class FastLRUBuffer:
         #       that out would be too expensive for this estimate, since we don't
         #       actually know how many documents are in that page that it needs to write
         else:
-            assert not buffer_tuple in self.buffer, "Duplicate entry '%s'" % buffer_tuple
-            assert size < self.buffer_size
+#            assert not buffer_tuple in self.buffer, "Duplicate entry '%s'" % buffer_tuple
+#            assert size < self.buffer_size
             return self.__push__(buffer_tuple, size)
         ## DEF
 
@@ -212,7 +230,7 @@ class FastLRUBuffer:
             remove a tuple from the buffer
         """
         tuple_value = self.buffer.pop(buffer_tuple, None)
-        if buffer_tuple is None:
+        if tuple_value is None:
             return False, None
             
         # Add back the memory to the buffer based on what we allocated for the tuple
