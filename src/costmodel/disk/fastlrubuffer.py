@@ -1,22 +1,22 @@
-    """
+"""
     This is lrubuffer is intended to be faster version of the existing lrubuffer.
     In this version, the buffer will be implemented as a dictionary which maps the current key
     to its predecessor's and successor's key:
 
     HEAD: <buffer-tuple>
     TAIL: <buffer-tuple>
-    BUFFER: { <buffer-tuple>: [ <prev-buffer-tuple>, <next-buffer-tuple>, <size> ] }
+    BUFFER: { <buffer-tuple>: [ <prev-buffer-value>, <next-buffer-value>, <size> ] }
 
     The HEAD and TAIL are used to pop and push entries out and into the buffer based on LRU rules
-"""
+    """
 import logging
 import random
 from pprint import pformat
 from util import constants
 
 # constants
-PREV_BUFFER_TUPLE = 0
-NEXT_BUFFER_TUPLE = 1
+PREV_BUFFER_ENTRY = 0
+NEXT_BUFFER_ENTRY = 1
 BUFFER_TUPLE_SIZE = 2
 DOC_TYPE_INDEX = 0
 DOC_TYPE_COLLECTION = 1
@@ -211,12 +211,6 @@ class FastLRUBuffer:
         """
             remove a tuple from the buffer
         """
-        # TODO: Will the buffer_tuple ever really be None?
-        #       If no, then make this check an assert
-        if buffer_tuple is None:
-            return False, None
-            
-            
         tuple_value = self.buffer.pop(buffer_tuple, None)
         if buffer_tuple is None:
             return False, None
@@ -224,27 +218,21 @@ class FastLRUBuffer:
         # Add back the memory to the buffer based on what we allocated for the tuple
         self.remaining += tuple_value[BUFFER_TUPLE_SIZE]
 
-        # TODO: Fix all of this code so that we are using references to
-        #       our lists in the buffer rather than buffer-tuples
-        
-        # Reset Prev pointer
-        if tuple_value[PREV_BUFFER_TUPLE] is None and tuple_value[NEXT_BUFFER_TUPLE] is None: # if only one tuple
+        if tuple_value[PREV_BUFFER_ENTRY] is None and tuple_value[NEXT_BUFFER_ENTRY] is None: # if only one tuple
             self.head = None
             self.tail = None
-        elif tuple_value[PREV_BUFFER_TUPLE] is None: # if we remove the top tuple
-            self.head = tuple_value[NEXT_BUFFER_TUPLE]
-            self.buffer[self.head][PREV_BUFFER_TUPLE] = None # the second becomes the top now
-        elif tuple_value[NEXT_BUFFER_TUPLE] is None: # if we remove the bottom tuple
-            self.tail = tuple_value[PREV_BUFFER_TUPLE]
-            assert isinstance(self.tail, list)
-            self.tail[NEXT_BUFFER_TUPLE] = None
-            # self.buffer[ # the last second becomes the bottom now
+        elif tuple_value[PREV_BUFFER_ENTRY] is None: # if we remove the top tuple
+            self.head = tuple_value[NEXT_BUFFER_ENTRY]
+            self.head[PREV_BUFFER_ENTRY] = None # the second becomes the top now
+        elif tuple_value[NEXT_BUFFER_ENTRY] is None: # if we remove the bottom tuple
+            self.tail = tuple_value[PREV_BUFFER_ENTRY]
+            self.tail[NEXT_BUFFER_ENTRY] = None
         else:
-            prev = tuple_value[PREV_BUFFER_TUPLE]
-            prev[NEXT_BUFFER_TUPLE] = tuple_value[NEXT_BUFFER_TUPLE]
+            prev = tuple_value[PREV_BUFFER_ENTRY]
+            prev[NEXT_BUFFER_ENTRY] = tuple_value[NEXT_BUFFER_ENTRY]
             
-            next = tuple_value[NEXT_BUFFER_TUPLE]
-            next[PREV_BUFFER_TUPLE] = tuple_value[PREV_BUFFER_TUPLE]
+            next = tuple_value[NEXT_BUFFER_ENTRY]
+            next[PREV_BUFFER_ENTRY] = tuple_value[PREV_BUFFER_ENTRY]
 
         return True, tuple_value
     ## DEF
@@ -254,31 +242,25 @@ class FastLRUBuffer:
             Add the given buffer_tuple to the bottom of the buffer
         """
         page_hits = 0
-        if not self.tail is None:
-            # pop out the least recent used tuples until we have enough space in buffer for this tuple
+        newEntry = [self.tail, None, size]
+        # pop out the least recent used tuples until we have enough space in buffer for this tuple
+        if self.tail is not None:
             while self.remaining < size:
-                # self.__pop__()
-                self.__remove__(self.head)
+                # self.__remove__(self.head)
+                self.remaining += self.head[BUFFER_TUPLE_SIZE]
+                self.head = self.head[NEXT_BUFFER_ENTRY]
+                self.head[PREV_BUFFER_ENTRY] = None
                 self.evicted += 1
                 page_hits += 1
 
-            # FIXME
-            self.buffer[self.tail][NEXT_BUFFER_TUPLE] = buffer_tuple
-            self.buffer[buffer_tuple] = [self.tail, None, size]
-            self.tail = buffer_tuple
-            self.remaining -= size
-            page_hits += 1
+            self.tail[NEXT_BUFFER_ENTRY] = newEntry
         else:
-            value = [None, None, size]
-            self.head = value
-            self.tail = value
-            self.buffer[buffer_tuple] = value
-            
-            assert size <= self.buffer_size,\
-            "This should not happen because the tuple size should be much smaller than buffer_size %s" % size
-            
-            self.remaining -= size
-            page_hits += 1
+            self.head = newEntry
+
+        self.tail = newEntry
+        self.buffer[buffer_tuple] = newEntry
+        self.remaining -= size
+        page_hits += 1
 
         return page_hits
 
