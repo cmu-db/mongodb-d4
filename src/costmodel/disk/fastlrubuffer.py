@@ -40,7 +40,6 @@ class FastLRUBuffer:
         self.collections = collections
         self.document_sizes = { } # size of each document in each collection: collection -> document size
         self.index_sizes = { } # size of indexes for each collection: collection -> index key size
-        self.rngs = dict([ (col_name, random.Random()) for col_name in self.collections.iterkeys()])
         
         self.buffer = { }
         self.head = None # the top element in the buffer
@@ -81,21 +80,27 @@ class FastLRUBuffer:
           self.buffer = self.__clone_buffer__(cache[BUFFER])
           self.document_sizes = self.__clone_buffer__(cache[DOCUMENT_SIZES])
           self.index_sizes = self.__clone_buffer__(cache[INDEX_SIZES])
-          self.head = cache[HEAD][:]
-          self.tail = cache[TAIL][:]
+          self.head = self.__clone_buffer_value__(cache[HEAD])
+          self.tail = self.__clone_buffer_value__(cache[TAIL])
         else:
           self.__init_index_and_document_size__(design)
           self.__init_collections__(design, delta)
           
           return self.buffer, self.document_sizes, self.index_sizes, self.head, self.tail
 
-    def __clone_buffer__(self, buffer):
-        newBuffer = { }
+    def __clone_dictionary__(self, source):
+        target = { }
 
-        for key, value in buffer.iteritems():
-            newBuffer[key] = value
+        for key, value in source.iteritems():
+            target[key] = value
 
-        return newBuffer
+        return target
+
+    def __clone_buffer_value__(self, source): # clone the "link" in the doubly linked-list
+        newValue = []
+        newValue[PREV_BUFFER_ENTRY] = source[PREV_BUFFER_ENTRY][:] if source[PREV_BUFFER_ENTRY] else None
+        newValue[NEXT_BUFFER_ENTRY] = source[NEXT_BUFFER_ENTRY][:] if source[NEXT_BUFFER_ENTRY] else None
+        newValue[BUFFER_TUPLE_SIZE] = source[BUFFER_TUPLE_SIZE]
 
     def getDocumentFromIndex(self, col_name, indexKeys, documentId):
         """
@@ -178,12 +183,8 @@ class FastLRUBuffer:
                 LOG.debug("%s Pre-load Percentage: %.1f%% [bytes=%d]",
                     col_name, (delta * col_info['workload_percent'])*100, col_remaining)
 
-            # TODO: Rather than initializing the buffer from scratch everytime, it will be 
-            #       much faster if we cached this initial state and reused it everytime we 
-            #       need to recompute the disk cost. The problem is that we need to do a deepcopy
-            #       to ensure that we don't overwrite our buffer
             ctr = 0
-            rng = self.rngs[col_name]
+            rng = random.Random()
             rng.seed(col_name)
             while (col_remaining - doc_size) > 0 and self.evicted == 0:
                 documentId = rng.random()
