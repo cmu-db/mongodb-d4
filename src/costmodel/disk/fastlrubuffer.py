@@ -108,8 +108,7 @@ class FastLRUBuffer:
             Returns the number of page hits incurred to read these documents.
         """
         size = self.index_sizes[col_name].get(indexKeys, 0)
-#        assert size > 0,\
-        "Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
+#        assert size > 0,"Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
         return self.getDocument(DOC_TYPE_INDEX, col_name, indexKeys, size, documentId)
         ## DEF
 
