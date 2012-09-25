@@ -77,9 +77,9 @@ class FastLRUBuffer:
         self.reset()
         
         if cache:
-          self.buffer = self.__clone_buffer__(cache[BUFFER])
-          self.document_sizes = self.__clone_buffer__(cache[DOCUMENT_SIZES])
-          self.index_sizes = self.__clone_buffer__(cache[INDEX_SIZES])
+          self.buffer = self.__clone_dictionary__(cache[BUFFER])
+          self.document_sizes = self.__clone_dictionary__(cache[DOCUMENT_SIZES])
+          self.index_sizes = self.__clone_dictionary__(cache[INDEX_SIZES])
           self.head = self.__clone_buffer_value__(cache[HEAD])
           self.tail = self.__clone_buffer_value__(cache[TAIL])
         else:
@@ -97,7 +97,7 @@ class FastLRUBuffer:
         return target
 
     def __clone_buffer_value__(self, source): # clone the "link" in the doubly linked-list
-        newValue = []
+        newValue = [None, None, None]
         newValue[PREV_BUFFER_ENTRY] = source[PREV_BUFFER_ENTRY][:] if source[PREV_BUFFER_ENTRY] else None
         newValue[NEXT_BUFFER_ENTRY] = source[NEXT_BUFFER_ENTRY][:] if source[NEXT_BUFFER_ENTRY] else None
         newValue[BUFFER_TUPLE_SIZE] = source[BUFFER_TUPLE_SIZE]
