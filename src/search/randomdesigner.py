@@ -24,58 +24,50 @@
 
 import logging
 import design
+import random
 
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
 ## InitialDesigner
 ## ==============================================
-class InitialDesigner():
-    
+class RandomDesigner():
+
     def __init__(self, collections):
         self.collections = collections
-    ## DEF
-    
+        ## DEF
+
     def generate(self):
         LOG.info("Computing initial design")
-
-        # XXX: Why is this suppose to be?
-        params = {
-            'query_use_count' : 1.0,
-        }
 
         starting_design = design.Design()
 
         for col_info in self.collections :
             starting_design.addCollection(col_info['name'])
-            results = {}
+
             col_fields = []
+
             for field, data in col_info['fields'].iteritems() :
                 col_fields.append(field)
-                results[field] = self.calc_stats(params, col_info['fields'][field])
 
             # Figure out which attribute has the highest value for
             # the params that we care about when choosing the best design
             attrs = [ ]
-            value = 0
-            for field, data in results.iteritems():
-                if data >= value:
-                    if data > value: attrs = [ ]
-                    value = data
-                    attrs.append(field)
-                    LOG.debug("%s: (%d) -> %s", col_info['name'], value, attrs)
+            while len(attrs) == 0:
+                counter = 0
+                random_num = random.randint(0, len(col_fields))
+
+                for field in col_fields:
+                    if  counter == random_num:
+                        attrs.append(field)
+                        break
+                    else:
+                        counter += 1
+
             starting_design.addShardKey(col_info['name'], attrs)
             starting_design.addIndex(col_info['name'], attrs)
-            
+
         return starting_design
-    ## DEF
-    
-    def calc_stats(self, params, stats):
-        output = 0.0
-        for k,v in params.iteritems():
-            output += v * stats[k]
-        return output
-    ## DEF 
-    
-    
+        ## DEF
+
 ## CLASS

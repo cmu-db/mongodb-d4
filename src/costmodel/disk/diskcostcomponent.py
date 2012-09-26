@@ -53,7 +53,7 @@ class DiskCostComponent(AbstractCostComponent):
 
         self.buffers = [ ]
         for i in xrange(self.state.num_nodes):
-            lru = FastLRUBuffer(self.state.collections, self.state.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
+            lru = FastLRUBuffer(self.state.collections, self.state.max_memory, preload=constants.DEFAULT_LRU_PRELOAD)
             self.buffers.append(lru)
     ## DEF
 
@@ -249,9 +249,9 @@ class DiskCostComponent(AbstractCostComponent):
         # then the cost is simply zero
         assert totalCost <= totalWorst,\
             "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
-        final_cost = totalCost / totalWorst if totalWorst else 0
+        final_cost = float(totalCost) / float(totalWorst) if totalWorst else 0
         evicted = sum([ lru.evicted for lru in self.buffers ])
-        LOG.info("Computed Disk Cost: %.03f [pageHits=%d / worstCase=%d / evicted=%d]",\
+        LOG.info("Computed Disk Cost: %s [pageHits=%d / worstCase=%d / evicted=%d]",\
                  final_cost, totalCost, totalWorst, evicted)
         return final_cost
     ## DEF

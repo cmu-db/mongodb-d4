@@ -35,7 +35,6 @@ sys.path.append(os.path.join(basedir, ".."))
 
 import catalog
 from costmodel import AbstractCostComponent
-from lrubuffer import LRUBuffer
 from workload import Session
 from util import Histogram, constants
 
@@ -49,29 +48,81 @@ class FastDiskCostComponent(AbstractCostComponent):
     def __init__(self, state):
         AbstractCostComponent.__init__(self, state)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.window_size = constants.WINDOW_SIZE
 
-        self.buffers = [ ]
-        for i in xrange(self.state.num_nodes):
-            lru = LRUBuffer(self.state.collections, self.state.max_memory, preload=constants.DEFAULT_LRU_PRELOAD)
-            self.buffers.append(lru)
+        # op -> flag, which tells if the operation exists in the previous table
+        self.window = { }
+
+        # initialize collections array
+        # extract all the collections that will be touched
+        # from workload and put them in an array
+        self.collection_array = [ ]
+
+        for sess in self.state.workload:
+            for op in sess['operations']:
+                self.collection_array.append(op['collection'])
+
     ## DEF
 
     def getCostImpl(self, design):
-        """
-        """
-        # Initialize all of the LRU buffers
-        delta = self.__getDelta__(design)
 
-        for lru in self.buffers:
-            lru.initialize(design, delta)
-            LOG.info(lru)
-            lru.validate()
+        totalWorst = 0
+        totalCost = 0
 
+        cursor = 0
+        while cursor + self.window_size < len(self.collection_array):
+            pass
+        for col in self.collection_array:
 
-        final_cost = 0.0
+            col_info = self.state.collections[col]
+
+            cache = self.state.getCacheHandle(col_info)
+
+            indexKeys, covering = cache.best_index.get(op['query_hash'], (None, None))
+            if indexKeys is None:
+                # ignore indexes so far
+                pass
+            elif self.debug:
+                self.state.cache_hit_ctr.put("best_index")
+
+            pageHits = 0
+            maxHits = 0
+            isRegex = self.state.__getIsOpRegex__(cache, op)
+
+            # Grab all of the query contents
+            for content in workload.getOpContents(op):
+                for node_id in self.state.__getNodeIds__(cache, design, op):
+                    if indexKeys and not isRegex:
+                        # ignore indexes so far
+                        pass
+                    if not indexKeys:
+                        pageHits += cache.fullscan_pages
+                        maxHits += cache.fullscan_pages
+                    elif not covering:
+                        # calculate the hits using the window
+                        pageHits += hits
+
+            totalCost += pageHits
+            totalWorst += maxHits
+
+        final_cost = totalCost / totalWorst if totalWorst else 0
 
         return final_cost
     ## DEF
+
+    def __getHits__(self, collections):
+        hits = 0
+        newWindow = { }
+
+        for col in collections:
+            newWindow[col] = True
+            if col not in self.window:
+                hits += 1
+
+        # Update window
+        self.window = newWindow
+
+        return hits
 
     def __getDelta__(self, design):
         """

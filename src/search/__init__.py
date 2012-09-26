@@ -10,4 +10,5 @@ from design import Design
 from initialdesigner import InitialDesigner
 from bbsearch import *
 from utilmethods import *
+from randomdesigner import RandomDesigner
 

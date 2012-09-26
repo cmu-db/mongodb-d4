@@ -28,7 +28,7 @@ import logging
 from pprint import pformat
 import catalog
 from costmodel import costmodel
-from search import InitialDesigner, lnsearch
+from search import InitialDesigner, lnsearch, RandomDesigner
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -192,16 +192,16 @@ class Designer():
 
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
-        initialDesign = InitialDesigner(collectionsDict.values()).generate()
+        initialDesign = RandomDesigner(collectionsDict.values()).generate()
         upper_bound = cm.overallCost(initialDesign)
-        if self.debug:
-            LOG.debug("Initial Design\n%s", initialDesign)
-            LOG.debug("Computed initial design [COST=%f]", upper_bound)
+
+        LOG.info("Initial Design\n%s", initialDesign)
+        LOG.info("Computed initial design [COST=%s]", upper_bound)
 
 #        cm.debug = True
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
-        ln = lnsearch.LNSearch(self.cparser, collectionsDict, cm, initialDesign, upper_bound, 10)
+        ln = lnsearch.LNSearch(self.cparser, collectionsDict, cm, initialDesign, upper_bound, 9999999)
         solution = ln.solve()
         return solution
     ## DEF

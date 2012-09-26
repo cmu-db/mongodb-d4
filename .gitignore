@@ -1,6 +1,6 @@
 *.pyc
 *.pyo
-.#kate-*
+.#*
 *.kate-swp
 *.config
 .idea
