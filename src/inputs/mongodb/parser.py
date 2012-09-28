@@ -715,21 +715,25 @@ class Parser:
     def infer_salt(self, candidate_hashes, known_collections):
         """this is a ridiculous hack. Let's hope the salt is 0. But even if not..."""
         max_salt = 100000
-        LOG.debug("Trying to brute-force the salt 0-%d..." % max_salt)
+        if self.debug: LOG.debug("Trying to brute-force the salt 0-%d" % max_salt)
         salt = 0
         while True:
-            if salt % (max_salt / 100) == 0:
-                print ".",
+            if self.debug and salt % (max_salt / 100) == 0:
+                sys.stdout.write(".")
             for known_col in known_collections:
                 hashed_string = self.get_hash_string(known_col) # the col names are hashed with quotes around them 
                 hash = anonymize.hash_string(hashed_string, salt) # imported from anonymize.py
                 if hash in candidate_hashes:
-                    LOG.debug("SUCCESS! %s hashes to a known value. SALT: %d", hashed_string, salt)
+                    if self.debug: 
+                        print
+                        LOG.debug("SUCCESS! %s hashes to a known value. SALT: %d", hashed_string, salt)
                     return salt
             salt += 1
             if salt > max_salt:
                 break
-        LOG.warn("FAIL. The salt value is unknown")
+        if self.debug:
+            print
+            LOG.warn("FAIL. The salt value is unknown")
         return None
     ## DEF
 
