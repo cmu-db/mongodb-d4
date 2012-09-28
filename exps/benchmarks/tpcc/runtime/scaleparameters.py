@@ -41,8 +41,6 @@ def makeDefault(warehouses):
 ## DEF
 
 def makeWithScaleFactor(warehouses, scaleFactor):
-    assert scaleFactor >= 1.0
-
     items = int(constants.NUM_ITEMS*scaleFactor)
     if items <= 0: items = 1
     districts = int(max(constants.DISTRICTS_PER_WAREHOUSE, 1))
