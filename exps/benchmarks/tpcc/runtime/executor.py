@@ -40,9 +40,7 @@ from pprint import pprint,pformat
 import api.results
 import constants
 
-#import util
-#pprint(dir(util))
-from util import *
+import rand
 
 class Executor:
     
