@@ -59,7 +59,7 @@ from util import termcolor
 ## ==============================================
 class Benchmark:
     DEFAULT_CONFIG = [
-        ("dbname","The database that is going to be used against for loading/resetting and benchmarks","microblog"), 
+        ("dbname", "The database that is going to be used against for loading/resetting and benchmarks", "XXX"), 
         ("host", "The host name of the MongoDB instance to use in this benchmark", "localhost"),
         ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
         ("scalefactor", "Benchmark database scale factor", 1.0),
@@ -85,6 +85,14 @@ class Benchmark:
         from datetime import datetime
         ret =  "# %s Benchmark Configuration File\n" % (self._benchmark.upper())
         ret += "# Created %s\n" % (datetime.now())
+        
+        # Fix database name
+        for i in xrange(len(self.DEFAULT_CONFIG)):
+            c = self.DEFAULT_CONFIG[i]
+            if c[0] == 'dbname':
+                self.DEFAULT_CONFIG[i] = (c[0], c[1], self._benchmark.lower())
+                break
+        ## FOR
         
         # Base Configuration
         ret += formatConfig("default", self.DEFAULT_CONFIG)
