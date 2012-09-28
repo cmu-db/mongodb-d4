@@ -107,7 +107,7 @@ def sendMessagesLimitedThread(queue, limit, responses):
     while len(queue) > 0 or len(outstanding) > 0:
         while len(queue) > 0 and len(outstanding) < limit:
             msg, data, channel = queue.pop(0)
-            if debug: LOG.info("Sending %s to %s" % (str(data), str(channel)))
+            if debug: LOG.debug("Sending %s to %s" % (str(data), str(channel)))
             sendMessage(msg, data, channel)
             outstanding.append(channel)
         # WHILE
