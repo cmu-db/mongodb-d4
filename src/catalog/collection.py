@@ -37,6 +37,13 @@ class Collection(Document):
                 'parent_conf':      float,      # TODO(ckeith)
             }
         }
+        
+        #'canidates': {
+            #'index_keys': {
+                #int: [basestring],
+            #}
+            #'shard_keys': 
+        #}
     }
     required_fields = [
         'name', 'doc_count'

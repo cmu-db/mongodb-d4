@@ -70,9 +70,9 @@ class CostModel(object):
         self.last_cost = None
         self.state = State(collections, workload, config)
 
-        self.weights_sum = 0
+        self.weights_sum = 0.0
         for k, v in self.state.__dict__.iteritems():
-            if k.startswith("weight_"): self.weights_sum += v
+            if k.startswith("weight_"): self.weights_sum += float(v)
 
         ## ----------------------------------------------
         ## COST COMPONENTS
@@ -95,21 +95,23 @@ class CostModel(object):
             LOG.debug("New Design:\n%s", design)
             self.state.cache_hit_ctr.clear()
             self.state.cache_miss_ctr.clear()
-        start = time.time()
-
+        
         cost = 0.0
-        cost += self.state.weight_disk * self.diskComponent.getCost(design)
-        cost += self.state.weight_network * self.networkComponent.getCost(design)
-        cost += self.state.weight_skew * self.skewComponent.getCost(design)
-
-        self.last_cost = cost / float(self.weights_sum)
+        start = time.time()
+        if self.state.weight_disk > 0:
+            cost += self.state.weight_disk * self.diskComponent.getCost(design)
+        if self.state.weight_network > 0:
+            cost += self.state.weight_network * self.networkComponent.getCost(design)
+        if self.state.weight_skew > 0:
+            cost += self.state.weight_skew * self.skewComponent.getCost(design)
+        stop = time.time()
+            
+        self.last_cost = cost / self.weights_sum
         self.last_design = design
 
-#        if self.debug:
-        stop = time.time()
-
+        #if self.debug:
         # Calculate cache hit/miss ratio
-        LOG.debug("Overall Cost %.3f / Computed in %.2f seconds", \
+        LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
                  self.last_cost, (stop - start))
 
         map(AbstractCostComponent.finish, self.allComponents)

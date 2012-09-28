@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sys
 
 PROJECT_NAME = "mongodb-d4"
 PROJECT_URL = "https://github.com/apavlo/mongodb-d4"
@@ -51,6 +52,10 @@ REPLACE_KEY_DOLLAR_PREFIX = '#'
 
 # Replace any '.' in a key with this string
 REPLACE_KEY_PERIOD = '__'
+
+# This identifies that an operation has to perform a full scan
+# on an entire collection rather than retrieving a single document
+FULL_SCAN_DOCUMENT_ID = sys.maxint
 
 ## ==============================================
 ## MONGO OPERATION TYPES
