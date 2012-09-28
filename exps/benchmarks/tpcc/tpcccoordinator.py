@@ -35,17 +35,17 @@ import execnet
 import logging
 from pprint import pprint, pformat
 
-import drivers
-from util import *
-from runtime import *
 from api.abstractcoordinator import AbstractCoordinator
 from api.message import *
+
+import drivers
+from runtime import scaleparameters
 
 LOG = logging.getLogger(__name__)
 
 class TpccCoordinator(AbstractCoordinator) :
     DEFAULT_CONFIG = [
-        ("name", "Collection name", "tpcc"),
+        ("warehouses", "The number of warehouses to use in the benchmark run", 4), 
         ("denormalize", "If set to true, then the CUSTOMER data will be denormalized into a single document", True),
     ]
     
@@ -55,7 +55,8 @@ class TpccCoordinator(AbstractCoordinator) :
     
     def initImpl(self, config, channels):
         ## Create our ScaleParameter stuff that we're going to need
-        self._scaleParameters = scaleparameters.makeWithScaleFactor(int(config['warehouses']), float(config['scalefactor']))
+        num_warehouses = int(config[self.name]['warehouses'])
+        self._scaleParameters = scaleparameters.makeWithScaleFactor(num_warehouses, config['default']["scalefactor"])
     ## DEF
     
     def loadImpl(self, config, channels) :

@@ -94,7 +94,8 @@ def setupPath(benchmark):
         basename = os.path.basename(realpath)
         if os.path.exists(os.path.join(cwd, basename)):
             basedir = cwd
-    benchmarkDir = os.path.join(basedir, "benchmarks", benchmark)
-    sys.path.append(os.path.realpath(benchmarkDir))
+    benchmarkDir = os.path.realpath(os.path.join(basedir, "benchmarks", benchmark))
+    if not benchmarkDir in sys.path:
+        sys.path.insert(0, benchmarkDir)
 ## DEF
 

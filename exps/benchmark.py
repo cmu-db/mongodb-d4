@@ -46,20 +46,20 @@ if __name__ == '__channelexec__':
     BASEDIR = os.getcwd()
 else:
     BASEDIR = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(BASEDIR, "../libs"))
+for d in ["src", "libs"]:
+    dir = os.path.realpath(os.path.join(BASEDIR, "../" + d))
+    if not dir in sys.path:
+        sys.path.append(dir)
+## FOR
 import argparse
 import mongokit
-
-# mongodb-d4
-sys.path.append(os.path.join(BASEDIR, "../src"))
-from util import termcolor
 
 ## ==============================================
 ## Benchmark Invocation
 ## ==============================================
 class Benchmark:
     DEFAULT_CONFIG = [
-        ("dbname", "The database that is going to be used against for loading/resetting and benchmarks", "XXX"), 
+        ("dbname", "The database that is going to be used against for loading/resetting and benchmarks", None), 
         ("host", "The host name of the MongoDB instance to use in this benchmark", "localhost"),
         ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
         ("scalefactor", "Benchmark database scale factor", 1.0),
@@ -120,7 +120,7 @@ class Benchmark:
         # Extra stuff from the arguments that we want to stash
         # in the 'default' section of the config
         for key,val in args.items():
-            if key != 'config' and not key in config['default']:
+            if key != 'config': #  and key in config['default']:
                 config['default'][key] = val
                 
         # Default config
@@ -258,8 +258,9 @@ def getBenchmarks():
 ## setupBenchmarkPath
 ## ==============================================
 def setupBenchmarkPath(benchmark):
-    benchmarkDir = os.path.join(BASEDIR, "benchmarks", benchmark)
-    sys.path.append(os.path.realpath(benchmarkDir))
+    benchmarkDir = os.path.realpath(os.path.join(BASEDIR, "benchmarks", benchmark))
+    if not benchmarkDir in sys.path:
+        sys.path.insert(0, benchmarkDir)
 ## DEF
 
 ## ==============================================
@@ -296,6 +297,7 @@ def formatConfig(name, config):
 ## MAIN
 ## ==============================================
 if __name__=='__main__':
+    from util import termcolor
     logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
                     datefmt="%m-%d-%Y %H:%M:%S",

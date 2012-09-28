@@ -37,8 +37,11 @@ import logging
 from datetime import datetime
 from pprint import pprint,pformat
 
-import constants
 import api.results
+import constants
+
+#import util
+#pprint(dir(util))
 from util import *
 
 class Executor:

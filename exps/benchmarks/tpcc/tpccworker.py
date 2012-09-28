@@ -32,19 +32,20 @@ import logging
 import traceback
 from pprint import pprint, pformat
 
-import drivers
-from util import *
-from runtime import *
 from api.abstractworker import AbstractWorker
+
+import drivers
+from runtime import *
+from runtime import scaleparameters
 
 LOG = logging.getLogger(__name__)
 
 class TpccWorker(AbstractWorker):
     
     def initImpl(self, config):
-        # Collapse config into a single dict
+        # HACK: Collapse config into a single dict
         new_config = { }
-        for s in config.keys()
+        for s in config.keys():
             if not s in ['default', self.name]: continue
             for k in config[s].keys():
                 new_config[k] = config[s][k]
@@ -62,7 +63,8 @@ class TpccWorker(AbstractWorker):
         config['ddl'] = os.path.join(basedir, "tpcc.sql")
         
         ## Create our ScaleParameter stuff that we're going to need
-        self._scaleParameters = scaleparameters.makeWithScaleFactor(int(config['warehouses']), float(config['scalefactor']))
+        num_warehouses = int(config['warehouses'])
+        self._scaleParameters = scaleparameters.makeWithScaleFactor(num_warehouses, config["scalefactor"])
         
         driverClass = self.createDriverClass(config['system'])
         assert driverClass != None, "Failed to find '%s' class" % config['system']

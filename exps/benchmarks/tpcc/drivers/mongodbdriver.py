@@ -216,18 +216,9 @@ class MongodbDriver(AbstractDriver):
             self.__dict__[name.lower()] = None
     
     ## ----------------------------------------------
-    ## makeDefaultConfig
-    ## ----------------------------------------------
-    def makeDefaultConfig(self):
-        return MongodbDriver.DEFAULT_CONFIG
-    
-    ## ----------------------------------------------
     ## loadConfig
     ## ----------------------------------------------
     def loadConfig(self, config):
-        for key in MongodbDriver.DEFAULT_CONFIG.keys():
-            assert key in config, "Missing parameter '%s' in %s configuration" % (key, self.name)
-        
         self.database = self.conn[str(config['name'])]
         self.denormalize = config['denormalize']
         if self.denormalize: logging.debug("Using denormalized data model")
@@ -353,9 +344,35 @@ class MongodbDriver(AbstractDriver):
         ## IF
 
     ## ----------------------------------------------
+    ## executeTransaction
+    ## ----------------------------------------------
+    def executeTransaction(self, txn, params):
+        """Execute a transaction based on the given name"""
+        
+        if constants.TransactionTypes.DELIVERY == txn:
+            result = self.doDelivery(params)
+        elif constants.TransactionTypes.NEW_ORDER == txn:
+            result = self.doNewOrder(params)
+        elif constants.TransactionTypes.ORDER_STATUS == txn:
+            result = self.doOrderStatus(params)
+        elif constants.TransactionTypes.PAYMENT == txn:
+            result = self.doPayment(params)
+        elif constants.TransactionTypes.STOCK_LEVEL == txn:
+            result = self.doStockLevel(params)
+        else:
+            assert False, "Unexpected TransactionType: " + txn
+        return result
+        
+    ## ----------------------------------------------
     ## doDelivery
     ## ----------------------------------------------
     def doDelivery(self, params):
+        """Execute DELIVERY Transaction
+        Parameters Dict:
+            w_id
+            o_carrier_id
+            ol_delivery_d
+        """
         w_id = params["w_id"]
         o_carrier_id = params["o_carrier_id"]
         ol_delivery_d = params["ol_delivery_d"]
@@ -436,6 +453,16 @@ class MongodbDriver(AbstractDriver):
     ## doNewOrder
     ## ----------------------------------------------
     def doNewOrder(self, params):
+        """Execute NEW_ORDER Transaction
+        Parameters Dict:
+            w_id
+            d_id
+            c_id
+            o_entry_d
+            i_ids
+            i_w_ids
+            i_qtys
+        """
         w_id = params["w_id"]
         d_id = params["d_id"]
         c_id = params["c_id"]
@@ -606,6 +633,13 @@ class MongodbDriver(AbstractDriver):
     ## doOrderStatus
     ## ----------------------------------------------
     def doOrderStatus(self, params):
+        """Execute ORDER_STATUS Transaction
+        Parameters Dict:
+            w_id
+            d_id
+            c_id
+            c_last
+        """
         w_id = params["w_id"]
         d_id = params["d_id"]
         c_id = params["c_id"]
@@ -669,6 +703,17 @@ class MongodbDriver(AbstractDriver):
     ## doPayment
     ## ----------------------------------------------    
     def doPayment(self, params):
+        """Execute PAYMENT Transaction
+        Parameters Dict:
+            w_id
+            d_id
+            h_amount
+            c_w_id
+            c_d_id
+            c_id
+            c_last
+            h_date
+        """
         w_id = params["w_id"]
         d_id = params["d_id"]
         h_amount = params["h_amount"]
@@ -769,6 +814,12 @@ class MongodbDriver(AbstractDriver):
     ## doStockLevel
     ## ----------------------------------------------    
     def doStockLevel(self, params):
+        """Execute STOCK_LEVEL Transaction
+        Parameters Dict:
+            w_id
+            d_id
+            threshold
+        """
         w_id = params["w_id"]
         d_id = params["d_id"]
         threshold = params["threshold"]
