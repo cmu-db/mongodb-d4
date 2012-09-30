@@ -52,8 +52,11 @@ class MessageProcessor:
                 
                 # Initialize Logging
                 if 'logfile' in self.config['default'] and self.config['default']['logfile']:
+                    logFormat = "%(asctime)s " +\
+                                ("WORKER %02d " % self.config['default']['id']) +\
+                                "[%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s"
                     logging.basicConfig(level = logging.DEBUG,
-                                        format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                                        format=logFormat,
                                         datefmt="%m-%d-%Y %H:%M:%S",
                                         filename=self.config['default']['logfile'])
                     LOG.info('*'*100)

@@ -232,8 +232,8 @@ class Benchmark:
                     now = time.time()
                     if (now - start) > 10 and int((len(channels) / float(totalClients))*100) % 25 == 0:
                         LOG.debug("Started Client Threads %d / %d" % (len(channels), totalClients))
-                    
-                    
+                ## FOR (processes)
+            ## FOR (hosts)
         # IF
         LOG.info("Created %d client processes on %d hosts" % (len(channels), len(clients)))
         LOG.debug(channels)
