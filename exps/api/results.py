@@ -28,8 +28,6 @@ import time
 
 from util.histogram import Histogram
 
-LOG = logging.getLogger(__name__)
-
 class Results:
     
     def __init__(self):

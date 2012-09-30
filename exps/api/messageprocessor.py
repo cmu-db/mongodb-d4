@@ -26,6 +26,7 @@
 import os
 import sys
 import logging
+
 from message import *
 
 LOG = logging.getLogger(__name__)
@@ -33,40 +34,72 @@ LOG = logging.getLogger(__name__)
 class MessageProcessor:
     ''' Message Processor'''
     def __init__(self, channel):
-        self._channel = channel
-        self._worker = None
-        self._config = None
-        self._benchmark = None
+        self.channel = channel
+        self.worker = None
+        self.config = None
+        self.benchmark = None
         
     def processMessage(self):
         '''Main loop'''
-        for item in self._channel:
+        for item in self.channel:
             msg = getMessage(item)
             LOG.debug("Incoming Message: %s" % getMessageName(msg.header))
             
             # MSG_CMD_INIT
             if msg.header == MSG_CMD_INIT:
-                self._config = msg.data
-                self._benchmark = self._config['default']['benchmark']
-                if 'debug' in self._config['default'] and self._config['default']['debug']:
+                self.config = msg.data
+                self.benchmark = self.config['default']['benchmark']
+                
+                # Initialize Logging
+                if 'logfile' in self.config['default'] and self.config['default']['logfile']:
+                    logging.basicConfig(level = logging.DEBUG,
+                                        format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                                        datefmt="%m-%d-%Y %H:%M:%S",
+                                        filename=self.config['default']['logfile'])
+                    LOG.info('*'*100)
+                    LOG.info("Starting new %s remote worker" % self.benchmark.upper())
+                if 'debug' in self.config['default'] and self.config['default']['debug']:
                     logging.getLogger().setLevel(logging.DEBUG)
                     
-                setupPath(self._benchmark)
-                self._worker = self.createWorker()
-                self._worker.init(self._config, self._channel)
+                # Setup Environent
+                setupPath(self.benchmark)
+                
+                # Create worker
+                self.worker = self.createWorker()
+                self.worker.init(self.config, self.channel)
                 
             # MSG_CMD_LOAD
+            # Tells the worker thread to start loading the database
             elif msg.header == MSG_CMD_LOAD:
-                self._worker.load(self._config, self._channel, msg)
+                self.worker.load(self.config, self.channel, msg)
+            
+            # MSG_CMD_STATUS
+            # Return the current status of the worker thread
             elif msg.header == MSG_CMD_STATUS:
-                self._worker.status(self._config, self._channel, msg)
+                self.worker.status(self.config, self.channel, msg)
+                
+            # MSG_CMD_EXECUTE_INIT
+            # Tells the worker thread to initialize the benchmark execution
             elif msg.header == MSG_CMD_EXECUTE_INIT:
-                self._worker.executeInit(self._config, self._channel, msg)
+                self.worker.executeInit(self.config, self.channel, msg)
+            
+            # MSG_CMD_EXECUTE
+            # Tells the worker thread to begin executing the benchmark
+            # This will only occur once all of the threads complete the
+            # EXECUTE_INIT phase.
             elif msg.header == MSG_CMD_EXECUTE:
-                self._worker.execute(self._config, self._channel, msg)
+                self.worker.execute(self.config, self.channel, msg)
+            
+            # MSG_CMD_STOP
+            # Tells the worker thread to halt the benchmark
             elif msg.header == MSG_CMD_STOP:
+                # TODO
                 pass
-            elif msg.header == MSG_EMPTY:
+            
+            # MSG_NOOP
+            # A empty command that does not return the worker thread to return
+            # a response. I forget why we have this...
+            elif msg.header == MSG_NOOP:
                 pass
             else:
                 assert msg.header in MSG_NAME_MAPPING
@@ -76,8 +109,8 @@ class MessageProcessor:
             
     def createWorker(self):
         '''Worker factory method'''
-        fullName = self._benchmark.title() + "Worker"
-        moduleName = 'benchmarks.%s.%s' % (self._benchmark.lower(), fullName.lower())
+        fullName = self.benchmark.title() + "Worker"
+        moduleName = 'benchmarks.%s.%s' % (self.benchmark.lower(), fullName.lower())
         moduleHandle = __import__(moduleName, globals(), locals(), [fullName])
         klass = getattr(moduleHandle, fullName)
         return klass()

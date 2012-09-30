@@ -47,19 +47,25 @@ if __name__ == '__channelexec__':
 else:
     BASEDIR = os.path.realpath(os.path.dirname(__file__))
 for d in ["src", "libs"]:
-    dir = os.path.realpath(os.path.join(BASEDIR, "../" + d))
+    dir = os.path.realpath(os.path.join(BASEDIR, "..", d))
     if not dir in sys.path:
         sys.path.append(dir)
 ## FOR
 import argparse
 import mongokit
 
+# We need to load up the stuff that our execnet threads will need
+from util.histogram import Histogram
+
+# LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
+
 ## ==============================================
 ## Benchmark Invocation
 ## ==============================================
 class Benchmark:
     DEFAULT_CONFIG = [
-        ("dbname", "The database that is going to be used against for loading/resetting and benchmarks", None), 
+        ("dbname", "The name of the MongoDB database to use for this benchmark invocation.", None), 
         ("host", "The host name of the MongoDB instance to use in this benchmark", "localhost"),
         ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
         ("scalefactor", "Benchmark database scale factor", 1.0),
@@ -67,6 +73,7 @@ class Benchmark:
         ("clients", "Comma-separated list of machines to use for benchmark clients", "localhost"),
         ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
         ("design", "Path to database design file (must be supported by benchmark).", ""),
+        ("logfile", "Path to debug log file for remote execnet processes", None),
     ]
     
     '''main class'''
@@ -86,12 +93,14 @@ class Benchmark:
         ret =  "# %s Benchmark Configuration File\n" % (self._benchmark.upper())
         ret += "# Created %s\n" % (datetime.now())
         
-        # Fix database name
+        # Fix database name + logfile
         for i in xrange(len(self.DEFAULT_CONFIG)):
             c = self.DEFAULT_CONFIG[i]
             if c[0] == 'dbname':
                 self.DEFAULT_CONFIG[i] = (c[0], c[1], self._benchmark.lower())
-                break
+            elif c[0] == 'logfile':
+                logfile = os.path.join("/tmp", "%s.log" % self._benchmark.lower())
+                self.DEFAULT_CONFIG[i] = (c[0], c[1], logfile)
         ## FOR
         
         # Base Configuration
@@ -137,7 +146,7 @@ class Benchmark:
             if os.path.exists(os.path.join(cwd, basename)):
                 basedir = cwd
         #config['path'] = os.path.join(basedir, "api")
-        config['default']['path'] = os.path.realpath(basedir)
+        config['default']['path'] = basedir
         
         # Fix common problems
         for s in config.keys():
@@ -145,6 +154,8 @@ class Benchmark:
                 if key in config[s]: config[s][key] = int(config[s][key])
             for key in ["scalefactor"]:
                 if key in config[s]: config[s][key] = float(config[s][key])
+            for key in ["path", "logfile"]:
+                if key in config[s]: config[s][key] = os.path.realpath(config[s][key])
         ## FOR
         
         # Read in the serialized design file and ship that over the wire
@@ -157,7 +168,7 @@ class Benchmark:
         ## IF
         
         self._config = config
-        logging.info("Configuration File:\n%s" % pformat(self._config))
+        LOG.debug("Configuration File:\n%s" % pformat(self._config))
     ## DEF
             
     def runBenchmark(self):
@@ -189,7 +200,7 @@ class Benchmark:
         assert 'clients' in self._config['default']
         clients = re.split(r"[\s,]+", str(self._config['default']['clients']))
         assert len(clients) > 0
-        logging.info("Invoking benchmark framework on %d clients" % len(clients))
+        LOG.info("Invoking benchmark framework on %d clients" % len(clients))
 
         import benchmark
         remoteCall = benchmark
@@ -204,26 +215,27 @@ class Benchmark:
             
         # Otherwise create SSH channels to client nodes
         else:
+            LOG.info("Executor Log File: %s" %  self._config['default']['logfile'])
             totalClients = len(clients) * self._config['default']['clientprocs']
             start = time.time()
             for node in clients:
                 cmd = 'ssh='+ node
                 cmd += r"//chdir=" + self._config['default']['path']
-                logging.debug(cmd)
-                logging.debug("# of Client Processes: %s" % self._config['default']['clientprocs'])
+                LOG.debug(cmd)
+                LOG.debug("# of Client Processes: %s" % self._config['default']['clientprocs'])
                 for i in range(int(self._config['default']['clientprocs'])):
-                    logging.debug("Invoking %s on %s" % (remoteCall, node))
+                    LOG.debug("Invoking %s on %s" % (remoteCall, node))
                     gw = execnet.makegateway(cmd)
                     ch = gw.remote_exec(remoteCall)
                     channels.append(ch)
                     now = time.time()
                     if (now - start) > 10 and int((len(channels) / float(totalClients))*100) % 25 == 0:
-                        logging.info("Started Client Threads %d / %d" % (len(channels), totalClients))
+                        LOG.debug("Started Client Threads %d / %d" % (len(channels), totalClients))
                     
                     
         # IF
-        logging.info("Created %d client processes on %d hosts" % (len(channels), len(clients)))
-        logging.debug(channels)
+        LOG.info("Created %d client processes on %d hosts" % (len(channels), len(clients)))
+        LOG.debug(channels)
         return channels
     ## DEF
         
@@ -356,13 +368,13 @@ if __name__=='__main__':
                          help='Enable debug log messages')
     args = vars(aparser.parse_args())
     
-    if args['debug']: logging.getLogger().setLevel(logging.DEBUG)
+    if args['debug']: LOG.setLevel(logging.DEBUG)
     
     benchmark = args['benchmark'].lower()
     if not benchmark in allBenchmarks:
         raise Exception("Invalid benchmark handle '%s'" % benchmark)
     
-    logging.debug("Command Options:\n%s" % args)
+    LOG.debug("Command Options:\n%s" % args)
     ben = Benchmark(benchmark, args)
     
     if args['print_config']:
@@ -378,10 +390,6 @@ if __name__=='__main__':
 ## EXECNET PROCESSOR
 ## ==============================================
 if __name__ == '__channelexec__':
-    logging.basicConfig(level = logging.DEBUG,
-                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-                    datefmt="%m-%d-%Y %H:%M:%S",
-                    filename="/tmp/benchmark.log")
     mp = MessageProcessor(channel)
     mp.processMessage()
 ## EXEC

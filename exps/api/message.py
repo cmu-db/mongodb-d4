@@ -38,7 +38,7 @@ LOG = logging.getLogger(__name__)
 # status codes that are prefixed with "MSG_"
 # The values of these codes will all be unique
 MSG_STATUS_CODES = [
-    "EMPTY",
+    "NOOP",
     "CMD_INIT",
     "CMD_LOAD",
     "CMD_STATUS",
@@ -139,7 +139,7 @@ def getMessageName(msg):
 
     
 class Message:
-    def __init__(self, header=MSG_EMPTY, data=None):
+    def __init__(self, header=MSG_NOOP, data=None):
         self.header = header
         self.data = data
 ## CLASS
