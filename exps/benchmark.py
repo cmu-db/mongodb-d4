@@ -79,6 +79,17 @@ class Benchmark:
     '''main class'''
     def __init__(self, benchmark, args):
         self._benchmark = benchmark
+        
+        # Fix database name + logfile
+        for i in xrange(len(self.DEFAULT_CONFIG)):
+            c = self.DEFAULT_CONFIG[i]
+            if c[0] == 'dbname':
+                self.DEFAULT_CONFIG[i] = (c[0], c[1], self._benchmark.lower())
+            elif c[0] == 'logfile':
+                logfile = os.path.join("/tmp", "%s.log" % self._benchmark.lower())
+                self.DEFAULT_CONFIG[i] = (c[0], c[1], logfile)
+        ## FOR
+        
         self._args = args
         self._coordinator = self.createCoordinator()
         self._config = None
@@ -92,16 +103,6 @@ class Benchmark:
         from datetime import datetime
         ret =  "# %s Benchmark Configuration File\n" % (self._benchmark.upper())
         ret += "# Created %s\n" % (datetime.now())
-        
-        # Fix database name + logfile
-        for i in xrange(len(self.DEFAULT_CONFIG)):
-            c = self.DEFAULT_CONFIG[i]
-            if c[0] == 'dbname':
-                self.DEFAULT_CONFIG[i] = (c[0], c[1], self._benchmark.lower())
-            elif c[0] == 'logfile':
-                logfile = os.path.join("/tmp", "%s.log" % self._benchmark.lower())
-                self.DEFAULT_CONFIG[i] = (c[0], c[1], logfile)
-        ## FOR
         
         # Base Configuration
         ret += formatConfig("default", self.DEFAULT_CONFIG)
