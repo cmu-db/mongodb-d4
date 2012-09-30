@@ -40,6 +40,8 @@ from pprint import pprint,pformat
 import constants
 from abstractdriver import *
 
+LOG = logging.getLogger(__name__)
+
 TABLE_COLUMNS = {
     constants.TABLENAME_ITEM: [
         "I_ID", # INTEGER
@@ -221,14 +223,14 @@ class MongodbDriver(AbstractDriver):
     def loadConfig(self, config):
         self.database = self.conn[str(config['name'])]
         self.denormalize = config['denormalize']
-        if self.denormalize: logging.debug("Using denormalized data model")
+        if self.denormalize: LOG.debug("Using denormalized data model")
         
         if config["reset"]:
-            logging.debug("Deleting database '%s'" % self.database.name)
+            LOG.debug("Deleting database '%s'" % self.database.name)
             for name in constants.ALL_TABLES:
                 if name in self.database.collection_names():
                     self.database.drop_collection(name)
-                    logging.debug("Dropped collection %s" % name)
+                    LOG.debug("Dropped collection %s" % name)
         ## IF
         
         ## Setup!
@@ -243,7 +245,7 @@ class MongodbDriver(AbstractDriver):
             ## Create Indexes
             if load_indexes and name in TABLE_INDEXES and \
             (self.denormalize or (self.denormalize == False and not name in MongodbDriver.DENORMALIZED_TABLES[1:])):
-                logging.debug("Creating index for %s" % name)
+                LOG.debug("Creating index for %s" % name)
                 for index in TABLE_INDEXES[name]:
                     self.database[name].create_index(index)
         ## FOR
@@ -253,7 +255,7 @@ class MongodbDriver(AbstractDriver):
     ## ----------------------------------------------
     def loadTuples(self, tableName, tuples):
         if len(tuples) == 0: return
-        logging.debug("Loading %d tuples for tableName %s" % (len(tuples), tableName))
+        LOG.debug("Loading %d tuples for tableName %s" % (len(tuples), tableName))
         
         assert tableName in TABLE_COLUMNS, "Unexpected table %s" % tableName
         columns = TABLE_COLUMNS[tableName]
@@ -326,7 +328,7 @@ class MongodbDriver(AbstractDriver):
     ## ----------------------------------------------
     def loadFinishDistrict(self, w_id, d_id):
         if self.denormalize:
-            logging.debug("Pushing %d denormalized CUSTOMER records for WAREHOUSE %d DISTRICT %d into MongoDB" % (len(self.w_customers), w_id, d_id))
+            LOG.debug("Pushing %d denormalized CUSTOMER records for WAREHOUSE %d DISTRICT %d into MongoDB" % (len(self.w_customers), w_id, d_id))
             self.database[constants.TABLENAME_CUSTOMER].insert(self.w_customers.values())
             self.w_customers.clear()
             self.w_orders.clear()
@@ -336,11 +338,11 @@ class MongodbDriver(AbstractDriver):
     ## loadFinish
     ## ----------------------------------------------
     def loadFinish(self):
-        logging.info("Finished loading tables")
-        if logging.getLogger().isEnabledFor(logging.DEBUG):
+        LOG.info("Finished loading tables")
+        if LOG.isEnabledFor(LOG.DEBUG):
             for name in constants.ALL_TABLES:
                 if self.denormalize and name in MongodbDriver.DENORMALIZED_TABLES[1:]: continue
-                logging.debug("%-12s%d records" % (name+":", self.database[name].count()))
+                LOG.debug("%-12s%d records" % (name+":", self.database[name].count()))
         ## IF
 
     ## ----------------------------------------------

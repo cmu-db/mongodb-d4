@@ -59,7 +59,6 @@ class MessageProcessor:
                                         format=logFormat,
                                         datefmt="%m-%d-%Y %H:%M:%S",
                                         filename=self.config['default']['logfile'])
-                    LOG.info('*'*100)
                     LOG.info("Starting new %s remote worker" % self.benchmark.upper())
                 if 'debug' in self.config['default'] and self.config['default']['debug']:
                     logging.getLogger().setLevel(logging.DEBUG)
