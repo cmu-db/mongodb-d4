@@ -339,7 +339,7 @@ class MongodbDriver(AbstractDriver):
     ## ----------------------------------------------
     def loadFinish(self):
         LOG.info("Finished loading tables")
-        if LOG.isEnabledFor(LOG.DEBUG):
+        if LOG.isEnabledFor(logging.DEBUG):
             for name in constants.ALL_TABLES:
                 if self.denormalize and name in MongodbDriver.DENORMALIZED_TABLES[1:]: continue
                 LOG.debug("%-12s%d records" % (name+":", self.database[name].count()))

@@ -55,7 +55,7 @@ class MessageProcessor:
                     logFormat = "%(asctime)s " +\
                                 ("WORKER %02d " % self.config['default']['id']) +\
                                 "[%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s"
-                    logging.basicConfig(level = logging.DEBUG,
+                    logging.basicConfig(level = logging.INFO,
                                         format=logFormat,
                                         datefmt="%m-%d-%Y %H:%M:%S",
                                         filename=self.config['default']['logfile'])

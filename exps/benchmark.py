@@ -24,6 +24,7 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
+from __future__ import with_statement
 
 import sys
 import os
@@ -34,6 +35,7 @@ import subprocess
 import execnet
 import logging
 import time
+from datetime import datetime
 from ConfigParser import SafeConfigParser
 from pprint import pprint, pformat
 
@@ -99,8 +101,6 @@ class Benchmark:
     
     def makeDefaultConfig(self):
         """Return a string containing the default configuration file for the target benchmark"""
-
-        from datetime import datetime
         ret =  "# %s Benchmark Configuration File\n" % (self._benchmark.upper())
         ret += "# Created %s\n" % (datetime.now())
         
@@ -130,7 +130,7 @@ class Benchmark:
         # Extra stuff from the arguments that we want to stash
         # in the 'default' section of the config
         for key,val in args.items():
-            if key != 'config': #  and key in config['default']:
+            if key != 'config' and not key in config['default']:
                 config['default'][key] = val
                 
         # Default config
@@ -216,7 +216,19 @@ class Benchmark:
             
         # Otherwise create SSH channels to client nodes
         else:
+            # Print a header message in the logfile to indicate that we're starting 
+            # a new benchmark run
             LOG.info("Executor Log File: %s" %  self._config['default']['logfile'])
+            with open(self._config['default']['logfile'], "a") as fd:
+                header = "%s BENCHMARK - %s\n\n" % (self._benchmark.upper(), datetime.now())
+                header += "%s" % (pformat(self._config))
+                
+                fd.write('*'*100 + '\n')
+                for line in header.split('\n'):
+                    fd.write('* ' + line + '\n')
+                fd.write('*'*100 + '\n')
+            ## WITH
+            
             totalClients = len(clients) * self._config['default']['clientprocs']
             start = time.time()
             for node in clients:
