@@ -156,39 +156,30 @@ TABLE_COLUMNS = {
 }
 TABLE_INDEXES = {
     constants.TABLENAME_ITEM: [
-        "I_ID",
+        ["I_ID"],
     ],
     constants.TABLENAME_WAREHOUSE: [
-        "W_ID",
+        ["W_ID"],
     ],    
     constants.TABLENAME_DISTRICT: [
-        "D_ID",
-        "D_W_ID",
+        ["D_W_ID", "D_ID"],
     ],
-    constants.TABLENAME_CUSTOMER:   [
-        "C_ID",
-        "C_D_ID",
-        "C_W_ID",
+    constants.TABLENAME_CUSTOMER: [
+        ["C_W_ID", "C_D_ID","C_ID"],
     ],
-    constants.TABLENAME_STOCK:      [
-        "S_I_ID",
-        "S_W_ID",
+    constants.TABLENAME_STOCK: [
+        ["S_W_ID", "S_I_ID"],
     ],
-    constants.TABLENAME_ORDERS:     [
-        "O_ID",
-        "O_D_ID",
-        "O_W_ID",
-        "O_C_ID",
+    constants.TABLENAME_ORDERS: [
+        ["O_W_ID", "O_D_ID", "O_C_ID"],
+        ["O_W_ID", "O_D_ID", "O_ID"],
     ],
-    constants.TABLENAME_NEW_ORDER:  [
-        "NO_O_ID",
-        "NO_D_ID",
-        "NO_W_ID",
+    constants.TABLENAME_NEW_ORDER: [
+        ["NO_W_ID", "NO_O_ID", "NO_D_ID"],
     ],
     constants.TABLENAME_ORDER_LINE: [
-        "OL_O_ID",
-        "OL_D_ID",
-        "OL_W_ID",
+        ["OL_W_ID", "OL_D_ID", "OL_O_ID"],
+        ["OL_W_ID", "OL_D_ID", "OL_O_ID", "OL_NUMBER"],
     ],
 }
 
@@ -248,6 +239,7 @@ class MongodbDriver(AbstractDriver):
                 (self.denormalize or (self.denormalize == False and not name in MongodbDriver.DENORMALIZED_TABLES[1:])):
                 LOG.debug("Creating index for %s" % name)
                 for index in TABLE_INDEXES[name]:
+                    index = [ (key, pymongo.ASCENDING) for key in index ]
                     self.database[name].create_index(index)
         ## FOR
     

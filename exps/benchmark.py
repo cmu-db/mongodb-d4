@@ -130,7 +130,7 @@ class Benchmark:
         # Extra stuff from the arguments that we want to stash
         # in the 'default' section of the config
         for key,val in args.items():
-            if key != 'config' and not key in config['default']:
+            if key != 'config' and not val is None: # not key in config['default']:
                 config['default'][key] = val
                 
         # Default config
