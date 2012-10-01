@@ -234,8 +234,9 @@ class MongodbDriver(AbstractDriver):
         ## IF
         
         ## Setup!
-        load_indexes = ('execute' in config and not config['execute']) and \
-                       ('load' in config and not config['load'])
+        load_indexes = True
+        #load_indexes = ('execute' in config and not config['execute']) and \
+                       #('load' in config and not config['load'])
         for name in constants.ALL_TABLES:
             if self.denormalize and name in MongodbDriver.DENORMALIZED_TABLES[1:]: continue
             
@@ -244,7 +245,7 @@ class MongodbDriver(AbstractDriver):
             
             ## Create Indexes
             if load_indexes and name in TABLE_INDEXES and \
-            (self.denormalize or (self.denormalize == False and not name in MongodbDriver.DENORMALIZED_TABLES[1:])):
+                (self.denormalize or (self.denormalize == False and not name in MongodbDriver.DENORMALIZED_TABLES[1:])):
                 LOG.debug("Creating index for %s" % name)
                 for index in TABLE_INDEXES[name]:
                     self.database[name].create_index(index)
