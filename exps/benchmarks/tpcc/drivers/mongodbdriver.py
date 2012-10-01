@@ -33,6 +33,7 @@ from __future__ import with_statement
 
 import os
 import sys
+import time
 import logging
 import pymongo
 from pprint import pprint,pformat
@@ -175,7 +176,7 @@ TABLE_INDEXES = {
         ["O_W_ID", "O_D_ID", "O_ID"],
     ],
     constants.TABLENAME_NEW_ORDER: [
-        ["NO_W_ID", "NO_O_ID", "NO_D_ID"],
+        ["NO_W_ID", "NO_D_ID", "NO_O_ID"],
     ],
     constants.TABLENAME_ORDER_LINE: [
         ["OL_W_ID", "OL_D_ID", "OL_O_ID"],
@@ -373,9 +374,10 @@ class MongodbDriver(AbstractDriver):
         ol_delivery_d = params["ol_delivery_d"]
         
         result = [ ]
-        for d_id in range(1, constants.DISTRICTS_PER_WAREHOUSE+1):
+        for d_id in xrange(1, constants.DISTRICTS_PER_WAREHOUSE+1):
             ## getNewOrder
             no = self.new_order.find_one({"NO_D_ID": d_id, "NO_W_ID": w_id}, {"NO_O_ID": 1})
+            
             if no == None:
                 ## No orders for this district: skip it. Note: This must be reported if > 1%
                 continue
@@ -593,7 +595,16 @@ class MongodbDriver(AbstractDriver):
             ol_amount = ol_quantity * i_price
             total += ol_amount
 
-            ol = {"OL_O_ID": d_next_o_id, "OL_NUMBER": ol_number, "OL_I_ID": ol_i_id, "OL_SUPPLY_W_ID": ol_supply_w_id, "OL_DELIVERY_D": o_entry_d, "OL_QUANTITY": ol_quantity, "OL_AMOUNT": ol_amount, "OL_DIST_INFO": s_dist_xx}
+            ol = {
+                "OL_O_ID": d_next_o_id,
+                "OL_NUMBER": ol_number,
+                "OL_I_ID": ol_i_id,
+                "OL_SUPPLY_W_ID": ol_supply_w_id,
+                "OL_DELIVERY_D": o_entry_d,
+                "OL_QUANTITY": ol_quantity,
+                "OL_AMOUNT": ol_amount,
+                "OL_DIST_INFO": s_dist_xx
+            }
 
             if self.denormalize:
                 # createOrderLine
