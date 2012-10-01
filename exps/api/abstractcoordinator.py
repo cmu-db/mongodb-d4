@@ -73,6 +73,15 @@ class AbstractCoordinator:
                 val = benchmarkConfig[key]
                 self.config[self.name][key] = val[1]
                 LOG.debug("Setting %s Default Config Parameter: %s" % (self.name.upper(), self.config[self.name][key]))
+            # Cast to the proper type
+            else:
+                val_type = type(benchmarkConfig[key][-1])
+                # HACK for booleans
+                if val_type == bool:
+                    self.config[self.name][key] = (self.config[self.name][key].lower().strip() == 'true')
+                else:
+                    self.config[self.name][key] = val_type(self.config[self.name][key])
+                LOG.debug("Cast %s.%s to %s [%s]", self.name, key, val_type, self.config[self.name][key]) 
         ## FOR
         
         ## ----------------------------------------------

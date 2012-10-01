@@ -35,3 +35,8 @@ which was originally based on: https://github.com/apavlo/py-tpcc
         ./benchmark.py --config=blog.config --no-load blog
    
         
+## Configuration
+
++ **logfile**:  
+  This controls where the worker threads will write their log messages out to.
+  It will not be overwritten on each invocation.

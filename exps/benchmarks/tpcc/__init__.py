@@ -2,5 +2,4 @@
 
 __all__ = ["tpcccoordinator", "tpccworker"]
 
-from util import rand
 import runtime
