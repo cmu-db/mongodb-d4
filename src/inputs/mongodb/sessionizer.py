@@ -54,18 +54,23 @@ class Sessionizer:
         self.sessOps[sessId] = [ ]
         lastOp = None
         ctr = 0
-        for op in operations:
+        for op in sorted(operations, key=lambda op: op["query_time"]):
             if not "resp_time" in op: continue
             assert "query_hash" in op, \
                 "Missing hash in operation %d" % op["query_id"]
             if op["resp_time"] is None: op["resp_time"] = op["query_time"] # HACK
 
-            assert op["query_time"] is not None
-            assert op["resp_time"] is not None
+            assert not op["query_time"] is None
+            assert not op["resp_time"] is None
 
             if lastOp:
-                assert int(op["query_time"]) >= int(lastOp["resp_time"]), \
-                    "Op #%(query_id)d query time (%(query_time)d) comes after response time (%(resp_time)d)" % op
+                # HACK
+                if op["query_time"] < lastOp["resp_time"]:
+                    LOG.warn("Op #%d query time (%d) comes before last op #%d response time (%d) in session #%d",
+                             op["query_id"], op["query_time"], lastOp["query_id"], lastOp["resp_time"], sessId)
+                    temp = op["query_time"]
+                    op["query_time"] = lastOp["resp_time"]
+                    lastOp["resp_time"] = temp
                 # Seconds -> Milliseconds
                 if lastOp["resp_time"]:
                     diff = (op["query_time"]*1000) - (lastOp["resp_time"]*1000)
