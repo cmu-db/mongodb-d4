@@ -30,6 +30,9 @@ def getEstimatedSize(typeName, value):
     # STR
     elif typeName in [types.StringType.__name__, types.UnicodeType.__name__]:
         return getStringSize(value)
+    # OBJECT ID
+    elif typeName == "ObjectId":
+        return getStringSize(str(value))
     # NONE
     elif not typeName or typeName == types.NoneType.__name__:
         return (0)
