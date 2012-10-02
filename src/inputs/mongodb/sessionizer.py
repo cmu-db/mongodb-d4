@@ -46,7 +46,8 @@ class Sessionizer:
         
         # Mapping from SessionId -> Operations
         self.sessOps = { }
-        pass
+        
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
     def process(self, sessId, operations):
@@ -66,8 +67,9 @@ class Sessionizer:
             if lastOp:
                 # HACK
                 if op["query_time"] < lastOp["resp_time"]:
-                    LOG.warn("Op #%d query time (%d) comes before last op #%d response time (%d) in session #%d",
-                             op["query_id"], op["query_time"], lastOp["query_id"], lastOp["resp_time"], sessId)
+                    if self.debug: 
+                        LOG.warn("Op #%d query time (%d) comes before last op #%d response time (%d) in session #%d",
+                                 op["query_id"], op["query_time"], lastOp["query_id"], lastOp["resp_time"], sessId)
                     temp = op["query_time"]
                     op["query_time"] = lastOp["resp_time"]
                     lastOp["resp_time"] = temp
@@ -86,7 +88,8 @@ class Sessionizer:
     def calculateSessions(self):
         # Calculate outliers using the quartile method
         # http://en.wikipedia.org/wiki/Quartile#Computing_methods
-        LOG.debug("Calculating time difference for operations in %d sessions" % len(self.sessOps))
+        if self.debug:
+            LOG.debug("Calculating time difference for operations in %d sessions" % len(self.sessOps))
         
         # Get the full list of all the time differences
         allDiffs = [ ]
@@ -103,7 +106,7 @@ class Sessionizer:
         # Interquartile Range
         iqr = (upperQuartile - lowerQuartile) * 1.5
         
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("Calculating stats for %d op pairs" % len(allDiffs))
             LOG.debug("  Lower Quartile: %s" % lowerQuartile)
             LOG.debug("  Upper Quartile: %s" % upperQuartile)
@@ -123,7 +126,7 @@ class Sessionizer:
                     opHist.put((op0["query_hash"], op1["query_hash"]))
             ## FOR
         ## FOR
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("Outlier Op Hashes:\n%s" % opHist)
         
         # I guess at this point we can just compute the outliers
@@ -133,7 +136,7 @@ class Sessionizer:
         outlierCounts = sorted(opHist.getCounts())
         lowerQuartile, upperQuartile = mathutil.quartiles(outlierCounts)
         
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("Calculating stats for %d count outliers" % len(outlierCounts))
             LOG.debug("  Lower Quartile: %s" % lowerQuartile)
             LOG.debug("  Upper Quartile: %s" % upperQuartile)
