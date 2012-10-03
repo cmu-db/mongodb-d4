@@ -114,6 +114,8 @@ class State():
         self.address_size = config['address_size'] / 4
 
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
+        
+        self.window_size = config['window_size']
 
         ## ----------------------------------------------
         ## CACHING

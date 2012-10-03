@@ -36,6 +36,7 @@ sys.path.append(os.path.join(basedir, ".."))
 import catalog
 from costmodel import AbstractCostComponent
 from fastlrubuffer import FastLRUBuffer
+from fastlrubufferusingwindow import FastLRUBufferWithWindow
 from workload import Session
 from util import Histogram, constants
 
@@ -53,7 +54,7 @@ class DiskCostComponent(AbstractCostComponent):
 
         self.buffers = [ ]
         for i in xrange(self.state.num_nodes):
-            lru = FastLRUBuffer(self.state.collections, self.state.max_memory, preload=constants.DEFAULT_LRU_PRELOAD)
+            lru = FastLRUBufferWithWindow(self.state.collections, self.state.window_size, preload=constants.DEFAULT_LRU_PRELOAD)
             self.buffers.append(lru)
     ## DEF
 
