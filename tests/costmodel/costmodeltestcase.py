@@ -104,6 +104,7 @@ class CostModelTestCase(MongoDBTestCase):
             'skew_intervals': CostModelTestCase.NUM_INTERVALS,
             'address_size':   64,
             'nodes':          CostModelTestCase.NUM_NODES,
+            'window_size':    1024
         }
 
         self.state = State(self.collections, self.workload, self.costModelConfig)

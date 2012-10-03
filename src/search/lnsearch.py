@@ -68,7 +68,7 @@ class LNSearch():
         table = TemperatureTable(self.collectionDict)
         
         while self.relaxRatio <= RELAX_RATIO_UPPER_BOUND:
-            relaxedCollections, relaxedDesign = self.relax(table, bestDesign)
+            relaxedCollections, relaxedDesign = self.__relax__(table, bestDesign)
 
             # when relax cannot make any progress
             if relaxedCollections is None and relaxedDesign is None:
@@ -99,7 +99,7 @@ class LNSearch():
         return bestDesign
     # DEF
     
-    def relax(self, table, design):
+    def __relax__(self, table, design):
         numberOfRelaxedCollections = self.getNumberOfRelaxedCollections()
 
         # when numberOfRelaxedCollections reach the limit

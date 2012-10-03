@@ -149,7 +149,8 @@ class Designer():
             'nodes':          self.cparser.getint(config.SECT_CLUSTER, 'nodes'),
             'max_memory':     self.cparser.getint(config.SECT_CLUSTER, 'node_memory'),
             'skew_intervals': self.cparser.getint(config.SECT_COSTMODEL, 'time_intervals'),
-            'address_size':   self.cparser.getint(config.SECT_COSTMODEL, 'address_size')
+            'address_size':   self.cparser.getint(config.SECT_COSTMODEL, 'address_size'),
+            'window_size':    self.cparser.getint(config.SECT_COSTMODEL, 'window_size')
         }
 
         collectionsDict = dict()
@@ -211,7 +212,7 @@ class Designer():
         # TODO: Re-enable after we have the disk cost stuff working fast
         #ln = lnsearch.LNSearch(self.cparser, collectionsDict, cm, initialDesign, upper_bound, 9999999)
         #solution = ln.solve()
-        return solution
+        #return solution
     ## DEF
 
 ## CLASS
