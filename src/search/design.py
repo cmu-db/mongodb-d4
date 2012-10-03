@@ -53,7 +53,26 @@ class Design(object):
     def hasCollection(self, col_name) :
         return col_name in self.data
     ## DEF
+    
+        '''
+    @todo: re-implement
+    '''
+    def copy(self):
+        d = Design()
+        for k,v in self.data.iteritems() :
+            d.addCollection(k)
+            d.addShardKey(k, self.getShardKeys(k))
+            d.setDenormalizationParent(k, self.getDenormalizationParent(k))
+            indexes = self.getIndexes(k)
+            if indexes:
+                for i in indexes :
+                    d.addIndex(k, i)
+        return d
 
+    ## ----------------------------------------------
+    ## COMPARISON METHODS
+    ## ----------------------------------------------
+        
     def getDelta(self, other):
         """
             Return the list of collection names that have a different design
@@ -61,6 +80,9 @@ class Design(object):
             If a collection that is in this design is missing in other, then
             that will count as a difference
         """
+        if other is None:
+            return self.data.keys()
+        
         result = [ ]
         for col_name in self.data.iterkeys():
             match = True
@@ -76,20 +98,27 @@ class Design(object):
         return result
     ## DEF
 
-    '''
-    @todo: re-implement
-    '''
-    def copy(self):
-        d = Design()
-        for k,v in self.data.iteritems() :
-            d.addCollection(k)
-            d.addShardKey(k, self.getShardKeys(k))
-            d.setDenormalizationParent(k, self.getDenormalizationParent(k))
-            indexes = self.getIndexes(k)
-            if indexes:
-                for i in indexes :
-                    d.addIndex(k, i)
-        return d
+    def hasDenormalizationChanged(self, other, col_name):
+        """
+            Returns true if the denormalization scheme has changed in
+            the other design for the given collection name
+        """
+        if other is None: return False
+        if not col_name in self.data:
+            return (col_name in other)
+        return self.data[col_name]['denorm'] != other[col_name]['denorm']
+    ## DEF
+    
+    def hasShardingKeysChanged(self, other, col_name):
+        """
+            Returns true if the sharding keys have changed in the other design
+            for the given collection name
+        """
+        if other is None: return False
+        if not col_name in self.data:
+            return (col_name in other)
+        return self.data[col_name]['shardKeys'] != other[col_name]['shardKeys']
+    ## DEF
 
     ## ----------------------------------------------
     ## DENORMALIZATION

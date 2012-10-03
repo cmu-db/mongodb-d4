@@ -43,36 +43,57 @@ class NetworkCostComponent(AbstractCostComponent):
 
     def __init__(self, state):
         AbstractCostComponent.__init__(self, state)
+        
+        # COL_NAME -> [OP_COUNT, MSG_COUNT]
+        self.cache = { }
+        
         self.debug = LOG.isEnabledFor(logging.DEBUG)
+    ## DEF
+    
+    def invalidateCache(self, newDesign, col_name):
+        # Check whether the denormalization scheme or sharding keys have changed
+        if newDesign.hasDenormalizationChanged(self.lastDesign) or \
+           newDesign.hasShardingKeysChanged(self.lastDesign):
+            if col_name in self.cache: del self.cache[col_name]
     ## DEF
 
     def getCostImpl(self, design):
         if self.debug: LOG.debug("Computing network cost for %d sessions", len(self.state.workload))
         
-        # TODO: Build a cache for the network cost per collection
-        #       That way if the design doesn't change for a collection, we
-        #       can reuse the message & query counts from the last calculation
-        msg_count = 0
-        op_count = 0
-        for sess in self.state.workload:
-            for op in sess['operations']:
-                # Collection is not in design.. don't count query
-                if not design.hasCollection(op['collection']):
-                    if self.debug: LOG.debug("SKIP - %s Op #%d on %s",\
-                                             op['type'], op['query_id'], op['collection'])
-                    continue
+        # Build a cache for the network cost per collection
+        # That way if the design doesn't change for a collection, we
+        # can reuse the message & op counts from the last calculation
+        cost = 0
+        total_op_count = 0
+        total_msg_count = 0
+        for col_name in self.state.collections.iterkeys():
+            # Collection is not in design.. don't include the op
+            if not design.hasCollection(col_name):
+                if self.debug: LOG.debug("SKIP - All operations on %s", col_name)
+                continue
+            
+            if col_name in self.cache:
+                total_op_count += self.cache[col_name][0]
+                total_msg_count += self.cache[col_name][1]
+            else:
+                # TODO: The operations should come from the state handle, which
+                #       will have already combined things for us based on the design
+                op_count = 0
+                msg_count = 0
+                for op in self.state.col_op_xref[col_name]:
+                    # Process this op!
+                    cache = self.state.getCacheHandleByName(col_name)
+                    op_count += 1
+                    msg_count += len(self.state.__getNodeIds__(cache, design, op))
                 
-                # Process this op!
-                cache = self.state.getCacheHandleByName(op['collection'])
-                op_count += 1
-                msg_count += len(self.state.__getNodeIds__(cache, design, op))
-        if not op_count:
-            cost = 0
-        else:
-            cost = msg_count / float(op_count * self.state.num_nodes)
+                # Store it in our cache so that we can reuse it
+                self.cache[col_name] = (op_count, msg_count)
+                
+        if total_op_count > 0:
+            cost = total_msg_count / float(total_op_count * self.state.num_nodes)
 
         if self.debug: LOG.debug("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
-                                 cost, msg_count, op_count)
+                                 cost, total_msg_count, total_op_count)
         return cost
     ## DEF
 ## CLASS

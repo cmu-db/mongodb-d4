@@ -71,7 +71,8 @@ class State():
             # QueryId -> Index/Collection DocumentIds
             self.collection_docIds = { }
             self.index_docIds = { }
-            ## DEF
+
+        ## DEF
 
         def reset(self):
             self.best_index.clear()
@@ -79,7 +80,10 @@ class State():
             self.op_nodeIds.clear()
             self.collection_docIds.clear()
             self.index_docIds.clear()
-            ## DEF
+            self.op_count = 0
+            self.msg_count = 0
+            self.network_reset = True
+        ## DEF
 
         def __str__(self):
             ret = ""
@@ -117,6 +121,23 @@ class State():
         
         self.window_size = config['window_size']
 
+        # Build indexes from collections to sessions/operations
+        # Note that this won't change dynamically based on denormalization schemes
+        # It's up to the cost components to figure things out based on that
+        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
+        self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
+        for sess in self.workload:
+            cols = set()
+            for op in sess["operations"]:
+                col_name = op["collection"]
+                if col_name in self.col_sess_xref:
+                    self.col_op_xref[col_name].append(op)
+                    cols.add(col_name)
+            ## FOR (op)
+            for col_name in cols:
+                self.col_sess_xref[col_name].append(sess)
+        ## FOR (sess)
+        
         ## ----------------------------------------------
         ## CACHING
         ## ----------------------------------------------

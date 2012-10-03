@@ -34,16 +34,19 @@ class AbstractCostComponent():
     def __init__(self, state):
         self.state = state
         self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.lastDesign = None
     ## DEF
         
     def getCost(self, design):
-        return self.getCostImpl(design)
+        cost = self.getCostImpl(design)
+        self.lastDesign = design
+        return (cost)
     ## DEF
 
     def getCostImpl(self, design):
         raise NotImplementedError("Unimplemented %s.getCostImpl()" % self.__init__.im_class)
 
-    def invalidateCache(self, col_name):
+    def invalidateCache(self, newDesign, col_name):
         """Optional callback for when the cost model needs to invalidate a collection's cache"""
         pass
 
