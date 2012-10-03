@@ -117,7 +117,7 @@ class SkewCostComponent(AbstractCostComponent):
         return skew / (math.log(1 / best) * self.state.num_nodes), self.state.estimator.getOpCount()
     ## DEF
 
-        ## -----------------------------------------------------------------------
+    ## -----------------------------------------------------------------------
     ## WORKLOAD SEGMENTATION
     ## -----------------------------------------------------------------------
 

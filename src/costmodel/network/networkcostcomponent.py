@@ -48,60 +48,31 @@ class NetworkCostComponent(AbstractCostComponent):
 
     def getCostImpl(self, design):
         if self.debug: LOG.debug("Computing network cost for %d sessions", len(self.state.workload))
-        result = 0
-        query_count = 0
+        
+        # TODO: Build a cache for the network cost per collection
+        #       That way if the design doesn't change for a collection, we
+        #       can reuse the message & query counts from the last calculation
+        msg_count = 0
+        op_count = 0
         for sess in self.state.workload:
-            previous_op = None
             for op in sess['operations']:
                 # Collection is not in design.. don't count query
                 if not design.hasCollection(op['collection']):
                     if self.debug: LOG.debug("SKIP - %s Op #%d on %s",\
                                              op['type'], op['query_id'], op['collection'])
                     continue
-                col_info = self.state.collections[op['collection']]
-                cache = self.state.getCacheHandle(col_info)
-
-                # Check whether this collection is embedded inside of another
-                # TODO: Need to get ancestor
-                parent_col = design.getDenormalizationParent(op['collection'])
-                if self.debug and parent_col:
-                    LOG.debug("Op #%d on '%s' Parent Collection -> '%s'",\
-                              op["query_id"], op["collection"], parent_col)
-
-                process = False
-                # This is the first op we've seen in this session
-                if not previous_op:
-                    process = True
-                # Or this operation's target collection is not embedded
-                elif not parent_col:
-                    process = True
-                # Or if either the previous op or this op was not a query
-                elif previous_op['type'] <> constants.OP_TYPE_QUERY or op['type'] <> constants.OP_TYPE_QUERY:
-                    process = True
-                # Or if the previous op was
-                elif previous_op['collection'] <> parent_col:
-                    process = True
-                    # TODO: What if the previous op should be merged with a later op?
-                #       We would lose it because we're going to overwrite previous op
-
+                
                 # Process this op!
-                if process:
-                    query_count += 1
-                    result += len(self.state.__getNodeIds__(cache, design, op))
-                elif self.debug:
-                    LOG.debug("SKIP - %s Op #%d on %s [parent=%s / previous=%s]",\
-                        op['type'], op['query_id'], op['collection'],\
-                        parent_col, (previous_op != None))
-                ## IF
-                previous_op = op
-        if not query_count:
+                cache = self.state.getCacheHandleByName(op['collection'])
+                op_count += 1
+                msg_count += len(self.state.__getNodeIds__(cache, design, op))
+        if not op_count:
             cost = 0
         else:
-            cost = result / float(query_count * self.state.num_nodes)
+            cost = msg_count / float(op_count * self.state.num_nodes)
 
-        LOG.debug("Computed Network Cost: %f [result=%d / queryCount=%d]",\
-            cost, result, query_count)
-
+        if self.debug: LOG.debug("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
+                                 cost, msg_count, op_count)
         return cost
     ## DEF
 ## CLASS
