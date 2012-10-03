@@ -41,8 +41,8 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class NetworkCostComponent(AbstractCostComponent):
 
-    def __init__(self, costModel):
-        AbstractCostComponent.__init__(self, costModel)
+    def __init__(self, state):
+        AbstractCostComponent.__init__(self, state)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
 

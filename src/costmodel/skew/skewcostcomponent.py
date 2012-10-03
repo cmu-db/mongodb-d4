@@ -40,10 +40,12 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class SkewCostComponent(AbstractCostComponent):
 
-    def __init__(self, costModel):
-        AbstractCostComponent.__init__(self, costModel)
+    def __init__(self, state):
+        AbstractCostComponent.__init__(self, state)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
+        # Keep track of how many times that we accessed each node
+        self.nodeCounts = Histogram()
         self.workload_segments = [ ]
 
         # Pre-split the workload into separate intervals
@@ -57,6 +59,7 @@ class SkewCostComponent(AbstractCostComponent):
         if self.state.num_nodes == 1:
             return 0.0
 
+        self.nodeCounts
         op_counts = [ 0 ] *  self.state.skew_segments
         segment_skew = [ 0 ] *  self.state.skew_segments
         for i in range(0, len(self.workload_segments)):
@@ -79,42 +82,43 @@ class SkewCostComponent(AbstractCostComponent):
             LOG.debug("Computing skew cost for %d sessions over %d segments", \
                       len(segment), self.state.skew_segments)
 
-        # Check whether we already have a histogram of how often each of the
-        # nodes are touched from the NodeEstimator. This will have been computed
-        # in diskCost()
-        if not self.state.estimator.getOpCount():
-            # Iterate over each session and get the list of nodes
-            # that we estimate that each of its operations will need to touch
-            for sess in segment:
-                for op in sess['operations']:
-                    # Skip anything that doesn't have a design configuration
-                    if not design.hasCollection(op['collection']):
-                        if self.debug:
-                            LOG.debug("SKIP - %s Op #%d on %s", op['type'], op['query_id'], op['collection'])
-                        continue
-                    col_info = self.state.collections[op['collection']]
-                    cache = self.state.getCacheHandle(col_info)
+        self.nodeCounts.clear()
+                      
+        # Iterate over each session and get the list of nodes
+        # that we estimate that each of its operations will need to touch
+        num_ops = 0
+        for sess in segment:
+            for op in sess['operations']:
+                # Skip anything that doesn't have a design configuration
+                if not design.hasCollection(op['collection']):
+                    if self.debug:
+                        LOG.debug("SKIP - %s Op #%d on %s", op['type'], op['query_id'], op['collection'])
+                    continue
+                col_info = self.state.collections[op['collection']]
+                cache = self.state.getCacheHandle(col_info)
 
-                    #  This just returns an estimate of which nodes  we expect
-                    #  the op to touch. We don't know exactly which ones they will
-                    #  be because auto-sharding could put shards anywhere...
-                    node_ids = self.state.__getNodeIds__(cache, design, op)
-                    # TODO: Do something with the nodeIds. Don't rely on the NodeEstimator's
-                    #       internal histogram
-                ## FOR
+                #  This just returns an estimate of which nodes  we expect
+                #  the op to touch. We don't know exactly which ones they will
+                #  be because auto-sharding could put shards anywhere...
+                node_ids = self.state.__getNodeIds__(cache, design, op)
+                map(self.nodeCounts.put, node_ids)
+                num_ops += 1
+            ## FOR (op)
+        ## FOR (sess)
 
-        if self.debug: LOG.debug("Node Count Histogram:\n%s", self.state.estimator.nodeCounts)
-        total = self.state.estimator.nodeCounts.getSampleCount()
-        if not total: return 0.0, self.state.estimator.getOpCount()
+        if self.debug: LOG.debug("Node Count Histogram:\n%s", self.nodeCounts)
+        total = self.nodeCounts.getSampleCount()
+        if not total:
+            return (0.0, num_ops)
 
         best = 1 / float(self.state.num_nodes)
         skew = 0.0
         for i in xrange(self.state.num_nodes):
-            ratio = self.state.estimator.nodeCounts.get(i, 0) / float(total)
+            ratio = self.nodeCounts.get(i, 0) / float(total)
             if ratio < best:
                 ratio = best + ((1 - ratio/best) * (1 - best))
             skew += math.log(ratio / best)
-        return skew / (math.log(1 / best) * self.state.num_nodes), self.state.estimator.getOpCount()
+        return skew / (math.log(1 / best) * self.state.num_nodes), num_ops
     ## DEF
 
     ## -----------------------------------------------------------------------
