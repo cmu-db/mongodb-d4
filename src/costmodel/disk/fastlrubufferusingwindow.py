@@ -22,10 +22,8 @@ DOC_TYPE_INDEX = 0
 DOC_TYPE_COLLECTION = 1
 
 BUFFER = 0
-DOCUMENT_SIZES = 1
-INDEX_SIZES = 2
-HEAD = 3
-TAIL = 4
+HEAD = 1
+TAIL = 2
 
 LOG = logging.getLogger(__name__)
 
@@ -60,8 +58,6 @@ class FastLRUBufferWithWindow:
         self.buffer = { }
         self.evicted = 0
         self.refreshed = 0
-        self.document_sizes = { }
-        self.index_sizes = { }
         self.head = None
         self.tail = None
     ## DEF
@@ -75,14 +71,12 @@ class FastLRUBufferWithWindow:
         
         if cache:
           self.buffer = self.__clone_dictionary__(cache[BUFFER])
-          self.document_sizes = self.__clone_dictionary__(cache[DOCUMENT_SIZES])
-          self.index_sizes = self.__clone_dictionary__(cache[INDEX_SIZES])
           self.head = self.__clone_buffer_value__(cache[HEAD])
           self.tail = self.__clone_buffer_value__(cache[TAIL])
         else:
           self.__init_collections__(design, delta)
           
-          return self.buffer, self.document_sizes, self.index_sizes, self.head, self.tail
+          return self.buffer, self.head, self.tail
 
     def __clone_dictionary__(self, source):
         target = { }

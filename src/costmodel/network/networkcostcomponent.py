@@ -52,8 +52,8 @@ class NetworkCostComponent(AbstractCostComponent):
     
     def invalidateCache(self, newDesign, col_name):
         # Check whether the denormalization scheme or sharding keys have changed
-        if newDesign.hasDenormalizationChanged(self.lastDesign) or \
-           newDesign.hasShardingKeysChanged(self.lastDesign):
+        if newDesign.hasDenormalizationChanged(self.lastDesign, col_name) or \
+           newDesign.hasShardingKeysChanged(self.lastDesign, col_name):
             if col_name in self.cache: del self.cache[col_name]
     ## DEF
 

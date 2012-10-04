@@ -38,7 +38,7 @@ LOG = logging.getLogger(__name__)
 # Constants
 RELAX_RATIO_STEP = 0.1
 RELAX_RATIO_UPPER_BOUND = 0.5
-TIME_OUT_BBSEARCH = 9999
+TIME_OUT_BBSEARCH = 60
 
 # Global Value
 PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = 0
@@ -57,6 +57,8 @@ class LNSearch():
         self.cparser = cparser
 
         self.relaxRatio = 0.25
+        
+        self.debug = False
     ## DEF
 
     def solve(self):
@@ -81,12 +83,12 @@ class LNSearch():
             if bb.bestCost < bestCost:
                 bestCost = bb.bestCost
                 bestDesign = bbDesign
-
-            LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
-            LOG.info("\n====Design Candidates====\n%s", dc)
-            LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
-            LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
-            LOG.info("\n========Best Score=======\n%s", bestCost)
+            if self.debug:
+                LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
+                LOG.info("\n====Design Candidates====\n%s", dc)
+                LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
+                LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
+                LOG.info("\n========Best Score=======\n%s", bestCost)
 
             self.relaxRatio += RELAX_RATIO_STEP
             self.timeout -= bb.usedTime

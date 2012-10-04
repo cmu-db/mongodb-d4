@@ -194,13 +194,8 @@ class Designer():
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
         
-        # TODO: Run the the costmodel for a random design and get the total time that it takes
-        #       Don't use the skew cost or the network cost components. We just want the disk component
-        #       You need to run cm.overallCost() twice, because the document ids will be cached the second
-        #       time. Report the time from the second invocation.
-        initialDesign = RandomDesigner(collectionsDict.values()).generate()
+        initialDesign = InitialDesigner(collectionsDict.values()).generate()
         upper_bound = cm.overallCost(initialDesign)
-        upper_bound = cm.overallCost(initialDesign) # <-- Get this time!
 
         LOG.info("Initial Design\n%s", initialDesign)
         LOG.info("Computed initial design [COST=%s]", upper_bound)
@@ -209,10 +204,9 @@ class Designer():
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
         
-        # TODO: Re-enable after we have the disk cost stuff working fast
-        #ln = lnsearch.LNSearch(self.cparser, collectionsDict, cm, initialDesign, upper_bound, 9999999)
-        #solution = ln.solve()
-        #return solution
+        ln = lnsearch.LNSearch(self.cparser, collectionsDict, cm, initialDesign, upper_bound, 1200)
+        solution = ln.solve()
+        return solution
     ## DEF
 
 ## CLASS

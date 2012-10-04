@@ -50,7 +50,7 @@ class DiskCostComponent(AbstractCostComponent):
 
     def __init__(self, state):
         AbstractCostComponent.__init__(self, state)
-        self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.debug = False
 
         self.buffers = [ ]
         for i in xrange(self.state.num_nodes):
@@ -90,7 +90,8 @@ class DiskCostComponent(AbstractCostComponent):
 
         for lru in self.buffers:
             cache = lru.initialize(design, delta, cache)
-            LOG.info(lru)
+            if self.debug:
+                LOG.info(lru)
             lru.validate()
 
         # Ok strap on your helmet, this is the magical part of the whole thing!
@@ -252,7 +253,7 @@ class DiskCostComponent(AbstractCostComponent):
             "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
         final_cost = float(totalCost) / float(totalWorst) if totalWorst else 0
         evicted = sum([ lru.evicted for lru in self.buffers ])
-        LOG.info("Computed Disk Cost: %s [pageHits=%d / worstCase=%d / evicted=%d]",\
+        LOG.debug("Computed Disk Cost: %s [pageHits=%d / worstCase=%d / evicted=%d]",\
                  final_cost, totalCost, totalWorst, evicted)
         return final_cost
     ## DEF
@@ -261,8 +262,6 @@ class DiskCostComponent(AbstractCostComponent):
         buffer_total = sum([ lru.buffer_size for lru in self.buffers ])
         buffer_remaining = sum([ lru.remaining for lru in self.buffers ])
         buffer_ratio = (buffer_total - buffer_remaining) / float(buffer_total)
-        LOG.info("Buffer Usage %.2f%% [total=%d / used=%d]",\
-            buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
 
         map(FastLRUBuffer.validate, self.buffers)
 
@@ -274,6 +273,7 @@ class DiskCostComponent(AbstractCostComponent):
             LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.state.cache_hit_ctr)
             LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.state.cache_miss_ctr)
             LOG.debug("-"*100)
+            LOG.debug("Buffer Usage %.2f%% [total=%d / used=%d]",buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
     ## DEF
 
     def reset(self):

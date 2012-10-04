@@ -68,6 +68,7 @@ class CostModel(object):
     def __init__(self, collections, workload, config):
         self.last_design = None
         self.last_cost = None
+        self.new_design = None
         self.state = State(collections, workload, config)
 
         self.weights_sum = 0.0
@@ -82,13 +83,14 @@ class CostModel(object):
         self.networkComponent = network.NetworkCostComponent(self.state)
         self.allComponents = (self.diskComponent, self.skewComponent, self.networkComponent)
         
-        self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.debug = False
     ## DEF
 
     def overallCost(self, design):
 
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
+        self.new_design = design
         map(self.invalidateCache, design.getDelta(self.last_design))
 
         if self.debug:
@@ -109,9 +111,9 @@ class CostModel(object):
         self.last_cost = cost / self.weights_sum
         self.last_design = design
 
-        #if self.debug:
+        if self.debug:
         # Calculate cache hit/miss ratio
-        LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
+            LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
                  self.last_cost, (stop - start))
 
         map(AbstractCostComponent.finish, self.allComponents)
@@ -121,7 +123,7 @@ class CostModel(object):
     def invalidateCache(self, col_name):
         self.state.invalidateCache(col_name)
         for c in self.allComponents:
-            c.invalidateCache(col_name)
+            c.invalidateCache(self.new_design, col_name)
     ## DEF
 
     def reset(self):

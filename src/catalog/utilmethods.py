@@ -161,6 +161,7 @@ def getFieldValue(fieldName, fields):
     # This will happen when there are things like range predicates (Example {"#gt": 123})
     # Or if it is a special field type for MongoDB (Example {"#date": 123456})
     value = fields[fieldName]
+    print value
     if isinstance(value, dict) and len(value.keys()) == 1:
         key = value.keys()[0]
         if key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
