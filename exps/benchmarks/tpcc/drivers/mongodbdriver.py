@@ -180,7 +180,6 @@ TABLE_INDEXES = {
     ],
     constants.TABLENAME_ORDER_LINE: [
         ["OL_W_ID", "OL_D_ID", "OL_O_ID"],
-        ["OL_W_ID", "OL_D_ID", "OL_O_ID", "OL_NUMBER"],
     ],
 }
 

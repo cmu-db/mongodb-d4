@@ -22,7 +22,7 @@ class TestDiskCost(CostModelTestCase):
         self.cm = DiskCostComponent(self.state)
     ## DEF
 
-    def testDiskCost(self):
+    def testDiskCostIndexes(self):
         """Check whether disk cost calculations work correctly"""
 
         # First get the disk cost when there are no indexes
