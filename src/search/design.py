@@ -106,7 +106,7 @@ class Design(object):
         if other is None: return False
         if not col_name in self.data:
             return (col_name in other)
-        return self.data[col_name]['denorm'] != other[col_name]['denorm']
+        return self.data[col_name]['denorm'] != other.data[col_name]['denorm']
     ## DEF
     
     def hasShardingKeysChanged(self, other, col_name):
@@ -117,7 +117,7 @@ class Design(object):
         if other is None: return False
         if not col_name in self.data:
             return (col_name in other)
-        return self.data[col_name]['shardKeys'] != other[col_name]['shardKeys']
+        return self.data[col_name]['shardKeys'] != other.data[col_name]['shardKeys']
     ## DEF
 
     ## ----------------------------------------------

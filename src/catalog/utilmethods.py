@@ -161,14 +161,19 @@ def getFieldValue(fieldName, fields):
     # This will happen when there are things like range predicates (Example {"#gt": 123})
     # Or if it is a special field type for MongoDB (Example {"#date": 123456})
     value = fields[fieldName]
-    print value
-    if isinstance(value, dict) and len(value.keys()) == 1:
-        key = value.keys()[0]
-        if key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
-            # TODO: Need to handle nested values better
-            value = value[key]
-            if isinstance(value, list):
-                value = tuple(value)
+    if isinstance(value, dict):
+        if len(value.keys()) == 1:
+            key = value.keys()[0]
+            if key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                # TODO: Need to handle nested values better
+                value = value[key]
+                if isinstance(value, list):
+                    value = tuple(value)
+        elif len(value.keys()) == 2: # This will happen when there are things like range predicates (Example {"#gt": 123})
+            keys = value.keys()
+            if keys[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX) and keys[1].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                values = value.values()
+                value = tuple(values)
     ## IF
 
     return value

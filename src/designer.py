@@ -195,9 +195,9 @@ class Designer():
         # This will be the upper bound from starting design
         
         initialDesign = InitialDesigner(collectionsDict.values()).generate()
-        upper_bound = cm.overallCost(initialDesign)
-
         LOG.info("Initial Design\n%s", initialDesign)
+        
+        upper_bound = cm.overallCost(initialDesign)
         LOG.info("Computed initial design [COST=%s]", upper_bound)
 
 #        cm.debug = True
