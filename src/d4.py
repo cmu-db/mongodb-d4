@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
     if args['debug']: LOG.setLevel(logging.DEBUG)
     if args['print_config']:
-        print config.makeDefaultConfig()
+        print config.formatDefaultConfig()
         sys.exit(0)
     
     if not args['config']:

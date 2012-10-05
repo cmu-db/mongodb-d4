@@ -60,7 +60,10 @@ constants.DEFAULT_TIME_INTERVALS),
     ],
 }
 
-def makeDefaultConfig():
+## ==============================================
+## formatDefaultConfig
+## ==============================================
+def formatDefaultConfig():
     """Return a formatted version of the config dict that can be used with the --print-config command line argument"""
     ret =  "# %s Configuration File\n" % constants.PROJECT_NAME
     ret += "# Created %s\n" % (datetime.now())
@@ -86,6 +89,47 @@ def makeDefaultConfig():
     return (ret)
 ## DEF
 
+## ==============================================
+## formatConfigList
+## ==============================================
+def formatConfigList(name, config):
+    """
+        Return a formatted version of the config list that can be used with the --config command line argument.
+    """
+
+    # Header
+    ret = "\n# " + ("="*75) + "\n"
+    ret += "[%s]" % name
+    
+    # Benchmark Configuration
+    for key, desc, default in config:
+        if default == None: default = ""
+        ret += "\n\n# %s\n%-20s = %s" % (desc, key, default) 
+    ret += "\n"
+    return (ret)
+## DEF
+
+## ==============================================
+## makeDefaultConfig
+## ==============================================
+def makeDefaultConfig():
+    """
+        Return a dict of the default configuration
+    """
+    config = { }
+    for key in globals():
+        if not key.startswith("SECT_"):
+            continue
+        key = globals()[key]
+        config = dict(config.items() + [(name, default) for name, desc, default in DEFAULT_CONFIG[key]])
+    ## FOR
+        
+    return (ret)
+## DEF
+
+## ==============================================
+## setDefaultValues
+## ==============================================
 def setDefaultValues(cparser):
     """Set the default values for the given SafeConfigParser"""
     for section in cparser.sections():
