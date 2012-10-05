@@ -50,13 +50,13 @@ class LNSDesigner(AbstractDesigner):
         Implementation of the large-neighborhood search design algorithm
     """
 
-    def __init__(self, collections, cparser, costModel, initialDesign, bestCost, timeout):
-        AbstractDesigner.__init__(self, collections)
+    def __init__(self, collections, workload, config, costModel, initialDesign, bestCost, timeout):
+        AbstractDesigner.__init__(self, collections, workload, config)
         self.costModel = costModel
         self.initialDesign = initialDesign
         self.bestCost = bestCost
         self.timeout = timeout
-        self.cparser = cparser
+        self.config = config
 
         self.relaxRatio = 0.25
         
@@ -150,9 +150,9 @@ class LNSDesigner(AbstractDesigner):
 
     def generateDesignCandidates(self, collections):
 
-        isShardingEnabled = self.cparser.getboolean(SECT_DESIGNER, 'enable_sharding')
-        isIndexesEnabled = self.cparser.getboolean(SECT_DESIGNER, 'enable_indexes')
-        isDenormalizationEnabled = self.cparser.getboolean(SECT_DESIGNER, 'enable_denormalization')
+        isShardingEnabled = self.config.getboolean(SECT_DESIGNER, 'enable_sharding')
+        isIndexesEnabled = self.config.getboolean(SECT_DESIGNER, 'enable_indexes')
+        isDenormalizationEnabled = self.config.getboolean(SECT_DESIGNER, 'enable_denormalization')
         
         shardKeys = []
         indexKeys = [[]]

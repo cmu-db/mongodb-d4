@@ -41,9 +41,9 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class Designer():
 
-    def __init__(self, cparser, metadata_db, dataset_db):
+    def __init__(self, config, metadata_db, dataset_db):
         # SafeConfigParser
-        self.cparser = cparser
+        self.config = config
         
         # The metadata database will contain:
         #   (1) Collection catalog
@@ -60,9 +60,9 @@ class Designer():
         self.initialSolution = None
         self.finalSolution = None
 
-        # self.page_size = self.cparser.getint(config.SECT_CLUSTER, 'page_size')
+        # self.page_size = self.config.getint(config.SECT_CLUSTER, 'page_size')
         self.page_size = constants.DEFAULT_PAGE_SIZE
-        self.sample_rate = self.cparser.getint(config.SECT_DESIGNER, 'sample_rate')
+        self.sample_rate = self.config.getint(config.SECT_DESIGNER, 'sample_rate')
 
         self.sess_limit = None
         self.op_limit = None
@@ -122,11 +122,11 @@ class Designer():
         converter = MySQLConverter(
             self.metadata_db,
             self.dataset_db,
-            dbHost=self.cparser.get(config.SECT_MYSQL, 'host'),
-            dbPort=self.cparser.getint(config.SECT_MYSQL, 'port'),
-            dbName=self.cparser.get(config.SECT_MYSQL, 'name'),
-            dbUser=self.cparser.get(config.SECT_MYSQL, 'user'),
-            dbPass=self.cparser.get(config.SECT_MYSQL, 'pass'))
+            dbHost=self.config.get(config.SECT_MYSQL, 'host'),
+            dbPort=self.config.getint(config.SECT_MYSQL, 'port'),
+            dbName=self.config.get(config.SECT_MYSQL, 'name'),
+            dbUser=self.config.get(config.SECT_MYSQL, 'user'),
+            dbPass=self.config.get(config.SECT_MYSQL, 'pass'))
 
         # Process the inputs and then save the results in mongodb
         converter.process(
@@ -143,14 +143,14 @@ class Designer():
     def search(self):
         """Perform the actual search for a design"""
         cmConfig = {
-            'weight_network': self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_network'),
-            'weight_disk':    self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_disk'),
-            'weight_skew':    self.cparser.getfloat(config.SECT_COSTMODEL, 'weight_skew'),
-            'nodes':          self.cparser.getint(config.SECT_CLUSTER, 'nodes'),
-            'max_memory':     self.cparser.getint(config.SECT_CLUSTER, 'node_memory'),
-            'skew_intervals': self.cparser.getint(config.SECT_COSTMODEL, 'time_intervals'),
-            'address_size':   self.cparser.getint(config.SECT_COSTMODEL, 'address_size'),
-            'window_size':    self.cparser.getint(config.SECT_COSTMODEL, 'window_size')
+            'weight_network': self.config.getfloat(config.SECT_COSTMODEL, 'weight_network'),
+            'weight_disk':    self.config.getfloat(config.SECT_COSTMODEL, 'weight_disk'),
+            'weight_skew':    self.config.getfloat(config.SECT_COSTMODEL, 'weight_skew'),
+            'nodes':          self.config.getint(config.SECT_CLUSTER, 'nodes'),
+            'max_memory':     self.config.getint(config.SECT_CLUSTER, 'node_memory'),
+            'skew_intervals': self.config.getint(config.SECT_COSTMODEL, 'time_intervals'),
+            'address_size':   self.config.getint(config.SECT_COSTMODEL, 'address_size'),
+            'window_size':    self.config.getint(config.SECT_COSTMODEL, 'window_size')
         }
 
         collectionsDict = dict()
@@ -194,7 +194,7 @@ class Designer():
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
         
-        initialDesign = InitialDesigner(collectionsDict.values()).generate()
+        initialDesign = InitialDesigner(collectionsDict, workload, self.config).generate()
         LOG.info("Initial Design\n%s", initialDesign)
         
         upper_bound = cm.overallCost(initialDesign)
@@ -204,7 +204,7 @@ class Designer():
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
         
-        ln = LNSDesigner(collectionsDict, self.cparser, cm, initialDesign, upper_bound, 1200)
+        ln = LNSDesigner(collectionsDict, workload, self.config, cm, initialDesign, upper_bound, 1200)
         solution = ln.solve()
         return solution
     ## DEF

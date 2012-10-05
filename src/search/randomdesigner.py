@@ -36,8 +36,8 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class RandomDesigner(AbstractDesigner):
 
-    def __init__(self, collections):
-        AbstractDesigner.__init__(self, collections)
+    def __init__(self, collections, workload, config):
+        AbstractDesigner.__init__(self, collections, workload, config)
     ## DEF
 
     def generate(self):

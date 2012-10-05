@@ -22,63 +22,108 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
+import random
+import itertools
 import logging
 
 # mongodb-d4
 import design
+import workload
+from util import Histogram
 from abstractdesigner import AbstractDesigner
 
 LOG = logging.getLogger(__name__)
+
+# Constants
+INITIAL_INDEX_MEMORY_ALLOCATION = 0.5
 
 ## ==============================================
 ## InitialDesigner
 ## ==============================================
 class InitialDesigner(AbstractDesigner):
     
-    def __init__(self, collections):
-        AbstractDesigner.__init__(self, collections)
+    def __init__(self, collections, workload, config):
+        AbstractDesigner.__init__(self, collections, workload, config)
     ## DEF
     
     def generate(self):
-        LOG.info("Computing initial design")
-
-        # XXX: Why is this suppose to be?
-        params = {
-            'query_use_count' : 1.0,
-        }
-
+        LOG.debug("Computing initial design")
         design = design.Design()
+        
+        # STEP 1
+        # Generate a histogram of the sets of keys that are used together
+        col_keys = self.generateCollectionHistograms()
+        map(design.addCollection, col_keys.iterkeys())
 
-        for col_info in self.collections :
-            design.addCollection(col_info['name'])
-            results = {}
-            col_fields = []
-            for field, data in col_info['fields'].iteritems() :
-                col_fields.append(field)
-                results[field] = self.calc_stats(params, col_info['fields'][field])
-
-            # Figure out which attribute has the highest value for
-            # the params that we care about when choosing the best design
-            attrs = [ ]
-            value = 0
-            for field, data in results.iteritems():
-                if data >= value:
-                    if data > value: attrs = [ ]
-                    value = data
-                    attrs.append(field)
-                    LOG.debug("%s: (%d) -> %s", col_info['name'], value, attrs)
-            design.addShardKey(col_info['name'], attrs)
-            design.addIndex(col_info['name'], attrs)
+        # STEP 2
+        # Select the sharding key for each collection as the set of keys
+        # that are occur most often
+        self.__selectShardingKeys__(design, col_keys)
+        
+        # STEP 3 
+        # Iterate through the collections and keep adding indexes until
+        # we exceed our initial design memory allocation
+        total_memory = self.config.getint("node_memory")
+        assert total_memory > 0
+        self.__selectIndexKeys__(design, col_keys, total_memory)
             
         return design
     ## DEF
     
-    def calc_stats(self, params, stats):
-        output = 0.0
-        for k,v in params.iteritems():
-            output += v * stats[k]
-        return output
-    ## DEF 
+    def generateCollectionHistograms(self):
+        col_keys = dict([(col_name, Histogram()) for col_name in self.collections])
+        for sess in self.workload:
+            for op in sess["operations"]:
+                assert op["collection"] in col_keys, "Missing: " + op["collection"]
+                fields = workload.getReferencedFields(op)
+                h = col_keys[op["collection"]]
+                for i in xrange(1, len(fields)+1):
+                    map(h.put, itertools.combinations(fields, i))
+            ## FOR (op)
+        ## FOR (sess)
+        return (col_keys)
+    ## DEF
     
+    def __selectShardingKeys__(self, design, col_keys):
+        for col_name, h in col_keys.iteritems():
+            max_keys = h.getMaxCountKeys()
+            LOG.debug("Sharding Key Candidates %s => %s", col_name, max_keys)
+            design.addShardKey(col_name, random.choice(max_keys))
+        ## FOR
+    ## DEF
+    
+    def __selectIndexKeys__(self, design, col_keys, total_memory):
+        while len(col_keys) > 0:
+            to_remove = [ ]
+            for col_name, h in col_keys.iteritems():
+                # Iterate through all the possible keys for this collection
+                for index_keys in sorted(h.iterkeys(), key=lambda k: h[k]):
+                    # TODO: Estimate the amount of memory used by this index
+                    index_memory = 0
+                    
+                    # We always want to remove index_keys from the histogram
+                    # even if there isn't enough memory, because we know that 
+                    # we will never be able to add it again
+                    del h[index_keys]
+                    
+                    # If we still have enough memory, then we can add it
+                    # We will then break out of the loop and examine the next
+                    # collection
+                    if index_memory < total_memory:
+                        LOG.info("Adding index %s for %s [memory=%d]", index_keys, col_name, index_memory)
+                        design.addIndex(col_name, index_keys)
+                        total_memory -= index_memory
+                        break
+                ## FOR
+                
+                # Mark this collection to be removed if it doesn't
+                # have anymore index keys left
+                if len(h) == 0:
+                    LOG.info("Finished evaluating all indexes for %s", col_name)
+                    to_remove.append(col_name)
+            ## FOR
+            map(col_keys.pop, to_remove)
+        ## WHILE
+    ## DEF
     
 ## CLASS

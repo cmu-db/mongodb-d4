@@ -31,8 +31,14 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class AbstractDesigner():
     
-    def __init__(self, collections):
+    def __init__(self, collections, workload, config):
+        assert isinstance(collections, dict)
+        assert not workload is None
+        assert not config is None
+        
         self.collections = collections
+        self.workload = workload
+        self.config = config
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
         
