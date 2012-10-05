@@ -45,12 +45,12 @@ class Design(object):
     ## DEF
 
 #    @DeprecationWarning
-    def addCollections(self, collections) :
+    def addCollections(self, collections):
         for collection in collections :
             self.addCollection(collection)
     ## DEF
 
-    def hasCollection(self, col_name) :
+    def hasCollection(self, col_name):
         return col_name in self.data
     ## DEF
     
@@ -59,7 +59,7 @@ class Design(object):
     '''
     def copy(self):
         d = Design()
-        for k,v in self.data.iteritems() :
+        for k,v in self.data.iteritems():
             d.addCollection(k)
             d.addShardKey(k, self.getShardKeys(k))
             d.setDenormalizationParent(k, self.getDenormalizationParent(k))
@@ -150,7 +150,7 @@ class Design(object):
         return ret
     ## DEF
             
-    def getParentCollection(self, col_name) :
+    def getParentCollection(self, col_name):
         if col_name in self.data:
             if not self.data[col_name]['denorm'] :
                 return None
@@ -164,30 +164,30 @@ class Design(object):
     ## SHARD KEYS
     ## ----------------------------------------------
         
-    def addShardKey(self, col_name, key) :
+    def addShardKey(self, col_name, key):
         if key:
             self.data[col_name]['shardKeys'] = key
     ## DEF
 
-    def getShardKeys(self, col_name) :
+    def getShardKeys(self, col_name):
         if self.data[col_name]:
             return self.data[col_name]['shardKeys']
     ## DEF
     
-    def getAllShardKeys(self) :
+    def getAllShardKeys(self):
         keys = {}
-        for k, v in self.data.iteritems() :
+        for k, v in self.data.iteritems():
             keys[k] = v['shardKeys']
         return keys
     ## DEF
     
-    def addShardKeys(self, keys) :
+    def addShardKeys(self, keys):
         if keys:
-            for k, v in keys.iteritems() :
+            for k, v in keys.iteritems():
                 self.data[k]['shardKeys'] = v
     ## DEF
 
-    def inShardKeyPattern(self, col_name, attr) :
+    def inShardKeyPattern(self, col_name, attr):
         return attr in self.data[col_name]['shardKeys']
     ## DEF
 
@@ -195,12 +195,12 @@ class Design(object):
     ## INDEXES
     ## ----------------------------------------------
         
-    def getIndexes(self, col_name) :
+    def getIndexes(self, col_name):
         if self.data[col_name]:
             return self.data[col_name]['indexes']
     ## DEF
 
-    def getAllIndexes(self) :
+    def getAllIndexes(self):
         return dict(self.data.iteritems())
     ## DEF
 
@@ -219,7 +219,7 @@ class Design(object):
                 self.data[col_name]['indexes'].append(indexKeys)
     ## DEF
     
-    def hasIndex(self, col_name, list) :
+    def hasIndex(self, col_name, list):
         if self.data[col_name]:
             return False
 
@@ -248,10 +248,10 @@ class Design(object):
         return ret
     ## DEF
 
-    def toJSON(self) :
+    def toJSON(self):
         return json.dumps(self.toDICT(), sort_keys=False, indent=4)
 
-    def toDICT(self) :
+    def toDICT(self):
         return self.data
     ## DEF
 
