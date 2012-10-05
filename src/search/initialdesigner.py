@@ -23,17 +23,20 @@
 # -----------------------------------------------------------------------
 
 import logging
+
+# mongodb-d4
 import design
+from abstractdesigner import AbstractDesigner
 
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
 ## InitialDesigner
 ## ==============================================
-class InitialDesigner():
+class InitialDesigner(AbstractDesigner):
     
     def __init__(self, collections):
-        self.collections = collections
+        AbstractDesigner.__init__(self, collections)
     ## DEF
     
     def generate(self):
@@ -44,10 +47,10 @@ class InitialDesigner():
             'query_use_count' : 1.0,
         }
 
-        starting_design = design.Design()
+        design = design.Design()
 
         for col_info in self.collections :
-            starting_design.addCollection(col_info['name'])
+            design.addCollection(col_info['name'])
             results = {}
             col_fields = []
             for field, data in col_info['fields'].iteritems() :
@@ -64,10 +67,10 @@ class InitialDesigner():
                     value = data
                     attrs.append(field)
                     LOG.debug("%s: (%d) -> %s", col_info['name'], value, attrs)
-            starting_design.addShardKey(col_info['name'], attrs)
-            starting_design.addIndex(col_info['name'], attrs)
+            design.addShardKey(col_info['name'], attrs)
+            design.addIndex(col_info['name'], attrs)
             
-        return starting_design
+        return design
     ## DEF
     
     def calc_stats(self, params, stats):

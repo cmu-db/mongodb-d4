@@ -28,7 +28,7 @@ import logging
 from pprint import pformat
 import catalog
 from costmodel import costmodel
-from search import InitialDesigner, lnsearch, RandomDesigner
+from search import InitialDesigner, LNSDesigner, RandomDesigner
 from util import *
 
 LOG = logging.getLogger(__name__)
@@ -204,7 +204,7 @@ class Designer():
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
         
-        ln = lnsearch.LNSearch(self.cparser, collectionsDict, cm, initialDesign, upper_bound, 1200)
+        ln = LNSDesigner(collectionsDict, self.cparser, cm, initialDesign, upper_bound, 1200)
         solution = ln.solve()
         return solution
     ## DEF

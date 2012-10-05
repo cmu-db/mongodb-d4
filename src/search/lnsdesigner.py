@@ -22,16 +22,15 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 
-
-## ==============================================
-## Large Neighborhood Search
-## ==============================================
+import sys
+import math
 import random
+import logging
+
+# mongodb-d4
 from util import *
 from search import DesignCandidates, bbsearch
-import logging
-import math
-import sys
+from abstractdesigner import AbstractDesigner
 
 LOG = logging.getLogger(__name__)
 
@@ -43,13 +42,16 @@ TIME_OUT_BBSEARCH = 60
 # Global Value
 PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = 0
 
-class LNSearch():
+## ==============================================
+## LNSDesigner
+## ==============================================
+class LNSDesigner(AbstractDesigner):
     """
         Implementation of the large-neighborhood search design algorithm
     """
 
-    def __init__(self, cparser, collectionDict, costModel, initialDesign, bestCost, timeout):
-        self.collectionDict = collectionDict
+    def __init__(self, collections, cparser, costModel, initialDesign, bestCost, timeout):
+        AbstractDesigner.__init__(self, collections)
         self.costModel = costModel
         self.initialDesign = initialDesign
         self.bestCost = bestCost
@@ -67,7 +69,7 @@ class LNSearch():
         """
         bestDesign = self.initialDesign.copy()
         bestCost = self.bestCost
-        table = TemperatureTable(self.collectionDict)
+        table = TemperatureTable(self.collections)
         
         while self.relaxRatio <= RELAX_RATIO_UPPER_BOUND:
             relaxedCollections, relaxedDesign = self.__relax__(table, bestDesign)
@@ -131,7 +133,7 @@ class LNSearch():
     def getNumberOfRelaxedCollections(self):
         global PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS
 
-        num = int(round(len(self.collectionDict.keys()) * self.relaxRatio))
+        num = int(round(len(self.collections.keys()) * self.relaxRatio))
 
         while num == PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS:
             self.relaxRatio += RELAX_RATIO_STEP
@@ -140,7 +142,7 @@ class LNSearch():
             # be larger than the number of collections...it doesn't sound good
             if self.relaxRatio > 1:
                 return None
-            num = int(round(len(self.collectionDict.keys()) * self.relaxRatio))
+            num = int(round(len(self.collections.keys()) * self.relaxRatio))
 
         PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = num
 
@@ -188,11 +190,11 @@ class LNSearch():
     ## DEF
 
 class TemperatureTable():
-    def __init__(self, collectionDict):
+    def __init__(self, collections):
         self.totalTemperature = 0.0
         self.temperatureList = []
         
-        for coll in collectionDict.itervalues():
+        for coll in collections.itervalues():
             temperature = coll['data_size'] / coll['workload_queries']
             self.temperatureList.append((temperature, coll)) 
             self.totalTemperature = self.totalTemperature + temperature

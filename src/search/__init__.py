@@ -7,8 +7,10 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 
 from designcandidates import DesignCandidates
 from design import Design
-from initialdesigner import InitialDesigner
-from bbsearch import *
 from utilmethods import *
-from randomdesigner import RandomDesigner
 
+# Designer Algorithms
+from initialdesigner import InitialDesigner
+from randomdesigner import RandomDesigner
+from lnsdesigner import LNSDesigner
+from bbsearch import *

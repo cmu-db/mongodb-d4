@@ -23,51 +23,20 @@
 # -----------------------------------------------------------------------
 
 import logging
-import random
-
-# mongodb-d4
-import design
-from abstractdesigner import AbstractDesigner
 
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
-## InitialDesigner
+## Abstract Designer
 ## ==============================================
-class RandomDesigner(AbstractDesigner):
-
+class AbstractDesigner():
+    
     def __init__(self, collections):
-        AbstractDesigner.__init__(self, collections)
+        self.collections = collections
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
-
+        
     def generate(self):
-        LOG.info("Generating random design")
-        design = design.Design()
-        for col_info in self.collections :
-            design.addCollection(col_info['name'])
-
-            col_fields = []
-            for field, data in col_info['fields'].iteritems():
-                col_fields.append(field)
-
-            # Figure out which attribute has the highest value for
-            # the params that we care about when choosing the best design
-            attrs = [ ]
-            while len(attrs) == 0:
-                counter = 0
-                random_num = random.randint(0, len(col_fields))
-
-                for field in col_fields:
-                    if  counter == random_num:
-                        attrs.append(field)
-                        break
-                    else:
-                        counter += 1
-
-            design.addShardKey(col_info['name'], attrs)
-            design.addIndex(col_info['name'], attrs)
-
-        return design
-    ## DEF
-
+        raise NotImplementedError("Unimplemented %s.generate()" % self.__init__.im_class)
+        
 ## CLASS
