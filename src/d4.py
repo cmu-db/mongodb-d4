@@ -206,6 +206,8 @@ if __name__ == '__main__':
                     no_load=args['no_load'],\
                     no_post_process=args['no_post_process'], \
                 )
+                
+            # TODO(yang): Do post-processing to generate design candidates
         else:
             LOG.warn("Skipping workload trace loading and processing...")
         ## IF

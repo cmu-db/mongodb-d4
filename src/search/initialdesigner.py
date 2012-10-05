@@ -63,7 +63,7 @@ class InitialDesigner(AbstractDesigner):
         # STEP 3 
         # Iterate through the collections and keep adding indexes until
         # we exceed our initial design memory allocation
-        total_memory = self.config.getint(configutil.SECT_CLUSTER, "node_memory")
+        total_memory = self.config.getint(configutil.SECT_CLUSTER, "node_memory") * INITIAL_INDEX_MEMORY_ALLOCATION
         assert total_memory > 0
         self.__selectIndexKeys__(design, col_keys, total_memory)
             
@@ -74,7 +74,7 @@ class InitialDesigner(AbstractDesigner):
         col_keys = dict([(col_name, Histogram()) for col_name in self.collections])
         for sess in self.workload:
             for op in sess["operations"]:
-                if op["collection"] == "tpcc.$cmd":
+                if op["collection"].find("$cmd") != -1:
                     continue
                 assert op["collection"] in col_keys, "Missing: " + op["collection"]
                 fields = workload.getReferencedFields(op)

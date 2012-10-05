@@ -182,24 +182,8 @@ class Designer():
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
             ## FOR
         return dc
-
-    ## -------------------------------------------------------------------------
-    ## DESIGNER EXECUTION
-    ## -------------------------------------------------------------------------
-
-    def search(self):
-        """Perform the actual search for a design"""
-        cmConfig = {
-            'weight_network': self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_network'),
-            'weight_disk':    self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_disk'),
-            'weight_skew':    self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_skew'),
-            'nodes':          self.config.getint(configutil.SECT_CLUSTER, 'nodes'),
-            'max_memory':     self.config.getint(configutil.SECT_CLUSTER, 'node_memory'),
-            'skew_intervals': self.config.getint(configutil.SECT_COSTMODEL, 'time_intervals'),
-            'address_size':   self.config.getint(configutil.SECT_COSTMODEL, 'address_size'),
-            'window_size':    self.config.getint(configutil.SECT_COSTMODEL, 'window_size')
-        }
-
+        
+    def loadCollections(self):
         collections = dict()
         for col_info in self.metadata_db.Collection.fetch():
             # Skip any collection that doesn't have any documents in it
@@ -208,11 +192,14 @@ class Designer():
             if not col_info['doc_count'] or not col_info['avg_doc_size']:
                 continue
             collections[col_info['name']] = col_info
-        ## FOR
-        if not collections:
-            raise Exception("No collections were found in metadata catalog")
-        LOG.info("Loaded %d collections from metadata catalog" % len(collections))
-
+            ## FOR
+            if not collections:
+                raise Exception("No collections were found in metadata catalog")
+            LOG.info("Loaded %d collections from metadata catalog" % len(collections))
+        return collections
+    ## DEF
+    
+    def loadWorkload(self, collections):
         # We want to bring down all of the sessions that we are going to use to compute the
         # cost of each design
         workload = [ ]
@@ -231,8 +218,30 @@ class Designer():
         if not len(workload):
             raise Exception("No workload sessions were found in database\n%s" % pformat(workloadQuery))
         LOG.info("Loaded %d sessions with %d operations from workload database", len(workload), op_ctr)
+        return (workload)
+    ## DEF
+
+    ## -------------------------------------------------------------------------
+    ## DESIGNER EXECUTION
+    ## -------------------------------------------------------------------------
+
+    def search(self):
+        """Perform the actual search for a design"""
+        
+        collection = self.loadCollections()
+        workload = self.loadWorkload()
 
         # Instantiate cost model
+        cmConfig = {
+            'weight_network': self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_network'),
+            'weight_disk':    self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_disk'),
+            'weight_skew':    self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_skew'),
+            'nodes':          self.config.getint(configutil.SECT_CLUSTER, 'nodes'),
+            'max_memory':     self.config.getint(configutil.SECT_CLUSTER, 'node_memory'),
+            'skew_intervals': self.config.getint(configutil.SECT_COSTMODEL, 'time_intervals'),
+            'address_size':   self.config.getint(configutil.SECT_COSTMODEL, 'address_size'),
+            'window_size':    self.config.getint(configutil.SECT_COSTMODEL, 'window_size')
+        }
         cm = CostModel(collections, workload, cmConfig)
 #        if self.debug:
 #            state.debug = True
