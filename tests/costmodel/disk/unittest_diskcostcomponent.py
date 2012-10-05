@@ -37,7 +37,7 @@ class TestDiskCost(CostModelTestCase):
         # has to perform a full sequential scan on the collection
         self.assertEqual(cost0, 1.0)
 
-        # Now add the indexes. The disk cost should be lower
+        # Now add the all indexes. The disk cost should be lower
         d = Design()
         for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
             col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
@@ -48,49 +48,62 @@ class TestDiskCost(CostModelTestCase):
         cost1 = self.cm.getCost(d)
         print "diskCost1:", cost1
         self.assertGreater(cost0, cost1)
-    ## DEF
 
-    def testDiskCostCaching(self):
-        """Check whether disk cost calculations work correctly with caching enabled"""
-        self.cm.cache_enable = True
-
-        # Give the mofo a full Design with indexes
+        # Now only add the most effective index
         d = Design()
         for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
             col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
             d.addCollection(col_info['name'])
-            d.addIndex(col_info['name'], col_info['interesting'])
-        ## FOR
-        cost0 = self.cm.getCost(d)
-        print "diskCost0:", cost0
-        # FIXME self.assertGreater(cost0, 0.0)
+            d.addIndex(col_info['name'], ["field00"])
+            self.state.invalidateCache(col_info['name'])
+            ## FOR
+        cost2 = self.cm.getCost(d)
 
-        # We should get the same cost back after we execute it a second time
-        cost1 = self.cm.getCost(d)
-        print "diskCost1:", cost1
-        # FIXME self.assertEqual(cost0, cost1)
+        print "diskCost2:", cost2
+        self.assertGreater(cost1, cost2)
     ## DEF
 
-    def testEstimateWorkingSets(self):
-        """Check the working set size estimator for collections"""
-
-        d = Design()
-        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
-        ## FOR
-
-        max_memory = self.costModelConfig['max_memory'] * 1024 * 1024
-        workingSets = self.cm.estimateWorkingSets(d, max_memory)
-        self.assertIsNotNone(workingSets)
-
-        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            self.assertIn(col_info['name'], workingSets)
-            setSize = workingSets[col_info['name']]
-            print col_info['name'], "->", setSize
-            self.assertGreater(setSize, 0.0)
-    ## DEF
+#    def testDiskCostCaching(self):
+#        """Check whether disk cost calculations work correctly with caching enabled"""
+#        self.cm.cache_enable = True
+#
+#        # Give the mofo a full Design with indexes
+#        d = Design()
+#        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+#            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+#            d.addCollection(col_info['name'])
+#            d.addIndex(col_info['name'], col_info['interesting'])
+#        ## FOR
+#        cost0 = self.cm.getCost(d)
+#        print "diskCost0:", cost0
+#        # FIXME self.assertGreater(cost0, 0.0)
+#
+#        # We should get the same cost back after we execute it a second time
+#        cost1 = self.cm.getCost(d)
+#        print "diskCost1:", cost1
+#        # FIXME self.assertEqual(cost0, cost1)
+#    ## DEF
+#
+#    def testEstimateWorkingSets(self):
+#        """Check the working set size estimator for collections"""
+#
+#        d = Design()
+#        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
+#            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+#            d.addCollection(col_info['name'])
+#        ## FOR
+#
+#        max_memory = self.costModelConfig['max_memory'] * 1024 * 1024
+#        workingSets = self.cm.estimateWorkingSets(d, max_memory)
+#        self.assertIsNotNone(workingSets)
+#
+#        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
+#            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+#            self.assertIn(col_info['name'], workingSets)
+#            setSize = workingSets[col_info['name']]
+#            print col_info['name'], "->", setSize
+#            self.assertGreater(setSize, 0.0)
+#    ## DEF
 
 ## CLASS
 

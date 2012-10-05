@@ -53,6 +53,7 @@ class DiskCostComponent(AbstractCostComponent):
         self.debug = False
 
         self.buffers = [ ]
+        print "buffer number: "
         for i in xrange(self.state.num_nodes):
             lru = FastLRUBufferWithWindow(self.state.collections, self.state.window_size, preload=constants.DEFAULT_LRU_PRELOAD)
             self.buffers.append(lru)
@@ -87,11 +88,9 @@ class DiskCostComponent(AbstractCostComponent):
         # since every lru has the same configuration, we can cache the first initialization then deepcopy it to other
         #    lrus
         cache = None
-
         for lru in self.buffers:
             cache = lru.initialize(design, delta, cache)
-            if self.debug:
-                LOG.info(lru)
+            LOG.info(lru)
             lru.validate()
 
         # Ok strap on your helmet, this is the magical part of the whole thing!

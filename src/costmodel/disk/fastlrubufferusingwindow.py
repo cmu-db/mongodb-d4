@@ -70,13 +70,16 @@ class FastLRUBufferWithWindow:
         self.reset()
         
         if cache:
-          self.buffer = self.__clone_dictionary__(cache[BUFFER])
-          self.head = self.__clone_buffer_value__(cache[HEAD])
-          self.tail = self.__clone_buffer_value__(cache[TAIL])
+          self.buffer = self.__clone_dictionary__(cache.buffer)
+          self.head = self.__clone_buffer_value__(cache.head)
+          self.tail = self.__clone_buffer_value__(cache.tail)
+          self.evicted = cache.evicted
+          self.refreshed = cache.refreshed
+          self.free_slots = cache.free_slots
         else:
-          self.__init_collections__(design, delta)
+            self.__init_collections__(design, delta)
           
-          return self.buffer, self.head, self.tail
+        return self
 
     def __clone_dictionary__(self, source):
         target = { }
@@ -97,21 +100,23 @@ class FastLRUBufferWithWindow:
             Returns the number of page hits incurred to read these documents.
         """
 #        assert size > 0,"Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
-        return self.getDocument(DOC_TYPE_INDEX, col_name, indexKeys, documentId)
+        return self.getDocument(DOC_TYPE_INDEX, col_name, indexKeys, documentId, True)
         ## DEF
 
     def getDocumentFromCollection(self, col_name, documentId):
-
  #      assert size > 0, "Missing collection size for '%s'" % col_name
-
-        return self.getDocument(DOC_TYPE_COLLECTION, col_name, col_name, documentId)
+        return self.getDocument(DOC_TYPE_COLLECTION, col_name, col_name, documentId, False)
     ## DEF
 
-    def getDocument(self, typeId, col_name, key, documentId):
+    def getDocument(self, typeId, col_name, keys, documentId, isFromIndex):
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
-        buffer_tuple = (documentId, key, typeId)
+        buffer_tuple = (documentId, col_name, typeId)
+        buffer_tuple_index = []
+        if isFromIndex:
+            for key in keys:
+                buffer_tuple_index.append((documentId, key, typeId))
 
         offset = self.buffer.get(buffer_tuple, None)
 
@@ -132,7 +137,14 @@ class FastLRUBufferWithWindow:
         else:
 #            assert not buffer_tuple in self.buffer, "Duplicate entry '%s'" % buffer_tuple
 #            assert size < self.buffer_size
-            return self.__push__(buffer_tuple)
+            tuple_page_hits = self.__push__(buffer_tuple)
+            if isFromIndex:
+                index_page_hits = 0
+                for index_tuple in buffer_tuple_index:
+                    index_page_hits += self.__push__(index_tuple)
+                return tuple_page_hits + index_page_hits
+            else:
+                return self.__push__(buffer_tuple)
         ## DEF
 
     def __init_collections__(self, design, delta):
@@ -141,6 +153,8 @@ class FastLRUBufferWithWindow:
             if not self.preload: break
 
             col_info = self.collections[col_name]
+            indexes = design.getIndexes(col_name)
+            print indexes
 
             # How much space are they allow to have in the initial configuration
             col_remaining = int(self.window_size * (delta * col_info['workload_percent']))
@@ -153,7 +167,10 @@ class FastLRUBufferWithWindow:
             rng.seed(col_name)
             while col_remaining > 0 and self.evicted == 0:
                 documentId = rng.random()
-                self.getDocumentFromCollection(col_name, documentId)
+                if len(indexes) == 0:
+                    self.getDocumentFromCollection(col_name, documentId)
+                else:
+                    self.getDocumentFromIndex(col_name, indexes, documentId)
                 col_remaining -= 1
                 ctr += 1
             ## WHILE
