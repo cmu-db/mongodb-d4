@@ -31,7 +31,7 @@ import sys
 import argparse
 import logging
 import time
-from ConfigParser import SafeConfigParser
+from ConfigParser import RawConfigParser
 
 # Third-Party Dependencies
 basedir = os.path.realpath(os.path.dirname(__file__))
@@ -41,9 +41,8 @@ import mongokit
 # mongodb-d4
 import catalog
 import workload
-from designer import Designer
-from search import bbsearch
-from util import config
+from search import Designer
+from util import configutil
 from util import constants
 from util import termcolor
 
@@ -120,7 +119,7 @@ if __name__ == '__main__':
 
     if args['debug']: LOG.setLevel(logging.DEBUG)
     if args['print_config']:
-        print config.formatDefaultConfig()
+        print configutil.formatDefaultConfig()
         sys.exit(0)
     
     if not args['config']:
@@ -129,15 +128,15 @@ if __name__ == '__main__':
         aparser.print_usage()
         sys.exit(1)
     LOG.debug("Loading configuration file '%s'" % args['config'])
-    cparser = SafeConfigParser()
-    cparser.read(os.path.realpath(args['config'].name))
-    config.setDefaultValues(cparser)
+    config = RawConfigParser()
+    configutil.setDefaultValues(config)
+    config.read(os.path.realpath(args['config'].name))
     
     ## ----------------------------------------------
     ## Connect to MongoDB
     ## ----------------------------------------------
-    hostname = cparser.get(config.SECT_MONGODB, 'host')
-    port = cparser.getint(config.SECT_MONGODB, 'port')
+    hostname = config.get(configutil.SECT_MONGODB, 'host')
+    port = config.getint(configutil.SECT_MONGODB, 'port')
     assert hostname
     assert port
     try:
@@ -151,17 +150,17 @@ if __name__ == '__main__':
     ## Make sure that the databases that we need are there
     db_names = conn.database_names()
     for key in [ 'dataset_db', ]: # FIXME 'workload_db' ]:
-        if not cparser.has_option(config.SECT_MONGODB, key):
-            raise Exception("Missing the configuration option '%s.%s'" % (config.SECT_MONGODB, key))
-        elif not cparser.get(config.SECT_MONGODB, key):
-            raise Exception("Empty configuration option '%s.%s'" % (config.SECT_MONGODB, key))
+        if not config.has_option(configutil.SECT_MONGODB, key):
+            raise Exception("Missing the configuration option '%s.%s'" % (configutil.SECT_MONGODB, key))
+        elif not config.get(configutil.SECT_MONGODB, key):
+            raise Exception("Empty configuration option '%s.%s'" % (configutil.SECT_MONGODB, key))
     ## FOR
 
     ## ----------------------------------------------
     ## MONGODB DATABASE RESET
     ## ----------------------------------------------
-    metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
-    dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
+    metadata_db = conn[config.get(configutil.SECT_MONGODB, 'metadata_db')]
+    dataset_db = conn[config.get(configutil.SECT_MONGODB, 'dataset_db')]
 
     if args['reset']:
         LOG.warn("Dropping collections from %s and %s databases" % (metadata_db.name, dataset_db.name))
@@ -179,7 +178,7 @@ if __name__ == '__main__':
         ## FOR
     ## IF
 
-    designer = Designer(cparser, metadata_db, dataset_db)
+    designer = Designer(config, metadata_db, dataset_db)
     designer.setOptionsFromArguments(args)
 
     start = time.time()

@@ -17,13 +17,13 @@ from workload import Session
 from util import constants
 import catalog
 from search import InitialDesigner
-from util import constants, config
+from util import constants, configutil
 
 class TestInitialDesigner(CostModelTestCase):
 
     def setUp(self):
         CostModelTestCase.setUp(self)
-        self.config = config.makeDefaultConfig()
+        self.config = configutil.makeDefaultConfig()
         self.designer = InitialDesigner(self.collections, self.workload, self.config)
         self.col_keys = self.designer.generateCollectionHistograms()
         self.design = Design()
@@ -59,7 +59,7 @@ class TestInitialDesigner(CostModelTestCase):
             h.put(keys, 999999)
             expected[col_name] = keys
         
-        node_memory = self.config.get(config.SECT_CLUSTER, "node_memory")
+        node_memory = self.config.get(configutil.SECT_CLUSTER, "node_memory")
         self.designer.__selectIndexKeys__(self.design, self.col_keys, node_memory)
         print self.design
         

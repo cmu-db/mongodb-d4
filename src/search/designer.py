@@ -23,13 +23,16 @@
 # -----------------------------------------------------------------------
 import itertools
 import logging
+from pprint import pformat
 
 # mongodb-d4
-from pprint import pformat
 import catalog
-from costmodel import costmodel
-from search import InitialDesigner, LNSDesigner, RandomDesigner
-from util import *
+from initialdesigner import InitialDesigner
+from lnsdesigner import LNSDesigner
+from randomdesigner import RandomDesigner
+from costmodel import CostModel
+from util import constants
+from util import configutil
 
 LOG = logging.getLogger(__name__)
 
@@ -60,9 +63,9 @@ class Designer():
         self.initialSolution = None
         self.finalSolution = None
 
-        # self.page_size = self.config.getint(config.SECT_CLUSTER, 'page_size')
+        # self.page_size = self.config.getint(configutil.SECT_CLUSTER, 'page_size')
         self.page_size = constants.DEFAULT_PAGE_SIZE
-        self.sample_rate = self.config.getint(config.SECT_DESIGNER, 'sample_rate')
+        self.sample_rate = self.config.getint(configutil.SECT_DESIGNER, 'sample_rate')
 
         self.sess_limit = None
         self.op_limit = None
@@ -72,7 +75,11 @@ class Designer():
 
     def setOptionsFromArguments(self, args):
         """Set the internal parameters of the Designer based on command-line arguments"""
+        
+        # HACK HACK HACK HACK
+        skip = set(["config", "metadata_db", "dataset_db"])
         for key in args:
+            if key in skip: continue
             if self.debug: LOG.debug("%s => %s" % (key, args[key]))
             self.__dict__[key] = args[key]
         ## FOR
@@ -122,11 +129,11 @@ class Designer():
         converter = MySQLConverter(
             self.metadata_db,
             self.dataset_db,
-            dbHost=self.config.get(config.SECT_MYSQL, 'host'),
-            dbPort=self.config.getint(config.SECT_MYSQL, 'port'),
-            dbName=self.config.get(config.SECT_MYSQL, 'name'),
-            dbUser=self.config.get(config.SECT_MYSQL, 'user'),
-            dbPass=self.config.get(config.SECT_MYSQL, 'pass'))
+            dbHost=self.config.get(configutil.SECT_MYSQL, 'host'),
+            dbPort=self.config.getint(configutil.SECT_MYSQL, 'port'),
+            dbName=self.config.get(configutil.SECT_MYSQL, 'name'),
+            dbUser=self.config.get(configutil.SECT_MYSQL, 'user'),
+            dbPass=self.config.get(configutil.SECT_MYSQL, 'pass'))
 
         # Process the inputs and then save the results in mongodb
         converter.process(
@@ -143,33 +150,33 @@ class Designer():
     def search(self):
         """Perform the actual search for a design"""
         cmConfig = {
-            'weight_network': self.config.getfloat(config.SECT_COSTMODEL, 'weight_network'),
-            'weight_disk':    self.config.getfloat(config.SECT_COSTMODEL, 'weight_disk'),
-            'weight_skew':    self.config.getfloat(config.SECT_COSTMODEL, 'weight_skew'),
-            'nodes':          self.config.getint(config.SECT_CLUSTER, 'nodes'),
-            'max_memory':     self.config.getint(config.SECT_CLUSTER, 'node_memory'),
-            'skew_intervals': self.config.getint(config.SECT_COSTMODEL, 'time_intervals'),
-            'address_size':   self.config.getint(config.SECT_COSTMODEL, 'address_size'),
-            'window_size':    self.config.getint(config.SECT_COSTMODEL, 'window_size')
+            'weight_network': self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_network'),
+            'weight_disk':    self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_disk'),
+            'weight_skew':    self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_skew'),
+            'nodes':          self.config.getint(configutil.SECT_CLUSTER, 'nodes'),
+            'max_memory':     self.config.getint(configutil.SECT_CLUSTER, 'node_memory'),
+            'skew_intervals': self.config.getint(configutil.SECT_COSTMODEL, 'time_intervals'),
+            'address_size':   self.config.getint(configutil.SECT_COSTMODEL, 'address_size'),
+            'window_size':    self.config.getint(configutil.SECT_COSTMODEL, 'window_size')
         }
 
-        collectionsDict = dict()
+        collections = dict()
         for col_info in self.metadata_db.Collection.fetch():
             # Skip any collection that doesn't have any documents in it
             # This is because we won't be able to make any estimates about how
             # big the collection actually is
             if not col_info['doc_count'] or not col_info['avg_doc_size']:
                 continue
-            collectionsDict[col_info['name']] = col_info
+            collections[col_info['name']] = col_info
         ## FOR
-        if not collectionsDict:
+        if not collections:
             raise Exception("No collections were found in metadata catalog")
-        LOG.info("Loaded %d collections from metadata catalog" % len(collectionsDict))
+        LOG.info("Loaded %d collections from metadata catalog" % len(collections))
 
         # We want to bring down all of the sessions that we are going to use to compute the
         # cost of each design
         workload = [ ]
-        workloadQuery = {"operations.collection": {"$in": collectionsDict.keys()}}
+        workloadQuery = {"operations.collection": {"$in": collections.keys()}}
         op_ctr = 0
         cursor = self.metadata_db.Session.fetch(workloadQuery)
         if not self.sess_limit is None:
@@ -186,7 +193,7 @@ class Designer():
         LOG.info("Loaded %d sessions with %d operations from workload database", len(workload), op_ctr)
 
         # Instantiate cost model
-        cm = costmodel.CostModel(collectionsDict, workload, cmConfig)
+        cm = CostModel(collections, workload, cmConfig)
 #        if self.debug:
 #            state.debug = True
 #            costmodel.LOG.setLevel(logging.DEBUG)
@@ -194,7 +201,7 @@ class Designer():
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
         
-        initialDesign = InitialDesigner(collectionsDict, workload, self.config).generate()
+        initialDesign = InitialDesigner(collections, workload, self.config).generate()
         LOG.info("Initial Design\n%s", initialDesign)
         
         upper_bound = cm.overallCost(initialDesign)
@@ -204,7 +211,7 @@ class Designer():
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
         
-        ln = LNSDesigner(collectionsDict, workload, self.config, cm, initialDesign, upper_bound, 1200)
+        ln = LNSDesigner(collections, workload, self.config, cm, initialDesign, upper_bound, 1200)
         solution = ln.solve()
         return solution
     ## DEF
