@@ -33,6 +33,7 @@ from randomdesigner import RandomDesigner
 from costmodel import CostModel
 from util import constants
 from util import configutil
+from designcandidates import DesignCandidates
 
 LOG = logging.getLogger(__name__)
 
@@ -142,6 +143,45 @@ class Designer():
             page_size=self.page_size,
         )
     ## DEF
+    def generateDesignCandidates(self, collections):
+
+        isShardingEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_sharding')
+        isIndexesEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_indexes')
+        isDenormalizationEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_denormalization')
+
+        shardKeys = []
+        indexKeys = [[]]
+        denorm = []
+        dc = DesignCandidates()
+
+        for col_info in collections.itervalues():
+            interesting = col_info['interesting']
+            if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
+                interesting = interesting[:]
+                interesting.remove("_id")
+
+            # deal with shards
+            if isShardingEnabled:
+                LOG.debug("Sharding is enabled")
+                shardKeys = interesting
+
+            # deal with indexes
+            if isIndexesEnabled:
+                LOG.debug("Indexes is enabled")
+                for o in xrange(1, len(interesting) + 1) :
+                    for i in itertools.combinations(interesting, o) :
+                        indexKeys.append(i)
+
+            # deal with de-normalization
+            if isDenormalizationEnabled:
+                LOG.debug("Demormalization is enabled")
+                for k,v in col_info['fields'].iteritems() :
+                    if v['parent_col'] <> '' and v['parent_col'] not in denorm :
+                        denorm.append(v['parent_col'])
+
+            dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
+            ## FOR
+        return dc
 
     ## -------------------------------------------------------------------------
     ## DESIGNER EXECUTION
@@ -198,6 +238,9 @@ class Designer():
 #            state.debug = True
 #            costmodel.LOG.setLevel(logging.DEBUG)
 
+        # Generate all the design candidates
+        designCandidates = self.generateDesignCandidates(collections)
+
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
         
@@ -211,7 +254,7 @@ class Designer():
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
         
-        ln = LNSDesigner(collections, workload, self.config, cm, initialDesign, upper_bound, 1200)
+        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, 1200)
         solution = ln.solve()
         return solution
     ## DEF

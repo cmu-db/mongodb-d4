@@ -27,9 +27,9 @@ import itertools
 import logging
 
 # mongodb-d4
-import design
+from design import Design
 import workload
-from util import Histogram
+from util import Histogram, configutil
 from abstractdesigner import AbstractDesigner
 
 LOG = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class InitialDesigner(AbstractDesigner):
     
     def generate(self):
         LOG.debug("Computing initial design")
-        design = design.Design()
+        design = Design()
         
         # STEP 1
         # Generate a histogram of the sets of keys that are used together
@@ -63,7 +63,7 @@ class InitialDesigner(AbstractDesigner):
         # STEP 3 
         # Iterate through the collections and keep adding indexes until
         # we exceed our initial design memory allocation
-        total_memory = self.config.getint("node_memory")
+        total_memory = self.config.getint(configutil.SECT_CLUSTER, "node_memory")
         assert total_memory > 0
         self.__selectIndexKeys__(design, col_keys, total_memory)
             
@@ -74,6 +74,8 @@ class InitialDesigner(AbstractDesigner):
         col_keys = dict([(col_name, Histogram()) for col_name in self.collections])
         for sess in self.workload:
             for op in sess["operations"]:
+                if op["collection"] == "tpcc.$cmd":
+                    continue
                 assert op["collection"] in col_keys, "Missing: " + op["collection"]
                 fields = workload.getReferencedFields(op)
                 h = col_keys[op["collection"]]
@@ -99,7 +101,7 @@ class InitialDesigner(AbstractDesigner):
                 # Iterate through all the possible keys for this collection
                 for index_keys in sorted(h.iterkeys(), key=lambda k: h[k]):
                     # TODO: Estimate the amount of memory used by this index
-                    index_memory = 0
+                    index_memory = 7000
                     
                     # We always want to remove index_keys from the histogram
                     # even if there isn't enough memory, because we know that 

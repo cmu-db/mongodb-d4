@@ -29,7 +29,7 @@ import logging
 
 # mongodb-d4
 from util import *
-from search import DesignCandidates, bbsearch
+from search import bbsearch
 from abstractdesigner import AbstractDesigner
 
 LOG = logging.getLogger(__name__)
@@ -50,13 +50,13 @@ class LNSDesigner(AbstractDesigner):
         Implementation of the large-neighborhood search design algorithm
     """
 
-    def __init__(self, collections, workload, config, costModel, initialDesign, bestCost, timeout):
+    def __init__(self, collections, designCandidates, workload, config, costModel, initialDesign, bestCost, timeout):
         AbstractDesigner.__init__(self, collections, workload, config)
         self.costModel = costModel
         self.initialDesign = initialDesign
         self.bestCost = bestCost
         self.timeout = timeout
-        self.config = config
+        self.designCandidates = designCandidates
 
         self.relaxRatio = 0.25
         
@@ -72,19 +72,20 @@ class LNSDesigner(AbstractDesigner):
         table = TemperatureTable(self.collections)
         
         while self.relaxRatio <= RELAX_RATIO_UPPER_BOUND:
-            relaxedCollections, relaxedDesign = self.__relax__(table, bestDesign)
+            relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign)
 
             # when relax cannot make any progress
-            if relaxedCollections is None and relaxedDesign is None:
+            if relaxedCollectionsNames is None and relaxedDesign is None:
                 return bestDesign
 
-            dc = self.generateDesignCandidates(relaxedCollections)
+            dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
             bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, TIME_OUT_BBSEARCH)
             bbDesign = bb.solve()
                 
             if bb.bestCost < bestCost:
                 bestCost = bb.bestCost
                 bestDesign = bbDesign
+            LOG.info("\n====Design Candidates====\n%s", dc)
             if self.debug:
                 LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
                 LOG.info("\n====Design Candidates====\n%s", dc)
@@ -112,23 +113,22 @@ class LNSDesigner(AbstractDesigner):
         
         counter = 0
         collectionNameSet = set()
-        relaxedCollections = []
+        relaxedCollectionsNames = []
         relaxedDesign = design.copy()
         
         while counter < numberOfRelaxedCollections:
-            collection = table.getRandomCollection();
-            collectionName = collection['name']
+            collectionName = table.getRandomCollection()
 
             if collectionName not in collectionNameSet:
+                relaxedCollectionsNames.append(collectionName)
                 collectionNameSet.add(collectionName)
                 counter += 1
                 
-                if not relaxedDesign.hasCollection(collection['name']):
-                    relaxedDesign.addCollection(collection['name'])
-                relaxedDesign.reset(collection['name'])
-                relaxedCollections.append(collection)
+                if not relaxedDesign.hasCollection(collectionName):
+                    relaxedDesign.addCollection(collectionName)
+                relaxedDesign.reset(collectionName)
         
-        return relaxedCollections, relaxedDesign
+        return relaxedCollectionsNames, relaxedDesign
 
     def getNumberOfRelaxedCollections(self):
         global PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS
@@ -147,46 +147,6 @@ class LNSDesigner(AbstractDesigner):
         PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = num
 
         return num
-
-    def generateDesignCandidates(self, collections):
-
-        isShardingEnabled = self.config.getboolean(SECT_DESIGNER, 'enable_sharding')
-        isIndexesEnabled = self.config.getboolean(SECT_DESIGNER, 'enable_indexes')
-        isDenormalizationEnabled = self.config.getboolean(SECT_DESIGNER, 'enable_denormalization')
-        
-        shardKeys = []
-        indexKeys = [[]]
-        denorm = []
-        dc = DesignCandidates()
-        
-        for col_info in collections:
-            interesting = col_info['interesting']
-            if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
-                interesting = interesting[:]
-                interesting.remove("_id")
-
-            # deal with shards
-            if isShardingEnabled:
-                LOG.debug("Sharding is enabled")
-                shardKeys = interesting
-
-            # deal with indexes
-            if isIndexesEnabled:
-                LOG.debug("Indexes is enabled")
-                for o in xrange(1, len(interesting) + 1) :
-                    for i in itertools.combinations(interesting, o) :
-                        indexKeys.append(i)
-
-            # deal with de-normalization
-            if isDenormalizationEnabled:
-                LOG.debug("Demormalization is enabled")
-                for k,v in col_info['fields'].iteritems() :
-                    if v['parent_col'] <> '' and v['parent_col'] not in denorm :
-                        denorm.append(v['parent_col'])
-                        
-            dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
-        ## FOR
-        return dc
     ## DEF
 
 class TemperatureTable():
@@ -196,14 +156,14 @@ class TemperatureTable():
         
         for coll in collections.itervalues():
             temperature = coll['data_size'] / coll['workload_queries']
-            self.temperatureList.append((temperature, coll)) 
+            self.temperatureList.append((temperature, coll['name']))
             self.totalTemperature = self.totalTemperature + temperature
     
     def getRandomCollection(self):
         upper_bound = self.totalTemperature
         r = random.randint(0, int(self.totalTemperature))
-        for temperature, coll in sorted(self.temperatureList, reverse=True):
+        for temperature, name in sorted(self.temperatureList, reverse=True):
             lower_bound = upper_bound - temperature
             if lower_bound <= r <= upper_bound:
-                return coll
+                return name
             upper_bound = lower_bound

@@ -39,6 +39,12 @@ class DesignCandidates():
             self.shardKeys[collection] = shardKeys
             self.denorm[collection] = denorm
     
+    def getCandidates(self, collection_names):
+        candidates = DesignCandidates()
+        for coll_name in collection_names:
+            candidates.addCollection(coll_name, self.indexKeys[coll_name], self.shardKeys[coll_name], self.denorm[coll_name])
+
+        return candidates
 
     def __str__(self):
         return pformat(self.__dict__)

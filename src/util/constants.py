@@ -91,3 +91,6 @@ DEFAULT_LRU_PRELOAD = True
 
 # The size of pages on disk for each MongoDB database node
 DEFAULT_PAGE_SIZE = 4096 # bytes
+
+# Window size in lru buffer: how many collection are preloaded into the buffer
+WINDOW_SIZE = 1024
