@@ -14,6 +14,11 @@ SECT_DESIGNER  = "designer"
 SECT_COSTMODEL = "costmodel"
 SECT_MYSQL     = "mysql"
 
+ALL_SECTIONS = set()
+_key = None
+for _key in locals():
+    if _key.startswith("SECT_"): ALL_SECTIONS.add(locals()[_key])
+
 # FORMAT: (<name>, <description>, <default-value>)
 DEFAULT_CONFIG = {
     # MongoDB Configuration
@@ -69,11 +74,7 @@ def formatDefaultConfig():
     ret += "# Created %s\n" % (datetime.now())
     
     first = True
-    for key in globals():
-        if not key.startswith("SECT_"):
-            continue
-        key = globals()[key]
-        
+    for key in ALL_SECTIONS:
         if not first:
             ret += "\n\n# " + ("-"*60) + "\n"
         ret += "\n[%s]" % key
@@ -114,31 +115,26 @@ def formatConfigList(name, config):
 ## ==============================================
 def makeDefaultConfig():
     """
-        Return a dict of the default configuration
+        Return a ConfigParser of the default configuration
     """
-    config = { }
-    for key in globals():
-        if not key.startswith("SECT_"):
-            continue
-        key = globals()[key]
-        config = dict(config.items() + [(name, default) for name, desc, default in DEFAULT_CONFIG[key]])
-    ## FOR
-        
-    return (ret)
+    from ConfigParser import RawConfigParser
+    return setDefaultValues(RawConfigParser())
 ## DEF
 
 ## ==============================================
 ## setDefaultValues
 ## ==============================================
-def setDefaultValues(cparser):
+def setDefaultValues(config):
     """Set the default values for the given SafeConfigParser"""
-    for section in cparser.sections():
-        assert section in DEFAULT_CONFIG, "Unexpected configuration section '%s'" % section
-        for key, desc, default in DEFAULT_CONFIG[section]:
-            if not cparser.has_option(section, key):
-                cparser.set(section, key, default)
+    for sect in ALL_SECTIONS:
+        if not config.has_section(sect):
+            config.add_section(sect)
+        for key, desc, default in DEFAULT_CONFIG[sect]:
+            if not config.has_option(sect, key):
+                config.set(sect, key, default)
+                    
         ## FOR
     ## FOR
-    return (cparser)
+    return (config)
 ## DEF
     
