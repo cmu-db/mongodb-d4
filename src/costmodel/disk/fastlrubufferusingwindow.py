@@ -90,10 +90,14 @@ class FastLRUBufferWithWindow:
         return target
 
     def __clone_buffer_value__(self, source): # clone the "link" in the doubly linked-list
+        if source is None:
+            return None
+        
         newValue = [None, None, None]
         newValue[PREV_BUFFER_ENTRY] = source[PREV_BUFFER_ENTRY][:] if source[PREV_BUFFER_ENTRY] else None
         newValue[NEXT_BUFFER_ENTRY] = source[NEXT_BUFFER_ENTRY][:] if source[NEXT_BUFFER_ENTRY] else None
 
+        return newValue
     def getDocumentFromIndex(self, col_name, indexKeys, documentId):
         """
             Get the documents from the given index
@@ -153,8 +157,7 @@ class FastLRUBufferWithWindow:
             if not self.preload: break
 
             col_info = self.collections[col_name]
-            indexes = design.getIndexes(col_name)
-            print indexes
+            indexes = design.getIndexes(col_name) 
 
             # How much space are they allow to have in the initial configuration
             col_remaining = int(self.window_size * (delta * col_info['workload_percent']))

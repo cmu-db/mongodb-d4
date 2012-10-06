@@ -53,7 +53,6 @@ class DiskCostComponent(AbstractCostComponent):
         self.debug = False
 
         self.buffers = [ ]
-        print "buffer number: "
         for i in xrange(self.state.num_nodes):
             lru = FastLRUBufferWithWindow(self.state.collections, self.state.window_size, preload=constants.DEFAULT_LRU_PRELOAD)
             self.buffers.append(lru)

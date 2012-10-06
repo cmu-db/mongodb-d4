@@ -27,7 +27,7 @@ class CostModelTestCase(MongoDBTestCase):
     NUM_DOCUMENTS = 10000000
     NUM_SESSIONS = 250
     NUM_FIELDS = 4
-    NUM_NODES = 1
+    NUM_NODES = 8
     NUM_INTERVALS = 10
 
     def setUp(self):
