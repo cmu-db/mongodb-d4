@@ -66,7 +66,7 @@ class MaxNum(self):
 			commentCtr += 1
 			self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}})
 			if articleId==0 or articleId%1000:
-				print("Inserted ".commentCtr." articles so far\n")
+				print "Inserted ".commentCtr." articles so far\n"
 				
 	if __name__ == '__main__':
 		#executed as script
