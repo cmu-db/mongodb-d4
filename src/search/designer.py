@@ -218,7 +218,7 @@ class Designer():
         if not len(workload):
             raise Exception("No workload sessions were found in database\n%s" % pformat(workloadQuery))
         LOG.info("Loaded %d sessions with %d operations from workload database", len(workload), op_ctr)
-        return (workload)
+        return workload
     ## DEF
 
     ## -------------------------------------------------------------------------
@@ -228,7 +228,7 @@ class Designer():
     def search(self):
         """Perform the actual search for a design"""
         
-        collection = self.loadCollections()
+        collections = self.loadCollections()
         workload = self.loadWorkload()
 
         # Instantiate cost model

@@ -1,4 +1,3 @@
-
 import os, sys
 import random
 import time
@@ -23,11 +22,11 @@ class CostModelTestCase(MongoDBTestCase):
         Base test case for cost model components
     """
 
-    COLLECTION_NAMES = ["squirrels", "girls"]
+    COLLECTION_NAMES = ["squirrels", "girls", "koalas", "apples"]
     NUM_DOCUMENTS = 10000000
-    NUM_SESSIONS = 100
-    NUM_FIELDS = 6
-    NUM_NODES = 8
+    NUM_SESSIONS = 250
+    NUM_FIELDS = 4
+    NUM_NODES = 1
     NUM_INTERVALS = 10
 
     def setUp(self):
@@ -53,7 +52,11 @@ class CostModelTestCase(MongoDBTestCase):
                 responseId = (queryId<<8)
                 for f in xrange(0, CostModelTestCase.NUM_FIELDS):
                     f_name = "field%02d" % f
-                    if f % 2 == 0:
+                    if i % 3 == 0 and f == 2:
+                        responseContent[f_name] = random.randint(0, 100)
+                        queryContent[f_name] = responseContent[f_name]
+                        queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
+                    elif f == 0:
                         responseContent[f_name] = random.randint(0, 100)
                         queryContent[f_name] = responseContent[f_name]
                         queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
@@ -97,16 +100,16 @@ class CostModelTestCase(MongoDBTestCase):
             col_info['avg_doc_size'] = 1024 # bytes
             col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / (4 * 1024)
             col_info.save()
-        #            print pformat(col_info)
+            #            print pformat(col_info)
 
         self.costModelConfig = {
             'max_memory':     1024, # MB
             'skew_intervals': CostModelTestCase.NUM_INTERVALS,
             'address_size':   64,
             'nodes':          CostModelTestCase.NUM_NODES,
-            'window_size':    1024
+            'window_size':    100
         }
 
         self.state = State(self.collections, self.workload, self.costModelConfig)
-    ## DEF
+        ## DEF
 ## CLASS

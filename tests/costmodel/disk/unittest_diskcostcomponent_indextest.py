@@ -9,7 +9,7 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../"))
 
 # mongodb-d4
-from costmodeltestcase import CostModelTestCase
+from costmodeltestcase_index import CostModelTestCase
 from search import Design
 from workload import Session
 from util import constants

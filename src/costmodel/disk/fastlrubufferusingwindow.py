@@ -149,7 +149,7 @@ class FastLRUBufferWithWindow:
                     index_page_hits += self.__push__(index_tuple)
                 return tuple_page_hits + index_page_hits
             else:
-                return self.__push__(buffer_tuple)
+                return tuple_page_hits
         ## DEF
 
     def __init_collections__(self, design, delta):

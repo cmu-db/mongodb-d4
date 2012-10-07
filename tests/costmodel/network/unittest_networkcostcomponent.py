@@ -49,64 +49,62 @@ class TestNetworkCost(CostModelTestCase):
         self.assertLess(cost0, cost1)
     ## DEF
 
-    # FIXME
-    # Uncomment this after we get the WorkloadCombiner working
-    #def testNetworkCostDenormalization(self):
-        #"""Check network cost for queries that reference denormalized collections"""
-
-        ## Get the "base" design cost when all of the collections
-        ## are sharded on their "interesting" fields
-        #d = Design()
-        #for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
-            #col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            #d.addCollection(col_info['name'])
-            #if i == 0:
-                #d.addShardKey(col_info['name'], col_info['interesting'])
-            #else:
-                #d.addShardKey(col_info['name'], ["_id"])
-        ### FOR
-        #cost0 = self.cm.getCost(d)
-        ##        print "cost0:", cost0
-
-        ## Now get the network cost for when we denormalize the
-        ## second collection inside of the first one
-        ## We should have a lower cost because there should now be fewer queries
-        #d = Design()
-        #for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
-            #col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            #self.assertTrue(col_info['interesting'])
-            #d.addCollection(col_info['name'])
-            #if i == 0:
-                #d.addShardKey(col_info['name'], col_info['interesting'])
-            #else:
-                #parent = self.collections[CostModelTestCase.COLLECTION_NAMES[0]]
-                #self.assertIsNotNone(parent)
-                #d.setDenormalizationParent(col_info['name'], parent['name'])
-                #self.assertTrue(d.isDenormalized(col_info['name']), col_info['name'])
-                #self.assertIsNotNone(d.getDenormalizationParent(col_info['name']))
-        ### FOR
-        #self.state.reset()
-        #self.cm.reset()
-        #cost1 = self.cm.getCost(d)
-        ##        print "cost1:", cost1
-
-        ## The denormalization cost should also be the same as the cost
-        ## when we remove all of the ops one the second collection
-        #for sess in self.workload:
-            #for op in sess["operations"]:
-                #if op["collection"] <> CostModelTestCase.COLLECTION_NAMES[0]:
-                    #sess["operations"].remove(op)
-            ### FOR (op)
-        ### FOR (sess)
-        #for i in xrange(1, len(CostModelTestCase.COLLECTION_NAMES)):
-            #del self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-        #self.cm.reset()
-        #cost2 = self.cm.getCost(d)
-        ##        print "cost2:", cost2
-
-        #self.assertLess(cost1, cost0)
-        #self.assertEqual(cost1, cost2)
-    ### DEF
+#    def testNetworkCostDenormalization(self):
+#        """Check network cost for queries that reference denormalized collections"""
+#
+#        # Get the "base" design cost when all of the collections
+#        # are sharded on their "interesting" fields
+#        d = Design()
+#        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+#            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+#            d.addCollection(col_info['name'])
+#            if i == 0:
+#                d.addShardKey(col_info['name'], col_info['interesting'])
+#            else:
+#                d.addShardKey(col_info['name'], ["_id"])
+#        ## FOR
+#        cost0 = self.cm.getCost(d)
+#        #        print "cost0:", cost0
+#
+#        # Now get the network cost for when we denormalize the
+#        # second collection inside of the first one
+#        # We should have a lower cost because there should now be fewer queries
+#        d = Design()
+#        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
+#            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+#            self.assertTrue(col_info['interesting'])
+#            d.addCollection(col_info['name'])
+#            if i == 0:
+#                d.addShardKey(col_info['name'], col_info['interesting'])
+#            else:
+#                parent = self.collections[CostModelTestCase.COLLECTION_NAMES[0]]
+#                self.assertIsNotNone(parent)
+#                d.setDenormalizationParent(col_info['name'], parent['name'])
+#                self.assertTrue(d.isDenormalized(col_info['name']), col_info['name'])
+#                self.assertIsNotNone(d.getDenormalizationParent(col_info['name']))
+#        ## FOR
+#        self.state.reset()
+#        self.cm.reset()
+#        cost1 = self.cm.getCost(d)
+#        #        print "cost1:", cost1
+#
+#        # The denormalization cost should also be the same as the cost
+#        # when we remove all of the ops one the second collection
+#        for sess in self.workload:
+#            for op in sess["operations"]:
+#                if op["collection"] <> CostModelTestCase.COLLECTION_NAMES[0]:
+#                    sess["operations"].remove(op)
+#            ## FOR (op)
+#        ## FOR (sess)
+#        for i in xrange(1, len(CostModelTestCase.COLLECTION_NAMES)):
+#            del self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+#        self.cm.reset()
+#        cost2 = self.cm.getCost(d)
+#        #        print "cost2:", cost2
+#
+#        self.assertLess(cost1, cost0)
+#        self.assertEqual(cost1, cost2)
+    ## DEF
 
 ## CLASS
 

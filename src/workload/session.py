@@ -26,6 +26,8 @@ class Session(Document):
         'operations': [ {
             # The name of the collection targeted in this operation
             'collection':       basestring,
+            # The name of collections that are embedded in the collection this query will touch
+            'embedded_collection': list,
             # The type of the query ($delete, $insert, $update, $query)
             # See OPT_TYPE_* in util/constants.py
             'type':             basestring, # IS(constants.OP_TYPE_ALL),

@@ -44,7 +44,10 @@ class WorkloadCombiner:
         self.origWorkload = copy.deepcopy(self.workload)
         
         # Build indexes from collections to sessions
-        self.col_sess_xref = dict([(col_info["name"], []) for col_info in self.collections])
+        self.col_sess_xref = {}
+        for col_info in self.collections.itervalues():
+            self.col_sess_xref[col_info["name"]] = []
+
         for sess in self.workload:
             cols = set()
             for op in sess["operations"]:
@@ -63,57 +66,37 @@ class WorkloadCombiner:
             For a new design, return a modified version of the workload where operations
             are combined with each other based on the denormalization scheme.
         """
-        
-        
-        # If we have a previous design, then get the list of collections
-        # that have changed in our new design.
-        if not self.lastDesign is None:
-            delta = self.design.getDelta(self.lastDesign)
-        
-            for col_name in delta:
-                # Check whether this collection is embedded inside of another
-                # TODO: Need to get ancestor
-                parent_col = design.getDenormalizationParent(op['collection'])
-        
-                # TODO
-        
-        
+        for col_name in design.getCollections():
+            parent_col = design.getDenormalizationParent(col_name)
+            if parent_col:
+                self.__combine_queries__(col_name, parent_col)
+
+        self.lastDesign = design.copy()
+
+        return self.workload
     ## DEF
     
-    def denormalizeSession(self, sess):
-        # TODO: The following is old code that used to be in NetworkCostComponent
-        previous_op = None
-        for op in sess['operations']:
-            process = False
-            # This is the first op we've seen in this session
-            if not previous_op:
-                process = True
-            # Or this operation's target collection is not embedded
-            elif not parent_col:
-                process = True
-            # Or if either the previous op or this op was not a query
-            elif previous_op['type'] <> constants.OP_TYPE_QUERY or op['type'] <> constants.OP_TYPE_QUERY:
-                process = True
-            # Or if the previous op was
-            elif previous_op['collection'] <> parent_col:
-                process = True
-                # TODO: What if the previous op should be merged with a later op?
-                #       We would lose it because we're going to overwrite previous op
-            
-            if process:
-                # TODO: Do something....
-                pass
-            
-            previous_op = op
-        ## FOR
-        
-        #elif self.debug:
-            #LOG.debug("SKIP - %s Op #%d on %s [parent=%s / previous=%s]",\
-            #op['type'], op['query_id'], op['collection'],\
-            #parent_col, (previous_op != None))
-            
-        
-        pass
-    ## DEF
+    # If we want to embed queries accessing collection B to queries accessing collection A
+    # We just remove all the queries that
+    def __combine_queries__(self, col, parent_col):
+        # Get the sessions that contain queries to this collection
+        sessions = self.col_sess_xref[col]
+        for sess in sessions:
+            operations = sess['operations']
+            operations_in_use = operations[:]
+            cursor = len(operations)  - 1
+            combinedQueries = []
+            while cursor > 0: # if cursor is 0, there won't be any embedding happening
+                for i in xrange(len(operations) - 1, - 1, -1):
+                    if operations_in_use[i]['collection'] == col:
+                        combinedQueries.append(operations_in_use.pop(i))
+                    elif operations_in_use[i]['collection'] == parent_col and len(operations_in_use) < len(operations):
+                        operations_in_use[i]['embedded_collection'] = combinedQueries[:]
+                        combinedQueries = []
+                        operations = operations_in_use[:]
+                        sess['operations'] = operations[:]
+                        cursor = i
+                        break
+    # DEF
     
 ## CLASS

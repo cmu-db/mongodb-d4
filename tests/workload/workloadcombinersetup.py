@@ -23,10 +23,10 @@ class CostModelTestCase(MongoDBTestCase):
         Base test case for cost model components
     """
 
-    COLLECTION_NAMES = ["squirrels", "girls"]
+    COLLECTION_NAMES = ["apples", "koalas"]
     NUM_DOCUMENTS = 10000000
-    NUM_SESSIONS = 100
-    NUM_FIELDS = 6
+    NUM_SESSIONS = 2
+    NUM_FIELDS = 1
     NUM_NODES = 8
     NUM_INTERVALS = 10
 
@@ -53,13 +53,9 @@ class CostModelTestCase(MongoDBTestCase):
                 responseId = (queryId<<8)
                 for f in xrange(0, CostModelTestCase.NUM_FIELDS):
                     f_name = "field%02d" % f
-                    if f % 2 == 0:
-                        responseContent[f_name] = random.randint(0, 100)
-                        queryContent[f_name] = responseContent[f_name]
-                        queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
-                    else:
-                        responseContent[f_name] = str(random.randint(1000, 100000))
-                        ## FOR
+                    responseContent[f_name] = random.randint(0, 100)
+                    queryContent[f_name] = responseContent[f_name]
+                    queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
 
                 queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
                 op = Session.operationFactory()
@@ -97,7 +93,7 @@ class CostModelTestCase(MongoDBTestCase):
             col_info['avg_doc_size'] = 1024 # bytes
             col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / (4 * 1024)
             col_info.save()
-        #            print pformat(col_info)
+            #            print pformat(col_info)
 
         self.costModelConfig = {
             'max_memory':     1024, # MB
@@ -108,5 +104,5 @@ class CostModelTestCase(MongoDBTestCase):
         }
 
         self.state = State(self.collections, self.workload, self.costModelConfig)
-    ## DEF
-## CLASS
+        ## DEF
+        ## CLASS
