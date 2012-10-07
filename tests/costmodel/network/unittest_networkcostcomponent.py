@@ -33,7 +33,7 @@ class TestNetworkCost(CostModelTestCase):
         d.addCollection(col_info['name'])
         d.addShardKey(col_info['name'], col_info['interesting'])
         cost0 = self.cm.getCost(d)
-        #        print "cost0:", cost0
+        print "cost0: ", cost0
 
         # If we now shard the collection on just '_id', then every query
         # should have to touch every node. The cost of this design
@@ -41,10 +41,10 @@ class TestNetworkCost(CostModelTestCase):
         d = Design()
         d.addCollection(col_info['name'])
         d.addShardKey(col_info['name'], ['_id'])
-        self.cm.reset()
+        self.cm.invalidateCache(d, col_info['name'])
         self.state.reset()
         cost1 = self.cm.getCost(d)
-        #        print "cost1:", cost1
+        print "cost1: ", cost1
 
         self.assertLess(cost0, cost1)
     ## DEF
@@ -104,7 +104,7 @@ class TestNetworkCost(CostModelTestCase):
 #
 #        self.assertLess(cost1, cost0)
 #        self.assertEqual(cost1, cost2)
-    ## DEF
+#    # DEF
 
 ## CLASS
 

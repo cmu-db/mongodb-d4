@@ -46,7 +46,7 @@ class NetworkCostComponent(AbstractCostComponent):
         
         # COL_NAME -> [OP_COUNT, MSG_COUNT]
         self.cache = { }
-        
+        self.lastDesign = None
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
@@ -57,9 +57,13 @@ class NetworkCostComponent(AbstractCostComponent):
             if col_name in self.cache: del self.cache[col_name]
     ## DEF
 
+    def reset(self):
+        self.cache = { }
+
     def getCostImpl(self, design):
         if self.debug: LOG.debug("Computing network cost for %d sessions", len(self.state.workload))
-        
+
+        self.lastDesign = design
         # Build a cache for the network cost per collection
         # That way if the design doesn't change for a collection, we
         # can reuse the message & op counts from the last calculation
@@ -88,7 +92,13 @@ class NetworkCostComponent(AbstractCostComponent):
                 
                 # Store it in our cache so that we can reuse it
                 self.cache[col_name] = (op_count, msg_count)
-                
+
+                print op_count
+                print msg_count
+
+                total_op_count += op_count
+                total_msg_count += msg_count
+
         if total_op_count > 0:
             cost = total_msg_count / float(total_op_count * self.state.num_nodes)
 

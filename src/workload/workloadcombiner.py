@@ -45,8 +45,8 @@ class WorkloadCombiner:
         
         # Build indexes from collections to sessions
         self.col_sess_xref = {}
-        for col_info in self.collections.itervalues():
-            self.col_sess_xref[col_info["name"]] = []
+        for col_name in self.collections.iterkeys():
+            self.col_sess_xref[col_name] = []
 
         for sess in self.workload:
             cols = set()
