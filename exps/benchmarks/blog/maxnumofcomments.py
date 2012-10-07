@@ -13,21 +13,22 @@ from pprint import pprint, pformat
 
 # quick and dirty
 
-def test(self):
+def test():
+	LOG = logging.getLogger(__name__)
 	conn = None
 	targetHost = "bronze.cs.brown.edu"
-	targetPort = "27017"
+	targetPort = 27017
 	try:
 		conn = pymongo.Connection(targetHost, targetPort)
 	except:
 		LOG.error("Failed to connect to target MongoDB at %s:%s" % (targetHost, targetPort))
 		raise
-	assert conn
+	#assert conn
 	db = conn["test"]
-	print("test");
 	titleSize = 150
 	contentSize = 6000
-	numComments = 2
+	numComments = 23
+	articleId = 1
 	articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
 	title = randomString(titleSize)
 	slug = list(title.replace(" ", ""))
@@ -38,7 +39,7 @@ def test(self):
 				## FOR
 	slug = "".join(slug)
 	article = {
-		"id": 1,
+		"id": articleId,
 		"title": title,
 		"date": articleDate,
 		"author": 1,
@@ -46,27 +47,28 @@ def test(self):
 		"content": randomString(contentSize),
 		"numComments": numComments,
 	}
-
+	db[constants.ARTICLE_COLL].insert(article)
+	print("perasa");
+	commentCtr=0
 	lastDate = articleDate
 	for ii in xrange(0, numComments):
 		lastDate = randomDate(lastDate, constants.STOP_DATE)
-		commentAuthor = randomString(15))
+		commentAuthor = randomString(15)
 		commentSize = 300
 		commentContent = randomString(commentSize)
 		
 		comment = {
-			"id": self.getNextCommentId(),
+			"id": commentCtr,
 			"article": articleId,
 			"date": lastDate, 
 			"author": commentAuthor,
 			"comment": commentContent,
-			"rating": int(self.ratingZipf.next())
+			"rating": 100
 		}
 		commentCtr += 1
 		db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}})
-		if articleId==0 or articleId%1000:
-			msg="inserted ".join(commentCtr)
-			print(msg)
+		if commentCtr==0 or commentCtr%1000==0:
+			print(commentCtr)
 # def			
 if __name__ == '__main__':
 	#executed as script
