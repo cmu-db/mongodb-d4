@@ -93,7 +93,8 @@ class WorkloadCombiner:
                 if operations_in_use[cursor]['collection'] == col:
                     combinedQueries.append(operations_in_use.pop(cursor))
                 elif operations_in_use[cursor]['collection'] == parent_col and len(combinedQueries) > 0:
-                    operations_in_use[cursor]['embedded_collection'] = combinedQueries[:]
+                    for query in combinedQueries:
+                        operations_in_use[cursor]['query_content'].extend(query['query_content'])
                     combinedQueries = []
                     operations = operations_in_use[:]
                     sess['operations'] = operations[:]
