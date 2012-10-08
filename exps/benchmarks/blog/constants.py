@@ -28,8 +28,13 @@ from datetime import datetime
 #DB_NAME = 'microblog'
 ARTICLE_COLL = 'articles'
 COMMENT_COLL = 'comments'
+
+NUM_AUTHORS = 32
+
+
+
+#to be deprecated
 NUM_ARTICLES = 10000
-NUM_AUTHORS = 30
 MAX_AUTHOR_SIZE = 20
 MAX_TITLE_SIZE = 200
 MAX_CONTENT_SIZE = 102400
@@ -37,12 +42,15 @@ MAX_COMMENT_SIZE = 1024
 MAX_COMMENT_RATING = 100
 MAX_NUM_COMMENTS = 100
 
+
+
+
 WORKLOAD_READ_PERCENT  = 90
 WORKLOAD_WRITE_PERCENT = 10 
 assert (WORKLOAD_READ_PERCENT+WORKLOAD_WRITE_PERCENT) == 100
 
 START_DATE = datetime.strptime('1/1/2008 1:30 PM', '%m/%d/%Y %I:%M %p')
-STOP_DATE = datetime.now()
+STOP_DATE = datetime.strptime('1/1/2012 1:30 PM', '%m/%d/%Y %I:%M %p')
 
 # Experiment Type Codes
 EXP_SHARDING        = "sharding"

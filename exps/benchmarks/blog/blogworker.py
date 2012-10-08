@@ -423,7 +423,7 @@ class BlogWorker(AbstractWorker):
         return
     ## DEF
     
-    def readArticle(self, denormalize, articleId):
+    def readArticleById(self, denormalize, articleId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
@@ -439,34 +439,62 @@ class BlogWorker(AbstractWorker):
             assert "comments" in article, pformat(article)
             comments = article["comments"]
     ## DEF
-    
-    def writeComment(self, denormalize, articleId):
-        # Generate a random comment document
-        # The commentIds are generated 
-        commentAuthor = randomString(int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4)))
-        commentContent = randomString(int(random.gauss(constants.MAX_COMMENT_SIZE/2, constants.MAX_COMMENT_SIZE/4)))
-        comment = {
-            "id":       self.getNextCommentId(),
-            "article":  articleId,
-            "date":     datetime.now(), 
-            "author":   commentAuthor,
-            "comment":  commentContent,
-            "rating":   int(self.ratingZipf.next())
-        }
-        
-        # If we're denormalized, then we need to append our comment
-        # to the article's list of comments
-        if denormalize:
-            #self.db[constants.ARTICLE_COLL].update({"id": articleId}, {"$push": {"comments": comment})
-            pass
-        
-        # Otherwise, we can just insert it into the COMMENTS collection
+	
+	def readArticleByAuthor(self,denormalize,author):
+		article = self.db[constants.ARTICLE_COLL].find_one({"author": author})
+		articleId = article["id"]
+		if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
+        assert article["author"] == author, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+            
+        # If we didn't denormalize, then we have to execute a second
+        # query to get all of the comments for this article
+        if not denormalize:
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
         else:
-            self.db[constants.COMMENT_COLL].insert(comment)
-    
-        return
+            assert "comments" in article, pformat(article)
+            comments = article["comments"]
     ## DEF
-    
+	
+	def readArticleByDate(self,denormalize,date):
+		article = self.db[constants.ARTICLE_COLL].find_one({"date": date})
+		articleId = article["id"]
+		if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
+        assert article["author"] == author, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+            
+        # If we didn't denormalize, then we have to execute a second
+        # query to get all of the comments for this article
+        if not denormalize:
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
+        else:
+            assert "comments" in article, pformat(article)
+            comments = article["comments"]
+    ## DEF
+	
+	
+	def readArticleByAuthorAndDate(self,denormalize,author,date):
+		article = self.db[constants.ARTICLE_COLL].find_one({"author":author,"date": date})
+		articleId = article["id"]
+		if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
+        assert article["author"] == author, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+            
+        # If we didn't denormalize, then we have to execute a second
+        # query to get all of the comments for this article
+        if not denormalize:
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
+        else:
+            assert "comments" in article, pformat(article)
+            comments = article["comments"]
+    ## DEF
+	
     def readArticleTopTenComments(self,denormalize,articleId):
         
         # We are searching for the comments that had been written for the article with articleId 
@@ -496,6 +524,34 @@ class BlogWorker(AbstractWorker):
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
         
         
+    ## DEF
+	
+	
+    def writeComment(self, denormalize, articleId):
+        # Generate a random comment document
+        # The commentIds are generated 
+        commentAuthor = randomString(constants.MAX_AUTHOR_SIZE)
+        commentContent = randomString(int(random.gauss(constants.MAX_COMMENT_SIZE/2, constants.MAX_COMMENT_SIZE/4)))
+        comment = {
+            "id":       self.getNextCommentId(),
+            "article":  articleId,
+            "date":     datetime.now(), 
+            "author":   commentAuthor,
+            "comment":  commentContent,
+            "rating":   int(self.ratingZipf.next())
+        }
+        
+        # If we're denormalized, then we need to append our comment
+        # to the article's list of comments
+        if denormalize:
+            #self.db[constants.ARTICLE_COLL].update({"id": articleId}, {"$push": {"comments": comment})
+            pass
+        
+        # Otherwise, we can just insert it into the COMMENTS collection
+        else:
+            self.db[constants.COMMENT_COLL].insert(comment)
+    
+        return
     ## DEF
 
     def expIndexes(self, articleId):
