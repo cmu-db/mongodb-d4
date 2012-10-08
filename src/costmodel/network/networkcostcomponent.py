@@ -93,9 +93,6 @@ class NetworkCostComponent(AbstractCostComponent):
                 # Store it in our cache so that we can reuse it
                 self.cache[col_name] = (op_count, msg_count)
 
-                print op_count
-                print msg_count
-
                 total_op_count += op_count
                 total_msg_count += msg_count
 

@@ -126,17 +126,8 @@ class State():
         # It's up to the cost components to figure things out based on that
         self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
         self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
-        for sess in self.workload:
-            cols = set()
-            for op in sess["operations"]:
-                col_name = op["collection"]
-                if col_name in self.col_sess_xref:
-                    self.col_op_xref[col_name].append(op)
-                    cols.add(col_name)
-            ## FOR (op)
-            for col_name in cols:
-                self.col_sess_xref[col_name].append(sess)
-        ## FOR (sess)
+        
+        self.__buildCrossReference__();
         
         ## ----------------------------------------------
         ## CACHING
@@ -149,6 +140,28 @@ class State():
         self.cache_handles = { }
     ## DEF
 
+    def updateWorkload(self, workload):
+        self.workload = workload
+        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
+        self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
+        self.__buildCrossReference__()
+        
+    def __buildCrossReference__(self):
+        counter = 0
+        for sess in self.workload:
+            cols = set()
+            for op in sess["operations"]:
+                counter += 1
+                col_name = op["collection"]
+                if col_name in self.col_sess_xref:
+                    self.col_op_xref[col_name].append(op)
+                    cols.add(col_name)
+            ## FOR (op)
+            for col_name in cols:
+                self.col_sess_xref[col_name].append(sess)
+        ## FOR (sess)
+        
+        print "Query number: ", counter
     def invalidateCache(self, col_name):
         if col_name in self.cache_handles:
             if self.debug: LOG.debug("Invalidating cache for collection '%s'", col_name)

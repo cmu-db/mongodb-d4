@@ -78,6 +78,36 @@ class TestWorkloadCombiner(CostModelTestCase):
         print "cost1 " + str(cost1)
         
         self.assertEqual(cost0, cost1)
+        
+    def testGetCollectionsInProperOder(self):
+        original_number_of_queries = 0
+        for sess in self.workload:
+            for op in sess["operations"]:
+                original_number_of_queries += 1
+
+        print "orignal number of queries: " + str(original_number_of_queries)
+
+        # Initialize a combiner
+        combiner = WorkloadCombiner(self.collections, self.workload)
+
+        # initialize a design with denormalization
+        d = Design()
+        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES) - 1, -1, -1):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+            d.addCollection(col_info['name'])
+
+        d.setDenormalizationParent("koalas", "apples")
+
+        combinedWorkload = combiner.process(d)
+
+        number_of_queries_from_combined_workload = 0
+        for sess in combinedWorkload:
+            for op in sess["operations"]:
+                number_of_queries_from_combined_workload += 1
+                
+        print "number of queries after query combination: " + str(number_of_queries_from_combined_workload)
+
+        self.assertGreater(original_number_of_queries, number_of_queries_from_combined_workload)
 ## CLASS
 
 if __name__ == '__main__':
