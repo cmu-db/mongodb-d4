@@ -26,6 +26,7 @@
 import logging
 import copy
 from pprint import pformat
+import operator
 
 from util.histogram import Histogram
 from util import constants
@@ -66,7 +67,9 @@ class WorkloadCombiner:
             For a new design, return a modified version of the workload where operations
             are combined with each other based on the denormalization scheme.
         """
-        for col_name in design.getCollections():
+        collectionsInProperOrder = self.__GetCollectionsInProperOder__(design)
+
+        for col_name in collectionsInProperOrder:
             parent_col = design.getDenormalizationParent(col_name)
             if parent_col:
                 self.__combine_queries__(col_name, parent_col)
@@ -86,17 +89,39 @@ class WorkloadCombiner:
             operations_in_use = operations[:]
             cursor = len(operations)  - 1
             combinedQueries = []
-            while cursor > 0: # if cursor is 0, there won't be any embedding happening
-                for i in xrange(len(operations) - 1, - 1, -1):
-                    if operations_in_use[i]['collection'] == col:
-                        combinedQueries.append(operations_in_use.pop(i))
-                    elif operations_in_use[i]['collection'] == parent_col and len(operations_in_use) < len(operations):
-                        operations_in_use[i]['embedded_collection'] = combinedQueries[:]
-                        combinedQueries = []
-                        operations = operations_in_use[:]
-                        sess['operations'] = operations[:]
-                        cursor = i
-                        break
+            while cursor > -1: # if cursor is 0, there won't be any embedding happening
+                if operations_in_use[cursor]['collection'] == col:
+                    combinedQueries.append(operations_in_use.pop(cursor))
+                elif operations_in_use[cursor]['collection'] == parent_col and len(combinedQueries) > 0:
+                    operations_in_use[cursor]['embedded_collection'] = combinedQueries[:]
+                    combinedQueries = []
+                    operations = operations_in_use[:]
+                    sess['operations'] = operations[:]
+
+                cursor -= 1
     # DEF
-    
+
+    # if C -> B and B -> A, we want C to appear first in the __combine_queries__ setup
+    def __GetCollectionsInProperOder__(self, design):
+        # initialize collection scores dictionary
+        collection_scores = {}
+        collections = design.getCollections()
+
+        for col in collections:
+            collection_scores[col] = 0
+        
+        for col in collections:
+            self.__update_score__(col, design, collection_scores)
+        
+        sorted_collection_with_Score = sorted(collection_scores.iteritems(), key=operator.itemgetter(1))
+
+        sorted_collection = [x[0] for x in sorted_collection_with_Score]
+
+        return sorted_collection
+
+    def __update_score__(self, col, design, collection_scores):
+        parent_col = design.getDenormalizationParent(col)
+        if parent_col:
+            collection_scores[parent_col] += 1
+            self.__update_score__(parent_col, design, collection_scores)
 ## CLASS
