@@ -485,7 +485,8 @@ class BlogWorker(AbstractWorker):
             return
         assert article["author"] == author, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-            
+        assert article["date"] == date, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
         # If we didn't denormalize, then we have to execute a second
         # query to get all of the comments for this article
         if not denormalize:
@@ -526,6 +527,12 @@ class BlogWorker(AbstractWorker):
         
     ## DEF
 	
+	def incViewsComment(self,denormalize,articleId):
+		# Increase the views of an article by one
+		result=self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : "views"},True)
+		if not result:
+            LOG.warn("Failed to increase views on %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
 	
     def writeComment(self, denormalize, articleId):
         # Generate a random comment document
