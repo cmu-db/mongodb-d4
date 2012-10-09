@@ -15,7 +15,7 @@ from workload import Session
 from util import constants
 from costmodel.disk import DiskCostComponent
 
-class TestDiskCost(CostModelTestCase):
+class TestDiskCostIndexes(CostModelTestCase):
 
     def setUp(self):
         CostModelTestCase.setUp(self)

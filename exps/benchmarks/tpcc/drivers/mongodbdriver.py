@@ -235,8 +235,8 @@ class MongodbDriver(AbstractDriver):
             self.__dict__[name.lower()] = self.database[name]
             
             ## Create Indexes
-            if load_indexes and name in TABLE_INDEXES and \
-                (self.denormalize or (self.denormalize == False and not name in MongodbDriver.DENORMALIZED_TABLES[1:])):
+            if load_indexes and name in TABLE_INDEXES: # and \
+                #(self.denormalize or (self.denormalize == False and not name in MongodbDriver.DENORMALIZED_TABLES[1:])):
                 LOG.debug("Creating index for %s" % name)
                 for index in TABLE_INDEXES[name]:
                     index = [ (key, pymongo.ASCENDING) for key in index ]
