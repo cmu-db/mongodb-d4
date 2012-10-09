@@ -44,6 +44,8 @@ class Session(Document):
             'query_time':       float,
             # Query payload (BSON)
             'query_content':    list,
+            # Query projection fields (can be none)
+            'query_fields':     dict,
             # Query payload size [bytes]
             'query_size':       int,
             # Unique identifier of this query invocation
