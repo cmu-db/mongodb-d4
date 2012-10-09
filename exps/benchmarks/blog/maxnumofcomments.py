@@ -27,7 +27,7 @@ def test():
 	db = conn["test"]
 	titleSize = 150
 	contentSize = 6000
-	numComments = 23
+	numComments = 100000000
 	articleId = 1
 	articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
 	title = randomString(titleSize)
@@ -54,7 +54,7 @@ def test():
 	for ii in xrange(0, numComments):
 		lastDate = randomDate(lastDate, constants.STOP_DATE)
 		commentAuthor = randomString(15)
-		commentSize = 300
+		commentSize = 1024
 		commentContent = randomString(commentSize)
 		
 		comment = {
@@ -66,8 +66,8 @@ def test():
 			"rating": 100
 		}
 		commentCtr += 1
-		db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}})
-		if commentCtr==0 or commentCtr%1000==0:
+		db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}},safe=True)
+		if commentCtr==1 or commentCtr%1000==0:
 			print(commentCtr)
 # def			
 if __name__ == '__main__':

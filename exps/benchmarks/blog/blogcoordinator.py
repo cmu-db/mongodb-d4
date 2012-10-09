@@ -82,7 +82,7 @@ class BlogCoordinator(AbstractCoordinator):
         # Precompute our blog article authors
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
-            authorSize = int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4))
+            authorSize = constants.AUTHOR_NAME_SIZE
             self.authors.append(rand.randomString(authorSize))
         ## FOR
         

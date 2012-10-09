@@ -93,8 +93,9 @@ class BlogWorker(AbstractWorker):
         self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
         
+        numComments = int(config[self.name]["commentsperarticle"])
         # Zipfian distribution on the number of comments & their ratings
-        self.commentsZipf = ZipfGenerator(constants.MAX_NUM_COMMENTS, 1.0)
+        self.commentsZipf = ZipfGenerator(numComments, 1.0)
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.0)
         self.db = self.conn[config['default']["dbname"]]
         
@@ -243,10 +244,10 @@ class BlogWorker(AbstractWorker):
         commentTotal= 0
         numComments = int(config[self.name]["commentsperarticle"])
         for articleId in xrange(self.firstArticle, self.lastArticle+1):
-            titleSize = int(random.gauss(constants.MAX_TITLE_SIZE/2, constants.MAX_TITLE_SIZE/4))
-            contentSize = int(random.gauss(constants.MAX_CONTENT_SIZE/2, constants.MAX_CONTENT_SIZE/4))
-            
+            titleSize = constants.ARTICLE_TITLE_SIZE
             title = randomString(titleSize)
+            contentSize = constants.ARTICLE_CONTENT_SIZE
+            content = randmString(contentSize)
             slug = list(title.replace(" ", ""))
             if len(slug) > 64: slug = slug[:64]
             for idx in xrange(0, len(slug)):
@@ -262,7 +263,7 @@ class BlogWorker(AbstractWorker):
                 "date": articleDate,
                 "author": random.choice(authors),
                 "slug": slug,
-                "content": randomString(contentSize),
+                "content": content,
                 "numComments": numComments,
             }
             articleCtr+=1;
@@ -283,8 +284,8 @@ class BlogWorker(AbstractWorker):
             lastDate = articleDate
             for ii in xrange(0, numComments):
                 lastDate = randomDate(lastDate, constants.STOP_DATE)
-                commentAuthor = randomString(int(random.gauss(constants.MAX_AUTHOR_SIZE/2, constants.MAX_AUTHOR_SIZE/4)))
-                commentContent = randomString(int(random.gauss(constants.MAX_COMMENT_SIZE/2, constants.MAX_COMMENT_SIZE/4)))
+                commentAuthor = randomString(constants.AUTHOR_NAME_SIZE)
+                commentContent = randomString(constants.COMMENT_CONTENT_SIZE)
                 
                 comment = {
                     "id": self.getNextCommentId(),
@@ -527,7 +528,7 @@ class BlogWorker(AbstractWorker):
         
     ## DEF
 	
-	def incViewsComment(self,denormalize,articleId):
+	def incViewsArticle(self,denormalize,articleId):
 		# Increase the views of an article by one
 		result=self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : "views"},True)
 		if not result:
@@ -537,8 +538,8 @@ class BlogWorker(AbstractWorker):
     def writeComment(self, denormalize, articleId):
         # Generate a random comment document
         # The commentIds are generated 
-        commentAuthor = randomString(constants.MAX_AUTHOR_SIZE)
-        commentContent = randomString(int(random.gauss(constants.MAX_COMMENT_SIZE/2, constants.MAX_COMMENT_SIZE/4)))
+        commentAuthor = randomString(constants.AUTHOR_NAME_SIZE)
+        commentContent = randomString(constants.COMMENT_CONTENT_SIZE)
         comment = {
             "id":       self.getNextCommentId(),
             "article":  articleId,
