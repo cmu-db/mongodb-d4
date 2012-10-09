@@ -89,12 +89,16 @@ CONTENT_ERROR_MASK = "\s*[A-Z]\w{2} [\w]+ [\d]{1,2} [\d]{2}:[\d]{2}:[\d]{2} Asse
 FLAGS_MASK = ".*flags:(?P<flags>\d).*" #vals: 0,1,2,3
 NTORETURN_MASK = ".*ntoreturn: (?P<ntoreturn>-?\d+).*" # int 
 NTOSKIP_MASK = ".*ntoskip: (?P<ntoskip>\d+).*" #int
+HASFIELDS_MASK = ".*hasfields: (?P<hasfields>\{.*?\}).*" #dict
 
 # Original Code: Emanuel Buzek
 class Parser:
     """Mongosniff Trace Parser"""
     
     def __init__(self, metadata_db, fd):
+        assert metadata_db
+        assert fd
+        
         self.metadata_db = metadata_db
         self.fd = fd
         self.line_ctr = 0
@@ -158,12 +162,9 @@ class Parser:
         self.flagsRegex = re.compile(FLAGS_MASK)
         self.ntoreturnRegex = re.compile(NTORETURN_MASK)
         self.ntoskipRegex = re.compile(NTOSKIP_MASK)
+        self.hasfieldsRegex = re.compile(HASFIELDS_MASK)
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
-
-        assert self.metadata_db
-        assert self.fd
-        pass
     ## DEF
 
     def getSessionCount(self):
@@ -331,6 +332,8 @@ class Parser:
                 # SKIP, LIMIT
                 op['query_limit'] = self.currentOp['ntoreturn']
                 op['query_offset'] = self.currentOp['ntoskip']
+                if self.currentOp['hasfields']:
+                    op['query_fields'] = self.currentOp['hasfields']
             
                 # check for aggregate
                 # update collection name, set aggregate type
@@ -523,21 +526,34 @@ class Parser:
             self.currentOp['type'] = constants.OP_TYPE_KILLCURSORS
             return
 
+        # Convert YAML to JSON
+        obj = self.yaml2json(yaml_line)
+        
+        # If this is the first time we see this session, add it
+        # TODO: Do we still need this?
+        if 'whatismyuri' in obj:
+            self.getOrCreateSession(self.currentOp['ip_client'], this.currentOp['ip_server'])
+        
+        # Store the line in the curentContent buffer
+        self.currentContent.append(obj)
+        return
+    ## DEF
+    
+    def yaml2json(self, yaml_line):
         # this is not a content line... it can't be yaml
-        elif not yaml_line.startswith("{"):
+        if not yaml_line.startswith("{"):
             msg = "Invalid Content on Line %d: JSON does not start with '{'" % self.line_ctr
-            LOG.debug("Offending Line: %s" % yaml_line)
+            if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
             return
         elif not yaml_line.endswith("}"):
             msg = "Invalid Content on Line %d: JSON does not end with '}'" % self.line_ctr
-            LOG.debug(yaml_line)
+            if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
-            return    
+            return
         
-        #yaml parser might fail :D
         try:
             obj = yaml.load(yaml_line)
         except (yaml.scanner.ScannerError, yaml.parser.ParserError, yaml.reader.ReaderError) as err:
@@ -553,15 +569,7 @@ class Parser:
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
             return
-        
-        # If this is the first time we see this session, add it
-        # TODO: Do we still need this?
-        if 'whatismyuri' in obj:
-            self.getOrCreateSession(self.currentOp['ip_client'], this.currentOp['ip_server'])
-        
-        # Store the line in the curentContent buffer
-        self.currentContent.append(obj)
-        return
+        return obj
     ## DEF
 
     def process_content_line(self, line):
@@ -591,6 +599,14 @@ class Parser:
             # extract OFFSET and LIMIT
             self.currentOp['ntoskip'] = int(self.ntoskipRegex.match(line).group(1))
             self.currentOp['ntoreturn'] = int(self.ntoreturnRegex.match(line).group(1))
+            
+            self.currentOp['hasfields'] = None
+            m = self.hasfieldsRegex.match(line)
+            if m:
+                yaml_line = m.group(1)
+                self.currentOp['hasfields'] = self.yaml2json(yaml_line)
+                if self.debug: LOG.debug("HAS FIELDS: %s" % self.currentOp['hasfields'])
+                line = line.replace(yaml_line, "")
             
             line = line[line.find('{'):line.rfind('}')+1]
             self.add_yaml_to_content(line)
