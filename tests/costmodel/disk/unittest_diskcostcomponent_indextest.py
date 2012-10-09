@@ -25,7 +25,7 @@ class TestDiskCost(CostModelTestCase):
     def testDiskCostIndexes(self):
         """Check whether disk cost calculations work correctly"""
 
-        # First get the disk cost when there are no indexes
+        # # First get the disk cost when there are no indexes
         d = Design()
         for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
             col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
@@ -37,7 +37,7 @@ class TestDiskCost(CostModelTestCase):
         # has to perform a full sequential scan on the collection
         self.assertEqual(cost0, 1.0)
 
-        # Now add the all indexes. The disk cost should be lower
+        # # Now add the all indexes. The disk cost should be lower
         d = Design()
         for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
             col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
@@ -45,11 +45,13 @@ class TestDiskCost(CostModelTestCase):
             d.addIndex(col_info['name'], col_info['interesting'])
             self.state.invalidateCache(col_info['name'])
         ## FOR
+        self.cm.reset()
+        self.cm.state.reset()
         cost1 = self.cm.getCost(d)
         print "diskCost1:", cost1
         self.assertGreater(cost0, cost1)
 
-        # Now only add the most effective index
+        # Now only add one of the most effective index
         d = Design()
         for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
             col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
@@ -57,10 +59,13 @@ class TestDiskCost(CostModelTestCase):
             d.addIndex(col_info['name'], ["field00"])
             self.state.invalidateCache(col_info['name'])
             ## FOR
+        self.cm.reset()
+        self.cm.state.reset()
         cost2 = self.cm.getCost(d)
 
         print "diskCost2:", cost2
         self.assertGreater(cost1, cost2)
+
     ## DEF
 
     def testDiskCostCaching(self):

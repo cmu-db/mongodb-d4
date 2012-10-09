@@ -75,6 +75,7 @@ class CostModelTestCase(MongoDBTestCase):
                 op['resp_time']    = timestamp
                 sess['operations'].append(op)
                 ## FOR (ops)
+                
             sess['end_time'] = timestamp
             timestamp += 2
             sess.save()

@@ -64,13 +64,16 @@ class TestNetworkCost(CostModelTestCase):
            else:
                d.addShardKey(col_info['name'], ["_id"])
        ## FOR
+           self.cm.invalidateCache(d, col_info['name'])
+
+       self.cm.reset()
+       self.state.reset()
        cost0 = self.cm.getCost(d)
        print "cost0:", cost0
 
        # Now get the network cost for when we denormalize the
        # second collection inside of the first one
        # We should have a lower cost because there should now be fewer queries
-       
        d = Design()
        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
@@ -82,17 +85,15 @@ class TestNetworkCost(CostModelTestCase):
                parent = self.collections[CostModelTestCase.COLLECTION_NAMES[0]]
                self.assertIsNotNone(parent)
                d.setDenormalizationParent(col_info['name'], parent['name'])
-               print "parent: ", parent['name']
-               print "child: ", col_info['name']
                self.assertTrue(d.isDenormalized(col_info['name']), col_info['name'])
                self.assertIsNotNone(d.getDenormalizationParent(col_info['name']))
            
            self.cm.invalidateCache(d, col_info['name'])
-           
+
        combiner = WorkloadCombiner(self.collections, self.workload)
        combinedWorkload = combiner.process(d)
        self.state.updateWorkload(combinedWorkload)
-       
+
        ## FOR
        self.cm.reset()
        self.state.reset()
@@ -100,24 +101,46 @@ class TestNetworkCost(CostModelTestCase):
        print "cost1:", cost1
        
        self.assertLess(cost1, cost0)
-       
+
        # The denormalization cost should also be the same as the cost
        # when we remove all of the ops one the second collection
+       backup_collections = {}
+       for key, value in self.collections.iteritems():
+            backup_collections[key] = value
+
        for sess in self.state.workload:
            for op in sess["operations"]:
                if op["collection"] <> CostModelTestCase.COLLECTION_NAMES[0]:
-                   print "This should not happen"
                    sess["operations"].remove(op)
            ## FOR (op)
        ## FOR (sess)
        for i in xrange(1, len(CostModelTestCase.COLLECTION_NAMES)):
            del self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+
        self.cm.reset()
+       self.state.reset()
+       cost3 = self.cm.getCost(d)
+       print "cost3:", cost3
+
+       self.assertEqual(cost1, cost3)
+
+       # Restore the original workload and see if the cost remains the same with the original one
+       self.state.restoreOriginalWorkload()
+       self.collections = backup_collections
+       d = Design()
+       for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+           col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+           d.addCollection(col_info['name'])
+           if i == 0:
+               d.addShardKey(col_info['name'], col_info['interesting'])
+           else:
+               d.addShardKey(col_info['name'], ["_id"])
+           self.cm.invalidateCache(d, col_info['name'])
+       ## FOR
+       self.cm.reset()
+       self.state.reset()
        cost2 = self.cm.getCost(d)
        print "cost2:", cost2
-
-
-       self.assertEqual(cost1, cost2)
    # DEF
 
 ## CLASS

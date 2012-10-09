@@ -39,6 +39,7 @@ import skew
 import network
 from state import State
 from abstractcostcomponent import AbstractCostComponent
+from workload.workloadcombiner import WorkloadCombiner
 
 LOG = logging.getLogger(__name__)
 
@@ -82,6 +83,7 @@ class CostModel(object):
         self.skewComponent = skew.SkewCostComponent(self.state)
         self.networkComponent = network.NetworkCostComponent(self.state)
         self.allComponents = (self.diskComponent, self.skewComponent, self.networkComponent)
+        self.combiner = WorkloadCombiner(collections, workload)
         
         self.debug = False
     ## DEF
@@ -91,6 +93,10 @@ class CostModel(object):
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
         self.new_design = design
+        
+        combinedWorkload = self.combiner.process(design)
+        self.state.updateWorkload(combinedWorkload)
+
         map(self.invalidateCache, design.getDelta(self.last_design))
 
         if self.debug:
@@ -117,6 +123,9 @@ class CostModel(object):
                  self.last_cost, (stop - start))
 
         map(AbstractCostComponent.finish, self.allComponents)
+
+        self.state.restoreOriginalWorkload()
+
         return self.last_cost
     ## DEF
 

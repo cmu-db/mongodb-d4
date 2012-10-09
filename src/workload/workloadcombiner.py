@@ -78,7 +78,9 @@ class WorkloadCombiner:
 
         return self.workload
     ## DEF
-    
+    def restoreOriginalWorkload(self, costmodel):
+        costmodel.state.workload = self.origWorkload
+        
     # If we want to embed queries accessing collection B to queries accessing collection A
     # We just remove all the queries that
     def __combine_queries__(self, col, parent_col):

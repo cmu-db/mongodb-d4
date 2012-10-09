@@ -74,6 +74,10 @@ class DiskCostComponent(AbstractCostComponent):
 
         return 1.0 + ((1.0 - percent_total) / percent_total)
 
+    def reset(self):
+        for buf in self.buffers:
+            buf.reset()
+            
     def getCostImpl(self, design):
         """
             Estimate the Disk Cost for a design and a workload
@@ -87,10 +91,10 @@ class DiskCostComponent(AbstractCostComponent):
         # since every lru has the same configuration, we can cache the first initialization then deepcopy it to other
         #    lrus
         cache = None
-        for lru in self.buffers:
-            cache = lru.initialize(design, delta, cache)
-            LOG.info(lru)
-            lru.validate()
+        # for lru in self.buffers:
+        #     cache = lru.initialize(design, delta, cache)
+        #     LOG.info(lru)
+        #     lru.validate()
 
         # Ok strap on your helmet, this is the magical part of the whole thing!
         #
@@ -251,7 +255,7 @@ class DiskCostComponent(AbstractCostComponent):
             "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
         final_cost = float(totalCost) / float(totalWorst) if totalWorst else 0
         evicted = sum([ lru.evicted for lru in self.buffers ])
-        LOG.debug("Computed Disk Cost: %s [pageHits=%d / worstCase=%d / evicted=%d]",\
+        LOG.info("Computed Disk Cost: %s [pageHits=%d / worstCase=%d / evicted=%d]",\
                  final_cost, totalCost, totalWorst, evicted)
         return final_cost
     ## DEF

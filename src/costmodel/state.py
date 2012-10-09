@@ -128,7 +128,15 @@ class State():
         self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
         
         self.__buildCrossReference__();
-        
+
+        self.col_sess_xref_orig = { }
+        for key, value in self.col_sess_xref.iteritems():
+            self.col_sess_xref_orig[key] = value[:]
+
+        self.col_op_xref_orig = { }
+        for key, value in self.col_op_xref.iteritems():
+            self.col_op_xref_orig[key] = value[:]
+
         ## ----------------------------------------------
         ## CACHING
         ## ----------------------------------------------
@@ -138,20 +146,31 @@ class State():
 
         # ColName -> CacheHandle
         self.cache_handles = { }
+
+        self.originalWorload = None
     ## DEF
 
     def updateWorkload(self, workload):
+        self.originalWorload = self.workload
         self.workload = workload
         self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
         self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
         self.__buildCrossReference__()
+
+    def restoreOriginalWorkload(self):
+        self.workload = self.originalWorload
+        self.col_sess_xref = {}
+        self.col_op_xref = {}
         
+        for key, value in self.col_sess_xref_orig.iteritems():
+            self.col_sess_xref[key] = value[:]
+        for key, value in self.col_op_xref_orig.iteritems():
+            self.col_op_xref[key] = value[:]
+
     def __buildCrossReference__(self):
-        counter = 0
         for sess in self.workload:
             cols = set()
             for op in sess["operations"]:
-                counter += 1
                 col_name = op["collection"]
                 if col_name in self.col_sess_xref:
                     self.col_op_xref[col_name].append(op)
@@ -161,7 +180,6 @@ class State():
                 self.col_sess_xref[col_name].append(sess)
         ## FOR (sess)
         
-        print "Query number: ", counter
     def invalidateCache(self, col_name):
         if col_name in self.cache_handles:
             if self.debug: LOG.debug("Invalidating cache for collection '%s'", col_name)

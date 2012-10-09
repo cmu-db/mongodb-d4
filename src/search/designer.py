@@ -34,6 +34,7 @@ from costmodel import CostModel
 from util import constants
 from util import configutil
 from designcandidates import DesignCandidates
+import time
 
 LOG = logging.getLogger(__name__)
 
@@ -229,7 +230,9 @@ class Designer():
         """Perform the actual search for a design"""
         
         collections = self.loadCollections()
-        workload = self.loadWorkload()
+        workload = self.loadWorkload(collections)
+        # Generate all the design candidates
+        designCandidates = self.generateDesignCandidates(collections)
 
         # Instantiate cost model
         cmConfig = {
@@ -247,25 +250,31 @@ class Designer():
 #            state.debug = True
 #            costmodel.LOG.setLevel(logging.DEBUG)
 
-        # Generate all the design candidates
-        designCandidates = self.generateDesignCandidates(collections)
-
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
         
         initialDesign = InitialDesigner(collections, workload, self.config).generate()
         LOG.info("Initial Design\n%s", initialDesign)
         
+        startTime = time.time()
         upper_bound = cm.overallCost(initialDesign)
+        endTime = time.time()
+        print "Time elapsed: ", endTime - startTime
+
+        startTime = time.time()
+        upper_bound = cm.overallCost(initialDesign)
+        endTime = time.time()
+        print "Time elapsed: ", endTime - startTime
+
         LOG.info("Computed initial design [COST=%s]", upper_bound)
 
 #        cm.debug = True
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
         
-        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, 1200)
-        solution = ln.solve()
-        return solution
+        #ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, 1200)
+        #solution = ln.solve()
+        #return solution
     ## DEF
 
 ## CLASS
