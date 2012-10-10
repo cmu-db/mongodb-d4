@@ -296,7 +296,7 @@ class BlogWorker(AbstractWorker):
                 commentContent = randomString(constants.COMMENT_CONTENT_SIZE)
                 
                 comment = {
-                    "id": self.getNextCommentId(),
+                    "id": articleId+"|"+ii,
                     "article": articleId,
                     "date": randomDate(articleDate, constants.STOP_DATE), 
                     "author": commentAuthor,
@@ -601,10 +601,10 @@ class BlogWorker(AbstractWorker):
         
     ## DEF
 	
-	def incViewsArticle(self,denormalize,articleId):
-		# Increase the views of an article by one
-		result=self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : "views"},True)
-		if not result:
+    def incViewsArticle(self,denormalize,articleId):
+        # Increase the views of an article by one
+        result=self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : "views"},True)
+        if not result:
             LOG.warn("Failed to increase views on %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
 	
