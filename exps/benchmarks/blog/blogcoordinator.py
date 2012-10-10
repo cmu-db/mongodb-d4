@@ -44,8 +44,8 @@ class BlogCoordinator(AbstractCoordinator):
         ("sharding", "Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_SINGLE),
         ("indexes", "Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_ALL, constants.INDEXEXP_NONE),
         ("denormalize", "If set to true, then the COMMENTS are denormalized into ARTICLES", False),
-        
-    ]
+        ("skew","Determine the percentage of the articles to be retreived with uniform distribution. The rest will be retreived with Zipfian distribution",0.3)
+,    ]
     
     def benchmarkConfigImpl(self):
         return self.DEFAULT_CONFIG
@@ -80,10 +80,12 @@ class BlogCoordinator(AbstractCoordinator):
             config[self.name]["denormalize"] = False
         
         # Precompute our blog article authors
+        # The list of authors have names authorname1 authorname2 ... etc authornameN so
+        # we can use Zipfian later for the same names
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
-            authorSize = constants.AUTHOR_NAME_SIZE
-            self.authors.append(rand.randomString(authorSize))
+            #authorSize = constants.AUTHOR_NAME_SIZE
+            self.authors.append("authorname".join(str(i))
         ## FOR
         
         # Get the current max commentId
