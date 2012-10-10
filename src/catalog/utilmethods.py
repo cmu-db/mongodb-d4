@@ -187,7 +187,10 @@ def hasField(fieldName, fields):
     # If the sharding key has a dot in it, then we will want
     # to fix the prefix and then traverse further into the fields
     splits = fieldName.split(".")
-    if not splits[0] in fields:
+    keys_in_fields = []
+    for field in fields:
+        keys_in_fields.extend(field.keys())
+    if not splits[0] in keys_in_fields:
         return False
     elif len(splits) > 1:
         return getFieldValue(fieldName[len(splits[0])+1:], fields[splits[0]])

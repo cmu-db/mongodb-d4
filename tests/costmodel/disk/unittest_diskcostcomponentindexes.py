@@ -21,16 +21,13 @@ class TestDiskCostIndexes(CostModelTestCase):
         CostModelTestCase.setUp(self)
         self.cm = DiskCostComponent(self.state)
     ## DEF
-
     def testDiskCostIndexes(self):
         """Check whether disk cost calculations work correctly"""
-
         # # First get the disk cost when there are no indexes
         d = Design()
-        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
-        ## FOR
+        col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
+        d.addCollection(col_info['name'])
+
         cost0 = self.cm.getCost(d)
         print "diskCost0:", cost0
         # The cost should be exactly equal to one, which means that every operation
@@ -39,34 +36,44 @@ class TestDiskCostIndexes(CostModelTestCase):
 
         # # Now add the all indexes. The disk cost should be lower
         d = Design()
-        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
-            d.addIndex(col_info['name'], col_info['interesting'])
-            self.state.invalidateCache(col_info['name'])
-        ## FOR
+        col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
+        d.addCollection(col_info['name'])
+        d.addIndex(col_info['name'], col_info['interesting'])
+        self.state.invalidateCache(col_info['name'])
+
         self.cm.reset()
         self.cm.state.reset()
         cost1 = self.cm.getCost(d)
         print "diskCost1:", cost1
         self.assertGreater(cost0, cost1)
 
-        # Now only add one of the most effective index
+    def testDiskCostOnDifferentIndexes(self):
+        print "Tests for disk Cost on different indexes start..."
+        """Check how indexes will affect the disk cost"""
+        # 1. Put index on both of the fields seperately
         d = Design()
-        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
-            d.addIndex(col_info['name'], ["field00"])
-            self.state.invalidateCache(col_info['name'])
-            ## FOR
+        d.addCollection(CostModelTestCase.COLLECTION_NAME)
+        d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field00"])
+        d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field01"])
+        
         self.cm.reset()
         self.cm.state.reset()
-        cost2 = self.cm.getCost(d)
+        cost0 = self.cm.getCost(d)
+        print "diskCost0:", cost0
+        
+        # 3. Put indexes on both field together
+        d = Design()
+        col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
+        d.addCollection(CostModelTestCase.COLLECTION_NAME)
+        d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field00", "feild01"])
+        self.state.invalidateCache(col_info['name'])
+        
+        self.cm.reset()
+        self.cm.state.reset()
+        cost1 = self.cm.getCost(d)
+        print "diskCost1:", cost1
 
-        print "diskCost2:", cost2
-        self.assertGreater(cost1, cost2)
-
-    ## DEF
+        self.assertGreater(cost0, cost1)
 
     def testDiskCostCaching(self):
         """Check whether disk cost calculations work correctly with caching enabled"""
@@ -74,11 +81,10 @@ class TestDiskCostIndexes(CostModelTestCase):
 
         # Give the mofo a full Design with indexes
         d = Design()
-        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
-            d.addIndex(col_info['name'], col_info['interesting'])
-        ## FOR
+        col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
+        d.addCollection(col_info['name'])
+        d.addIndex(col_info['name'], col_info['interesting'])
+            ## FOR
         cost0 = self.cm.getCost(d)
         print "diskCost0:", cost0
         # FIXME self.assertGreater(cost0, 0.0)
@@ -93,22 +99,18 @@ class TestDiskCostIndexes(CostModelTestCase):
         """Check the working set size estimator for collections"""
 
         d = Design()
-        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
-        ## FOR
+        col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
+        d.addCollection(col_info['name'])
 
         max_memory = self.costModelConfig['max_memory'] * 1024 * 1024
         workingSets = self.cm.estimateWorkingSets(d, max_memory)
         self.assertIsNotNone(workingSets)
-
-        for i in xrange(0, len(CostModelTestCase.COLLECTION_NAMES)):
-            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            self.assertIn(col_info['name'], workingSets)
-            setSize = workingSets[col_info['name']]
-            print col_info['name'], "->", setSize
-            self.assertGreater(setSize, 0.0)
-    ## DEF
+        col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
+        self.assertIn(col_info['name'], workingSets)
+        setSize = workingSets[col_info['name']]
+        print col_info['name'], "->", setSize
+        self.assertGreater(setSize, 0.0)
+            ## DEF
 
 ## CLASS
 
