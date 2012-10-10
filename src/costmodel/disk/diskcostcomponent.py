@@ -85,7 +85,7 @@ class DiskCostComponent(AbstractCostComponent):
             should be calculated before skewCost() because we will reused the same
             histogram of how often nodes are touched in the workload
         """
-        delta = self.__getDelta__(design)
+        # delta = self.__getDelta__(design)
 
         # Initialize all of the LRU buffers
         # since every lru has the same configuration, we can cache the first initialization then deepcopy it to other
@@ -166,7 +166,6 @@ class DiskCostComponent(AbstractCostComponent):
 
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
-
                     for node_id in self.state.__getNodeIds__(cache, design, op):
                         lru = self.buffers[node_id]
 
@@ -192,7 +191,7 @@ class DiskCostComponent(AbstractCostComponent):
                             elif self.debug:
                                 self.state.cache_hit_ctr.put("index_docIds")
                                 ## IF
-                            hits = lru.getDocumentFromIndex(op['collection'], indexKeys, documentId)
+                            hits = lru.getDocumentFromIndex(indexKeys, documentId)
                             pageHits += hits
                             maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:

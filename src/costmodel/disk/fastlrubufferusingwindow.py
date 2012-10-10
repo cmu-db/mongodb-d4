@@ -99,29 +99,25 @@ class FastLRUBufferWithWindow:
 
         return newValue
 
-    def getDocumentFromIndex(self, col_name, indexKeys, documentId):
+    def getDocumentFromIndex(self, indexKeys, documentId):
         """
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
         """
 #        assert size > 0,"Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
-        return self.getDocument(DOC_TYPE_INDEX, col_name, indexKeys, documentId)
+        return self.getDocument(DOC_TYPE_INDEX, indexKeys, documentId)
         ## DEF
 
     def getDocumentFromCollection(self, col_name, documentId):
  #      assert size > 0, "Missing collection size for '%s'" % col_name
-        return self.getDocument(DOC_TYPE_COLLECTION, col_name, col_name, documentId)
+        return self.getDocument(DOC_TYPE_COLLECTION, col_name, documentId)
     ## DEF
 
-    def getDocument(self, typeId, col_name, keys, documentId):
+    def getDocument(self, typeId, keys, documentId):
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
-        buffer_tuple = (documentId, col_name, typeId)
-        buffer_tuple_index = []
-        if typeId == DOC_TYPE_INDEX:
-            for key in keys:
-                buffer_tuple_index.append((documentId, key, typeId))
+        buffer_tuple = (documentId, keys, typeId)
 
         offset = self.buffer.get(buffer_tuple, None)
 
@@ -142,14 +138,7 @@ class FastLRUBufferWithWindow:
         else:
 #            assert not buffer_tuple in self.buffer, "Duplicate entry '%s'" % buffer_tuple
 #            assert size < self.buffer_size
-            tuple_page_hits = self.__push__(buffer_tuple)
-            if typeId == DOC_TYPE_INDEX:
-                index_page_hits = 0
-                for index_tuple in buffer_tuple_index:
-                    index_page_hits += self.__push__(index_tuple)
-                return tuple_page_hits + index_page_hits
-            else:
-                return tuple_page_hits
+            return self.__push__(buffer_tuple)
         ## DEF
 
     def __init_collections__(self, design, delta):

@@ -34,7 +34,6 @@ class CostModelTestCase(MongoDBTestCase):
         MongoDBTestCase.setUp(self)
 
         # WORKLOAD
-        self.workload = [ ]
         timestamp = time.time()
         for i in xrange(CostModelTestCase.NUM_SESSIONS):
             sess = self.metadata_db.Session()
@@ -74,7 +73,6 @@ class CostModelTestCase(MongoDBTestCase):
             sess['end_time'] = timestamp
             timestamp += 2
             sess.save()
-            self.workload.append(sess)
             ## FOR (sess)
 
         # Use the MongoSniffConverter to populate our metadata
@@ -86,6 +84,9 @@ class CostModelTestCase(MongoDBTestCase):
 
         self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
         self.assertEqual(len(CostModelTestCase.COLLECTION_NAMES), len(self.collections))
+
+        populated_workload = list(c for c in self.metadata_db.Session.fetch())
+        self.workload = populated_workload
 
         # Increase the database size beyond what the converter derived from the workload
         for col_name, col_info in self.collections.iteritems():
@@ -103,6 +104,6 @@ class CostModelTestCase(MongoDBTestCase):
             'window_size':    1024
         }
 
-        self.state = State(self.collections, self.workload, self.costModelConfig)
+        self.state = State(self.collections, populated_workload, self.costModelConfig)
         ## DEF
         ## CLASS

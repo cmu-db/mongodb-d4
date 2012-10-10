@@ -1,4 +1,5 @@
 import os, sys
+from random import shuffle
 import random
 import time
 
@@ -22,10 +23,10 @@ class CostModelTestCase(MongoDBTestCase):
         Base test case for cost model components
     """
 
-    COLLECTION_NAMES = ["koalas", "apples"]
+    COLLECTION_NAME = "apples"
     NUM_DOCUMENTS = 10000000
-    NUM_SESSIONS = 10
-    NUM_FIELDS = 4
+    NUM_SESSIONS = 100
+    NUM_FIELDS = 2
     NUM_NODES = 1
     NUM_INTERVALS = 10
 
@@ -33,9 +34,8 @@ class CostModelTestCase(MongoDBTestCase):
         MongoDBTestCase.setUp(self)
 
         # WORKLOAD
-        self.workload = [ ]
         timestamp = time.time()
-        # add queries for collection 0
+        # add queries for collection 0 querying field00
         for i in  xrange(CostModelTestCase.NUM_SESSIONS):
             sess = self.metadata_db.Session()
             sess['session_id'] = i
@@ -43,44 +43,47 @@ class CostModelTestCase(MongoDBTestCase):
             sess['ip_server'] = "server:5678"
             sess['start_time'] = timestamp
 
-            for j in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
-                _id = str(random.random())
-                queryId = long((i<<16) + j)
-                queryContent = { }
-                queryPredicates = { }
+            _id = str(random.random())
+            queryId = long((i<<16) + 0)
+            queryContent = { }
+            queryPredicates = { }
 
-                responseContent = {"_id": _id}
-                responseId = (queryId<<8)
-                for f in xrange(CostModelTestCase.NUM_FIELDS):
-                    f_name = "field%02d" % f
-                    if f in (0 , 1):
-                        responseContent[f_name] = random.randint(0, 100)
-                        queryContent[f_name] = responseContent[f_name]
-                        queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
-                    else:
-                        responseContent[f_name] = str(random.randint(1000, 100000))
+            responseContent = {"_id": _id}
+            responseId = (queryId<<8)
+            
+            if i < 80:
+                f_name_target = "field00"
+                f_name_miss = "field01"
+            else:
+                f_name_target = "field01"
+                f_name_miss = "field00"
+            
+            responseContent[f_name_target] = str(random.randint(1000, 100000))
+            responseContent[f_name_target] = random.randint(0, 100)
+            queryContent[f_name_target] = responseContent[f_name_target]
+            queryPredicates[f_name_target] = constants.PRED_TYPE_EQUALITY
+            responseContent[f_name_miss] = str(random.randint(1000, 100000))
 
-                queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
-                op = Session.operationFactory()
-                op['collection']    = CostModelTestCase.COLLECTION_NAMES[j]
-                op['type']          = constants.OP_TYPE_QUERY
-                op['query_id']      = queryId
-                op['query_content'] = [ queryContent ]
-                op['resp_content']  = [ responseContent ]
-                op['resp_id']       = responseId
-                op['predicates']    = queryPredicates
-                op['query_time']    = timestamp
-                timestamp += 1
-                op['resp_time']    = timestamp
-                sess['operations'].append(op)
+            queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
+            op = Session.operationFactory()
+            op['collection']    = CostModelTestCase.COLLECTION_NAME
+            op['type']          = constants.OP_TYPE_QUERY
+            op['query_id']      = queryId
+            op['query_content'] = [ queryContent ]
+            op['resp_content']  = [ responseContent ]
+            op['resp_id']       = responseId
+            op['predicates']    = queryPredicates
+            op['query_time']    = timestamp
+            timestamp += 1
+            op['resp_time']    = timestamp
+            sess['operations'].append(op)
             ## FOR (ops)
 
             sess['end_time'] = timestamp
             timestamp += 2
             sess.save()
-            self.workload.append(sess)
         ## FOR (sess)
-
+        
         # Use the MongoSniffConverter to populate our metadata
         converter = MongoSniffConverter(self.metadata_db, self.dataset_db)
         converter.no_mongo_parse = True
@@ -89,7 +92,10 @@ class CostModelTestCase(MongoDBTestCase):
         self.assertEqual(CostModelTestCase.NUM_SESSIONS, self.metadata_db.Session.find().count())
 
         self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
-        self.assertEqual(len(CostModelTestCase.COLLECTION_NAMES), len(self.collections))
+        self.assertEqual(1, len(self.collections))
+
+        populated_workload = list(c for c in self.metadata_db.Session.fetch())
+        shuffle(populated_workload)
 
         # Increase the database size beyond what the converter derived from the workload
         for col_name, col_info in self.collections.iteritems():
@@ -104,9 +110,9 @@ class CostModelTestCase(MongoDBTestCase):
             'skew_intervals': CostModelTestCase.NUM_INTERVALS,
             'address_size':   64,
             'nodes':          CostModelTestCase.NUM_NODES,
-            'window_size':    20
+            'window_size':    2
         }
 
-        self.state = State(self.collections, self.workload, self.costModelConfig)
+        self.state = State(self.collections, populated_workload, self.costModelConfig)
         ## DEF
 ## CLASS
