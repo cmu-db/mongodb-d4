@@ -23,6 +23,7 @@
 # -----------------------------------------------------------------------
 import logging
 from pprint import pformat
+import copy
 
 # mongodb-d4
 import workload
@@ -129,14 +130,6 @@ class State():
         
         self.__buildCrossReference__();
 
-        self.col_sess_xref_orig = { }
-        for key, value in self.col_sess_xref.iteritems():
-            self.col_sess_xref_orig[key] = value[:]
-
-        self.col_op_xref_orig = { }
-        for key, value in self.col_op_xref.iteritems():
-            self.col_op_xref_orig[key] = value[:]
-
         ## ----------------------------------------------
         ## CACHING
         ## ----------------------------------------------
@@ -148,10 +141,12 @@ class State():
         self.cache_handles = { }
 
         self.originalWorload = None
+        self.originalWorload = copy.deepcopy(self.workload)
+        self.originalCollections = copy.deepcopy(self.collections)
+        
     ## DEF
 
     def updateWorkload(self, workload):
-        self.originalWorload = self.workload
         self.workload = workload
         self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
         self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
@@ -159,13 +154,11 @@ class State():
 
     def restoreOriginalWorkload(self):
         self.workload = self.originalWorload
-        self.col_sess_xref = {}
-        self.col_op_xref = {}
+        self.collections = self.originalCollections
         
-        for key, value in self.col_sess_xref_orig.iteritems():
-            self.col_sess_xref[key] = value[:]
-        for key, value in self.col_op_xref_orig.iteritems():
-            self.col_op_xref[key] = value[:]
+        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
+        self.col_op_xref = dict([(col_name, []) for col_name in self.collections])        
+        self.__buildCrossReference__()
 
     def __buildCrossReference__(self):
         for sess in self.workload:
