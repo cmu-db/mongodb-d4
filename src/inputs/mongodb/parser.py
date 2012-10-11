@@ -531,11 +531,13 @@ class Parser:
         
         # If this is the first time we see this session, add it
         # TODO: Do we still need this?
-        if 'whatismyuri' in obj:
-            self.getOrCreateSession(self.currentOp['ip_client'], this.currentOp['ip_server'])
-        
-        # Store the line in the curentContent buffer
-        self.currentContent.append(obj)
+        if not obj is None:
+            if 'whatismyuri' in obj:
+                self.getOrCreateSession(self.currentOp['ip_client'], this.currentOp['ip_server'])
+            
+            # Store the line in the curentContent buffer
+            self.currentContent.append(obj)
+        ## IF
         return
     ## DEF
     
