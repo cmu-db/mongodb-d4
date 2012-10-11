@@ -166,8 +166,8 @@ class TPCCTestCase(MongoDBTestCase):
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_UPDATE
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [{"D_ID": d_id, "D_W_ID": w_id}]
-        op['query_fields']  = {"#inc": {"D_NEXT_O_ID": 1}}
+        op['query_content'] = [{"D_ID": d_id, "D_W_ID": w_id}, {"#inc": {"D_NEXT_O_ID": 1}}]
+        op['query_fields']  = None
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
         op['resp_time']     = self.nextTimestamp()
