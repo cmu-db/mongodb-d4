@@ -2,6 +2,7 @@
 import os, sys
 import random
 import time
+import string
 import unittest
 
 basedir = os.path.realpath(os.path.dirname(__file__))
@@ -21,7 +22,7 @@ from inputs.mongodb import MongoSniffConverter
 
 sys.path.append(os.path.join(basedir, "../exps/benchmarks/"))
 sys.path.append(os.path.join(basedir, "../exps/benchmarks/tpcc/"))
-from tpcc import constants
+from tpcc import constants as tpccConstants
 from tpcc.runtime.executor import Executor
 from tpcc.runtime import scaleparameters
 
@@ -31,11 +32,11 @@ class TPCCTestCase(MongoDBTestCase):
     """
     
     ALL_TRANSACTIONS = [
-        constants.TransactionTypes.DELIVERY,
-        constants.TransactionTypes.NEW_ORDER,
-        constants.TransactionTypes.ORDER_STATUS,
-        constants.TransactionTypes.PAYMENT,
-        constants.TransactionTypes.STOCK_LEVEL,
+        tpccConstants.TransactionTypes.DELIVERY,
+        tpccConstants.TransactionTypes.NEW_ORDER,
+        tpccConstants.TransactionTypes.ORDER_STATUS,
+        tpccConstants.TransactionTypes.PAYMENT,
+        tpccConstants.TransactionTypes.STOCK_LEVEL,
     ]
     
     NUM_WAREHOUSES = 4
@@ -46,8 +47,8 @@ class TPCCTestCase(MongoDBTestCase):
         MongoDBTestCase.setUp(self)
 
         self.timestamp = time.time()
-        self.query_id = 0
-        self.resp_id = 0
+        self.query_id = 0l
+        self.resp_id = 0l
         
         sp = scaleparameters.makeWithScaleFactor(TPCCTestCase.NUM_WAREHOUSES, TPCCTestCase.SCALEFACTOR)
         executor = Executor(sp)
@@ -61,55 +62,19 @@ class TPCCTestCase(MongoDBTestCase):
             sess['start_time'] = self.timestamp
             
             txn, params = executor.doOne()
-            if constants.TransactionTypes.DELIVERY == txn:
+            if tpccConstants.TransactionTypes.DELIVERY == txn:
                 sess['operations'] = self.createDelivery(params)
-            elif constants.TransactionTypes.NEW_ORDER == txn:
+            elif tpccConstants.TransactionTypes.NEW_ORDER == txn:
                 sess['operations'] = self.createNewOrder(params)
-            elif constants.TransactionTypes.ORDER_STATUS == txn:
+            elif tpccConstants.TransactionTypes.ORDER_STATUS == txn:
                 sess['operations'] = self.createOrderStatus(params)
-            elif constants.TransactionTypes.PAYMENT == txn:
+            elif tpccConstants.TransactionTypes.PAYMENT == txn:
                 sess['operations'] = self.createPayment(params)
-            elif constants.TransactionTypes.STOCK_LEVEL == txn:
+            elif tpccConstants.TransactionTypes.STOCK_LEVEL == txn:
                 sess['operations'] = self.createStockLevel(params)
             else:
                 assert False, "Unexpected TransactionType: " + txn
 
-            print txn, params
-            
-
-            #for j in xrange(0, len(TPCCTestCase.COLLECTION_NAMES)):
-                #_id = str(random.random())
-                #queryId = long((i<<16) + j)
-                #queryContent = { }
-                #queryPredicates = { }
-
-                #responseContent = {"_id": _id}
-                #responseId = (queryId<<8)
-                #for f in xrange(0, TPCCTestCase.NUM_FIELDS):
-                    #f_name = "field%02d" % f
-                    #if f % 2 == 0:
-                        #responseContent[f_name] = random.randint(0, 100)
-                        #queryContent[f_name] = responseContent[f_name]
-                        #queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
-                    #else:
-                        #responseContent[f_name] = str(random.randint(1000, 100000))
-                        ### FOR
-
-                #queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
-                #op = Session.operationFactory()
-                #op['collection']    = TPCCTestCase.COLLECTION_NAMES[j]
-                #op['type']          = constants.OP_TYPE_QUERY
-                #op['query_id']      = queryId
-                #op['query_content'] = [ queryContent ]
-                #op['resp_content']  = [ responseContent ]
-                #op['resp_id']       = responseId
-                #op['predicates']    = queryPredicates
-                #op['query_time']    = timestamp
-                #timestamp += 1
-                #op['resp_time']    = timestamp
-                #sess['operations'].append(op)
-                ### FOR (ops)
-                
             sess['end_time'] = self.nextTimestamp(2)
             sess.save()
         ## FOR (sess)
@@ -147,22 +112,259 @@ class TPCCTestCase(MongoDBTestCase):
         return self.resp_id
     
     def createNewOrder(self, params):
-        pass
+        ops = [ ]
+        w_id = params["w_id"]
+        d_id = params["d_id"]
+        c_id = params["c_id"]
+        o_entry_d = params["o_entry_d"]
+        i_ids = params["i_ids"]
+        i_w_ids = params["i_w_ids"]
+        i_qtys = params["i_qtys"]
+        s_dist_col = "S_DIST_%02d" % d_id
+        w_tax = random.random()
+        d_tax = random.random()
+        d_next_o_id = random.randint(0, 1000)
+        c_discount = random.randint(0, 10)
+        ol_cnt = len(i_ids)
+        o_carrier_id = tpccConstants.NULL_CARRIER_ID
+        all_local = (not i_w_ids or [w_id] * len(i_w_ids) == i_w_ids)
+        
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_ITEM
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [{"I_ID": {"#in": i_ids}}]
+        op['query_fields']  = {"I_ID": 1, "I_PRICE": 1, "I_NAME": 1, "I_DATA": 1}
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_WAREHOUSE
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [{"W_ID": w_id}]
+        op['query_fields']  = {"W_TAX": 1}
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+                
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_DISTRICT
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [{"D_ID": d_id, "D_W_ID": w_id}]
+        op['query_fields']  = {"D_TAX": 1, "D_NEXT_O_ID": 1}
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_DISTRICT
+        op['type']          = constants.OP_TYPE_UPDATE
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [{"D_ID": d_id, "D_W_ID": w_id}]
+        op['query_fields']  = {"#inc": {"D_NEXT_O_ID": 1}}
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        op['update_multi']  = False
+        ops.append(op)
+                
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_CUSTOMER
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [{"C_ID": c_id, "C_D_ID": d_id, "C_W_ID": w_id}]
+        op['query_fields']  = {"C_DISCOUNT": 1, "C_LAST": 1, "C_CREDIT": 1}
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_NEW_ORDER
+        op['type']          = constants.OP_TYPE_INSERT
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [{"NO_O_ID": d_next_o_id, "NO_D_ID": d_id, "NO_W_ID": w_id}]
+        op['query_fields']  = None
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        o = {
+            "O_D_ID": d_id,
+            "O_W_ID": w_id,
+            "O_C_ID": c_id,
+            "O_ID": d_next_o_id,
+            "O_ENTRY_D": o_entry_d,
+            "O_CARRIER_ID": o_carrier_id,
+            "O_OL_CNT": ol_cnt,
+            "O_ALL_LOCAL": all_local
+        }
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_ORDERS
+        op['type']          = constants.OP_TYPE_INSERT
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [o]
+        op['query_fields']  = None
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+                
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_STOCK
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [{"S_I_ID": {"#in": i_ids}, "S_W_ID": w_id}]
+        op['query_fields']  = {"S_I_ID": 1, "S_QUANTITY": 1, "S_DATA": 1, "S_YTD": 1, "S_ORDER_CNT": 1, "S_REMOTE_CNT": 1, s_dist_col: 1}
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        for i in range(ol_cnt):
+            s = {"S_I_ID": i_ids[i], "S_W_ID": w_id}
+            ol = {
+                "OL_D_ID": d_id,
+                "OL_W_ID": w_id,
+                "OL_O_ID": d_next_o_id,
+                "OL_NUMBER": i + 1,
+                "OL_I_ID": i_ids[i],
+                "OL_SUPPLY_W_ID": i_w_ids[i],
+                "OL_DELIVERY_D": o_entry_d,
+                "OL_QUANTITY": i_qtys[i],
+                "OL_AMOUNT": random.random() * 100,
+                "OL_DIST_INFO": ''.join(random.choice(string.ascii_uppercase) for x in range(24))
+            }
+            s_remote_cnt = random.randint(0, 10)
+            s_order_cnt = random.randint(0, 10)
+            s_quantity = random.randint(0, 10)
+            s_ytd = random.random()
+            
+            op = Session.operationFactory()
+            op['collection']    = tpccConstants.TABLENAME_STOCK
+            op['type']          = constants.OP_TYPE_UPDATE
+            op['query_id']      = self.nextQueryId()
+            op['query_content'] = [s, {"#set": {"S_QUANTITY": s_quantity, "S_YTD": s_ytd, "S_ORDER_CNT": s_order_cnt, "S_REMOTE_CNT": s_remote_cnt}}]
+            op['query_fields']  = None
+            op['resp_id']       = self.nextResponseId()
+            op['query_time']    = self.nextTimestamp()
+            op['resp_time']     = self.nextTimestamp()
+            ops.append(op)
+        ## FOR
+        return ops
     ## DEF
     
     def createDelivery(self, params):
-        pass
+        ops = [ ]
+        w_id = params["w_id"]
+        o_carrier_id = params["o_carrier_id"]
+        ol_delivery_d = params["ol_delivery_d"]
+
+        for d_id in xrange(1, tpccConstants.DISTRICTS_PER_WAREHOUSE+1):
+            c_id = random.randint(0, 10000)
+            o_id = random.randint(0, 10000)
+            ol_total = random.random() * 100
+            
+            op = Session.operationFactory()
+            op['collection']    = tpccConstants.TABLENAME_NEW_ORDER
+            op['type']          = constants.OP_TYPE_QUERY
+            op['query_id']      = self.nextQueryId()
+            op['query_content'] = [ {"NO_D_ID": d_id, "NO_W_ID": w_id} ]
+            op['query_fields']  = {"NO_O_ID": 1}
+            op['resp_id']       = self.nextResponseId()
+            op['query_time']    = self.nextTimestamp()
+            op['resp_time']     = self.nextTimestamp()
+            ops.append(op)
+            
+            op = Session.operationFactory()
+            op['collection']    = tpccConstants.TABLENAME_ORDERS
+            op['type']          = constants.OP_TYPE_QUERY
+            op['query_id']      = self.nextQueryId()
+            op['query_content'] = [ {"O_ID": o_id, "O_D_ID": d_id, "O_W_ID": w_id} ]
+            op['query_fields']  = {"O_C_ID": 1}
+            op['resp_id']       = self.nextResponseId()
+            op['query_time']    = self.nextTimestamp()
+            op['resp_time']     = self.nextTimestamp()
+            ops.append(op)
+            
+            op = Session.operationFactory()
+            op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
+            op['type']          = constants.OP_TYPE_QUERY
+            op['query_id']      = self.nextQueryId()
+            op['query_content'] = [ {"OL_O_ID": o_id, "OL_D_ID": d_id, "OL_W_ID": w_id} ]
+            op['query_fields']  = {"OL_AMOUNT": 1}
+            op['resp_id']       = self.nextResponseId()
+            op['query_time']    = self.nextTimestamp()
+            op['resp_time']     = self.nextTimestamp()
+            ops.append(op)
+            
+            op = Session.operationFactory()
+            op['collection']    = tpccConstants.TABLENAME_ORDERS
+            op['type']          = constants.OP_TYPE_UPDATE
+            op['query_id']      = self.nextQueryId()
+            op['query_content'] = [ {"O_ID": o_id, "O_D_ID": d_id, "O_W_ID": w_id}, {"#set": {"O_CARRIER_ID": o_carrier_id}} ]
+            op['query_fields']  = None
+            op['resp_id']       = self.nextResponseId()
+            op['query_time']    = self.nextTimestamp()
+            op['resp_time']     = self.nextTimestamp()
+            op['update_multi']  = False
+            ops.append(op)
+            
+            op = Session.operationFactory()
+            op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
+            op['type']          = constants.OP_TYPE_UPDATE
+            op['query_id']      = self.nextQueryId()
+            op['query_content'] = [{"OL_O_ID": o_id, "OL_D_ID": d_id, "OL_W_ID": w_id}, {"#set": {"OL_DELIVERY_D": ol_delivery_d}}]
+            op['query_fields']  = None
+            op['resp_id']       = self.nextResponseId()
+            op['query_time']    = self.nextTimestamp()
+            op['resp_time']     = self.nextTimestamp()
+            op['update_multi']  = True
+            ops.append(op)
+            
+            op = Session.operationFactory()
+            op['collection']    = tpccConstants.TABLENAME_CUSTOMER
+            op['type']          = constants.OP_TYPE_UPDATE
+            op['query_id']      = self.nextQueryId()
+            op['query_content'] = [{"C_ID": c_id, "C_D_ID": d_id, "C_W_ID": w_id}, {"#inc": {"C_BALANCE": ol_total}}]
+            op['query_fields']  = None
+            op['resp_id']       = self.nextResponseId()
+            op['query_time']    = self.nextTimestamp()
+            op['resp_time']     = self.nextTimestamp()
+            op['update_multi']  = False
+            ops.append(op)
+            
+            op = Session.operationFactory()
+            op['collection']    = tpccConstants.TABLENAME_NEW_ORDER
+            op['type']          = constants.OP_TYPE_DELETE
+            op['query_id']      = self.nextQueryId()
+            op['query_content'] = [{"NO_D_ID": d_id, "NO_W_ID": w_id}]
+            op['query_fields']  = None
+            op['resp_id']       = self.nextResponseId()
+            op['query_time']    = self.nextTimestamp()
+            op['resp_time']     = self.nextTimestamp()
+            ops.append(op)
+        ## FOR
+        return ops
     ## DEF
     
     def createOrderStatus(self, params):
+        ops = [ ]
         w_id = params["w_id"]
         d_id = params["d_id"]
         c_id = params["c_id"]
         c_last = params["c_last"]
-        ops = [ ]
+        o_id = random.randint(0, 10000)
         
         op = Session.operationFactory()
-        op['collection']    = constants.TABLENAME_CUSTOMER
+        op['collection']    = tpccConstants.TABLENAME_CUSTOMER
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
         op['query_content'] = [ {"C_W_ID": w_id, "C_D_ID": d_id, "C_ID": c_id} ]
@@ -173,7 +375,7 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
-        op['collection']    = constants.TABLENAME_ORDERS
+        op['collection']    = tpccConstants.TABLENAME_ORDERS
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
         op['query_content'] = [ {"O_W_ID": w_id, "O_D_ID": d_id, "O_C_ID": c_id} ]
@@ -184,7 +386,7 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
-        op['collection']    = constants.TABLENAME_ORDER_LINE
+        op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
         op['query_content'] = [ {"OL_W_ID": w_id, "OL_D_ID": d_id, "OL_O_ID": o_id} ]
@@ -198,15 +400,15 @@ class TPCCTestCase(MongoDBTestCase):
     ## DEF
     
     def createStockLevel(self, params):
+        ops = [ ]
         w_id = params["w_id"]
         d_id = params["d_id"]
-        o_id = random.randint(10000)
-        ol_ids = [ random.randint(1000) for i in xrange(10) ]
+        o_id = random.randint(0, 10000)
+        ol_ids = [ random.randint(0, 1000) for i in xrange(10) ]
         threshold = params["threshold"]
-        ops = [ ]
         
         op = Session.operationFactory()
-        op['collection']    = constants.TABLENAME_DISTRICT
+        op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
         op['query_content'] = [ {"D_W_ID": w_id, "D_ID": d_id} ]
@@ -217,7 +419,7 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
-        op['collection']    = constants.TABLENAME_ORDER_LINE
+        op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
         op['query_content'] = [ {"OL_W_ID": w_id, "OL_D_ID": d_id, "OL_O_ID": {"#lt": o_id, "#gte": o_id-20}} ]
@@ -228,10 +430,10 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
 
         op = Session.operationFactory()
-        op['collection']    = constants.TABLENAME_STOCK
+        op['collection']    = tpccConstants.TABLENAME_STOCK
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"S_W_ID": w_id, "S_I_ID": {"$in": list(ol_ids)}, "S_QUANTITY": {"$lt": threshold}} ]
+        op['query_content'] = [ {"S_W_ID": w_id, "S_I_ID": {"#in": list(ol_ids)}, "S_QUANTITY": {"#lt": threshold}} ]
         op['query_fields']  = None
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -242,7 +444,72 @@ class TPCCTestCase(MongoDBTestCase):
     ## DEF
     
     def createPayment(self, params):
-        pass
+        ops = [ ]
+        w_id = params["w_id"]
+        d_id = params["d_id"]
+        h_amount = params["h_amount"]
+        c_w_id = params["c_w_id"]
+        c_d_id = params["c_d_id"]
+        c_id = params["c_id"]
+        c_last = params["c_last"]
+        h_date = params["h_date"]
+        
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_CUSTOMER
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [ {"C_W_ID": w_id, "C_D_ID": d_id, "C_ID": c_id} ]
+        op['query_fields']  = {"C_BALANCE": 0, "C_YTD_PAYMENT": 0, "C_PAYMENT_CNT": 0}
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_WAREHOUSE
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [ {"W_ID": w_id} ]
+        op['query_fields']  = {"W_NAME": 1, "W_STREET_1": 1, "W_STREET_2": 1, "W_CITY": 1, "W_STATE": 1, "W_ZIP": 1}
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_WAREHOUSE
+        op['type']          = constants.OP_TYPE_UPDATE
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [ { "W_NAME" : "igmrhawo" }, { "#inc" : { "W_YTD" : 123 }} ]
+        op['query_fields']  = None
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_DISTRICT
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [ {"D_W_ID": w_id, "D_ID": d_id} ]
+        op['query_fields']  = {"D_NAME": 1, "D_STREET_1": 1, "D_STREET_2": 1, "D_CITY": 1, "D_STATE": 1, "D_ZIP": 1}
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        op = Session.operationFactory()
+        op['collection']    = tpccConstants.TABLENAME_DISTRICT
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = self.nextQueryId()
+        op['query_content'] = [ {"D_ID": d_id}, {"#inc": {"D_YTD": h_amount}} ]
+        op['query_fields']  = None
+        op['resp_id']       = self.nextResponseId()
+        op['query_time']    = self.nextTimestamp()
+        op['resp_time']     = self.nextTimestamp()
+        ops.append(op)
+        
+        return ops
     ## DEF
     
     def testIgnore(self):

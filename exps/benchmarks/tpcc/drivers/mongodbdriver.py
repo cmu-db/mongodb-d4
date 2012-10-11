@@ -749,21 +749,6 @@ class MongodbDriver(AbstractDriver):
             c_id = c["C_ID"]
         assert len(c) > 0
         assert c_id != None
-        
-        if c_id != None:
-            # getCustomerByCustomerId
-            c = self.customer.find_one({"C_W_ID": w_id, "C_D_ID": d_id, "C_ID": c_id})
-        else:
-            # getCustomersByLastName
-            # Get the midpoint customer's id
-            all_customers = self.customer.find({"C_W_ID": w_id, "C_D_ID": d_id, "C_LAST": c_last})
-            namecnt = all_customers.count()
-            assert namecnt > 0
-            index = (namecnt-1)/2
-            c = all_customers[index]
-            c_id = c["C_ID"]
-        assert len(c) > 0
-        assert c_id != None
         c_data = c["C_DATA"]
 
         # getWarehouse
@@ -771,7 +756,7 @@ class MongodbDriver(AbstractDriver):
         assert w
         
         # updateWarehouseBalance
-        self.warehouse.update({"_id": w["_id"]}, {"$inc": {"H_AMOUNT": h_amount}})
+        self.warehouse.update({"_id": w["_id"]}, {"$inc": {"W_YTD": h_amount}})
 
         # getDistrict
         d = self.district.find_one({"D_W_ID": w_id, "D_ID": d_id}, {"D_NAME": 1, "D_STREET_1": 1, "D_STREET_2": 1, "D_CITY": 1, "D_STATE": 1, "D_ZIP": 1})
