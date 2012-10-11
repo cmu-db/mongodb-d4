@@ -37,15 +37,12 @@ import logging
 from datetime import datetime
 from pprint import pprint,pformat
 
-import api.results
 import constants
-
 import rand
 
 class Executor:
     
-    def __init__(self, driver, scaleParameters, stop_on_error = False):
-        self.driver = driver
+    def __init__(self, scaleParameters, stop_on_error = False):
         self.scaleParameters = scaleParameters
         self.stop_on_error = stop_on_error
     ## DEF
