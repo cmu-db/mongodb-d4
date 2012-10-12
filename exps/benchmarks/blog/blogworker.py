@@ -167,7 +167,7 @@ class BlogWorker(AbstractWorker):
         ## FOR
         
         LOG.debug("Successfully enabled sharding on %d collections in database %s" % \
-                  (len(shardingPatterns, self.db.name)))
+                  (len(Patterns, self.db.name)))
     ## DEF
     
     def initIndexes(self, optType, denormalize=False):
@@ -189,7 +189,7 @@ class BlogWorker(AbstractWorker):
         else:
             raise Exception("Unexpected indexing configuration type '%d'" % optType)
         if not denormalize:
-	   #drop useless comment._id index - if removed the drop_indexes doesn't do actually anything...
+	    #drop useless comment._id index - if removed the drop_indexes doesn't do actually anything...
            LOG.info("Creating indexes (articleId,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
            self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
                                                          ("rating", pymongo.DESCENDING)])
@@ -197,18 +197,18 @@ class BlogWorker(AbstractWorker):
         
     ## DEF
     
-    def initNextCommentId(self, maxCommentId):
-        idRange = int(250000 * self.getScaleFactor())
-        self.lastCommentId = maxCommentId + (idRange * self.getWorkerId())
-        LOG.info("Initialized NextCommentId for Worker %d: %d" % (self.getWorkerId(), self.lastCommentId))
-    ## DEF
+    #def initNextCommentId(self, maxCommentId):
+    #    idRange = int(250000 * self.getScaleFactor())
+    #    self.lastCommentId = maxCommentId + (idRange * self.getWorkerId())
+    #    LOG.info("Initialized NextCommentId for Worker %d: %d" % (self.getWorkerId(), self.lastCommentId))
+    ### DEF
     
-    def getNextCommentId(self):
-        """Return the next commentId to use at this worker. This is guaranteed to be globally unique across all workers in this benchmark invocation"""
-        assert self.lastCommentId <> None
-        self.lastCommentId += 1
-        return self.lastCommentId
-    ## DEF
+    #def getNextCommentId(self):
+    #    """Return the next commentId to use at this worker. This is guaranteed to be globally unique across all workers in this benchmark invocation"""
+    #    assert self.lastCommentId <> None
+    #    self.lastCommentId += 1
+    #    return self.lastCommentId
+    ### DEF
  
     ## ---------------------------------------------------------------------------
     ## STATUS
@@ -422,8 +422,21 @@ class BlogWorker(AbstractWorker):
             articleId = random.randint(0, self.num_articles)
             txnName = "readArticleTopTenComments"
             return (txnName, (articleId))
+			
 		elif config[self.name]["experiment"] == constants.EXP_SHARDING:
-		    
+		    trial = int(config[self.name]["indexing"])
+			if trial == 0:
+			    #single sharding key
+			    articleId = self.articleZipf.next()
+			    txnName = "readArticleById"
+			    return (txnName, (articleId))
+			elif trial == 1:
+			    #composite sharding key
+			    articleId = self.articleZipf.next()
+			    articleSlug = '%064d' % hash(str(articleId))
+			    txnName = "readArticleByIdAndSlug"
+			    return (txnName, (articleId,articleSlug))
+			   
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
 		    #The skew percentage determines which operations we will grab 
 		    #an articleId/articleDate using a Zipfian random number generator versus 
@@ -457,9 +470,9 @@ class BlogWorker(AbstractWorker):
 			        return (txnName, (articleId))
 			    elif randreadop == 2:
 				    if skewrandom < skewfactor
-					   author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
+					    author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
 				    else:
-				       author = authors[self.authorZipf.next()] #TODO to fix how to get the right position
+				        author = authors[self.authorZipf.next()] #TODO to fix how to get the right position
 			        txnName = "readArticleByAuthor"
 			        return (txnName, (author)) 
 			    elif randreadop == 3:
@@ -474,7 +487,7 @@ class BlogWorker(AbstractWorker):
 		    #if write
 		    elif read == False: 
 			    if skewrandom < skewfactor
-					    articleId = random.randint(0, self.num_articles)
+					articleId = random.randint(0, self.num_articles)
 				else:
 				    articleId = self.articleZipf.next()
 			    txnName="incViewsArticle"
@@ -555,6 +568,25 @@ class BlogWorker(AbstractWorker):
         #    
         ## If we didn't denormalize, then we have to execute a second
         ## query to get all of the comments for this article
+        #if not denormalize:
+        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
+        #else:
+        #    assert "comments" in article, pformat(article)
+        #    comments = article["comments"]
+    ## DEF
+	
+	def readArticleByIdAndSlug(self,denormalize,id,slug):
+        article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"slug": slug})
+        articleId = article["id"]
+		if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
+			assert article["slug"] == slug, \
+				"Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+			assert article["id"] == id, \
+				"Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
+        # If we didn't denormalize, then we have to execute a second
+        # query to get all of the comments for this article
         #if not denormalize:
         #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
         #else:
