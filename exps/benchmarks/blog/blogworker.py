@@ -277,13 +277,13 @@ class BlogWorker(AbstractWorker):
             ## FOR
             slug = "".join(slug)
             articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
-            
+            articleSlug = '%064d' % hash(str(articleId))
             article = {
                 "id": articleId,
                 "title": title,
                 "date": articleDate,
                 "author": random.choice(authors),
-                "slug": slug,
+                "slug" : articleSlug,
                 "content": content,
                 "numComments": numComments,
             }
@@ -428,7 +428,7 @@ class BlogWorker(AbstractWorker):
 		    #The skew percentage determines which operations we will grab 
 		    #an articleId/articleDate using a Zipfian random number generator versus 
 		    #a uniform distribution random number generator.
-		    skewfactor = float(config[self.name]["skew"]
+		    skewfactor = float(config[self.name]["skew"])
 		    trial = int(config[self.name]["sharding"])
 		    #The first trial (0) will consist of 90% reads and 10% writes. 
 		    #The second trial (1) will be 80% reads and 20% writes.
