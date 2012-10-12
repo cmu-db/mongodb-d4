@@ -51,17 +51,15 @@ class CostModelTestCase(MongoDBTestCase):
             responseContent = {"_id": _id}
             responseId = (queryId<<8)
             
-            if i < 50:
-                f_name_target = "field00"
-            else:
-                f_name_target = "field01"
+            for j in xrange(2):
+                f_name_target = "field%02d" % j
             
-            responseContent[f_name_target] = str(random.randint(1000, 100000))
-            responseContent[f_name_target] = random.randint(0, 100)
-            queryContent[f_name_target] = responseContent[f_name_target]
-            queryPredicates[f_name_target] = constants.PRED_TYPE_EQUALITY
-
+                responseContent[f_name_target] = random.randint(0, 100)
+                queryContent[f_name_target] = responseContent[f_name_target]
+                queryPredicates[f_name_target] = constants.PRED_TYPE_EQUALITY
+ 
             queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
+            
             projectionField['field02'] = random.randint(0, 100)
             
             op = Session.operationFactory()

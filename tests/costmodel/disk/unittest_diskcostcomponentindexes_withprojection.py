@@ -39,7 +39,7 @@ class TestDiskCostIndexesWithProjection(CostModelTestCase):
         d = Design()
         col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
         d.addCollection(col_info['name'])
-        d.addIndex(col_info['name'], ["field00"])
+        d.addIndex(col_info['name'], ["field01"])
         self.state.invalidateCache(col_info['name'])
 
         self.cm.reset()
@@ -52,7 +52,7 @@ class TestDiskCostIndexesWithProjection(CostModelTestCase):
         d = Design()
         col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
         d.addCollection(col_info['name'])
-        d.addIndex(col_info['name'], ["field00", "field01"])
+        d.addIndex(col_info['name'], ["field01", "field00"])
         self.state.invalidateCache(col_info['name'])
 
         self.cm.reset()
@@ -64,7 +64,7 @@ class TestDiskCostIndexesWithProjection(CostModelTestCase):
         d = Design()
         col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
         d.addCollection(col_info['name'])
-        d.addIndex(col_info['name'], ["field00", "field01", "field02"])
+        d.addIndex(col_info['name'], ["field01", "field00", "field02"])
         self.state.invalidateCache(col_info['name'])
 
         self.cm.reset()
