@@ -36,7 +36,6 @@ ARTICLE_CONTENT_SIZE = 8192
 COMMENT_CONTENT_SIZE = 1024
 MAX_COMMENT_RATING = 100
 NUM_ARTICLES = 10000 # this is multiplied by the scale factor
-NUMBER_OF_DATE_SUBRANGES = 8 # this breaks the interval between START_DATE and STOP_DATE in X segments
 
 #deprecated
 #AUTHOR_NAME_SIZE = 20

@@ -97,18 +97,26 @@ class BlogWorker(AbstractWorker):
         # Zipfian distribution on the number of comments & their ratings
         self.commentsZipf = ZipfGenerator(numComments, 1.0)
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.0)
-        # breaking the date range in x segments to do the range queries against later
-        self.dateZipf = ZipfGenerator(constants.NUMBER_OF_DATE_SUBRANGES,1.0)
         self.db = self.conn[config['default']["dbname"]]
         
         
         #HACK recomputing the authors list for simplicity TODO to pass it in the initImpl
-        elf.authors = [ ]
+        self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
             #authorSize = constants.AUTHOR_NAME_SIZE
             self.authors.append("authorname".join(str(i))
         self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,1.0)
         
+		#HACK recomputing the dates list for simplicity TODO to pass it in the initImpl
+		self.dates = [ ]
+		#dates in reverse order as we want to have the most recent to be more "accessed" by Zipfian
+		self.datecount=0
+		for i in xrange(STOP_DATE,START_DATE,-3600)
+			self.dates.append(i)
+			datecount++
+		self.dateZipf = ZipfGenerator(self.datecount,1.0)
+		
+		
         if self.getWorkerId() == 0:
             if config['default']["reset"]:
                 LOG.info("Resetting database '%s'" % config['default']["dbname"])
@@ -226,7 +234,10 @@ class BlogWorker(AbstractWorker):
         # the list of author names that we'll generate articles from
         #authors = msg.data[0]
         #LOG.info("Generating %s data [denormalize=%s]" % (self.getBenchmarkName(), config[self.name]["denormalize"]))
-        
+        # the list of dates that we'll generate articles from
+		#dates = msg.data[1]
+		
+		
         # HACK: Setup the indexes if we're the first client
         if self.getWorkerId() == 0:
             self.db[constants.ARTICLE_COLL].drop_indexes()
@@ -408,67 +419,68 @@ class BlogWorker(AbstractWorker):
         #    txnName = "readArticle"
         
         if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
-           articleId = random.randint(0, self.num_articles)
-           txnName = "readArticleTopTenComments"
-           return (txnName, (articleId))
+            articleId = random.randint(0, self.num_articles)
+            txnName = "readArticleTopTenComments"
+            return (txnName, (articleId))
+		elif config[self.name]["experiment"] == constants.EXP_SHARDING:
+		    
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
-	   #The skew percentage determines which operations we will grab 
-	   #an articleId/articleDate using a Zipfian random number generator versus 
-	   #a uniform distribution random number generator.
-	   skewfactor = float(config[self.name]["skew"]
-	   trial = int(config[self.name]["sharding"])
-	   #The first trial (0) will consist of 90% reads and 10% writes. 
-	   #The second trial (1) will be 80% reads and 20% writes.
-	   readwriterandom = random.random()
-	   read = False
-	   if trial == 0: 
-	       #read
-	       if readwriterandom < 0.8:
-	           read = True
-	   elif trial == 1:
-	       #read
-	       if readwriterandom < 0.9:
-	           read = True	 
-	   
-	   #if read
-	   if read == True:
-	       #random 1..3 to see which read we will make
-	       randreadop = random.randint(1,3)
-	       skewrandom = random.random()
-	       if randreadop == 1:
-	           if skewrandom < skewfactor
-	               articleId = random.randint(0, self.num_articles)
-	           else:
-		       articleId = self.articleZipf.next()
-		   txnName = "readArticleById"
-		   return (txnName, (articleId))
-	       elif randreadop == 2:
-	           if skewrandom < skewfactor
-	               author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
-	           else:
-		       author = authors[self.authorZipf.next()] #TODO to fix how to get the right position
-		   txnName = "readArticleByAuthor"
-		   return (txnName, (author)) 
-	       elif randreadop == 3:
-	       	   if skewrandom < skewfactor
-	               date = random.randint(0,constants.NUMBER_OF_DATE_SUBRANGES-1) 
-	               author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
-	           else:
-		       date = self.dateZipf.next() #TODO use the DateZipf and make range date queries 
-		       author = authors[self.authorZipf.next()] #TODO to fix how to get the right position
-		   txnName = "readArticleByAuthorAndDate"
-		   return (txnName, (author,date)) 
-	   #if write
-	   elif read == False: 
-	       if skewrandom < skewfactor
-	               articleId = random.randint(0, self.num_articles)
-	           else:
-		       articleId = self.articleZipf.next()
-	       txnName="incViewsArticle"
-	       return (txnName, (articleId)) 
-	   #do the increase of views
-	  
-	  return
+		    #The skew percentage determines which operations we will grab 
+		    #an articleId/articleDate using a Zipfian random number generator versus 
+		    #a uniform distribution random number generator.
+		    skewfactor = float(config[self.name]["skew"]
+		    trial = int(config[self.name]["sharding"])
+		    #The first trial (0) will consist of 90% reads and 10% writes. 
+		    #The second trial (1) will be 80% reads and 20% writes.
+		    readwriterandom = random.random()
+		    read = False
+		    if trial == 0: 
+		        #read
+		 	   if readwriterandom < 0.8:
+			       read = True
+		    elif trial == 1:
+			    #read
+			    if readwriterandom < 0.9:
+				   read = True	 
+		   
+		    #if read
+		    if read == True:
+		     	#random 1..3 to see which read we will make
+			    randreadop = random.randint(1,3)
+			    skewrandom = random.random()
+			    if randreadop == 1:
+			 	    if skewrandom < skewfactor
+					    articleId = random.randint(0, self.num_articles)
+				    else:
+				        articleId = self.articleZipf.next()
+			        txnName = "readArticleById"
+			        return (txnName, (articleId))
+			    elif randreadop == 2:
+				    if skewrandom < skewfactor
+					   author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
+				    else:
+				       author = authors[self.authorZipf.next()] #TODO to fix how to get the right position
+			        txnName = "readArticleByAuthor"
+			        return (txnName, (author)) 
+			    elif randreadop == 3:
+				    if skewrandom < skewfactor
+					    date = random.randint(0,constants.NUMBER_OF_DATE_SUBRANGES-1) 
+					    author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
+				    else:
+				        date = self.dateZipf.next() #TODO use the DateZipf and make range date queries 
+				        author = authors[self.authorZipf.next()] #TODO to fix how to get the right position
+			        txnName = "readArticleByAuthorAndDate"
+			        return (txnName, (author,date)) 
+		    #if write
+		    elif read == False: 
+			    if skewrandom < skewfactor
+					    articleId = random.randint(0, self.num_articles)
+				else:
+				    articleId = self.articleZipf.next()
+			    txnName="incViewsArticle"
+			    return (txnName, (articleId)) 
+		    #do the increase of views
+	return
 	  
 	  
 	  
@@ -504,7 +516,7 @@ class BlogWorker(AbstractWorker):
             return
         assert article["id"] == articleId, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-          None  
+        None  
         # If we didn't denormalize, then we have to execute a second
         # query to get all of the comments for this article
         if not denormalize:
@@ -532,14 +544,14 @@ class BlogWorker(AbstractWorker):
             comments = article["comments"]
     ## DEF
 	
-	#def readArticleByDate(self,denormalize,date):
-	#    article = self.db[constants.ARTICLE_COLL].find_one({"date": date})
-        #    articleId = article["id"]
-	#if not article:
-        #    LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-        #    return
-        #assert article["author"] == author, \
-        #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+	def readArticleByDate(self,denormalize,date):
+	    article = self.db[constants.ARTICLE_COLL].find_one({"date": date})
+        articleId = article["id"]
+	if not article:
+        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        return
+    assert article["author"] == author, \
+    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         #    
         ## If we didn't denormalize, then we have to execute a second
         ## query to get all of the comments for this article
@@ -554,13 +566,13 @@ class BlogWorker(AbstractWorker):
     def readArticleByAuthorAndDate(self,denormalize,author,date):
         article = self.db[constants.ARTICLE_COLL].find_one({"author":author,"date": date})
         articleId = article["id"]
-	if not article:
+		if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
-        assert article["author"] == author, \
-            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-        assert article["date"] == date, \
-            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
+			assert article["author"] == author, \
+				"Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+			assert article["date"] == date, \
+				"Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
         # If we didn't denormalize, then we have to execute a second
         # query to get all of the comments for this article
         if not denormalize:

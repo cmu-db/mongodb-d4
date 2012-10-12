@@ -87,6 +87,11 @@ class BlogCoordinator(AbstractCoordinator):
             #authorSize = constants.AUTHOR_NAME_SIZE
             self.authors.append("authorname".join(str(i))
         ## FOR
+		
+		#Precompute our discrete Dates (change is only by day - times stay the same)
+		self.dates = [ ]
+		for i in xrange(STOP_DATE,START_DATE,-3600)
+			self.dates.append(i)
         
         # Get the current max commentId
         # Figure out how many comments already exist in the database
@@ -109,7 +114,7 @@ class BlogCoordinator(AbstractCoordinator):
             LOG.debug("Sharding Type:   %s" % config[self.name]["sharding"])
             LOG.debug("Denormalize:     %s" % config[self.name]["denormalize"])
             LOG.debug("Indexing Type:   %s" % config[self.name]["indexes"])
-            LOG.debug("MaxCommentId:     %s" % config[self.name]["maxCommentId"])
+            LOG.debug("MaxCommentId:    %s" % config[self.name]["maxCommentId"])
         
         return
     ## DEF
@@ -123,7 +128,8 @@ class BlogCoordinator(AbstractCoordinator):
             last = first + articlesPerChannel
             LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
             sendMessage(MSG_CMD_LOAD, (self.authors, config[self.name]["maxCommentId"]), channels[i])
-            first = last
+            sendMessage(MSG_CMD_LOAD, (self.dates, config[self.name]["maxCommentId"]), channels[i])
+			first = last
     ## DEF
 
 ## CLASS
