@@ -231,8 +231,17 @@ class DiskCostComponent(AbstractCostComponent):
                             if self.debug:
                                 LOG.debug("Node #%02d: Estimated %d collection scan pageHits for op #%d on %s",\
                                     node_id, hits, op["query_id"], op["collection"])
-                                ## FOR (node)
-                    ## FOR (content)
+                        
+                        # We have a covering index, which means that we don't have
+                        # to do a look-up on the document in the collection.
+                        # But we still need to increase maxHits so that the final
+                        # ratio is counted correctly
+                        # Yang seems happy with this...
+                        else:
+                            assert op['type'] != constants.OP_TYPE_INSERT
+                            maxHits += cache.fullscan_pages
+                    ## FOR (node)
+                ## FOR (content)
 
                 totalCost += pageHits
                 totalWorst += maxHits
