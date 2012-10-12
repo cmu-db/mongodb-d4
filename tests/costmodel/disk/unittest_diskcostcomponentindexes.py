@@ -6,7 +6,7 @@ from pprint import pformat
 import unittest
 
 basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, "../"))
+sys.path.append(os.path.join(basedir, ".."))
 
 # mongodb-d4
 from costmodeltestcase_index import CostModelTestCase
@@ -20,10 +20,10 @@ class TestDiskCostIndexes(CostModelTestCase):
     def setUp(self):
         CostModelTestCase.setUp(self)
         self.cm = DiskCostComponent(self.state)
-    ## DEF
+    # DEF
     def testDiskCostIndexes(self):
         """Check whether disk cost calculations work correctly"""
-        # # First get the disk cost when there are no indexes
+        # First get the disk cost when there are no indexes
         d = Design()
         col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
         d.addCollection(col_info['name'])
@@ -34,7 +34,7 @@ class TestDiskCostIndexes(CostModelTestCase):
         # has to perform a full sequential scan on the collection
         self.assertEqual(cost0, 1.0)
 
-        # # Now add the all indexes. The disk cost should be lower
+        # Now add the all indexes. The disk cost should be lower
         d = Design()
         col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
         d.addCollection(col_info['name'])
@@ -48,7 +48,6 @@ class TestDiskCostIndexes(CostModelTestCase):
         self.assertGreater(cost0, cost1)
 
     def testDiskCostOnDifferentIndexes(self):
-        print "Tests for disk Cost on different indexes start..."
         """Check how indexes will affect the disk cost"""
         # 1. Put index on both of the fields seperately
         d = Design()
@@ -65,7 +64,7 @@ class TestDiskCostIndexes(CostModelTestCase):
         d = Design()
         col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
         d.addCollection(CostModelTestCase.COLLECTION_NAME)
-        d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field00", "feild01"])
+        d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field01", "field00"])
         self.state.invalidateCache(col_info['name'])
         
         self.cm.reset()
@@ -110,7 +109,7 @@ class TestDiskCostIndexes(CostModelTestCase):
         setSize = workingSets[col_info['name']]
         print col_info['name'], "->", setSize
         self.assertGreater(setSize, 0.0)
-            ## DEF
+    ## DEF
 
 ## CLASS
 

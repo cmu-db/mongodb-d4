@@ -31,7 +31,7 @@ from pprint import pformat
 import workload
 
 basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, ".."))
+sys.path.append(os.path.join(basedir, "../"))
 
 import catalog
 from costmodel import AbstractCostComponent
@@ -54,25 +54,9 @@ class DiskCostComponent(AbstractCostComponent):
 
         self.buffers = [ ]
         for i in xrange(self.state.num_nodes):
-            lru = FastLRUBufferWithWindow(self.state.collections, self.state.window_size, preload=constants.DEFAULT_LRU_PRELOAD)
+            lru = FastLRUBufferWithWindow(self.state.window_size)
             self.buffers.append(lru)
     ## DEF
-
-    def __getDelta__(self, design):
-        """
-            We calculate delta here so that it won't be executed
-            in every lru. All lrus will share the same delta value for it's
-            only related to the design and collections
-        """
-        percent_total = 0
-
-        for col_name in design.getCollections():
-            col_info = self.state.collections[col_name]
-            percent_total += col_info['workload_percent']
-
-        assert 0.0 < percent_total <= 1.0, "Invalid workload percent total %f" % percent_total
-
-        return 1.0 + ((1.0 - percent_total) / percent_total)
 
     def reset(self):
         for buf in self.buffers:
@@ -140,6 +124,7 @@ class DiskCostComponent(AbstractCostComponent):
         totalWorst = 0
         totalCost = 0
         sess_ctr = 0
+        
         for sess in self.state.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
@@ -192,6 +177,7 @@ class DiskCostComponent(AbstractCostComponent):
                                 self.state.cache_hit_ctr.put("index_docIds")
                                 ## IF
                             hits = lru.getDocumentFromIndex(indexKeys, documentId)
+                            # print "hits: ", hits
                             pageHits += hits
                             maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:
@@ -265,6 +251,7 @@ class DiskCostComponent(AbstractCostComponent):
         evicted = sum([ lru.evicted for lru in self.buffers ])
         LOG.info("Computed Disk Cost: %s [pageHits=%d / worstCase=%d / evicted=%d]",\
                  final_cost, totalCost, totalWorst, evicted)
+        
         return final_cost
     ## DEF
 
@@ -296,19 +283,28 @@ class DiskCostComponent(AbstractCostComponent):
             Return a tuple containing the best index to use for this operation and a boolean
             flag that is true if that index covers the entire operation's query
         """
-
         # Simply choose the index that has most of the fields
         # referenced in the operation.
         indexes = design.getIndexes(op['collection'])
         op_contents = workload.getOpContents(op)
+        # extract the keys from op_contents
+        op_index_list = []
+        for query in op_contents:
+            for key in query.iterkeys():
+                op_index_list.append(key)
+        
         best_index = None
         best_ratio = None
         for i in xrange(len(indexes)):
             field_cnt = 0
             for indexKey in indexes[i]:
+                indexMatch = (indexKey == op_index_list[field_cnt])
                 # We can't use a field if it's being used in a regex operation
-                if catalog.hasField(indexKey, op_contents) and not workload.isOpRegex(op, field=indexKey):
+                if indexMatch and not workload.isOpRegex(op, field=indexKey):
                     field_cnt += 1
+                
+                if not indexMatch or field_cnt >= len(op_index_list):
+                    break
             field_ratio = field_cnt / float(len(indexes[i]))
             if not best_index or field_ratio >= best_ratio:
                 # If the ratios are the same, then choose the
@@ -316,8 +312,10 @@ class DiskCostComponent(AbstractCostComponent):
                 if field_ratio == best_ratio:
                     if len(indexes[i]) < len(best_index):
                         continue
-                best_index = indexes[i]
-                best_ratio = field_ratio
+                
+                if field_ratio != 0:
+                    best_index = indexes[i]
+                    best_ratio = field_ratio
             ## FOR
         if self.debug:
             LOG.debug("Op #%d - BestIndex:%s / BestRatio:%s",\
@@ -326,17 +324,26 @@ class DiskCostComponent(AbstractCostComponent):
         # Check whether this is a covering index
         covering = False
         if best_index and op['type'] == constants.OP_TYPE_QUERY:
-            # The second element in the query_content is the projection
-            if len(op['query_content']) > 1:
-                projectionFields = op['query_content'][1]
-            # Otherwise just check whether the index encompasses all fields
-            else:
-                col_info = self.state.collections[op['collection']]
-                projectionFields = col_info['fields']
-
-            if projectionFields and len(best_index) == len(projectionFields):
-                # FIXME
-                covering = True
+            # Extract the indexes from best_index
+            best_index_list = []
+            for index in best_index:
+                best_index_list.append(index)
+            # The op["query_fileds"] is the projection
+            projectionFields = op['query_fields']
+            
+            # add the projection keys into op_index_set
+            for key in projectionFields.iterkeys():
+                op_index_list.append(key)
+            
+            if len(op_index_list) <= len(best_index_list):
+                counter = 0
+                while counter < len(op_index_list):
+                    if op_index_list[counter] != best_index_list[counter]:
+                        break
+                    counter += 1
+                        
+                if counter == len(op_index_list):
+                    covering = True
             ## IF
 
         return best_index, covering

@@ -4,6 +4,7 @@ import random
 import time
 
 basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../"))
 sys.path.append(os.path.join(basedir, "../../"))
 
 # mongodb-d4
@@ -35,7 +36,6 @@ class CostModelTestCase(MongoDBTestCase):
 
         # WORKLOAD
         timestamp = time.time()
-        # add queries for collection 0 querying field00
         for i in  xrange(CostModelTestCase.NUM_SESSIONS):
             sess = self.metadata_db.Session()
             sess['session_id'] = i
@@ -51,18 +51,12 @@ class CostModelTestCase(MongoDBTestCase):
             responseContent = {"_id": _id}
             responseId = (queryId<<8)
             
-            if i < 80:
-                f_name_target = "field00"
-                f_name_miss = "field01"
-            else:
-                f_name_target = "field01"
-                f_name_miss = "field00"
+            for j in xrange(2):
+                f_name_target = "field%02d" % j
             
-            responseContent[f_name_target] = str(random.randint(1000, 100000))
-            responseContent[f_name_target] = random.randint(0, 100)
-            queryContent[f_name_target] = responseContent[f_name_target]
-            queryPredicates[f_name_target] = constants.PRED_TYPE_EQUALITY
-            responseContent[f_name_miss] = str(random.randint(1000, 100000))
+                responseContent[f_name_target] = random.randint(0, 100)
+                queryContent[f_name_target] = responseContent[f_name_target]
+                queryPredicates[f_name_target] = constants.PRED_TYPE_EQUALITY
 
             queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
             op = Session.operationFactory()
@@ -110,7 +104,7 @@ class CostModelTestCase(MongoDBTestCase):
             'skew_intervals': CostModelTestCase.NUM_INTERVALS,
             'address_size':   64,
             'nodes':          CostModelTestCase.NUM_NODES,
-            'window_size':    2
+            'window_size':    10
         }
 
         self.state = State(self.collections, populated_workload, self.costModelConfig)

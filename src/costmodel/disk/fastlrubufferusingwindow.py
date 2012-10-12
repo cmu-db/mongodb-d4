@@ -5,18 +5,18 @@
 
     HEAD: <buffer-tuple>
     TAIL: <buffer-tuple>
-    BUFFER: { <buffer-tuple>: [ <prev-buffer-value>, <next-buffer-value>, <size> ] }
+    BUFFER: { <buffer-tuple>: [ <prev-buffer-value>, <next-buffer-value>, <hash-key> ] }
 
     The HEAD and TAIL are used to pop and push entries out and into the buffer based on LRU rules
     """
 import logging
 import random
 from pprint import pformat
-from util import constants
 
 # constants
 PREV_BUFFER_ENTRY = 0
 NEXT_BUFFER_ENTRY = 1
+HASH_KEY = 2
 
 DOC_TYPE_INDEX = 0
 DOC_TYPE_COLLECTION = 1
@@ -29,12 +29,9 @@ LOG = logging.getLogger(__name__)
 
 class FastLRUBufferWithWindow:
 
-    def __init__(self, collections, window_size, preload=constants.DEFAULT_LRU_PRELOAD):
+    def __init__(self, window_size):
 
-        self.debug = LOG.isEnabledFor(logging.DEBUG)
-        self.preload = preload
-
-        self.collections = collections
+        self.debug = False
         
         self.buffer = { }
         self.head = None # the top element in the buffer
@@ -47,7 +44,7 @@ class FastLRUBufferWithWindow:
         self.evicted = 0
         self.refreshed = 0
 
-        self.address_size = constants.DEFAULT_ADDRESS_SIZE # FIXME
+        # self.address_size = constants.DEFAULT_ADDRESS_SIZE # FIXME
         ## DEF
 
     def reset(self):
@@ -61,43 +58,6 @@ class FastLRUBufferWithWindow:
         self.head = None
         self.tail = None
     ## DEF
-
-    def initialize(self, design, delta, cache):
-        """
-            Add the given collection to our buffer.
-            This will automatically initialize any indexes for the collection as well.
-        """
-        self.reset()
-        
-        if cache:
-          self.buffer = self.__clone_dictionary__(cache.buffer)
-          self.head = self.__clone_buffer_value__(cache.head)
-          self.tail = self.__clone_buffer_value__(cache.tail)
-          self.evicted = cache.evicted
-          self.refreshed = cache.refreshed
-          self.free_slots = cache.free_slots
-        else:
-            self.__init_collections__(design, delta)
-          
-        return self
-
-    def __clone_dictionary__(self, source):
-        target = { }
-
-        for key, value in source.iteritems():
-            target[key] = value
-
-        return target
-
-    def __clone_buffer_value__(self, source): # clone the "link" in the doubly linked-list
-        if source is None:
-            return None
-        
-        newValue = [None, None, None]
-        newValue[PREV_BUFFER_ENTRY] = source[PREV_BUFFER_ENTRY][:] if source[PREV_BUFFER_ENTRY] else None
-        newValue[NEXT_BUFFER_ENTRY] = source[NEXT_BUFFER_ENTRY][:] if source[NEXT_BUFFER_ENTRY] else None
-
-        return newValue
 
     def getDocumentFromIndex(self, indexKeys, documentId):
         """
@@ -126,6 +86,8 @@ class FastLRUBufferWithWindow:
         if offset:
             self.__update__(buffer_tuple)
             self.refreshed += 1
+            if self.debug:
+                self.__print_buffer__()
             return 0 # page_hits
 
         # It's not in the buffer for this index, so we're going to have
@@ -138,52 +100,32 @@ class FastLRUBufferWithWindow:
         else:
 #            assert not buffer_tuple in self.buffer, "Duplicate entry '%s'" % buffer_tuple
 #            assert size < self.buffer_size
+            if self.debug:
+                self.__print_buffer__()
             return self.__push__(buffer_tuple)
-        ## DEF
-
-    def __init_collections__(self, design, delta):
-
-        for col_name in design.getCollections():
-            if not self.preload: break
-
-            col_info = self.collections[col_name]
-            indexes = design.getIndexes(col_name) 
-
-            # How much space are they allow to have in the initial configuration
-            col_remaining = int(self.window_size * (delta * col_info['workload_percent']))
-            if self.debug:
-                LOG.debug("%s Pre-load Percentage: %.1f%% [bytes=%d]",
-                    col_name, (delta * col_info['workload_percent'])*100, col_remaining)
-
-            ctr = 0
-            rng = random.Random()
-            rng.seed(col_name)
-            while col_remaining > 0 and self.evicted == 0:
-                documentId = rng.random()
-                if len(indexes) == 0:
-                    self.getDocumentFromCollection(col_name, documentId)
-                else:
-                    self.getDocumentFromIndex(col_name, indexes, documentId)
-                col_remaining -= 1
-                ctr += 1
-            ## WHILE
-            if self.debug:
-                LOG.debug("Pre-loaded %d documents for %s - %s", ctr, col_name, self)
-                ## FOR
-
-        if self.debug and self.preload:
-            LOG.debug("Total # of Pre-loaded Documents: %d", len(self.buffer.keys()))
         ## DEF
 
     ##  -----------------------------------------------------------------------
     ##  LRU operations
     ##  -----------------------------------------------------------------------
 
+    def __print_buffer__(self):
+        """
+            Print out the current entries in the buffer(most used to lease used)
+        """
+        counter = 0
+        pointer = self.tail
+        while pointer is not None:
+            print "Entry " + str(counter) + ": " + str(pointer)
+            counter += 1
+            pointer = pointer[PREV_BUFFER_ENTRY]
+        print "total number of entries: " + str(counter)
+        
     def __pop__(self):
         """
             pop out the least recent used buffer_tuple from the buffer
         """
-        self.__remove__(self.head)
+        self.__remove__(self.head[HASH_KEY])
         self.evicted += 1
     ## DEF
 
@@ -236,17 +178,14 @@ class FastLRUBufferWithWindow:
             Add the given buffer_tuple to the bottom of the buffer
         """
         page_hits = 0
-        newEntry = [self.tail, None]
         # pop out the least recent used tuples until we have enough space in buffer for this tuple
+        while self.free_slots <= 0:
+            self.__pop__()
+            page_hits += 1
+        
+        newEntry = [self.tail, None, buffer_tuple]
+        
         if self.tail is not None:
-            while self.free_slots <= 0:
-                # self.__remove__(self.head)
-                self.free_slots += 1
-                self.head = self.head[NEXT_BUFFER_ENTRY]
-                self.head[PREV_BUFFER_ENTRY] = None
-                self.evicted += 1
-                page_hits += 1
-
             self.tail[NEXT_BUFFER_ENTRY] = newEntry
         else:
             self.head = newEntry
@@ -264,21 +203,6 @@ class FastLRUBufferWithWindow:
     ## UTILITY METHODS
     ## -----------------------------------------------------------------------
 
-    def __getIndexSize__(self, col_info, indexKeys):
-        """Estimate the amount of memory required by the indexes of a given design"""
-        # TODO: This should be precomputed ahead of time. No need to do this
-        #       over and over again.
-        index_size = 0
-        for f_name in indexKeys:
-            f = col_info.getField(f_name)
-            assert f, "Invalid index key '%s.%s'" % (col_info['name'], f_name)
-            index_size += f['avg_size']
-        index_size += self.address_size
-        if self.debug: LOG.debug("%s Index %s Memory: %d bytes",\
-            col_info['name'], repr(indexKeys), index_size)
-        return index_size
-        ## DEF
-
     def __str__(self):
         buffer_ratio = (self.window_size - self.free_slots) / float(self.window_size)
         return "Buffer Usage %.2f%% [evicted=%d / refreshed=%d / entries=%d / used=%d / total=%d]" % (\
@@ -291,11 +215,4 @@ class FastLRUBufferWithWindow:
             )
         ## DEF
 
-    def validate(self):
-        """Check that the buffer is in a valid state"""
-        assert self.free_slots >= 0,\
-        "The buffer has a negative remaining space"
-        assert self.free_slots <= self.window_size,\
-        "The buffer has more remaining space than the original buffer size"
-        ## DEF
 ## CLASS
