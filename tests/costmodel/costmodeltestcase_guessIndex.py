@@ -47,14 +47,16 @@ class CostModelTestCase(MongoDBTestCase):
         queryId = long((0<<16) + 0)
         queryContent = { }
         queryPredicates = { }
-
+        projectionField = { }
+        
         responseContent = {"_id": _id}
         responseId = (queryId<<8)
         
         responseContent['field00'] = random.randint(0, 100)
         queryContent['field00'] = responseContent['field00']
         queryPredicates['field00'] = constants.PRED_TYPE_EQUALITY
-
+        projectionField['field02'] = random.randint(0, 100)
+        
         queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
         op = Session.operationFactory()
         op['collection']    = CostModelTestCase.COLLECTION_NAME
@@ -65,6 +67,7 @@ class CostModelTestCase(MongoDBTestCase):
         op['resp_id']       = responseId
         op['predicates']    = queryPredicates
         op['query_time']    = timestamp
+        op['query_fields']   = projectionField
         timestamp += 1
         op['resp_time']    = timestamp
         
@@ -75,14 +78,16 @@ class CostModelTestCase(MongoDBTestCase):
         queryId = long((1<<16) + 0)
         queryContent = { }
         queryPredicates = { }
-
+        
         responseContent = {"_id": _id}
         responseId = (queryId<<8)
+        projectionField = { }
         
         responseContent['field01'] = random.randint(0, 100)
         queryContent['field01'] = responseContent['field01']
         queryPredicates['field01'] = constants.PRED_TYPE_EQUALITY
-
+        projectionField['field02'] = random.randint(0, 100)
+        
         queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
         op = Session.operationFactory()
         op['collection']    = CostModelTestCase.COLLECTION_NAME
@@ -93,6 +98,7 @@ class CostModelTestCase(MongoDBTestCase):
         op['resp_id']       = responseId
         op['predicates']    = queryPredicates
         op['query_time']    = timestamp
+        op['query_fields']   = projectionField
         timestamp += 1
         op['resp_time']    = timestamp
         
@@ -128,7 +134,7 @@ class CostModelTestCase(MongoDBTestCase):
         op['resp_id']       = responseId
         op['predicates']    = queryPredicates
         op['query_time']    = timestamp
-        op['query_field']   = projectionField
+        op['query_fields']   = projectionField
         timestamp += 1
         op['resp_time']    = timestamp
         

@@ -292,7 +292,14 @@ class DiskCostComponent(AbstractCostComponent):
         for query in op_contents:
             for key in query.iterkeys():
                 op_index_list.append(key)
-        
+        # add the projection keys into op_index_set
+        # The op["query_fileds"] is the projection
+        projectionFields = op['query_fields']
+
+        if projectionFields:
+            for key in projectionFields.iterkeys():
+                op_index_list.append(key)
+            
         best_index = None
         best_ratio = None
         for i in xrange(len(indexes)):
@@ -328,12 +335,6 @@ class DiskCostComponent(AbstractCostComponent):
             best_index_list = []
             for index in best_index:
                 best_index_list.append(index)
-            # The op["query_fileds"] is the projection
-            projectionFields = op['query_fields']
-            
-            # add the projection keys into op_index_set
-            for key in projectionFields.iterkeys():
-                op_index_list.append(key)
             
             if len(op_index_list) <= len(best_index_list):
                 counter = 0

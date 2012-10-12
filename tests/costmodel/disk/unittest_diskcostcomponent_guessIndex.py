@@ -68,7 +68,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field01")
         self.assertEqual(best_index[1], "field00")
-        self.assertTrue(covering)
+        self.assertFalse(covering)
         
         # query 3: get query, queries on field01 and field00
         op = ops[2]
@@ -79,7 +79,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field01")
         self.assertEqual(best_index[1], "field00")
-        self.assertTrue(covering)
+        self.assertFalse(covering)
 
         # query 4:
         d = Design()
@@ -146,7 +146,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         
         self.assertEqual(len(best_index), 1)
         self.assertEqual(best_index[0], 'field01')
-        self.assertTrue(covering)
+        self.assertFalse(covering)
         
         # query 2:  get query
         op = ops[2]
@@ -157,9 +157,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], 'field01')
         self.assertEqual(best_index[1], 'field00')
-        self.assertTrue(covering)
-        
-        
+        self.assertFalse(covering)
+         
         # query 3:
         d = Design()
         d.addCollection("apple")
@@ -188,7 +187,34 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         self.assertFalse(covering)
         
     def testGuessIndex_indexChooseWithProjectionField(self):
-        pass
+        """
+            If a query uses one of the indexes the design has but its projection uses 
+            one of the indexes the design has, we should choose the index with both
+            query index and projection index
+        """
+        # If we have a design with index (field00), (field00, field02)
+        # 1. query uses field00 but its projection field is {field02: xx}
+        # result: we should choose (field00, field02) as the best index
+        cm = DiskCostComponent(self.state)
+        ops = []
+        for sess in self.workload:
+            for op in sess["operations"]:
+                ops.append(op)
+                
+        # initialize design
+        d = Design()
+        d.addCollection("apple")
+        d.addIndex("apple", ["field00", "field02"])
+        d.addIndex("apple", ["field00"])
+        
+        op = ops[0]
+        
+        # Guess index
+        best_index, covering = cm.guessIndex(d, op)
+        
+        self.assertEqual(len(best_index), 2)
+        self.assertEqual(best_index[0], "field00")
+        self.assertTrue(covering)
         
 ## CLASS
 
