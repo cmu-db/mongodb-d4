@@ -85,13 +85,13 @@ class BlogCoordinator(AbstractCoordinator):
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            self.authors.append("authorname".join(str(i))
+            self.authors.append("authorname"+str(i))
         ## FOR
-		
-		#Precompute our discrete Dates (change is only by day - times stay the same)
-		self.dates = [ ]
-		for i in xrange(STOP_DATE,START_DATE,-3600)
-			self.dates.append(i)
+        
+        #Precompute our discrete Dates (change is only by day - times stay the same)
+        self.dates = [ ]
+        for i in xrange(STOP_DATE,START_DATE,-3600)
+            self.dates.append(i)
         
         # Get the current max commentId
         # Figure out how many comments already exist in the database
@@ -129,7 +129,7 @@ class BlogCoordinator(AbstractCoordinator):
             LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
             sendMessage(MSG_CMD_LOAD, (self.authors, config[self.name]["maxCommentId"]), channels[i])
             sendMessage(MSG_CMD_LOAD, (self.dates, config[self.name]["maxCommentId"]), channels[i])
-			first = last
+            first = last
     ## DEF
 
 ## CLASS
