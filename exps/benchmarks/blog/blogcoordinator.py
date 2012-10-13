@@ -90,7 +90,7 @@ class BlogCoordinator(AbstractCoordinator):
         
         #Precompute our discrete Dates (change is only by day - times stay the same)
         self.dates = [ ]
-        for i in xrange(STOP_DATE,START_DATE,-3600)
+        for i in xrange(STOP_DATE,START_DATE,-3600):
             self.dates.append(i)
         
         # Get the current max commentId
