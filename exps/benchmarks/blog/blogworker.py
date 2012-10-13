@@ -170,23 +170,26 @@ class BlogWorker(AbstractWorker):
     def initIndexes(self, optType, denormalize=False):
         assert self.db != None
     
-        # Nothing
-        if optType == constants.INDEXEXP_NONE:
+    
+        if optType == constants.INDEXEXP_8020 or optType == constants.INDEXEXP_9010
+        #TODO    
             pass
+        # Nothing
+        #if optType == constants.INDEXEXP_NONE:
+        #    pass
         # Regular Index
-        elif optType == constants.INDEXEXP_PREDICATE:
-        LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-            self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+        #elif optType == constants.INDEXEXP_PREDICATE:
+        #LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+        #    self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
         # Cover Index
-        elif optType == constants.INDEXEXP_COVERING:
-            self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING), \
-                                                          ("date", pymongo.ASCENDING), \
-                                                          ("author", pymongo.ASCENDING)])
+        #elif optType == constants.INDEXEXP_COVERING:
+        #    self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING), \
+        #                                                  ("date", pymongo.ASCENDING), \
+        #                                                  ("author", pymongo.ASCENDING)])
         # Busted!
         else:
             raise Exception("Unexpected indexing configuration type '%d'" % optType)
         if not denormalize:
-        #drop useless comment._id index - if removed the drop_indexes doesn't do actually anything...
            LOG.info("Creating indexes (articleId,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
            self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
                                                          ("rating", pymongo.DESCENDING)])
