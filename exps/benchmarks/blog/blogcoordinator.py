@@ -82,17 +82,17 @@ class BlogCoordinator(AbstractCoordinator):
         # Precompute our blog article authors
         # The list of authors have names authorname1 authorname2 ... etc authornameN so
         # we can use Zipfian later for the same names
-        self.authors = [ ]
-        for i in xrange(0, constants.NUM_AUTHORS):
-            #authorSize = constants.AUTHOR_NAME_SIZE
-            self.authors.append("authorname"+str(i))
+        #self.authors = [ ]
+        #for i in xrange(0, constants.NUM_AUTHORS):
+        #    #authorSize = constants.AUTHOR_NAME_SIZE
+        #    self.authors.append("authorname"+str(i))
         ## FOR
         
         #Precompute our discrete Dates (change is only by day - times stay the same)
-        self.dates = [ ]
-        for i in xrange(STOP_DATE,START_DATE,-3600):
-            self.dates.append(i)
-        
+        #self.dates = [ ]
+        #for i in xrange(STOP_DATE,START_DATE,-3600):
+        #    self.dates.append(i)
+        #
         # Get the current max commentId
         # Figure out how many comments already exist in the database
         config[self.name]["maxCommentId"] = -1
@@ -127,8 +127,8 @@ class BlogCoordinator(AbstractCoordinator):
         for i in range(len(channels)):
             last = first + articlesPerChannel
             LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
-            sendMessage(MSG_CMD_LOAD, (self.authors, config[self.name]["maxCommentId"]), channels[i])
-            sendMessage(MSG_CMD_LOAD, (self.dates, config[self.name]["maxCommentId"]), channels[i])
+            #sendMessage(MSG_CMD_LOAD, (self.authors, config[self.name]["maxCommentId"]), channels[i])
+            #sendMessage(MSG_CMD_LOAD, (self.dates, config[self.name]["maxCommentId"]), channels[i])
             first = last
     ## DEF
 
