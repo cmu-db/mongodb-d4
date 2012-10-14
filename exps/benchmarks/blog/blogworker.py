@@ -262,7 +262,7 @@ class BlogWorker(AbstractWorker):
             titleSize = constants.ARTICLE_TITLE_SIZE
             title = randomString(titleSize)
             contentSize = constants.ARTICLE_CONTENT_SIZE
-            content = randmString(contentSize)
+            content = randomString(contentSize)
             slug = list(title.replace(" ", ""))
             if len(slug) > 64: slug = slug[:64]
             for idx in xrange(0, len(slug)):
