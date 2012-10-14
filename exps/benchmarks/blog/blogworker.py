@@ -104,16 +104,16 @@ class BlogWorker(AbstractWorker):
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            self.authors.append("authorname".join(str(i))
+            self.authors.append("authorname"+str(i))
         self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,1.0)
         
         #precalcualtiong the dates list to use Zipfian against them
         self.dates = [ ]
         #dates in reverse order as we want to have the most recent to be more "accessed" by Zipfian
         self.datecount=0
-        for i in xrange(STOP_DATE,START_DATE,-3600):
+        for i in xrange(constants.STOP_DATE,constants.START_DATE,-3600):
             self.dates.append(i)
-            datecount++
+            self.datecount +=1
         self.dateZipf = ZipfGenerator(self.datecount,1.0)
         
         
@@ -285,7 +285,7 @@ class BlogWorker(AbstractWorker):
                 article["comments"] = [ ]
                 self.db[constants.ARTICLE_COLL].insert(article)
             else:
-            articlesBatch.append(article)
+                articlesBatch.append(article)
             
             
             ## ----------------------------------------------
@@ -323,16 +323,11 @@ class BlogWorker(AbstractWorker):
                     LOG.debug("COMMENTS: %6d" % (commentCtr))
             #self.db[constants.ARTICLE_COLL].insert(articlesBatch)
             
-            if not config[self.name]["denormalize"]:
+        if not config[self.name]["denormalize"]:
             if len(articlesBatch) > 0:
-            self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-                if len(commentsBatch) > 0:
-                    self.db[constants.COMMENT_COLL].insert(commentsBatch)
-           
-            
-            
-             
-             
+                self.db[constants.ARTICLE_COLL].insert(articlesBatch)
+            if len(commentsBatch) > 0:
+                self.db[constants.COMMENT_COLL].insert(commentsBatch)  
             articlesBatch = [ ]
             commentsBatch = [ ]
             ## IF
@@ -454,15 +449,7 @@ class BlogWorker(AbstractWorker):
                 txnName="incViewsArticle"
                 return (txnName, (articleId)) 
             #do the increase of views
-    return
-      
-      
-      
-      
-      
-      
-        
-   
+        return
    ## DEF
         
     def executeImpl(self, config, txn, params):
@@ -502,8 +489,8 @@ class BlogWorker(AbstractWorker):
     
     def readArticleByAuthor(self,denormalize,author):
         article = self.db[constants.ARTICLE_COLL].find_one({"author": author})
-            articleId = article["id"]
-    if not article:
+        articleId = article["id"]
+        if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
         assert article["author"] == author, \
@@ -521,11 +508,11 @@ class BlogWorker(AbstractWorker):
     def readArticleByDate(self,denormalize,date):
         article = self.db[constants.ARTICLE_COLL].find_one({"date": date})
         articleId = article["id"]
-    if not article:
-        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-        return
-    assert article["author"] == author, \
-    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+    	if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
+        assert article["author"] == author, \
+        "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         #    
         ## If we didn't denormalize, then we have to execute a second
         ## query to get all of the comments for this article
@@ -542,10 +529,10 @@ class BlogWorker(AbstractWorker):
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
-            assert article["slug"] == slug, \
-                "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-            assert article["id"] == id, \
-                "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
+        assert article["slug"] == slug, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+        assert article["id"] == id, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
         # If we didn't denormalize, then we have to execute a second
         # query to get all of the comments for this article
         #if not denormalize:
@@ -562,9 +549,9 @@ class BlogWorker(AbstractWorker):
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
-            assert article["author"] == author, \
-                "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-            assert article["date"] == date, \
+        assert article["author"] == author, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+        assert article["date"] == date, \
                 "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
         # If we didn't denormalize, then we have to execute a second
         # query to get all of the comments for this article
