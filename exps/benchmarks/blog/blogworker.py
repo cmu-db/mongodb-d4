@@ -309,8 +309,7 @@ class BlogWorker(AbstractWorker):
                     "rating": int(self.ratingZipf.next())
                 }
                 commentCtr += 1
-                
-        commentsBatch.append(comment) 
+                commentsBatch.append(comment) 
         
         ## FOR (comments)
         
@@ -510,7 +509,7 @@ class BlogWorker(AbstractWorker):
     def readArticleByDate(self,denormalize,date):
         article = self.db[constants.ARTICLE_COLL].find_one({"date": date})
         articleId = article["id"]
-    	if not article:
+        if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
         assert article["author"] == author, \
