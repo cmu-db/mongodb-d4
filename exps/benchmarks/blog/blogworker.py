@@ -297,7 +297,7 @@ class BlogWorker(AbstractWorker):
             LOG.debug("Comments for article %d: %d" % (articleId, numComments))
             for ii in xrange(0, numComments):
                 #lastDate = randomDate(articleDate, constants.STOP_DATE)
-                commentAuthor = randomString(constants.AUTHOR_NAME_SIZE)
+                commentAuthor = random.choice(self.authors)
                 commentContent = randomString(constants.COMMENT_CONTENT_SIZE)
                 
                 comment = {
