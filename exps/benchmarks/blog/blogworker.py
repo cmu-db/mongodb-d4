@@ -94,25 +94,29 @@ class BlogWorker(AbstractWorker):
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
         
         numComments = int(config[self.name]["commentsperarticle"])
+        
         # Zipfian distribution on the number of comments & their ratings
         self.commentsZipf = ZipfGenerator(numComments, 1.0)
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.0)
-        self.db = self.conn[config['default']["dbname"]]        
-        #HACK recomputing the authors list for simplicity TODO to pass it in the initImpl
+        self.db = self.conn[config['default']["dbname"]]   
+        
+        #precalcualtiong the authors names list to use Zipfian against them
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
             #authorSize = constants.AUTHOR_NAME_SIZE
             self.authors.append("authorname".join(str(i))
         self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,1.0)
         
-        #HACK recomputing the dates list for simplicity TODO to pass it in the initImpl
+        #precalcualtiong the dates list to use Zipfian against them
         self.dates = [ ]
         #dates in reverse order as we want to have the most recent to be more "accessed" by Zipfian
         self.datecount=0
-        for i in xrange(STOP_DATE,START_DATE,-3600)
+        for i in xrange(STOP_DATE,START_DATE,-3600):
             self.dates.append(i)
             datecount++
         self.dateZipf = ZipfGenerator(self.datecount,1.0)
+        
+        
         
         if self.getWorkerId() == 0:
             if config['default']["reset"]:
@@ -121,13 +125,13 @@ class BlogWorker(AbstractWorker):
             
             ## SHARDING
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
-                self.initSharding(config)
+                self.enableSharding(config)
         ## IF
         
         self.initNextCommentId(config[self.name]["maxCommentId"])
     ## DEF
     
-    def initSharding(self, config):
+    def enableSharding(self, config):
         assert self.db != None
         
         # Enable sharding on the entire database
@@ -144,10 +148,10 @@ class BlogWorker(AbstractWorker):
         shardingPatterns = { }
         
         if config[self.name]["sharding"] == constants.SHARDEXP_SINGLE:
-            pass
+            shardingPattern = {articles : { id : 1}}
         
         elif config[self.name]["sharding"] == constants.SHARDEXP_COMPOUND:
-            pass
+            shardingPattern = {articles : {id : 1, slug : 1}}
         
         else:
             raise Exception("Unexpected sharding configuration type '%d'" % config["sharding"])
@@ -166,49 +170,6 @@ class BlogWorker(AbstractWorker):
         LOG.debug("Successfully enabled sharding on %d collections in database %s" % \
                   (len(Patterns, self.db.name)))
     ## DEF
-    
-    def initIndexes(self, optType, denormalize=False):
-        assert self.db != None
-    
-    
-        if optType == constants.INDEXEXP_8020 or optType == constants.INDEXEXP_9010
-        #TODO    
-            pass
-        # Nothing
-        #if optType == constants.INDEXEXP_NONE:
-        #    pass
-        # Regular Index
-        #elif optType == constants.INDEXEXP_PREDICATE:
-        #LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-        #    self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
-        # Cover Index
-        #elif optType == constants.INDEXEXP_COVERING:
-        #    self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING), \
-        #                                                  ("date", pymongo.ASCENDING), \
-        #                                                  ("author", pymongo.ASCENDING)])
-        # Busted!
-        else:
-            raise Exception("Unexpected indexing configuration type '%d'" % optType)
-        if not denormalize:
-           LOG.info("Creating indexes (articleId,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
-           self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
-                                                         ("rating", pymongo.DESCENDING)])
-        ## IF
-        
-    ## DEF
-    
-    #def initNextCommentId(self, maxCommentId):
-    #    idRange = int(250000 * self.getScaleFactor())
-    #    self.lastCommentId = maxCommentId + (idRange * self.getWorkerId())
-    #    LOG.info("Initialized NextCommentId for Worker %d: %d" % (self.getWorkerId(), self.lastCommentId))
-    ### DEF
-    
-    #def getNextCommentId(self):
-    #    """Return the next commentId to use at this worker. This is guaranteed to be globally unique across all workers in this benchmark invocation"""
-    #    assert self.lastCommentId <> None
-    #    self.lastCommentId += 1
-    #    return self.lastCommentId
-    ### DEF
  
     ## ---------------------------------------------------------------------------
     ## STATUS
@@ -243,15 +204,46 @@ class BlogWorker(AbstractWorker):
             self.db[constants.ARTICLE_COLL].drop_indexes()
             self.db[constants.COMMENT_COLL].drop_indexes()
             
-            # SHARDING KEY + DENORMALIZATION
-            if config[self.name]["experiment"] in [constants.EXP_SHARDING, constants.EXP_DENORMALIZATION]:
-                self.initIndexes(constants.INDEXEXP_PREDICATE, config[self.name]["denormalize"])
-            # INDEXING
-            elif config[self.name]["experiment"] == constants.EXP_INDEXING:
-                self.initIndexes(config[self.name]["indexes"])
-            # BUSTED!
+            
+            ## INDEXES CONFIGURATION
+            
+            
+            if config[self.name]["experiment"] == constants.EXP_INDEXING:
+                LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                
+                LOG.info("Creating indexes (author,date) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING), \
+                                                              ("date", pymongo.ASCENDING)])
+                
+                LOG.info("Creating indexes (date) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                self.db[constants.ARTICLE_COLL].ensure_index([("date", pymongo.ASCENDING)])
+            
+            elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
+                LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                
+                if config[self.name]["denormalize"]:
+                    LOG.info("Creating indexes (id,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
+                    self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
+                                                                  ("rating", pymongo.DESCENDING)])
+                    
+            elif config[self.name]["experiment"] == constants.EXPS_SHARDING:
+                #NOTE: we don't need an index on articleId only as we have this composite index -> (articleId,articleSlug)
+                LOG.info("Creating indexes (id,slug) %s" % self.db[constants.ARTICLE_COLL].full_name)
+                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING), \
+                                                              ("slug", pymongo.ASCENDING)])
+                
+            
             else:
                 raise Exception("Unexpected experiment type %s" % config[self.name]["experiment"])
+                
+                
+            ## SHARDING CONFIGURATION
+            
+            
+            
+                
         ## IF
         
         ## ----------------------------------------------
@@ -344,45 +336,10 @@ class BlogWorker(AbstractWorker):
             articlesBatch = [ ]
             commentsBatch = [ ]
             ## IF
-    ## FOR (articles)    
+            
         LOG.info("FINAL-ARTICLES: %6d / %d" % (articleCtr-1, articleTotal))
         LOG.info("FINAL-COMMENTS: %6d / %d" % (commentCtr,commentCtr))        
-                #if config[self.name]["denormalize"]:
-                #    if self.debug: 
-                #        LOG.debug("Storing new comment for article %d directly in document" % articleId)
-                #    article["comments"].append(comment)
-                #else:
-                #    if self.debug:
-                #        LOG.debug("Storing new comment for article %d in separate batch" % articleId)
-                #    commentsBatch.append(comment)
-            ## FOR (comments)
-            #if self.debug: LOG.debug("Comment Batch: %d" % len(commentsBatch))
-
-            # Always insert the article
-            #articlesBatch.append(article)
-            #articleCtr += 1
-            #if articleCtr % 100 == 0 :
-            #    if articleCtr % 1000 == 0 :
-            #        self.loadStatusUpdate(articleCtr / articleTotal)
-            #        LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
-            #        if len(commentsBatch) > 0:
-            #            LOG.debug("COMMENTS: %6d" % (commentCtr))
-            #    self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-            #    articlesBatch = [ ]
-            #    
-            #    if len(commentsBatch) > 0:
-            #        self.db[constants.COMMENT_COLL].insert(commentsBatch)
-            #        commentsBatch = [ ]
-            ## IF
                 
-        ## FOR (articles)
-        #if len(articlesBatch) > 0 and not config[self.name]["denormalize"]:
-        #    LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
-        #    self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-        #    #if len(commentsBatch) > 0:
-        #        #self.db[constants.COMMENT_COLL].insert(commentsBatch)
-        
-        
     ## DEF
     
     ## ---------------------------------------------------------------------------
@@ -461,21 +418,26 @@ class BlogWorker(AbstractWorker):
                 randreadop = random.randint(1,3)
                 skewrandom = random.random()
                 if randreadop == 1:
-                     if skewrandom < skewfactor
+                    if skewrandom < skewfactor:
                         articleId = random.randint(0, self.num_articles)
                     else:
                         articleId = self.articleZipf.next()
                     txnName = "readArticleById"
                     return (txnName, (articleId))
                 elif randreadop == 2:
-                    if skewrandom < skewfactor
+                    if skewrandom < skewfactor: 
+                        date = randomDate(constants.START_DATE, constants.STOP_DATE)
+                    else:
+                        date = dates[self.dateZipf.next()] #TODO to fix how to get the right position
+                elif randreadop == 3:
+                    if skewrandom < skewfactor:
                         author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
                     else:
                         author = authors[self.authorZipf.next()] #TODO to fix how to get the right position
                     txnName = "readArticleByAuthor"
                     return (txnName, (author)) 
-                elif randreadop == 3:
-                    if skewrandom < skewfactor
+                elif randreadop == 4:
+                    if skewrandom < skewfactor:
                         date = random.randint(0,constants.NUMBER_OF_DATE_SUBRANGES-1) 
                         author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
                     else:
@@ -485,7 +447,7 @@ class BlogWorker(AbstractWorker):
                     return (txnName, (author,date)) 
             #if write
             elif read == False: 
-                if skewrandom < skewfactor
+                if skewrandom < skewfactor:
                     articleId = random.randint(0, self.num_articles)
                 else:
                     articleId = self.articleZipf.next()
@@ -651,19 +613,4 @@ class BlogWorker(AbstractWorker):
             LOG.warn("Failed to increase views on %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
 
-    def expIndexes(self, articleId):
-        """
-        In our final benchmark, we compared the performance difference between a query on 
-        a collection with (1) no index for the query's predicate, (2) an index with only one 
-        key from the query's predicate, and (3) a covering index that has all of the keys 
-        referenced by that query.
-        What do we want to vary here on the x-axis? The number of documents in the collection?
-        """
-        
-        article = self.db[constants.ARTICLE_COLL].find({"id": articleId}, {"id", "date", "author"})
-        if not article:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            return
-        
-        return
 ## CLASS
