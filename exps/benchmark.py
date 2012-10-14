@@ -117,7 +117,8 @@ class Benchmark:
         '''Load configuration file'''
         assert 'config' in self._args
         assert self._args['config'] != None
-        
+        print("~~~")
+	print(self._args['config'].name)
         cparser = SafeConfigParser()
         cparser.read(os.path.realpath(self._args['config'].name))
         config = dict()
@@ -354,7 +355,6 @@ if __name__=='__main__':
         
         argMeta, argType = override[key]
         agroup.add_argument('--' + key, \
-                             default=default, \
                              type=argType, \
                              metavar=argMeta, \
                              help=desc)
