@@ -111,10 +111,10 @@ class BlogWorker(AbstractWorker):
         self.dates = [ ]
         #dates in reverse order as we want to have the most recent to be more "accessed" by Zipfian
         self.datecount=0
-        epochToStartInSeconds = time.mktime(constants.START_DATE.timetuple())
-        epochToStopInSeconds = time.mktime(constants.STOP_DATE.timetuple())
+        epochToStartInSeconds = int(time.mktime(constants.START_DATE.timetuple()))
+        epochToStopInSeconds = int(time.mktime(constants.STOP_DATE.timetuple()))
         for i in xrange(epochToStopInSeconds,epochToStartInSeconds,-3600):
-            self.dates.append(datetime.datetime.fromtimestamp(i))
+            self.dates.append(datetime.fromtimestamp(i))
             self.datecount +=1
         self.dateZipf = ZipfGenerator(self.datecount,1.0)
         
@@ -130,7 +130,7 @@ class BlogWorker(AbstractWorker):
                 self.enableSharding(config)
         ## IF
         
-        self.initNextCommentId(config[self.name]["maxCommentId"])
+        #self.initNextCommentId(config[self.name]["maxCommentId"])
     ## DEF
     
     def enableSharding(self, config):
