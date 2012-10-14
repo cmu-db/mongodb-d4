@@ -276,7 +276,7 @@ class BlogWorker(AbstractWorker):
                 "id": articleId,
                 "title": title,
                 "date": articleDate,
-                "author": random.choice(authors),
+                "author": random.choice(self.authors),
                 "slug" : articleSlug,
                 "content": content,
                 "numComments": numComments,
@@ -296,12 +296,12 @@ class BlogWorker(AbstractWorker):
             
             LOG.debug("Comments for article %d: %d" % (articleId, numComments))
             for ii in xrange(0, numComments):
-                lastDate = randomDate(lastDate, constants.STOP_DATE)
+                #lastDate = randomDate(articleDate, constants.STOP_DATE)
                 commentAuthor = randomString(constants.AUTHOR_NAME_SIZE)
                 commentContent = randomString(constants.COMMENT_CONTENT_SIZE)
                 
                 comment = {
-                    "id": articleId+"|"+ii,
+                    "id": str(articleId)+"|"+str(ii),
                     "article": articleId,
                     "date": randomDate(articleDate, constants.STOP_DATE), 
                     "author": commentAuthor,
