@@ -61,85 +61,94 @@ class AbstractCoordinator:
     
     def init(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
-        self.config = config
-        self.name = config['default']['name']
-        config['default']['debug'] = LOG.isEnabledFor(logging.DEBUG)
-        LOG.info("Initializing %s Benchmark Coordinator" % self.name.upper())
-
-        ## Add in the default configuration values for this benchmark
-        benchmarkConfig = self.benchmarkConfig()
-        for key in benchmarkConfig.keys():
-            if not key in self.config[self.name]:
-                val = benchmarkConfig[key]
-                self.config[self.name][key] = val[1]
-                LOG.debug("Setting %s Default Config Parameter: %s" % (self.name.upper(), self.config[self.name][key]))
-            # Cast to the proper type
-            else:
-                val_type = type(benchmarkConfig[key][-1])
-                # HACK for booleans
-                if val_type == bool:
-                    self.config[self.name][key] = (self.config[self.name][key].lower().strip() == 'true')
-                else:
-                    self.config[self.name][key] = val_type(self.config[self.name][key])
-                LOG.debug("Cast %s.%s to %s [%s]", self.name, key, val_type, self.config[self.name][key]) 
-        ## FOR
-        
-        ## ----------------------------------------------
-        ## TARGET CONNECTION
-        ## ----------------------------------------------
-        self.conn = None
-        targetHost = config['default']['host']
-        targetPort = config['default']['port']
-        LOG.debug("Connecting MongoDB database at %s:%d" % (targetHost, targetPort))
+        import pycallgraph
+        pycallgraph.start_trace()
         try:
-            self.conn = pymongo.Connection(targetHost, targetPort)
-        except:
-            LOG.error("Failed to connect to target MongoDB at %s:%s" % (targetHost, targetPort))
-            raise
-        assert self.conn
-        
-        ## ----------------------------------------------
-        ## COORDINATOR INITIALIZATION
-        ## ----------------------------------------------
-        
-        # First initialize our local coordinator
-        self.initImpl(self.config, channels)
-        
-        # Invoke the workers for this benchmark invocation
-        LOG.debug("Sending MSG_CMD_INIT to %d workers" % len(channels))
-        workerId = 0
-        queue = [ ]
-        for ch in channels:
-            workerConfig = dict(self.config.items())
-            workerConfig["default"] = dict(self.config["default"].items())
-            assert not 'id' in workerConfig['default'], "Dupe workerId #%d" % workerConfig['default']['id']
-            workerConfig['default']['id'] = workerId
-            #LOG.debug("Sending MSG_CMD_INIT to worker #%d" % (workerId-1))
-            queue.append((MSG_CMD_INIT, workerConfig, ch))
-            workerId += 1
-            # sendMessage(MSG_CMD_INIT, workerConfig, ch)
-            # time.sleep(10)
-        ## FOR
-        responses = sendMessagesLimited(queue, 8)
-        
-        for msg in responses:
-            if msg.header == MSG_INIT_COMPLETED:
-                LOG.debug("Initialization on worker #%d is finished" % msg.data)
-                continue
-            # INVALID!
-            else:
-                errorMsg = "Unexpected return result %s from remote worker" % (getMessageName(msg.header))
-                raise Exception(errorMsg)
-        ## FOR
+            self.config = config
+            self.name = config['default']['name']
+            config['default']['debug'] = LOG.isEnabledFor(logging.DEBUG)
+            LOG.info("Initializing %s Benchmark Coordinator" % self.name.upper())
+
+            ## Add in the default configuration values for this benchmark
+            benchmarkConfig = self.benchmarkConfig()
+            for key in benchmarkConfig.keys():
+                if not key in self.config[self.name]:
+                    val = benchmarkConfig[key]
+                    self.config[self.name][key] = val[1]
+                    LOG.debug("Setting %s Default Config Parameter: %s" % (self.name.upper(), self.config[self.name][key]))
+                # Cast to the proper type
+                else:
+                    val_type = type(benchmarkConfig[key][-1])
+                    # HACK for booleans
+                    if val_type == bool:
+                        self.config[self.name][key] = (self.config[self.name][key].lower().strip() == 'true')
+                    else:
+                        self.config[self.name][key] = val_type(self.config[self.name][key])
+                    LOG.debug("Cast %s.%s to %s [%s]", self.name, key, val_type, self.config[self.name][key]) 
+            ## FOR
             
-        # Block until they all respond with an acknowledgement
-        #LOG.debug("Waiting for MSG_INIT_COMPLETED responses from %d workers" % len(channels))
-        #for ch in channels :
-            #msg = getMessage(ch.receive())
-            #
-        ### FOR
+            ## ----------------------------------------------
+            ## TARGET CONNECTION
+            ## ----------------------------------------------
+            self.conn = None
+            targetHost = config['default']['host']
+            targetPort = config['default']['port']
+            LOG.debug("Connecting MongoDB database at %s:%d" % (targetHost, targetPort))
+            try:
+                self.conn = pymongo.Connection(targetHost, targetPort)
+            except:
+                LOG.error("Failed to connect to target MongoDB at %s:%s" % (targetHost, targetPort))
+                raise
+            assert self.conn
+            
+            ## ----------------------------------------------
+            ## COORDINATOR INITIALIZATION
+            ## ----------------------------------------------
+            
+            # First initialize our local coordinator
+            self.initImpl(self.config, channels)
+            
+            # Invoke the workers for this benchmark invocation
+            LOG.debug("Sending MSG_CMD_INIT to %d workers" % len(channels))
+            workerId = 0
+            queue = [ ]
+            for ch in channels:
+                workerConfig = dict(self.config.items())
+                workerConfig["default"] = dict(self.config["default"].items())
+                assert not 'id' in workerConfig['default'], "Dupe workerId #%d" % workerConfig['default']['id']
+                workerConfig['default']['id'] = workerId
+                #LOG.debug("Sending MSG_CMD_INIT to worker #%d" % (workerId-1))
+                queue.append((MSG_CMD_INIT, workerConfig, ch))
+                workerId += 1
+                # sendMessage(MSG_CMD_INIT, workerConfig, ch)
+                # time.sleep(10)
+            ## FOR
+            responses = sendMessagesLimited(queue, 8)
+            
+            for msg in responses:
+                if msg.header == MSG_INIT_COMPLETED:
+                    LOG.debug("Initialization on worker #%d is finished" % msg.data)
+                    continue
+                # INVALID!
+                else:
+                    errorMsg = "Unexpected return result %s from remote worker" % (getMessageName(msg.header))
+                    raise Exception(errorMsg)
+            ## FOR
+                
+            # Block until they all respond with an acknowledgement
+            #LOG.debug("Waiting for MSG_INIT_COMPLETED responses from %d workers" % len(channels))
+            #for ch in channels :
+                #msg = getMessage(ch.receive())
+                #
+            ### FOR
+            
+            LOG.info("%s Initialization Completed!" % self.name.upper())
+    
         
-        LOG.info("%s Initialization Completed!" % self.name.upper())
+        finally:
+            pycallgraph.make_dot_graph('d4.png')
+            pass
+        
     ## DEF
         
     def loadImpl(self, config, channels):
