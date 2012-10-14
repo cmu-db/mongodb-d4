@@ -251,14 +251,14 @@ class BlogWorker(AbstractWorker):
         ## ----------------------------------------------
         ## LOAD ARTICLES
         ## ----------------------------------------------
-        articlesBatch = [ ]
+        #articlesBatch = [ ]
         articleCtr = 0
         articleTotal = self.lastArticle - self.firstArticle
-        commentsBatch = [ ]
+        #commentsBatch = [ ]
         commentCtr = 0
         commentTotal= 0
         numComments = int(config[self.name]["commentsperarticle"])
-        for articleId in xrange(self.firstArticle, self.lastArticle+1):
+        for articleId in xrange(self.firstArticle, self.lastArticle):
             titleSize = constants.ARTICLE_TITLE_SIZE
             title = randomString(titleSize)
             contentSize = constants.ARTICLE_CONTENT_SIZE
@@ -286,8 +286,6 @@ class BlogWorker(AbstractWorker):
             if config[self.name]["denormalize"]:
                 article["comments"] = [ ]
                 self.db[constants.ARTICLE_COLL].insert(article)
-            else:
-                articlesBatch.append(article)
             
             
             ## ----------------------------------------------
@@ -309,28 +307,30 @@ class BlogWorker(AbstractWorker):
                     "rating": int(self.ratingZipf.next())
                 }
                 commentCtr += 1
-                commentsBatch.append(comment) 
-        
+                if config[self.name]["denormalize"]:
+                    self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
+                elif not config[self.name]["denormalize"]:
+                    self.db[constants.COMMENT_COLL].insert(comment) 
         ## FOR (comments)
         
         #if denormalize insert in article else insert in separate collection of comments
         if config[self.name]["denormalize"]:
-            self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})
+            
     
             if articleCtr % 100 == 0 or articleCtr % 100 == 1 :
                 self.loadStatusUpdate(articleCtr / articleTotal)
                 LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
-                if len(commentsBatch) > 0:
-                    LOG.debug("COMMENTS: %6d" % (commentCtr))
+                #if len(commentsBatch) > 0:
+                #    LOG.debug("COMMENTS: %6d" % (commentCtr))
             #self.db[constants.ARTICLE_COLL].insert(articlesBatch)
             
-        if not config[self.name]["denormalize"]:
-            if len(articlesBatch) > 0:
-                self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-            if len(commentsBatch) > 0:
-                self.db[constants.COMMENT_COLL].insert(commentsBatch)  
-            articlesBatch = [ ]
-            commentsBatch = [ ]
+        #if not config[self.name]["denormalize"]:
+            #if len(articlesBatch) > 0:
+            #    self.db[constants.ARTICLE_COLL].insert(articlesBatch)
+            #if len(commentsBatch) > 0:
+            #    self.db[constants.COMMENT_COLL].insert(commentsBatch)  
+            #articlesBatch = [ ]
+            #commentsBatch = [ ]
             ## IF
             
         LOG.info("FINAL-ARTICLES: %6d / %d" % (articleCtr-1, articleTotal))

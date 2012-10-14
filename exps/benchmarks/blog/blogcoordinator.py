@@ -126,7 +126,7 @@ class BlogCoordinator(AbstractCoordinator):
         first = 0
         for i in range(len(channels)):
             last = first + articlesPerChannel
-            LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
+            LOG.info("Loading %s [%d - %d) on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
             sendMessage(MSG_CMD_LOAD, (self.authors, config[self.name]["maxCommentId"]), channels[i])
             first = last
     ## DEF
