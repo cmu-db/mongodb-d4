@@ -20,7 +20,7 @@ class ZipfGenerator:
         while 1:
             tobereturned = np.random.zipf(alpha)
             if tobereturned  <= self.num:
-                break;
+                break
         return tobereturned - 1;
 ## CLASS
 
