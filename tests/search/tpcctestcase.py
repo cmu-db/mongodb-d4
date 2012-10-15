@@ -20,8 +20,8 @@ from workload import Session
 from util import constants
 from inputs.mongodb import MongoSniffConverter
 
-sys.path.append(os.path.join(basedir, "../exps/benchmarks/"))
-sys.path.append(os.path.join(basedir, "../exps/benchmarks/tpcc/"))
+sys.path.append(os.path.join(basedir, "../../exps/benchmarks/"))
+sys.path.append(os.path.join(basedir, "../../exps/benchmarks/tpcc/"))
 from tpcc import constants as tpccConstants
 from tpcc.runtime.executor import Executor
 from tpcc.runtime import scaleparameters
@@ -41,7 +41,7 @@ class TPCCTestCase(MongoDBTestCase):
     
     NUM_WAREHOUSES = 4
     SCALEFACTOR = 1
-    NUM_SESSIONS = 10000
+    NUM_SESSIONS = 100
 
     def setUp(self):
         MongoDBTestCase.setUp(self)
@@ -87,18 +87,27 @@ class TPCCTestCase(MongoDBTestCase):
         self.assertEqual(TPCCTestCase.NUM_SESSIONS, self.metadata_db.Session.find().count())
 
         self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
-        self.assertEqual(len(TPCCTestCase.COLLECTION_NAMES), len(self.collections))
 
+            
         populated_workload = list(c for c in self.metadata_db.Session.fetch())
         self.workload = populated_workload
+        
         # Increase the database size beyond what the converter derived from the workload
         for col_name, col_info in self.collections.iteritems():
-            col_info['doc_count'] = TPCCTestCase.NUM_DOCUMENTS
+            col_info['doc_count'] = 10000
             col_info['avg_doc_size'] = 1024 # bytes
             col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / (4 * 1024)
             col_info.save()
         #            print pformat(col_info)
+        self.costModelConfig = {
+            'max_memory':     1024, # MB
+            'skew_intervals': 10,
+            'address_size':   64,
+            'nodes':          1,
+            'window_size':    10
+        }
 
+        self.state = State(self.collections, populated_workload, self.costModelConfig)
     ## DEF
     
     def nextTimestamp(self, delta=1):
@@ -130,21 +139,28 @@ class TPCCTestCase(MongoDBTestCase):
         all_local = (not i_w_ids or [w_id] * len(i_w_ids) == i_w_ids)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["I_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_ITEM
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [{"I_ID": {"#in": i_ids}}]
+        op['query_content'] = [{"#query" : {"I_ID": {"#in": i_ids}}}]
         op['query_fields']  = {"I_ID": 1, "I_PRICE": 1, "I_NAME": 1, "I_DATA": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
         op['resp_time']     = self.nextTimestamp()
+
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["W_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_WAREHOUSE
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [{"W_ID": w_id}]
+        op['query_content'] = [{"#query" : {"W_ID": w_id}}]
         op['query_fields']  = {"W_TAX": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -152,10 +168,14 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
                 
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["D_ID"] = random.randint(0, 100)
+        responseContent["D_W_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [{"D_ID": d_id, "D_W_ID": w_id}]
+        op['query_content'] = [{"#query" : {"D_ID": d_id, "D_W_ID": w_id}}]
         op['query_fields']  = {"D_TAX": 1, "D_NEXT_O_ID": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -163,6 +183,10 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["D_ID"] = random.randint(0, 100)
+        responseContent["D_W_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_UPDATE
         op['query_id']      = self.nextQueryId()
@@ -172,13 +196,19 @@ class TPCCTestCase(MongoDBTestCase):
         op['query_time']    = self.nextTimestamp()
         op['resp_time']     = self.nextTimestamp()
         op['update_multi']  = False
+        op['update_upsert'] = True
         ops.append(op)
                 
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["C_ID"] = random.randint(0, 100)
+        responseContent["C_D_ID"] = random.randint(0, 100)
+        responseContent["C_W_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_CUSTOMER
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [{"C_ID": c_id, "C_D_ID": d_id, "C_W_ID": w_id}]
+        op['query_content'] = [{"#query" : {"C_ID": c_id, "C_D_ID": d_id, "C_W_ID": w_id}}]
         op['query_fields']  = {"C_DISCOUNT": 1, "C_LAST": 1, "C_CREDIT": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -186,6 +216,12 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["NO_O_ID"] = random.randint(0, 100)
+        responseContent["NO_D_ID"] = random.randint(0, 100)
+        responseContent["NO_W_ID"] = random.randint(0, 100)
+
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_NEW_ORDER
         op['type']          = constants.OP_TYPE_INSERT
         op['query_id']      = self.nextQueryId()
@@ -206,7 +242,18 @@ class TPCCTestCase(MongoDBTestCase):
             "O_OL_CNT": ol_cnt,
             "O_ALL_LOCAL": all_local
         }
-        op = Session.operationFactory()
+        responseContent = {
+            "O_D_ID": random.randint(0, 100),
+            "O_W_ID": random.randint(0, 100),
+            "O_C_ID": random.randint(0, 100),
+            "O_ID": random.randint(0, 100),
+            "O_ENTRY_D": random.randint(0, 100),
+            "O_CARRIER_ID": random.randint(0, 100),
+            "O_OL_CNT": random.randint(0, 100),
+            "O_ALL_LOCAL": random.randint(0, 100)
+        }
+
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_ORDERS
         op['type']          = constants.OP_TYPE_INSERT
         op['query_id']      = self.nextQueryId()
@@ -218,10 +265,14 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
                 
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["S_I_ID"] = random.randint(0, 100)
+        responseContent["S_W_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_STOCK
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [{"S_I_ID": {"#in": i_ids}, "S_W_ID": w_id}]
+        op['query_content'] = [{"#query" : {"S_I_ID": {"#in": i_ids}, "S_W_ID": w_id}}]
         op['query_fields']  = {"S_I_ID": 1, "S_QUANTITY": 1, "S_DATA": 1, "S_YTD": 1, "S_ORDER_CNT": 1, "S_REMOTE_CNT": 1, s_dist_col: 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -248,6 +299,10 @@ class TPCCTestCase(MongoDBTestCase):
             s_ytd = random.random()
             
             op = Session.operationFactory()
+            responseContent = {}
+            responseContent["S_I_ID"] = random.randint(0, 100)
+            responseContent["S_W_ID"] = random.randint(0, 100)
+            op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_STOCK
             op['type']          = constants.OP_TYPE_UPDATE
             op['query_id']      = self.nextQueryId()
@@ -256,6 +311,7 @@ class TPCCTestCase(MongoDBTestCase):
             op['resp_id']       = self.nextResponseId()
             op['query_time']    = self.nextTimestamp()
             op['resp_time']     = self.nextTimestamp()
+            op['update_upsert'] = True
             ops.append(op)
         ## FOR
         return ops
@@ -273,10 +329,14 @@ class TPCCTestCase(MongoDBTestCase):
             ol_total = random.random() * 100
             
             op = Session.operationFactory()
+            responseContent = {}
+            responseContent["NO_D_ID"] = random.randint(0, 100)
+            responseContent["NO_W_ID"] = random.randint(0, 100)
+            op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_NEW_ORDER
             op['type']          = constants.OP_TYPE_QUERY
             op['query_id']      = self.nextQueryId()
-            op['query_content'] = [ {"NO_D_ID": d_id, "NO_W_ID": w_id} ]
+            op['query_content'] = [{"#query" : {"NO_D_ID": d_id, "NO_W_ID": w_id}}]
             op['query_fields']  = {"NO_O_ID": 1}
             op['resp_id']       = self.nextResponseId()
             op['query_time']    = self.nextTimestamp()
@@ -284,10 +344,15 @@ class TPCCTestCase(MongoDBTestCase):
             ops.append(op)
             
             op = Session.operationFactory()
+            responseContent = {}
+            responseContent["O_ID"] = random.randint(0, 100)
+            responseContent["O_D_ID"] = random.randint(0, 100)
+            responseContent["O_W_ID"] = random.randint(0, 100)
+            op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_ORDERS
             op['type']          = constants.OP_TYPE_QUERY
             op['query_id']      = self.nextQueryId()
-            op['query_content'] = [ {"O_ID": o_id, "O_D_ID": d_id, "O_W_ID": w_id} ]
+            op['query_content'] = [{"#query" :  {"O_ID": o_id, "O_D_ID": d_id, "O_W_ID": w_id}}]
             op['query_fields']  = {"O_C_ID": 1}
             op['resp_id']       = self.nextResponseId()
             op['query_time']    = self.nextTimestamp()
@@ -295,10 +360,15 @@ class TPCCTestCase(MongoDBTestCase):
             ops.append(op)
             
             op = Session.operationFactory()
+            responseContent = {}
+            responseContent["OL_O_ID"] = random.randint(0, 100)
+            responseContent["OL_D_ID"] = random.randint(0, 100)
+            responseContent["OL_W_ID"] = random.randint(0, 100)
+            op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
             op['type']          = constants.OP_TYPE_QUERY
             op['query_id']      = self.nextQueryId()
-            op['query_content'] = [ {"OL_O_ID": o_id, "OL_D_ID": d_id, "OL_W_ID": w_id} ]
+            op['query_content'] = [{"#query" : {"OL_O_ID": o_id, "OL_D_ID": d_id, "OL_W_ID": w_id}}]
             op['query_fields']  = {"OL_AMOUNT": 1}
             op['resp_id']       = self.nextResponseId()
             op['query_time']    = self.nextTimestamp()
@@ -306,18 +376,29 @@ class TPCCTestCase(MongoDBTestCase):
             ops.append(op)
             
             op = Session.operationFactory()
+            responseContent = {}
+            responseContent["O_ID"] = random.randint(0, 100)
+            responseContent["O_D_ID"] = random.randint(0, 100)
+            responseContent["O_W_ID"] = random.randint(0, 100)
+            op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_ORDERS
             op['type']          = constants.OP_TYPE_UPDATE
             op['query_id']      = self.nextQueryId()
-            op['query_content'] = [ {"O_ID": o_id, "O_D_ID": d_id, "O_W_ID": w_id}, {"#set": {"O_CARRIER_ID": o_carrier_id}} ]
+            op['query_content'] = [{"O_ID": o_id, "O_D_ID": d_id, "O_W_ID": w_id}, {"#set": {"O_CARRIER_ID": o_carrier_id}} ]
             op['query_fields']  = None
             op['resp_id']       = self.nextResponseId()
             op['query_time']    = self.nextTimestamp()
             op['resp_time']     = self.nextTimestamp()
             op['update_multi']  = False
+            op['update_upsert'] = True
             ops.append(op)
             
             op = Session.operationFactory()
+            responseContent = {}
+            responseContent["OL_O_ID"] = random.randint(0, 100)
+            responseContent["OL_D_ID"] = random.randint(0, 100)
+            responseContent["OL_W_ID"] = random.randint(0, 100)
+            op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
             op['type']          = constants.OP_TYPE_UPDATE
             op['query_id']      = self.nextQueryId()
@@ -327,9 +408,15 @@ class TPCCTestCase(MongoDBTestCase):
             op['query_time']    = self.nextTimestamp()
             op['resp_time']     = self.nextTimestamp()
             op['update_multi']  = True
+            op['update_upsert'] = True
             ops.append(op)
             
             op = Session.operationFactory()
+            responseContent = {}
+            responseContent["C_ID"] = random.randint(0, 100)
+            responseContent["C_D_ID"] = random.randint(0, 100)
+            responseContent["C_W_ID"] = random.randint(0, 100)
+            op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_CUSTOMER
             op['type']          = constants.OP_TYPE_UPDATE
             op['query_id']      = self.nextQueryId()
@@ -339,9 +426,14 @@ class TPCCTestCase(MongoDBTestCase):
             op['query_time']    = self.nextTimestamp()
             op['resp_time']     = self.nextTimestamp()
             op['update_multi']  = False
+            op['update_upsert'] = True
             ops.append(op)
             
             op = Session.operationFactory()
+            responseContent = {}
+            responseContent["NO_D_ID"] = random.randint(0, 100)
+            responseContent["NO_W_ID"] = random.randint(0, 100)
+            op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_NEW_ORDER
             op['type']          = constants.OP_TYPE_DELETE
             op['query_id']      = self.nextQueryId()
@@ -364,10 +456,15 @@ class TPCCTestCase(MongoDBTestCase):
         o_id = random.randint(0, 10000)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["C_W_ID"] = random.randint(0, 100)
+        responseContent["C_D_ID"] = random.randint(0, 100)
+        responseContent["C_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_CUSTOMER
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"C_W_ID": w_id, "C_D_ID": d_id, "C_ID": c_id} ]
+        op['query_content'] = [{"#query" : {"C_W_ID": w_id, "C_D_ID": d_id, "C_ID": c_id}}]
         op['query_fields']  = {"C_ID": 1, "C_FIRST": 1, "C_MIDDLE": 1, "C_LAST": 1, "C_BALANCE": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -375,10 +472,15 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["O_W_ID"] = random.randint(0, 100)
+        responseContent["O_D_ID"] = random.randint(0, 100)
+        responseContent["O_C_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_ORDERS
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"O_W_ID": w_id, "O_D_ID": d_id, "O_C_ID": c_id} ]
+        op['query_content'] = [{"#query" : {"O_W_ID": w_id, "O_D_ID": d_id, "O_C_ID": c_id}}]
         op['query_fields']  = {"O_ID": 1, "O_CARRIER_ID": 1, "O_ENTRY_D": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -386,10 +488,15 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["OL_W_ID"] = random.randint(0, 100)
+        responseContent["OL_D_ID"] = random.randint(0, 100)
+        responseContent["OL_O_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"OL_W_ID": w_id, "OL_D_ID": d_id, "OL_O_ID": o_id} ]
+        op['query_content'] = [{"#query" : {"OL_W_ID": w_id, "OL_D_ID": d_id, "OL_O_ID": o_id}}]
         op['query_fields']  = {"OL_SUPPLY_W_ID": 1, "OL_I_ID": 1, "OL_QUANTITY": 1, "OL_AMOUNT": 1, "OL_DELIVERY_D": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -408,10 +515,14 @@ class TPCCTestCase(MongoDBTestCase):
         threshold = params["threshold"]
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["D_W_ID"] = random.randint(0, 100)
+        responseContent["D_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"D_W_ID": w_id, "D_ID": d_id} ]
+        op['query_content'] = [{"#query" : {"D_W_ID": w_id, "D_ID": d_id}}]
         op['query_fields']  = {"D_NEXT_O_ID": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -419,10 +530,15 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["OL_W_ID"] = random.randint(0, 100)
+        responseContent["OL_D_ID"] = random.randint(0, 100)
+        responseContent["OL_O_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"OL_W_ID": w_id, "OL_D_ID": d_id, "OL_O_ID": {"#lt": o_id, "#gte": o_id-20}} ]
+        op['query_content'] = [{"#query" : {"OL_W_ID": w_id, "OL_D_ID": d_id, "OL_O_ID": {"#lt": o_id, "#gte": o_id-20}}}]
         op['query_fields']  = {"OL_I_ID": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -430,10 +546,15 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
 
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["S_W_ID"] = random.randint(0, 100)
+        responseContent["S_I_ID"] = random.randint(0, 100)
+        responseContent["S_QUANTITY"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_STOCK
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"S_W_ID": w_id, "S_I_ID": {"#in": list(ol_ids)}, "S_QUANTITY": {"#lt": threshold}} ]
+        op['query_content'] = [{"#query" : {"S_W_ID": w_id, "S_I_ID": {"#in": list(ol_ids)}, "S_QUANTITY": {"#lt": threshold}}}]
         op['query_fields']  = None
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -455,10 +576,15 @@ class TPCCTestCase(MongoDBTestCase):
         h_date = params["h_date"]
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["C_W_ID"] = random.randint(0, 100)
+        responseContent["C_D_ID"] = random.randint(0, 100)
+        responseContent["C_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_CUSTOMER
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"C_W_ID": w_id, "C_D_ID": d_id, "C_ID": c_id} ]
+        op['query_content'] = [{"#query" : {"C_W_ID": w_id, "C_D_ID": d_id, "C_ID": c_id}}]
         op['query_fields']  = {"C_BALANCE": 0, "C_YTD_PAYMENT": 0, "C_PAYMENT_CNT": 0}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -466,10 +592,13 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["W_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_WAREHOUSE
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"W_ID": w_id} ]
+        op['query_content'] = [{"#query" : {"W_ID": w_id}}]
         op['query_fields']  = {"W_NAME": 1, "W_STREET_1": 1, "W_STREET_2": 1, "W_CITY": 1, "W_STATE": 1, "W_ZIP": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -477,6 +606,9 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["W_NAME"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_WAREHOUSE
         op['type']          = constants.OP_TYPE_UPDATE
         op['query_id']      = self.nextQueryId()
@@ -485,13 +617,18 @@ class TPCCTestCase(MongoDBTestCase):
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
         op['resp_time']     = self.nextTimestamp()
+        op['update_upsert'] = True
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["D_W_ID"] = random.randint(0, 100)
+        responseContent["D_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"D_W_ID": w_id, "D_ID": d_id} ]
+        op['query_content'] = [{"#query" : {"D_W_ID": w_id, "D_ID": d_id}}]
         op['query_fields']  = {"D_NAME": 1, "D_STREET_1": 1, "D_STREET_2": 1, "D_CITY": 1, "D_STATE": 1, "D_ZIP": 1}
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -499,10 +636,13 @@ class TPCCTestCase(MongoDBTestCase):
         ops.append(op)
         
         op = Session.operationFactory()
+        responseContent = {}
+        responseContent["D_ID"] = random.randint(0, 100)
+        op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_QUERY
         op['query_id']      = self.nextQueryId()
-        op['query_content'] = [ {"D_ID": d_id}, {"#inc": {"D_YTD": h_amount}} ]
+        op['query_content'] = [{"#query" : {"D_ID": d_id}}, {"#inc": {"D_YTD": h_amount}} ]
         op['query_fields']  = None
         op['resp_id']       = self.nextResponseId()
         op['query_time']    = self.nextTimestamp()
@@ -511,9 +651,6 @@ class TPCCTestCase(MongoDBTestCase):
         
         return ops
     ## DEF
-    
-    def testIgnore(self):
-        pass
 ## CLASS
 
 if __name__ == '__main__':

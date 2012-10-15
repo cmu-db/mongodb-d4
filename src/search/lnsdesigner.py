@@ -59,7 +59,7 @@ class LNSDesigner(AbstractDesigner):
         self.designCandidates = designCandidates
 
         self.relaxRatio = 0.25
-        
+
         self.debug = False
     ## DEF
 
@@ -70,7 +70,7 @@ class LNSDesigner(AbstractDesigner):
         bestDesign = self.initialDesign.copy()
         bestCost = self.bestCost
         table = TemperatureTable(self.collections)
-        
+
         while self.relaxRatio <= RELAX_RATIO_UPPER_BOUND:
             relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign)
 
@@ -81,7 +81,7 @@ class LNSDesigner(AbstractDesigner):
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
             bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, TIME_OUT_BBSEARCH)
             bbDesign = bb.solve()
-                
+
             if bb.bestCost < bestCost:
                 bestCost = bb.bestCost
                 bestDesign = bbDesign
@@ -103,19 +103,19 @@ class LNSDesigner(AbstractDesigner):
 
         return bestDesign
     # DEF
-    
+
     def __relax__(self, table, design):
         numberOfRelaxedCollections = self.getNumberOfRelaxedCollections()
 
         # when numberOfRelaxedCollections reach the limit
         if numberOfRelaxedCollections is None:
             return None, None
-        
+
         counter = 0
         collectionNameSet = set()
         relaxedCollectionsNames = []
         relaxedDesign = design.copy()
-        
+
         while counter < numberOfRelaxedCollections:
             collectionName = table.getRandomCollection()
 
@@ -123,11 +123,11 @@ class LNSDesigner(AbstractDesigner):
                 relaxedCollectionsNames.append(collectionName)
                 collectionNameSet.add(collectionName)
                 counter += 1
-                
+
                 if not relaxedDesign.hasCollection(collectionName):
                     relaxedDesign.addCollection(collectionName)
                 relaxedDesign.reset(collectionName)
-        
+
         return relaxedCollectionsNames, relaxedDesign
 
     def getNumberOfRelaxedCollections(self):
@@ -153,12 +153,12 @@ class TemperatureTable():
     def __init__(self, collections):
         self.totalTemperature = 0.0
         self.temperatureList = []
-        
+
         for coll in collections.itervalues():
             temperature = coll['data_size'] / coll['workload_queries']
             self.temperatureList.append((temperature, coll['name']))
             self.totalTemperature = self.totalTemperature + temperature
-    
+
     def getRandomCollection(self):
         upper_bound = self.totalTemperature
         r = random.randint(0, int(self.totalTemperature))

@@ -40,16 +40,13 @@ LOG = logging.getLogger(__name__)
 ## Abstract Convertor
 ## ==============================================
 class AbstractConverter():
-    
     def __init__(self, metadata_db, dataset_db):
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
-
         self.stop_on_error = False
         self.limit = None
         self.skip = None
         self.clean = None
-        
         self.no_load = False
         self.no_reconstruct = False
         self.no_sessionizer = False
@@ -59,7 +56,7 @@ class AbstractConverter():
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
-        
+
     def reset(self):
         # FIXME: This should be done with a single update query
         for col_info in self.metadata_db.Collection.fetch():
@@ -95,7 +92,6 @@ class AbstractConverter():
             the catalog information came from MongoSniff or MySQL.
             This should only be invoked once after do the initial loading.
         """
-
         # STEP 1: Add query hashes
         self.addQueryHashes()
 
@@ -257,8 +253,8 @@ class AbstractConverter():
             post-processing stuff in the AbstractConverter will populate
             the statistics information for each collection
         """
-
         cols = self.dataset_db.collection_names()
+
         LOG.info("Extracting schema catalog from %d collections.", len(cols))
         for colName in cols:
             # Skip ignored collections

@@ -34,7 +34,7 @@ class AbstractDesigner():
     def __init__(self, collections, workload, config):
         assert isinstance(collections, dict)
         assert not workload is None
-        assert not config is None
+        #assert not config is None
         
         self.collections = collections
         self.workload = workload
