@@ -2,11 +2,11 @@
 import unittest
 import os
 import sys
-import time
 
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../src"))
 sys.path.append(os.path.join(basedir, "../../src/search"))
+sys.path.append(os.path.join(basedir, "../"))
 
 from util import configutil
 from util import constants
@@ -14,14 +14,17 @@ from util import constants
 from tpcctestcase import TPCCTestCase
 from ConfigParser import RawConfigParser
 from search.designer import Designer
+from search import Design
 from designcandidates import DesignCandidates
 import itertools
 from initialdesigner import InitialDesigner
+from randomdesigner import RandomDesigner
 from lnsdesigner import LNSDesigner
 from randomdesigner import RandomDesigner
 from costmodel import CostModel
+from tpcc import constants as tpccConstants
 
-LNS_RUN_TIME = 20 # seconds
+LNS_RUN_TIME = 200 # seconds
 
 class FindExpectedDesign(TPCCTestCase):
     """
@@ -55,14 +58,14 @@ class FindExpectedDesign(TPCCTestCase):
         # Generate all the design candidates
         # Instantiate cost model
         cmConfig = {
-            'weight_network': 1,
+            'weight_network': 4,
             'weight_disk':    1,
             'weight_skew':    1,
             'nodes':          10,
             'max_memory':     1024,
             'skew_intervals': 10,
             'address_size':   64,
-            'window_size':    1000
+            'window_size':    500
         }
         cm = CostModel(self.collections, self.workload, cmConfig)
 #        if self.debug:
@@ -72,10 +75,22 @@ class FindExpectedDesign(TPCCTestCase):
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
 
-        initialDesign = InitialDesigner(self.collections, self.workload, None).generate()
+#        initialDesign = InitialDesigner(self.collections, self.workload, None).generate()
+        initialDesign = RandomDesigner(self.collections, self.workload, None).generate()
+        d = self.getManMadeBestDesign()
+        d_cost = cm.overallCost(d)
+        print "d cost: ", d_cost
+        print "d:\n", d
+        
+        d = self.getManMadeBestDesign(False)
+        d_cost = cm.overallCost(d)
+        print "d cost(no denorm): ", d_cost
+        print "d:(no denorm)\n", d
         
         upper_bound = cm.overallCost(initialDesign)
         print "initial Design cost: ", upper_bound
+        print "initial Design: \n", initialDesign
+        
         ln = LNSDesigner(self.collections, \
                          self.dc, \
                          self.workload, \
@@ -85,13 +100,49 @@ class FindExpectedDesign(TPCCTestCase):
                          upper_bound, \
                          LNS_RUN_TIME)
         solution = ln.solve()
-
+        print "-"*100
         print initialDesign
         print "-"*100
         print "# of Relaxation Rounds:", ln.roundCtr
-        print "solution: \n", solution
-
-
+        print "solution: \n", solution 
+        
+    def getManMadeBestDesign(self, denorm=True):
+       # create a best design mannually
+       
+        d = Design()
+        d.addCollection(tpccConstants.TABLENAME_ITEM)        
+        d.addCollection(tpccConstants.TABLENAME_WAREHOUSE)
+        d.addCollection(tpccConstants.TABLENAME_DISTRICT)
+        d.addCollection(tpccConstants.TABLENAME_CUSTOMER)
+        d.addCollection(tpccConstants.TABLENAME_STOCK)
+        d.addCollection(tpccConstants.TABLENAME_ORDERS)
+        d.addCollection(tpccConstants.TABLENAME_NEW_ORDER)
+        d.addCollection(tpccConstants.TABLENAME_ORDER_LINE)
+        
+        d.addIndex(tpccConstants.TABLENAME_ITEM, ["I_ID"])
+        d.addIndex(tpccConstants.TABLENAME_WAREHOUSE, ["W_ID"])
+        d.addIndex(tpccConstants.TABLENAME_DISTRICT, ["D_W_ID", "D_ID"])
+        d.addIndex(tpccConstants.TABLENAME_CUSTOMER, ["C_W_ID", "C_D_ID","C_ID"])
+        d.addIndex(tpccConstants.TABLENAME_ORDERS, ["O_W_ID", "O_D_ID", "O_C_ID"])
+        d.addIndex(tpccConstants.TABLENAME_ORDERS, ["O_W_ID", "O_D_ID", "O_ID"])
+        d.addIndex(tpccConstants.TABLENAME_STOCK, ["S_W_ID", "S_I_ID"])
+        d.addIndex(tpccConstants.TABLENAME_NEW_ORDER, ["NO_W_ID", "NO_D_ID", "NO_O_ID"])
+        d.addIndex(tpccConstants.TABLENAME_ORDER_LINE, ["OL_W_ID", "OL_D_ID", "OL_O_ID"])
+        
+        d.addShardKey(tpccConstants.TABLENAME_ITEM, ["I_ID"])
+        d.addShardKey(tpccConstants.TABLENAME_WAREHOUSE, ["W_ID"])
+        d.addShardKey(tpccConstants.TABLENAME_DISTRICT, ["W_ID"])
+        d.addShardKey(tpccConstants.TABLENAME_CUSTOMER, ["W_ID"])
+        d.addShardKey(tpccConstants.TABLENAME_ORDERS, ["W_ID"])
+        d.addShardKey(tpccConstants.TABLENAME_STOCK, ["W_ID"])
+        d.addShardKey(tpccConstants.TABLENAME_NEW_ORDER, ["W_ID"])
+        d.addShardKey(tpccConstants.TABLENAME_ORDER_LINE, ["W_ID"])
+        
+        if denorm:
+            d.setDenormalizationParent(tpccConstants.TABLENAME_ORDER_LINE, tpccConstants.TABLENAME_ORDERS)
+        
+        return d
+    
 if __name__ == '__main__':
     unittest.main()
 ## MAIN
