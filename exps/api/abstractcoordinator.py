@@ -61,7 +61,7 @@ class AbstractCoordinator:
     
     def init(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
-        try:
+
         self.config = config
         self.name = config['default']['name']
         config['default']['debug'] = LOG.isEnabledFor(logging.DEBUG)
