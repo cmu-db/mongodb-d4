@@ -7,27 +7,43 @@ import unittest
 import logging
 from pprint import pprint
 
-basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, "../costmodel"))
+#basedir = os.path.realpath(os.path.dirname(__file__))
+#sys.path.append(os.path.join(basedir, "../costmodel"))
 
 # mongodb-d4
-from costmodeltestcase import CostModelTestCase
+from tpcctestcase import TPCCTestCase
 from search import Design
 from workload import Session
-from util import constants
 import catalog
 from search import InitialDesigner
 from util import constants, configutil
 
-class TestInitialDesigner(CostModelTestCase):
+class TestInitialDesigner(TPCCTestCase):
 
     def setUp(self):
-        CostModelTestCase.setUp(self)
+        TPCCTestCase.setUp(self)
         self.config = configutil.makeDefaultConfig()
         self.designer = InitialDesigner(self.collections, self.workload, self.config)
         self.col_keys = self.designer.generateCollectionHistograms()
         self.design = Design()
         map(self.design.addCollection, self.col_keys.iterkeys())
+    ## DEF
+    
+    def testCheckForInvalidKeys(self):
+        d = self.designer.generate()
+        self.assertIsNotNone(d)
+        
+        # Make sure that we don't have any invalid keys
+        for col_name in d.getCollections():
+            for index_keys in d.getIndexes(col_name):
+                for key in index_keys:
+                    assert not key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX), \
+                        "Invalid index key '%s.%s'" % (col_name, key)
+                ## FOR
+            for key in d.getShardKeys(col_name):
+                assert not key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX), \
+                    "Invalid shard key '%s.%s'" % (col_name, key)
+        ## FOR
     ## DEF
 
     def testSelectShardingKeys(self):
@@ -61,7 +77,7 @@ class TestInitialDesigner(CostModelTestCase):
         
         node_memory = self.config.get(configutil.SECT_CLUSTER, "node_memory")
         self.designer.__selectIndexKeys__(self.design, self.col_keys, node_memory)
-        print self.design
+        #print self.design
         
         # Then check to make sure it picked what we expected it to
         for col_name in self.col_keys.iterkeys():

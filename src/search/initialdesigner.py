@@ -45,10 +45,12 @@ class InitialDesigner(AbstractDesigner):
     def __init__(self, collections, workload, config):
         AbstractDesigner.__init__(self, collections, workload, config)
         self.address_size = constants.DEFAULT_ADDRESS_SIZE
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
     def generate(self):
-        LOG.debug("Computing initial design")
+        if self.debug:
+            LOG.debug("Computing initial design")
         design = Design()
         
         # STEP 1
@@ -91,7 +93,8 @@ class InitialDesigner(AbstractDesigner):
     def __selectShardingKeys__(self, design, col_keys):
         for col_name, h in col_keys.iteritems():
             max_keys = h.getMaxCountKeys()
-            LOG.debug("Sharding Key Candidates %s => %s", col_name, max_keys)
+            if self.debug:
+                LOG.debug("Sharding Key Candidates %s => %s", col_name, max_keys)
             design.addShardKey(col_name, random.choice(max_keys))
         ## FOR
     ## DEF
@@ -114,7 +117,8 @@ class InitialDesigner(AbstractDesigner):
                     # We will then break out of the loop and examine the next
                     # collection
                     if index_memory < total_memory:
-                        LOG.info("Adding index %s for %s [memory=%d]", index_keys, col_name, index_memory)
+                        if self.debug:
+                            LOG.debug("Adding index %s for %s [memory=%d]", index_keys, col_name, index_memory)
                         design.addIndex(col_name, index_keys)
                         total_memory -= index_memory
                         break
@@ -123,7 +127,8 @@ class InitialDesigner(AbstractDesigner):
                 # Mark this collection to be removed if it doesn't
                 # have anymore index keys left
                 if len(h) == 0:
-                    LOG.info("Finished evaluating all indexes for %s", col_name)
+                    if self.debug:
+                        LOG.debug("Finished evaluating all indexes for %s", col_name)
                     to_remove.append(col_name)
             ## FOR
             map(col_keys.pop, to_remove)
@@ -139,7 +144,7 @@ class InitialDesigner(AbstractDesigner):
             assert f, "Invalid index key '%s.%s'" % (col_info['name'], f_name)
             index_size += f['avg_size']
         index_size += self.address_size
-        if self.debug: LOG.debug("%s Index %s Memory: %d bytes",\
-            col_info['name'], repr(indexKeys), index_size)
+        if self.debug: 
+            LOG.debug("%s Index %s Memory: %d bytes", col_info['name'], repr(indexKeys), index_size)
         return index_size
 ## CLASS

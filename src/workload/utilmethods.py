@@ -60,7 +60,9 @@ def getReferencedFields(op):
     """
     fields = set()
     for contents in getOpContents(op):
-        fields |= set(contents.iterkeys())
+        for key in contents.iterkeys():
+            if not key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                fields.add(key)
     return tuple(sorted(list(fields)))
 ## DEF
 
