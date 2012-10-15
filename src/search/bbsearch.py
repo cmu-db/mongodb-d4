@@ -73,7 +73,7 @@ class BBSearch ():
         """
             main public method. Simply call to get the optimal solution
         """
-        signal.signal(signal.SIGINT, self.onSigint)
+        # signal.signal(signal.SIGINT, self.onSigint)
 
         # set up
         self.leafNodes = 0 # for testing
@@ -410,7 +410,8 @@ class BBNode():
         self.denormIter = SimpleKeyIterator(self.bbsearch.designCandidate.denorm[self.currentCol])
         self.indexIter = CompoundKeyIterator(self.bbsearch.designCandidate.indexKeys[self.currentCol], INDEX_KEY_MAX_COMPOUND_COUNT)
         
-        LOG.debug("COL: %s / denorm: %s", col_name, self.bbsearch.designCandidate.denorm[self.currentCol])
+        if self.debug:
+            LOG.debug("COL: %s / denorm: %s", col_name, self.bbsearch.designCandidate.denorm[self.currentCol])
         #for f in self.denormIter:
         #    print str(f)
         #self.indexIter.rewind()
@@ -419,10 +420,10 @@ class BBNode():
     # It updates the global lower/upper bound accordingly
     # retrun: True if the node should be explored, False if the node can be discarded
     def evaluate(self):
-        LOG.info("evaluated design: \n%s", self.design)
-        LOG.debug(".",)
-        LOG.debug(self)
-        sys.stdout.flush()
+        if self.debug:
+            LOG.info("evaluated design: \n%s", self.design)
+            LOG.debug(".",)
+            LOG.debug(self)
         # add child only when the solution is admissible
         self.cost = self.bbsearch.costModel.overallCost(self.design)
 #        LOG.debug("EVAL NODE: %s / bound_lower:%f / bound_upper:%f / BOUND:%f", \
