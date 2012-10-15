@@ -7,8 +7,8 @@ import unittest
 import logging
 from pprint import pprint
 
-#basedir = os.path.realpath(os.path.dirname(__file__))
-#sys.path.append(os.path.join(basedir, "../costmodel"))
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../"))
 
 # mongodb-d4
 from tpcctestcase import TPCCTestCase

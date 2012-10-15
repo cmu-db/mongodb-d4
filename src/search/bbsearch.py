@@ -332,8 +332,8 @@ class BBNode():
                     # all combinations exhausted
                     # == all children enumerated
                     return None
-        
-        LOG.debug("APPLYING: %s -> shardKey:%s / denorm:%s / indexes:%s", \
+        if self.debug:
+            LOG.debug("APPLYING: %s -> shardKey:%s / denorm:%s / indexes:%s", \
                   self.currentCol, shardKey, denorm, indexes)
         
         ###             CONSTRAINTS     

@@ -36,7 +36,7 @@ LOG = logging.getLogger(__name__)
 
 # Constants
 RELAX_RATIO_STEP = 0.1
-RELAX_RATIO_UPPER_BOUND = 0.5
+RELAX_RATIO_UPPER_BOUND = 0.8
 TIME_OUT_BBSEARCH = 1200
 
 # Global Value
@@ -73,7 +73,6 @@ class LNSDesigner(AbstractDesigner):
 
         while True:
             relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign)
-            print "relaxedDesign: \n", relaxedDesign 
             # when relax cannot make any progress
             if relaxedCollectionsNames is None and relaxedDesign is None:
                 return bestDesign
@@ -88,7 +87,7 @@ class LNSDesigner(AbstractDesigner):
                 
             if self.debug:
                 LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
-                # LOG.info("\n====Design Candidates====\n%s", dc)
+                LOG.info("\n====Design Candidates====\n%s", dc)
                 LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
                 LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
                 LOG.info("\n========Best Score=======\n%s", bestCost)

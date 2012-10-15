@@ -7,7 +7,8 @@ import unittest
 
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../"))
-
+sys.path.append(os.path.join(basedir, "../exps/benchmarks/"))
+sys.path.append(os.path.join(basedir, "../exps/benchmarks/tpcc/"))
 # mongodb-d4
 try:
     from mongodbtestcase import MongoDBTestCase
@@ -19,9 +20,6 @@ from search import Design
 from workload import Session
 from util import constants
 from inputs.mongodb import MongoSniffConverter
-
-sys.path.append(os.path.join(basedir, "../../exps/benchmarks/"))
-sys.path.append(os.path.join(basedir, "../../exps/benchmarks/tpcc/"))
 from tpcc import constants as tpccConstants
 from tpcc.runtime.executor import Executor
 from tpcc.runtime import scaleparameters
@@ -90,7 +88,6 @@ class TPCCTestCase(MongoDBTestCase):
 
         self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
 
-            
         populated_workload = list(c for c in self.metadata_db.Session.fetch())
         self.workload = populated_workload
         
@@ -99,6 +96,7 @@ class TPCCTestCase(MongoDBTestCase):
             col_info['doc_count'] = 10000
             col_info['avg_doc_size'] = 1024 # bytes
             col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / (4 * 1024)
+            
             col_info.save()
         #            print pformat(col_info)
         self.costModelConfig = {
@@ -108,7 +106,7 @@ class TPCCTestCase(MongoDBTestCase):
             'nodes':          1,
             'window_size':    10
         }
-
+        
         self.state = State(self.collections, populated_workload, self.costModelConfig)
     ## DEF
     

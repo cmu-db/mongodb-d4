@@ -26,7 +26,7 @@ import logging
 import random
 
 # mongodb-d4
-import design
+from design import Design
 from abstractdesigner import AbstractDesigner
 
 LOG = logging.getLogger(__name__)
@@ -42,8 +42,8 @@ class RandomDesigner(AbstractDesigner):
 
     def generate(self):
         LOG.info("Generating random design")
-        design = design.Design()
-        for col_info in self.collections :
+        design = Design()
+        for col_info in self.collections.itervalues():
             design.addCollection(col_info['name'])
 
             col_fields = []
@@ -59,6 +59,8 @@ class RandomDesigner(AbstractDesigner):
 
                 for field in col_fields:
                     if  counter == random_num:
+                        if str(field).startswith("#") or str(field).startswith("_"):
+                            break
                         attrs.append(field)
                         break
                     else:
