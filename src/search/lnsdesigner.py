@@ -57,7 +57,7 @@ class LNSDesigner(AbstractDesigner):
         self.bestCost = bestCost
         self.timeout = timeout
         self.designCandidates = designCandidates
-
+        self.roundCtr = 0
         self.relaxRatio = 0.25
 
         self.debug = False
@@ -71,7 +71,7 @@ class LNSDesigner(AbstractDesigner):
         bestCost = self.bestCost
         table = TemperatureTable(self.collections)
 
-        while self.relaxRatio <= RELAX_RATIO_UPPER_BOUND:
+        while True:
             relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign)
             print "relaxedDesign: \n", relaxedDesign 
             # when relax cannot make any progress
@@ -86,18 +86,22 @@ class LNSDesigner(AbstractDesigner):
                 bestCost = bb.bestCost
                 bestDesign = bbDesign
                 
-            LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
-            # LOG.info("\n====Design Candidates====\n%s", dc)
-            LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
-            LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
-            LOG.info("\n========Best Score=======\n%s", bestCost)
-            LOG.info("\n========Best Design======\n%s", bestDesign)
+            if self.debug:
+                LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
+                # LOG.info("\n====Design Candidates====\n%s", dc)
+                LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
+                LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
+                LOG.info("\n========Best Score=======\n%s", bestCost)
+                LOG.info("\n========Best Design======\n%s", bestDesign)
 
             self.relaxRatio += RELAX_RATIO_STEP
+            if self.relaxRatio > RELAX_RATIO_UPPER_BOUND:
+                self.relaxRatio = RELAX_RATIO_UPPER_BOUND
             self.timeout -= bb.usedTime
 
             if self.timeout <= 0:
                 break
+            self.roundCtr += 1
 
         self.bestCost = bestCost
 

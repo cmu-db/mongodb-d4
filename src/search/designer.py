@@ -144,11 +144,7 @@ class Designer():
             page_size=self.page_size,
         )
     ## DEF
-    def generateDesignCandidates(self, collections):
-
-        isShardingEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_sharding')
-        isIndexesEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_indexes')
-        isDenormalizationEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_denormalization')
+    def generateDesignCandidates(self, collections, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
 
         shardKeys = []
         indexKeys = [[]]
@@ -157,6 +153,13 @@ class Designer():
 
         for col_info in collections.itervalues():
             interesting = col_info['interesting']
+            
+            # Make sure that none of our interesting fields start with 
+            # the character that we used to convert $ commands
+            for key in interesting:
+                assert not key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX), \
+                    "Unexpected candidate key '%s.%s'" % (col_info["name"], key)
+            
             if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
                 interesting = interesting[:]
                 interesting.remove("_id")
@@ -229,10 +232,14 @@ class Designer():
     def search(self):
         """Perform the actual search for a design"""
         
+        isShardingEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_sharding')
+        isIndexesEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_indexes')
+        isDenormalizationEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_denormalization')
+        
         collections = self.loadCollections()
         workload = self.loadWorkload(collections)
         # Generate all the design candidates
-        designCandidates = self.generateDesignCandidates(collections)
+        designCandidates = self.generateDesignCandidates(collections, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
 
         # Instantiate cost model
         cmConfig = {

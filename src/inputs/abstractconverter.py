@@ -112,7 +112,7 @@ class AbstractConverter():
             col_info['max_pages'] = min(1, col_info['doc_count'] * col_info['avg_doc_size'] / page_size)
             col_info.save()
         ## FOR
-        assert percent_total > 0.0 and percent_total <= 1.0,\
+        assert round(percent_total, 1) > 0.0 and round(percent_total, 1) <= 1.0,\
             "Invalid workload percent total %f [totalOps=%d]" % (percent_total, self.total_ops)
     ## DEF
 

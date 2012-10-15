@@ -46,6 +46,8 @@ class TPCCTestCase(MongoDBTestCase):
     def setUp(self):
         MongoDBTestCase.setUp(self)
 
+        random.seed(0) # Needed for TPC-C code
+        self.rng = random.Random(0)
         self.timestamp = time.time()
         self.query_id = 0l
         self.resp_id = 0l
@@ -130,17 +132,16 @@ class TPCCTestCase(MongoDBTestCase):
         i_w_ids = params["i_w_ids"]
         i_qtys = params["i_qtys"]
         s_dist_col = "S_DIST_%02d" % d_id
-        w_tax = random.random()
-        d_tax = random.random()
-        d_next_o_id = random.randint(0, 1000)
-        c_discount = random.randint(0, 10)
+        w_tax = self.rng.random()
+        d_tax = self.rng.random()
+        d_next_o_id = self.rng.randint(0, 1000)
+        c_discount = self.rng.randint(0, 10)
         ol_cnt = len(i_ids)
         o_carrier_id = tpccConstants.NULL_CARRIER_ID
         all_local = (not i_w_ids or [w_id] * len(i_w_ids) == i_w_ids)
         
         op = Session.operationFactory()
-        responseContent = {}
-        responseContent["I_ID"] = random.randint(0, 100)
+        responseContent = {"I_ID": self.rng.randint(0, 100)}
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_ITEM
         op['type']          = constants.OP_TYPE_QUERY
@@ -155,7 +156,7 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["W_ID"] = random.randint(0, 100)
+        responseContent["W_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_WAREHOUSE
         op['type']          = constants.OP_TYPE_QUERY
@@ -169,8 +170,8 @@ class TPCCTestCase(MongoDBTestCase):
                 
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["D_ID"] = random.randint(0, 100)
-        responseContent["D_W_ID"] = random.randint(0, 100)
+        responseContent["D_ID"] = self.rng.randint(0, 100)
+        responseContent["D_W_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_QUERY
@@ -184,8 +185,8 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["D_ID"] = random.randint(0, 100)
-        responseContent["D_W_ID"] = random.randint(0, 100)
+        responseContent["D_ID"] = self.rng.randint(0, 100)
+        responseContent["D_W_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_UPDATE
@@ -201,9 +202,9 @@ class TPCCTestCase(MongoDBTestCase):
                 
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["C_ID"] = random.randint(0, 100)
-        responseContent["C_D_ID"] = random.randint(0, 100)
-        responseContent["C_W_ID"] = random.randint(0, 100)
+        responseContent["C_ID"] = self.rng.randint(0, 100)
+        responseContent["C_D_ID"] = self.rng.randint(0, 100)
+        responseContent["C_W_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_CUSTOMER
         op['type']          = constants.OP_TYPE_QUERY
@@ -217,9 +218,9 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["NO_O_ID"] = random.randint(0, 100)
-        responseContent["NO_D_ID"] = random.randint(0, 100)
-        responseContent["NO_W_ID"] = random.randint(0, 100)
+        responseContent["NO_O_ID"] = self.rng.randint(0, 100)
+        responseContent["NO_D_ID"] = self.rng.randint(0, 100)
+        responseContent["NO_W_ID"] = self.rng.randint(0, 100)
 
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_NEW_ORDER
@@ -243,14 +244,14 @@ class TPCCTestCase(MongoDBTestCase):
             "O_ALL_LOCAL": all_local
         }
         responseContent = {
-            "O_D_ID": random.randint(0, 100),
-            "O_W_ID": random.randint(0, 100),
-            "O_C_ID": random.randint(0, 100),
-            "O_ID": random.randint(0, 100),
-            "O_ENTRY_D": random.randint(0, 100),
-            "O_CARRIER_ID": random.randint(0, 100),
-            "O_OL_CNT": random.randint(0, 100),
-            "O_ALL_LOCAL": random.randint(0, 100)
+            "O_D_ID": self.rng.randint(0, 100),
+            "O_W_ID": self.rng.randint(0, 100),
+            "O_C_ID": self.rng.randint(0, 100),
+            "O_ID": self.rng.randint(0, 100),
+            "O_ENTRY_D": self.rng.randint(0, 100),
+            "O_CARRIER_ID": self.rng.randint(0, 100),
+            "O_OL_CNT": self.rng.randint(0, 100),
+            "O_ALL_LOCAL": self.rng.randint(0, 100)
         }
 
         op['resp_content']  = [responseContent]
@@ -266,8 +267,8 @@ class TPCCTestCase(MongoDBTestCase):
                 
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["S_I_ID"] = random.randint(0, 100)
-        responseContent["S_W_ID"] = random.randint(0, 100)
+        responseContent["S_I_ID"] = self.rng.randint(0, 100)
+        responseContent["S_W_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_STOCK
         op['type']          = constants.OP_TYPE_QUERY
@@ -290,18 +291,18 @@ class TPCCTestCase(MongoDBTestCase):
                 "OL_SUPPLY_W_ID": i_w_ids[i],
                 "OL_DELIVERY_D": o_entry_d,
                 "OL_QUANTITY": i_qtys[i],
-                "OL_AMOUNT": random.random() * 100,
-                "OL_DIST_INFO": ''.join(random.choice(string.ascii_uppercase) for x in range(24))
+                "OL_AMOUNT": self.rng.random() * 100,
+                "OL_DIST_INFO": ''.join(self.rng.choice(string.ascii_uppercase) for x in range(24))
             }
-            s_remote_cnt = random.randint(0, 10)
-            s_order_cnt = random.randint(0, 10)
-            s_quantity = random.randint(0, 10)
-            s_ytd = random.random()
+            s_remote_cnt = self.rng.randint(0, 10)
+            s_order_cnt = self.rng.randint(0, 10)
+            s_quantity = self.rng.randint(0, 10)
+            s_ytd = self.rng.random()
             
             op = Session.operationFactory()
             responseContent = {}
-            responseContent["S_I_ID"] = random.randint(0, 100)
-            responseContent["S_W_ID"] = random.randint(0, 100)
+            responseContent["S_I_ID"] = self.rng.randint(0, 100)
+            responseContent["S_W_ID"] = self.rng.randint(0, 100)
             op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_STOCK
             op['type']          = constants.OP_TYPE_UPDATE
@@ -324,14 +325,14 @@ class TPCCTestCase(MongoDBTestCase):
         ol_delivery_d = params["ol_delivery_d"]
 
         for d_id in xrange(1, tpccConstants.DISTRICTS_PER_WAREHOUSE+1):
-            c_id = random.randint(0, 10000)
-            o_id = random.randint(0, 10000)
-            ol_total = random.random() * 100
+            c_id = self.rng.randint(0, 10000)
+            o_id = self.rng.randint(0, 10000)
+            ol_total = self.rng.random() * 100
             
             op = Session.operationFactory()
             responseContent = {}
-            responseContent["NO_D_ID"] = random.randint(0, 100)
-            responseContent["NO_W_ID"] = random.randint(0, 100)
+            responseContent["NO_D_ID"] = self.rng.randint(0, 100)
+            responseContent["NO_W_ID"] = self.rng.randint(0, 100)
             op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_NEW_ORDER
             op['type']          = constants.OP_TYPE_QUERY
@@ -345,9 +346,9 @@ class TPCCTestCase(MongoDBTestCase):
             
             op = Session.operationFactory()
             responseContent = {}
-            responseContent["O_ID"] = random.randint(0, 100)
-            responseContent["O_D_ID"] = random.randint(0, 100)
-            responseContent["O_W_ID"] = random.randint(0, 100)
+            responseContent["O_ID"] = self.rng.randint(0, 100)
+            responseContent["O_D_ID"] = self.rng.randint(0, 100)
+            responseContent["O_W_ID"] = self.rng.randint(0, 100)
             op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_ORDERS
             op['type']          = constants.OP_TYPE_QUERY
@@ -361,9 +362,9 @@ class TPCCTestCase(MongoDBTestCase):
             
             op = Session.operationFactory()
             responseContent = {}
-            responseContent["OL_O_ID"] = random.randint(0, 100)
-            responseContent["OL_D_ID"] = random.randint(0, 100)
-            responseContent["OL_W_ID"] = random.randint(0, 100)
+            responseContent["OL_O_ID"] = self.rng.randint(0, 100)
+            responseContent["OL_D_ID"] = self.rng.randint(0, 100)
+            responseContent["OL_W_ID"] = self.rng.randint(0, 100)
             op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
             op['type']          = constants.OP_TYPE_QUERY
@@ -377,9 +378,9 @@ class TPCCTestCase(MongoDBTestCase):
             
             op = Session.operationFactory()
             responseContent = {}
-            responseContent["O_ID"] = random.randint(0, 100)
-            responseContent["O_D_ID"] = random.randint(0, 100)
-            responseContent["O_W_ID"] = random.randint(0, 100)
+            responseContent["O_ID"] = self.rng.randint(0, 100)
+            responseContent["O_D_ID"] = self.rng.randint(0, 100)
+            responseContent["O_W_ID"] = self.rng.randint(0, 100)
             op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_ORDERS
             op['type']          = constants.OP_TYPE_UPDATE
@@ -395,9 +396,9 @@ class TPCCTestCase(MongoDBTestCase):
             
             op = Session.operationFactory()
             responseContent = {}
-            responseContent["OL_O_ID"] = random.randint(0, 100)
-            responseContent["OL_D_ID"] = random.randint(0, 100)
-            responseContent["OL_W_ID"] = random.randint(0, 100)
+            responseContent["OL_O_ID"] = self.rng.randint(0, 100)
+            responseContent["OL_D_ID"] = self.rng.randint(0, 100)
+            responseContent["OL_W_ID"] = self.rng.randint(0, 100)
             op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
             op['type']          = constants.OP_TYPE_UPDATE
@@ -413,9 +414,9 @@ class TPCCTestCase(MongoDBTestCase):
             
             op = Session.operationFactory()
             responseContent = {}
-            responseContent["C_ID"] = random.randint(0, 100)
-            responseContent["C_D_ID"] = random.randint(0, 100)
-            responseContent["C_W_ID"] = random.randint(0, 100)
+            responseContent["C_ID"] = self.rng.randint(0, 100)
+            responseContent["C_D_ID"] = self.rng.randint(0, 100)
+            responseContent["C_W_ID"] = self.rng.randint(0, 100)
             op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_CUSTOMER
             op['type']          = constants.OP_TYPE_UPDATE
@@ -431,8 +432,8 @@ class TPCCTestCase(MongoDBTestCase):
             
             op = Session.operationFactory()
             responseContent = {}
-            responseContent["NO_D_ID"] = random.randint(0, 100)
-            responseContent["NO_W_ID"] = random.randint(0, 100)
+            responseContent["NO_D_ID"] = self.rng.randint(0, 100)
+            responseContent["NO_W_ID"] = self.rng.randint(0, 100)
             op['resp_content']  = [responseContent]
             op['collection']    = tpccConstants.TABLENAME_NEW_ORDER
             op['type']          = constants.OP_TYPE_DELETE
@@ -453,13 +454,13 @@ class TPCCTestCase(MongoDBTestCase):
         d_id = params["d_id"]
         c_id = params["c_id"]
         c_last = params["c_last"]
-        o_id = random.randint(0, 10000)
+        o_id = self.rng.randint(0, 10000)
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["C_W_ID"] = random.randint(0, 100)
-        responseContent["C_D_ID"] = random.randint(0, 100)
-        responseContent["C_ID"] = random.randint(0, 100)
+        responseContent["C_W_ID"] = self.rng.randint(0, 100)
+        responseContent["C_D_ID"] = self.rng.randint(0, 100)
+        responseContent["C_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_CUSTOMER
         op['type']          = constants.OP_TYPE_QUERY
@@ -473,9 +474,9 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["O_W_ID"] = random.randint(0, 100)
-        responseContent["O_D_ID"] = random.randint(0, 100)
-        responseContent["O_C_ID"] = random.randint(0, 100)
+        responseContent["O_W_ID"] = self.rng.randint(0, 100)
+        responseContent["O_D_ID"] = self.rng.randint(0, 100)
+        responseContent["O_C_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_ORDERS
         op['type']          = constants.OP_TYPE_QUERY
@@ -489,9 +490,9 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["OL_W_ID"] = random.randint(0, 100)
-        responseContent["OL_D_ID"] = random.randint(0, 100)
-        responseContent["OL_O_ID"] = random.randint(0, 100)
+        responseContent["OL_W_ID"] = self.rng.randint(0, 100)
+        responseContent["OL_D_ID"] = self.rng.randint(0, 100)
+        responseContent["OL_O_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
         op['type']          = constants.OP_TYPE_QUERY
@@ -510,14 +511,14 @@ class TPCCTestCase(MongoDBTestCase):
         ops = [ ]
         w_id = params["w_id"]
         d_id = params["d_id"]
-        o_id = random.randint(0, 10000)
-        ol_ids = [ random.randint(0, 1000) for i in xrange(10) ]
+        o_id = self.rng.randint(0, 10000)
+        ol_ids = [ self.rng.randint(0, 1000) for i in xrange(10) ]
         threshold = params["threshold"]
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["D_W_ID"] = random.randint(0, 100)
-        responseContent["D_ID"] = random.randint(0, 100)
+        responseContent["D_W_ID"] = self.rng.randint(0, 100)
+        responseContent["D_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_QUERY
@@ -531,9 +532,9 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["OL_W_ID"] = random.randint(0, 100)
-        responseContent["OL_D_ID"] = random.randint(0, 100)
-        responseContent["OL_O_ID"] = random.randint(0, 100)
+        responseContent["OL_W_ID"] = self.rng.randint(0, 100)
+        responseContent["OL_D_ID"] = self.rng.randint(0, 100)
+        responseContent["OL_O_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_ORDER_LINE
         op['type']          = constants.OP_TYPE_QUERY
@@ -547,9 +548,9 @@ class TPCCTestCase(MongoDBTestCase):
 
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["S_W_ID"] = random.randint(0, 100)
-        responseContent["S_I_ID"] = random.randint(0, 100)
-        responseContent["S_QUANTITY"] = random.randint(0, 100)
+        responseContent["S_W_ID"] = self.rng.randint(0, 100)
+        responseContent["S_I_ID"] = self.rng.randint(0, 100)
+        responseContent["S_QUANTITY"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_STOCK
         op['type']          = constants.OP_TYPE_QUERY
@@ -577,9 +578,9 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["C_W_ID"] = random.randint(0, 100)
-        responseContent["C_D_ID"] = random.randint(0, 100)
-        responseContent["C_ID"] = random.randint(0, 100)
+        responseContent["C_W_ID"] = self.rng.randint(0, 100)
+        responseContent["C_D_ID"] = self.rng.randint(0, 100)
+        responseContent["C_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_CUSTOMER
         op['type']          = constants.OP_TYPE_QUERY
@@ -593,7 +594,7 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["W_ID"] = random.randint(0, 100)
+        responseContent["W_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_WAREHOUSE
         op['type']          = constants.OP_TYPE_QUERY
@@ -607,7 +608,7 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["W_NAME"] = random.randint(0, 100)
+        responseContent["W_NAME"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_WAREHOUSE
         op['type']          = constants.OP_TYPE_UPDATE
@@ -622,8 +623,8 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["D_W_ID"] = random.randint(0, 100)
-        responseContent["D_ID"] = random.randint(0, 100)
+        responseContent["D_W_ID"] = self.rng.randint(0, 100)
+        responseContent["D_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_QUERY
@@ -637,7 +638,7 @@ class TPCCTestCase(MongoDBTestCase):
         
         op = Session.operationFactory()
         responseContent = {}
-        responseContent["D_ID"] = random.randint(0, 100)
+        responseContent["D_ID"] = self.rng.randint(0, 100)
         op['resp_content']  = [responseContent]
         op['collection']    = tpccConstants.TABLENAME_DISTRICT
         op['type']          = constants.OP_TYPE_QUERY
