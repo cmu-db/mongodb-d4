@@ -419,6 +419,7 @@ class BBNode():
     # It updates the global lower/upper bound accordingly
     # retrun: True if the node should be explored, False if the node can be discarded
     def evaluate(self):
+        LOG.info("evaluated design: \n%s", self.design)
         LOG.debug(".",)
         LOG.debug(self)
         sys.stdout.flush()

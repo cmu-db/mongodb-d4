@@ -72,7 +72,7 @@ class FindExpectedDesign(TPCCTestCase):
             'weight_network': 1,
             'weight_disk':    1,
             'weight_skew':    1,
-            'nodes':          1,
+            'nodes':          10,
             'max_memory':     1024,
             'skew_intervals': 10,
             'address_size':   64,
@@ -87,10 +87,10 @@ class FindExpectedDesign(TPCCTestCase):
         # This will be the upper bound from starting design
 
         initialDesign = InitialDesigner(self.collections, self.workload, None).generate()
-
+        
         upper_bound = cm.overallCost(initialDesign)
-
-        ln = LNSDesigner(self.collections, self.dc, self.workload, None, cm, initialDesign, upper_bound, 1200)
+        print "initial Design cost: ", upper_bound
+        ln = LNSDesigner(self.collections, self.dc, self.workload, None, cm, initialDesign, upper_bound, 12000)
         solution = ln.solve()
 
         print "solution: \n", solution

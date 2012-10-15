@@ -117,9 +117,8 @@ class CostModel(object):
         self.last_cost = cost / self.weights_sum
         self.last_design = design
 
-        if self.debug:
         # Calculate cache hit/miss ratio
-            LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
+        LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
                  self.last_cost, (stop - start))
 
         map(AbstractCostComponent.finish, self.allComponents)

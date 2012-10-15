@@ -57,6 +57,7 @@ class SkewCostComponent(AbstractCostComponent):
 
         # If there is only one node, then the cost is always zero
         if self.state.num_nodes == 1:
+            LOG.info("Computed Skew Cost: %f", 0.0)
             return 0.0
 
         self.nodeCounts
