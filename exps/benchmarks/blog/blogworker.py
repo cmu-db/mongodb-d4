@@ -285,7 +285,7 @@ class BlogWorker(AbstractWorker):
             #if denormalize directly insert article else store it in batch
             if config[self.name]["denormalize"]:
                 article["comments"] = [ ]
-                self.db[constants.ARTICLE_COLL].insert(article)
+            self.db[constants.ARTICLE_COLL].insert(article)
             
             
             ## ----------------------------------------------

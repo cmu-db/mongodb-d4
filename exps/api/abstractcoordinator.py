@@ -61,6 +61,7 @@ class AbstractCoordinator:
     
     def init(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
+
         self.config = config
         self.name = config['default']['name']
         config['default']['debug'] = LOG.isEnabledFor(logging.DEBUG)
@@ -140,6 +141,7 @@ class AbstractCoordinator:
         ### FOR
         
         LOG.info("%s Initialization Completed!" % self.name.upper())
+        
     ## DEF
         
     def loadImpl(self, config, channels):
