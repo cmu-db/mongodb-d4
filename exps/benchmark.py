@@ -403,15 +403,15 @@ if __name__=='__main__':
 ## EXECNET PROCESSOR
 ## ==============================================
 if __name__ == '__channelexec__':
-    import pycallgraph
-    import os
-    pycallgraph.start_trace()
-    pid=os.getpid()
-    try:
+    #import pycallgraph
+    #import os
+    #pycallgraph.start_trace()
+    #pid=os.getpid()
+    #try:
         mp = MessageProcessor(channel)
         mp.processMessage()
-    finally:
-        pycallgraph.make_dot_graph("d4-"+str(pid)+".png")
-        pass
+    #finally:
+    #    pycallgraph.make_dot_graph("d4-"+str(pid)+".png")
+    #    pass
 ## EXEC
  
