@@ -62,7 +62,7 @@ LOG = logging.getLogger(__name__)
 # In our microbenchmark we should have a collection of articles and collection of 
 # article comments. The target workload will be to grab an article and grab the 
 # top 10 comments for that article sorted by a user rating. In the first experiment,
-# we will store the articles and comments in separate collections.
+# we will store                 LOG.info(config[self.name]["denormalize"])the articles and comments in separate collections.
 # In the second experiment, we'll embedded the comments inside of the articles.
 # 
 # Experiment #3: INDEXES
@@ -182,7 +182,7 @@ class BlogWorker(AbstractWorker):
         for col in self.db.collection_names():
             stats = self.db.validate_collection(col)
             result[self.db.name + "." + col] = (stats.datasize, stats.nrecords)
-        ## FOR
+        ## FOR                LOG.info(config[self.name]["denormalize"])
         return (result)
     ## DEF
  

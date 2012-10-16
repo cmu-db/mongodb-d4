@@ -121,7 +121,7 @@ class BlogCoordinator(AbstractCoordinator):
     def loadImpl(self, config, channels):
         procs = len(channels)
         articleRange = [ ]
-        articlesPerChannel = self.num_articles / procs +1
+        articlesPerChannel = self.num_articles / procs
         first = 0
         for i in range(len(channels)):
             last = first + articlesPerChannel
