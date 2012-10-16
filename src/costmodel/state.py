@@ -129,6 +129,13 @@ class State():
         self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
         
         self.__buildCrossReference__();
+        
+        # We need to know the number of operations in the original workload
+        # so that all of our calculations are based on that
+        self.orig_op_count = 0
+        for sess in self.workload:
+            self.orig_op_count += len(sess["operations"])
+        ## FOR
 
         ## ----------------------------------------------
         ## CACHING
@@ -148,16 +155,15 @@ class State():
 
     def updateWorkload(self, workload):
         self.workload = workload
-        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
-        self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
+        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
+        self.col_op_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
         self.__buildCrossReference__()
 
     def restoreOriginalWorkload(self):
         self.workload = self.originalWorload
         self.collections = self.originalCollections
-        
-        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
-        self.col_op_xref = dict([(col_name, []) for col_name in self.collections])        
+        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
+        self.col_op_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
         self.__buildCrossReference__()
 
     def __buildCrossReference__(self):

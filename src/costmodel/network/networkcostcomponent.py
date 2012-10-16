@@ -47,6 +47,8 @@ class NetworkCostComponent(AbstractCostComponent):
         # COL_NAME -> [OP_COUNT, MSG_COUNT]
         self.cache = { }
         self.lastDesign = None
+        
+        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
@@ -61,9 +63,10 @@ class NetworkCostComponent(AbstractCostComponent):
         self.cache = { }
 
     def getCostImpl(self, design):
-        if self.debug: LOG.debug("Computing network cost for %d sessions", len(self.state.workload))
-
+        if self.debug:
+            LOG.debug("Computing network cost for %d sessions [origOpCount=%d / numNodes=%d]", len(self.state.workload), self.state.orig_op_count, self.state.num_nodes)
         self.lastDesign = design
+        
         # Build a cache for the network cost per collection
         # That way if the design doesn't change for a collection, we
         # can reuse the message & op counts from the last calculation
@@ -88,7 +91,11 @@ class NetworkCostComponent(AbstractCostComponent):
                     # Process this op!
                     cache = self.state.getCacheHandleByName(col_name)
                     op_count += 1
-                    msg_count += len(self.state.__getNodeIds__(cache, design, op))
+                    msgs = self.state.__getNodeIds__(cache, design, op)
+                    assert len(msgs) <= self.state.num_nodes, \
+                        "%s -- NumMsgs[%d] <= NumNodes[%d]" % (msgs, len(msgs), self.state.num_nodes)
+                    msg_count += len(msgs)
+                    # if self.debug: LOG.debug("%s -> Messages %s", op, msgs)
                 
                 # Store it in our cache so that we can reuse it
                 self.cache[col_name] = (op_count, msg_count)
@@ -97,10 +104,11 @@ class NetworkCostComponent(AbstractCostComponent):
                 total_msg_count += msg_count
 
         if total_op_count > 0:
-            cost = total_msg_count / float(total_op_count * self.state.num_nodes)
+            cost = total_msg_count / float(self.state.orig_op_count * self.state.num_nodes)
 
-        LOG.info("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
-                                 cost, total_msg_count, total_op_count)
+        if self.debug:
+            LOG.debug("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
+                      cost, total_msg_count, total_op_count)
         return cost
     ## DEF
 ## CLASS

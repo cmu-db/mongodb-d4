@@ -18,7 +18,7 @@ from costmodel.network import NetworkCostComponent
 from workload.workloadcombiner import WorkloadCombiner
 from tpcc import constants as tpccConstants
 
-class TestNetworkCost(CostModelTestCase):
+class TestNetworkCostTPCC(CostModelTestCase):
 
     def setUp(self):
         CostModelTestCase.setUp(self)

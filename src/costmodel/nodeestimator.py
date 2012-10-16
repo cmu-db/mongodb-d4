@@ -61,7 +61,7 @@ class NodeEstimator(object):
             the query will be executed on
         """
 
-        results = [ ]
+        results = set()
         broadcast = True
         shardingKeys = design.getShardKeys(op['collection'])
 
@@ -77,7 +77,7 @@ class NodeEstimator(object):
             # be inserted in one and only one node
             for content in workload.getOpContents(op):
                 values = catalog.getFieldValues(shardingKeys, content)
-                results.append(self.computeTouchedNode(values))
+                results.add(self.computeTouchedNode(values))
             ## FOR
             broadcast = False
 
@@ -119,7 +119,7 @@ class NodeEstimator(object):
                     node_id = self.computeTouchedNode(values)
                     for i in xrange(num_touched):
                         if node_id >= self.num_nodes: node_id = 0
-                        results.append(node_id)
+                        results.add(node_id)
                         node_id += 1
                     ## FOR
                 ## FOR
@@ -130,7 +130,7 @@ class NodeEstimator(object):
                 broadcast = False
                 for content in workload.getOpContents(op):
                     values = catalog.getFieldValues(shardingKeys, content)
-                    results.append(self.computeTouchedNode(values))
+                    results.add(self.computeTouchedNode(values))
                 ## FOR
             ## ----------------------------------------------
             ## BUSTED!
@@ -142,7 +142,7 @@ class NodeEstimator(object):
         if broadcast:
             if self.debug: LOG.debug("Op #%d on '%s' is a broadcast query to all nodes",\
                                      op["query_id"], op["collection"])
-            map(results.append, xrange(0, self.num_nodes))
+            map(results.add, xrange(0, self.num_nodes))
 
         map(self.nodeCounts.put, results)
         self.op_count += 1
