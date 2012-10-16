@@ -47,7 +47,7 @@ class MessageProcessor:
             
             # MSG_CMD_INIT
             if msg.header == MSG_CMD_INIT:
-                self.config = msg.data
+                self.config, msgPacket = msg.data
                 self.benchmark = self.config['default']['benchmark']
                 
                 # Initialize Logging
@@ -68,7 +68,7 @@ class MessageProcessor:
                 
                 # Create worker
                 self.worker = self.createWorker()
-                self.worker.init(self.config, self.channel)
+                self.worker.init(self.config, self.channel, msgPacket)
                 
             # MSG_CMD_LOAD
             # Tells the worker thread to start loading the database

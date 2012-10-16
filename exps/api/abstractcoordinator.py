@@ -59,6 +59,14 @@ class AbstractCoordinator:
         raise NotImplementedError("%s does not implement benchmarkConfigImpl" % (self.benchmark))
     ## DEF
     
+    def initImpl(self, config):
+        """
+            Benchmark Coordinator Initi Implementation
+            This needs to return a dict that maps from channel
+            to the message to send to the remote worker
+        """
+        raise NotImplementedError("%s does not implement initImpl" % (self.name))
+    
     def init(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
 
@@ -104,7 +112,8 @@ class AbstractCoordinator:
         ## ----------------------------------------------
         
         # First initialize our local coordinator
-        self.initImpl(self.config, channels)
+        messages = self.initImpl(self.config, channels)
+        assert isinstance(messages, dict), "Invalid initialization message dictionary"
         
         # Invoke the workers for this benchmark invocation
         LOG.debug("Sending MSG_CMD_INIT to %d workers" % len(channels))
@@ -115,8 +124,10 @@ class AbstractCoordinator:
             workerConfig["default"] = dict(self.config["default"].items())
             assert not 'id' in workerConfig['default'], "Dupe workerId #%d" % workerConfig['default']['id']
             workerConfig['default']['id'] = workerId
+            
+            msg = messages.get(ch, None)
             #LOG.debug("Sending MSG_CMD_INIT to worker #%d" % (workerId-1))
-            queue.append((MSG_CMD_INIT, workerConfig, ch))
+            queue.append((MSG_CMD_INIT, (workerConfig, msg), ch))
             workerId += 1
             # sendMessage(MSG_CMD_INIT, workerConfig, ch)
             # time.sleep(10)
@@ -145,7 +156,11 @@ class AbstractCoordinator:
     ## DEF
         
     def loadImpl(self, config, channels):
-        '''Benchmark coordinator initialization method'''
+        '''
+            Benchmark coordinator initialization method
+            This needs to return a dict that maps from channel
+            to the message to send to the remote worker
+        '''
         raise NotImplementedError("%s does not implement initImpl" % (self.name.upper()))
         
     def load(self, config, channels):
@@ -154,7 +169,12 @@ class AbstractCoordinator:
         LOG.info("Loading %s Database" % self.name.upper())
         
         load_start = time.time()
-        self.loadImpl(config, channels)
+        messages = self.loadImpl(config, channels)
+        assert isinstance(messages, dict), "Invalid load message dictionary"
+        for ch in channels:
+            sendMessage(MSG_CMD_LOAD, messages[ch], ch)
+
+        # Now block until we get a response from all of the channels
         waiting = channels[:]
         completed = 0.0
         statusIncrease = 0.1

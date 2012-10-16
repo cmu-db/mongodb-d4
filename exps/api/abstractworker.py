@@ -69,7 +69,7 @@ class AbstractWorker:
     ## WORKER INIT
     ## ---------------------------------------------------------------------------
     
-    def init(self, config, channel):
+    def init(self, config, channel, msg):
         '''Worker Initialization. You always must send a INIT_COMPLETED message back'''
         self.lastChannel = channel
         self.config = config
@@ -109,7 +109,7 @@ class AbstractWorker:
             raise
         assert self.conn
         
-        self.initImpl(config)
+        self.initImpl(config, msg)
         sendMessage(MSG_INIT_COMPLETED, self.id, channel)
         LOG.info("Finished initializing %s worker #%d" % (self.name.upper(), self.id))
     ## DEF

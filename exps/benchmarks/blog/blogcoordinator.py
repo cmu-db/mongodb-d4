@@ -55,6 +55,11 @@ class BlogCoordinator(AbstractCoordinator):
         self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
         config[self.name]["denormalize"] = (config[self.name]["denormalize"] == True)
         
+        # FIXME
+        # Create a dict that contains the message that you want to send to
+        # each individual channel (i.e., worker)
+        messages = { }
+        
         # Experiment Type
         config[self.name]["experiment"] = config[self.name]["experiment"].strip()
         if not config[self.name]["experiment"] in constants.EXP_ALL:
@@ -115,7 +120,7 @@ class BlogCoordinator(AbstractCoordinator):
             LOG.debug("Indexing Type:   %s" % config[self.name]["indexes"])
             LOG.debug("MaxCommentId:    %s" % config[self.name]["maxCommentId"])
         
-        return
+        return messages
     ## DEF
     
     def loadImpl(self, config, channels):
@@ -123,11 +128,13 @@ class BlogCoordinator(AbstractCoordinator):
         articleRange = [ ]
         articlesPerChannel = self.num_articles / procs
         first = 0
+        messages = { }
         for i in range(len(channels)):
             last = first + articlesPerChannel
             LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
-            sendMessage(MSG_CMD_LOAD, None, channels[i])
+            messages[channels[i]] = (first, last)
             first = last + 1
+        return messages
     ## DEF
 
 ## CLASS
