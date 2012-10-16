@@ -5,8 +5,12 @@ import sys
 import design
 import itertools
 import signal
-import logging
 
+import logging
+logging.basicConfig(level = logging.INFO,
+format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+datefmt="%m-%d-%Y %H:%M:%S",
+stream = sys.stdout)
 LOG = logging.getLogger(__name__)
 
 '''
@@ -147,8 +151,6 @@ class BBSearch ():
             LOG.debug("  leaf nodes: %d", self.leafNodes)
             LOG.debug("BEST SOLUTION:\n%s", self.bestDesign)
             LOG.debug("------------------\n")
-
-    
 ## CLASS
 
 
@@ -160,6 +162,7 @@ helper Classes
 Iterators
 These iterators help enumerate all possible solutions
 used in BBNode getNextChild()
+NOTE: This will always return None as the first value
 '''
 class SimpleKeyIterator:
     def next(self):
@@ -168,20 +171,22 @@ class SimpleKeyIterator:
         else:
             if self.current < 0:
                 self.current += 1
-                self.lastValue = ""
+                self.lastValue = None
             else:
                 self.current += 1
                 self.lastValue = self.keys[self.current - 1]
+            self.first = False
             return self.lastValue
     
     def rewind(self):
+        self.first = True
         self.lastValue = None
         self.current = -1
     
     def getLastValue(self):
-        # when self.lastValue is None, the iterator has never been called
+        # when first is set to true, then the iterator has never been called
         # therefore, we must call next() for the first time to pop the first value
-        if self.lastValue == None:
+        if self.first:
             return self.next()
         else:
             return self.lastValue
@@ -190,9 +195,10 @@ class SimpleKeyIterator:
         return self
     
     def __init__(self, keys):
+        self.first = True
         self.lastValue = None
         self.keys = keys
-        self.current = -1 # no shard key
+        self.current = -1
        
 # this one is a bit more complicated:
 # we have to enumerate all combinations of all sizes from the list of index keys
@@ -334,7 +340,7 @@ class BBNode():
                     return None
         if self.debug:
             LOG.debug("APPLYING: %s -> shardKey:%s / denorm:%s / indexes:%s", \
-                  self.currentCol, shardKey, denorm, indexes)
+                      self.currentCol, shardKey, denorm, indexes)
         
         ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
@@ -358,11 +364,16 @@ class BBNode():
                 break
             denorm_parent = self.design.getDenormalizationParent(denorm_parent)
             
+        # Empty denormalization collection?
+        if not denorm is None and len(denorm) == 0:
+            LOG.warn("Invalid denormalization candidate '%s' for collection %s", denorm, self.currentCol)
+            feasible = False
+            
         # enforce mutual exclustion of sharding keys...
         # when col1 gets denormalized into col2, they cannot have
         # both assigned a sharding key
         # again, denormalization can be chained... so we have to consider the whole chain
-        if denorm and len(shardKey) > 0:
+        if feasible and not denorm is None and len(shardKey) != 0:
             denorm_parent = denorm
             # check all the way to the end of the embedding chain:
             while denorm_parent:
@@ -452,14 +463,17 @@ class BBNode():
         return self.design.isComplete()
 
     def __str__(self):
-        tab="\n"
-        for i in range(self.depth):
-            tab+="\t"
-        s = tab+"--node--"\
-        +tab+" cost: " + str(self.cost)\
-        +tab+" design: " + str(self.design)\
-        +tab+" children: " + str(len(self.children))\
-        +tab+" depth: " + str(self.depth)
+        tab = "   "*self.depth
+        
+        designStr = ""
+        for line in str(self.design).split("\n"):
+            designStr += "\n" + tab + "  |" + line
+        
+        s = tab + "--node--\n" + \
+            tab + " cost: " + str(self.cost) + "\n" + \
+            tab + " children: " + str(len(self.children)) + "\n" + \
+            tab + " depth: " + str(self.depth) + "\n" + \
+            tab + " design: " + designStr
         return s
 
     '''

@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os, sys
 import logging
 import time
 import unittest
+
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../../src"))
 
 from search import bbsearch
 from search import designcandidates
@@ -78,7 +82,7 @@ class TestSearchSpace (unittest.TestCase) :
         dc.addCollection("col1", [], [], [])
         dc.addCollection("col2", [], [], [])
         LOG.info("Design Candidates\n%s", dc)
-        LOG.info("Initial Design\n%s", self.initialDesign.data)
+        LOG.info("Initial Design\n%s", self.initialDesign)
         bb = bbsearch.BBSearch(dc, self.costmodel, self.initialDesign, self.upper_bound, self.timeout)
         bb.solve()
         nodeList = bb.listAllNodes()
@@ -207,10 +211,10 @@ class TestSearchSpace (unittest.TestCase) :
         nodeList = bb.listAllNodes()
         for n in nodeList:
             print n
+            print "*"*50
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 2)
-        self.assertEqual(bb.leafNodes, 1)
-
+        self.assertEqual(3, bb.totalNodes)
+        self.assertEqual(2, bb.leafNodes)
 ### END Test 1
 
 if __name__ == '__main__':
