@@ -116,8 +116,8 @@ class TestNodeEstimator(MongoDBTestCase):
 #        pprint(op)
 
         # If we execute it twice, we should get back the exact same node ids
-        touched0 = self.estimator.estimateNodes(d, op)
-        touched1 = self.estimator.estimateNodes(d, op)
+        touched0 = list(self.estimator.estimateNodes(d, op))
+        touched1 = list(self.estimator.estimateNodes(d, op))
         self.assertListEqual(touched0, touched1)
     ## DEF
 
@@ -140,7 +140,7 @@ class TestNodeEstimator(MongoDBTestCase):
         op['predicates'] = { shard_key: constants.PRED_TYPE_RANGE }
 
         # The list estimated touched nodes should contain more than one entry
-        touched0 = self.estimator.estimateNodes(d, op)
+        touched0 = list(self.estimator.estimateNodes(d, op))
         print "touched0:", touched0
         self.assertGreater(len(touched0), 1)
     ## DEF
@@ -161,7 +161,7 @@ class TestNodeEstimator(MongoDBTestCase):
         # broadcast to every node
         sess = self.metadata_db.Session.fetch_one()
         op = sess['operations'][0]
-        touched0 = self.estimator.estimateNodes(d, op)
+        touched0 = list(self.estimator.estimateNodes(d, op))
 #        print "touched0:", touched0
         self.assertListEqual(range(NUM_NODES), touched0)
 
@@ -171,7 +171,7 @@ class TestNodeEstimator(MongoDBTestCase):
         op['query_content'] = op['resp_content']
         op['predicates'] = [ ]
 #        pprint(op)
-        touched1 = self.estimator.estimateNodes(d, op)
+        touched1 = list(self.estimator.estimateNodes(d, op))
 #        print "touched1:", touched1
         self.assertEqual(1, len(touched1))
 
@@ -184,7 +184,7 @@ class TestNodeEstimator(MongoDBTestCase):
         op['resp_content']  = [ {"ok": 1} ]
         op['resp_id']       = 10001
 #        pprint(op)
-        touched2 = self.estimator.estimateNodes(d, op)
+        touched2 = list(self.estimator.estimateNodes(d, op))
         self.assertEqual(1, len(touched2))
         self.assertListEqual(touched1, touched2)
 #        print "touched2:", touched2
