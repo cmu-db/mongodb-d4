@@ -53,8 +53,7 @@ class BlogCoordinator(AbstractCoordinator):
     
     def initImpl(self, config, channels):
         self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
-        
-        config[self.name]["denormalize"] = (config[self.name]["denormalize"] == "True")
+        config[self.name]["denormalize"] = (config[self.name]["denormalize"] == True)
         
         # Experiment Type
         config[self.name]["experiment"] = config[self.name]["experiment"].strip()
@@ -122,12 +121,12 @@ class BlogCoordinator(AbstractCoordinator):
     def loadImpl(self, config, channels):
         procs = len(channels)
         articleRange = [ ]
-        articlesPerChannel = self.num_articles / procs
+        articlesPerChannel = self.num_articles / procs +1
         first = 0
         for i in range(len(channels)):
             last = first + articlesPerChannel
             LOG.info("Loading %s [%d - %d) on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
-            sendMessage(MSG_CMD_LOAD, (self.authors, config[self.name]["maxCommentId"]), channels[i])
+            sendMessage(MSG_CMD_LOAD, None, channels[i])
             first = last
     ## DEF
 
