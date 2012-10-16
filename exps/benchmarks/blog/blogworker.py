@@ -85,10 +85,12 @@ class BlogWorker(AbstractWorker):
         
         # Total number of articles in database
         self.num_articles = int(self.getScaleFactor() * constants.NUM_ARTICLES)
-        
         articleOffset = (1 / float(self.getWorkerCount())) * self.num_articles
+        LOG.info("articleOffset "+str(articleOffset))
         self.firstArticle = int(self.getWorkerId() * articleOffset)
+        LOG.info("firstArticle "+str(self.firstArticle))
         self.lastArticle = int(self.firstArticle + articleOffset)
+        LOG.info("lastArticle "+str(self.lastArticle))
         self.lastCommentId = None
         self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
@@ -226,7 +228,7 @@ class BlogWorker(AbstractWorker):
                 self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
                 if config[self.name]["denormalize"]:
-                    LOG.info("Creating indexes (id,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
+                    LOG.info("Creating indexes (articleId,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
                     self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
                                                                   ("rating", pymongo.DESCENDING)])
                     
@@ -333,7 +335,7 @@ class BlogWorker(AbstractWorker):
             #commentsBatch = [ ]
             ## IF
             
-        LOG.info("FINAL-ARTICLES: %6d / %d" % (articleCtr-1, articleTotal))
+        LOG.info("FINAL-ARTICLES: %6d / %d" % (articleCtr, articleTotal))
         LOG.info("FINAL-COMMENTS: %6d / %d" % (commentCtr,commentCtr))        
                 
     ## DEF
@@ -576,20 +578,19 @@ class BlogWorker(AbstractWorker):
             #print("~~~~~~~~~~~~~~");
         else:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-            #print(pformat(article))
             if not article is None:
                 assert 'comments' in article, pformat(article)
                 comments = article[u'comments']
-                #sort by rating ascending and take top 10..
+                #sort by rating descending and take top 10..
                 comments = sorted(comments, key=lambda k: -k[u'rating'])
                 comments = comments[0:10]
-                #    pprint(comments)
-                #    print("\n");
-        if article is None:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            return
-        assert article["id"] == articleId, \
-            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
+		#pprint(comments)
+                #print("\n");
+            elif article is None:
+                LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+                return
+            assert article["id"] == articleId, \
+                "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
         
         
     ## DEF
