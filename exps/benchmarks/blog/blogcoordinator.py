@@ -96,7 +96,7 @@ class BlogCoordinator(AbstractCoordinator):
         #self.dates = [ ]
         #for i in xrange(STOP_DATE,START_DATE,-3600):
         #    self.dates.append(i)
-        #
+        #completePercent
         # Get the current max commentId
         # Figure out how many comments already exist in the database
         config[self.name]["maxCommentId"] = -1
@@ -134,6 +134,7 @@ class BlogCoordinator(AbstractCoordinator):
             LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
             messages[channels[i]] = (first, last)
             first = last + 1
+	    LOG.info(messages[channels[i]])
         return messages
     ## DEF
 

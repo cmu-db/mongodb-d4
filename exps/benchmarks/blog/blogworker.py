@@ -85,6 +85,8 @@ class BlogWorker(AbstractWorker):
         
         # Total number of articles in database
         self.num_articles = int(self.getScaleFactor() * constants.NUM_ARTICLES)
+        LOG.info("Blog.initIMpl")
+        LOG.info(msg)
         articleOffset = (1 / float(self.getWorkerCount())) * self.num_articles
         LOG.info("articleOffset "+str(articleOffset))
         self.firstArticle = int(self.getWorkerId() * articleOffset)

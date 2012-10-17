@@ -28,6 +28,7 @@ import sys
 import logging
 
 from message import *
+from pprint import pprint, pformat
 
 LOG = logging.getLogger(__name__)
 
@@ -44,10 +45,12 @@ class MessageProcessor:
         for item in self.channel:
             msg = getMessage(item)
             LOG.debug("Incoming Message: %s" % getMessageName(msg.header))
-            
+
             # MSG_CMD_INIT
             if msg.header == MSG_CMD_INIT:
+                LOG.info("MSG_CMD_INIT")
                 self.config, msgPacket = msg.data
+                
                 self.benchmark = self.config['default']['benchmark']
                 
                 # Initialize Logging

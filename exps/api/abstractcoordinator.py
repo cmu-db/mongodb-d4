@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------
 # Copyright (C) 2012
 # Yang Lu - http://www.cs.brown.edu/~yanglu/
@@ -173,7 +173,8 @@ class AbstractCoordinator:
         assert isinstance(messages, dict), "Invalid load message dictionary"
         for ch in channels:
             sendMessage(MSG_CMD_LOAD, messages[ch], ch)
-
+ 
+	
         # Now block until we get a response from all of the channels
         waiting = channels[:]
         completed = 0.0
