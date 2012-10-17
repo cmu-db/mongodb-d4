@@ -100,7 +100,7 @@ class BlogWorker(AbstractWorker):
         
         # Zipfian distribution on the number of comments & their ratings
         self.commentsZipf = ZipfGenerator(numComments, 1.001)
-        self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.001)
+        self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING+1, 1.001)
         self.db = self.conn[config['default']["dbname"]]   
         
         #precalcualtiong the authors names list to use Zipfian against them

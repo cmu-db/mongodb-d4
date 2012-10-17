@@ -36,6 +36,7 @@ ARTICLE_CONTENT_SIZE = 8192
 COMMENT_CONTENT_SIZE = 1024
 MAX_COMMENT_RATING = 100
 NUM_ARTICLES = 10000 # this is multiplied by the scale factor
+NUMBER_OF_DATE_SUBRANGES = 8 # this breaks the interval between START_DATE and STOP_DATE in X segments
 
 #deprecated
 #AUTHOR_NAME_SIZE = 20
@@ -52,7 +53,7 @@ WORKLOAD_READ_PERCENT  = 90
 WORKLOAD_WRITE_PERCENT = 10 
 assert (WORKLOAD_READ_PERCENT+WORKLOAD_WRITE_PERCENT) == 100
 
-START_DATE = datetime.strptime('1/1/2008 1:30 PM', '%m/%d/%Y %I:%M %p')
+START_DATE = datetime.strptime('11/1/2011 1:30 PM', '%m/%d/%Y %I:%M %p')
 STOP_DATE = datetime.strptime('1/1/2012 1:30 PM', '%m/%d/%Y %I:%M %p')
 
 # Experiment Type Codes
@@ -67,6 +68,6 @@ SHARDEXP_COMPOUND   = 1
 SHARDEXP_ALL = [SHARDEXP_SINGLE, SHARDEXP_COMPOUND]
 
 # Indexing Config Types
-INDEXEXP_8020  = 0 # 80% reads / 20% writes
-INDEXEXP_9010  = 1 # 90% reads / 10% writes
+INDEXEXP_8020  = 0
+INDEXEXP_9010  = 1
 INDEXEXP_ALL = [INDEXEXP_8020, INDEXEXP_9010]
