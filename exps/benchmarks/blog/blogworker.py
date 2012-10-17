@@ -88,14 +88,12 @@ class BlogWorker(AbstractWorker):
         #the number of articles is not equaly divisible by the number of workers, and will be lower than that.
         self.clientprocs = int(self.config["default"]["clientprocs"])
         self.num_articles = int(int(self.getScaleFactor() * constants.NUM_ARTICLES) / self.clientprocs) * self.clientprocs
-        LOG.info(self.num_articles)
         self.firstArticle = msg[0]
         self.lastArticle = msg[1]
         self.lastCommentId = None
         self.config[self.name]["commentsperarticle"]
         self.articleZipf = ZipfGenerator(self.num_articles, 1.001)
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
-        
         numComments = int(config[self.name]["commentsperarticle"])
         
         # Zipfian distribution on the number of comments & their ratings
@@ -116,11 +114,10 @@ class BlogWorker(AbstractWorker):
         self.datecount=0
         epochToStartInSeconds = int(time.mktime(constants.START_DATE.timetuple()))
         epochToStopInSeconds = int(time.mktime(constants.STOP_DATE.timetuple()))
-        for i in xrange(epochToStopInSeconds,epochToStartInSeconds,-3600):
+        # 1day = 24*60*60sec = 86400
+        for i in xrange(epochToStopInSeconds,epochToStartInSeconds,-86400):
             self.dates.append(datetime.fromtimestamp(i))
             self.datecount +=1
-        LOG.info("datecount")
-        LOG.info(self.datecount)
         self.dateZipf = ZipfGenerator(self.datecount,1.001)
         
         
