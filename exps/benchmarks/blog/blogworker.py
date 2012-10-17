@@ -85,13 +85,15 @@ class BlogWorker(AbstractWorker):
         
         # Total number of articles in database
         self.num_articles = int(self.getScaleFactor() * constants.NUM_ARTICLES)
-        LOG.info("Blog.initIMpl")
-        LOG.info(msg)
-        articleOffset = (1 / float(self.getWorkerCount())) * self.num_articles
-        LOG.info("articleOffset "+str(articleOffset))
-        self.firstArticle = int(self.getWorkerId() * articleOffset)
+        LOG.info("Blog.num of articles")
+        LOG.info(self.num_articles)
+        #articleOffset = (1 / float(self.getWorkerCount())) * self.num_articles
+        #LOG.info("articleOffset "+str(articleOffset))
+        self.firstArticle = msg[0]
+        #self.firstArticle = int(self.getWorkerId() * articleOffset)
         LOG.info("firstArticle "+str(self.firstArticle))
-        self.lastArticle = int(self.firstArticle + articleOffset)
+        self.lastArticle = msg[1]
+        #self.lastArticle = int(self.firstArticle + articleOffset)
         LOG.info("lastArticle "+str(self.lastArticle))
         self.lastCommentId = None
         self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
@@ -262,7 +264,7 @@ class BlogWorker(AbstractWorker):
         commentCtr = 0
         commentTotal= 0
         numComments = int(config[self.name]["commentsperarticle"])
-        for articleId in xrange(self.firstArticle, self.lastArticle):
+        for articleId in xrange(self.firstArticle, self.lastArticle+1):
             titleSize = constants.ARTICLE_TITLE_SIZE
             title = randomString(titleSize)
             contentSize = constants.ARTICLE_CONTENT_SIZE

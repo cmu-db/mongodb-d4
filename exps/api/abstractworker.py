@@ -71,8 +71,6 @@ class AbstractWorker:
     
     def init(self, config, channel, msg):    
         '''Worker Initialization. You always must send a INIT_COMPLETED message back'''
-        LOG.info("abstractworker.init")
-        LOG.info(pformat(msg))
         self.lastChannel = channel
         self.config = config
         self.name = config['default']['name']
@@ -125,8 +123,6 @@ class AbstractWorker:
         
     def load(self, config, channel, msg):
         '''Perform actual loading. We will always send back LOAD_COMPLETED message'''
-        LOG.info("abstractworker.load")
-        LOG.info(pformat(msg))
         self.lastChannel = channel
         LOG.info("Invoking %s Loader" % self.name)
         self.loadImpl(config, channel, msg)

@@ -55,10 +55,23 @@ class BlogCoordinator(AbstractCoordinator):
         self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
         config[self.name]["denormalize"] = (config[self.name]["denormalize"] == True)
         
-        # FIXME
+       
         # Create a dict that contains the message that you want to send to
         # each individual channel (i.e., worker)
         messages = { }
+        procs = len(channels)
+        articleRange = [ ]
+        articlesPerChannel = self.num_articles / procs
+        print("articlesPerChannel")
+        print(articlesPerChannel)
+        first = 0
+       
+        for i in range(len(channels)):
+            last = first + articlesPerChannel-1
+            LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
+            messages[channels[i]] = (first, last)
+            first = last + 1
+	    LOG.info(messages[channels[i]])
         
         # Experiment Type
         config[self.name]["experiment"] = config[self.name]["experiment"].strip()
@@ -124,18 +137,19 @@ class BlogCoordinator(AbstractCoordinator):
     ## DEF
     
     def loadImpl(self, config, channels):
-        procs = len(channels)
-        articleRange = [ ]
-        articlesPerChannel = self.num_articles / procs
-        first = 0
-        messages = { }
-        for i in range(len(channels)):
-            last = first + articlesPerChannel
-            LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
-            messages[channels[i]] = (first, last)
-            first = last + 1
-	    LOG.info(messages[channels[i]])
-        return messages
+        pass
+        #procs = len(channels)
+        #articleRange = [ ]
+        #articlesPerChannel = self.num_articles / procs
+        #first = 0
+        #messages = { }
+        #for i in range(len(channels)):
+        #    last = first + articlesPerChannel
+        #    LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
+        #    messages[channels[i]] = (first, last)
+        #    first = last + 1
+	#    LOG.info(messages[channels[i]])
+        return {}
     ## DEF
 
 ## CLASS

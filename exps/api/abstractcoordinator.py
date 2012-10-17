@@ -172,8 +172,8 @@ class AbstractCoordinator:
         messages = self.loadImpl(config, channels)
         assert isinstance(messages, dict), "Invalid load message dictionary"
         for ch in channels:
-            sendMessage(MSG_CMD_LOAD, messages[ch], ch)
- 
+            #sendMessage(MSG_CMD_LOAD, messages[ch], ch)
+	     sendMessage(MSG_CMD_LOAD, None, ch)
 	
         # Now block until we get a response from all of the channels
         waiting = channels[:]

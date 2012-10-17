@@ -48,7 +48,6 @@ class MessageProcessor:
 
             # MSG_CMD_INIT
             if msg.header == MSG_CMD_INIT:
-                LOG.info("MSG_CMD_INIT")
                 self.config, msgPacket = msg.data
                 
                 self.benchmark = self.config['default']['benchmark']
