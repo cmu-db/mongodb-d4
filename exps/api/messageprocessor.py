@@ -73,24 +73,24 @@ class MessageProcessor:
             # MSG_CMD_LOAD
             # Tells the worker thread to start loading the database
             elif msg.header == MSG_CMD_LOAD:
-                self.worker.load(self.config, self.channel, msg)
+                self.worker.load(self.config, self.channel, msg.data)
             
             # MSG_CMD_STATUS
             # Return the current status of the worker thread
             elif msg.header == MSG_CMD_STATUS:
-                self.worker.status(self.config, self.channel, msg)
+                self.worker.status(self.config, self.channel, msg.data)
                 
             # MSG_CMD_EXECUTE_INIT
             # Tells the worker thread to initialize the benchmark execution
             elif msg.header == MSG_CMD_EXECUTE_INIT:
-                self.worker.executeInit(self.config, self.channel, msg)
+                self.worker.executeInit(self.config, self.channel, msg.data)
             
             # MSG_CMD_EXECUTE
             # Tells the worker thread to begin executing the benchmark
             # This will only occur once all of the threads complete the
             # EXECUTE_INIT phase.
             elif msg.header == MSG_CMD_EXECUTE:
-                self.worker.execute(self.config, self.channel, msg)
+                self.worker.execute(self.config, self.channel, msg.data)
             
             # MSG_CMD_STOP
             # Tells the worker thread to halt the benchmark
