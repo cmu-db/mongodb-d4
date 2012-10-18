@@ -90,6 +90,7 @@ class BBSearch ():
 
         # set initial bound to infinity
         self.rootNode.solve()
+        
         if self.status is "solving":
             self.status = "solved"
 
@@ -316,7 +317,7 @@ class BBNode():
         # initialize to previous values
         indexes = self.indexIter.getLastValue()
         denorm = self.denormIter.getLastValue()
-        
+
         # SHARD KEY ITERATION
         try:
             shardKey = self.shardIter.next()
@@ -341,7 +342,33 @@ class BBNode():
         if self.debug:
             LOG.debug("APPLYING: %s -> shardKey:%s / denorm:%s / indexes:%s", \
                       self.currentCol, shardKey, denorm, indexes)
+                
+        # well, this is a very lazy way of doing it :D
+        # it's OK so long there are not too many consecutive infeasible nodes,
+        # then it could hit the max recursion limit...
+        if not self.__isFeasible__(denorm, shardKey):
+            LOG.warn("FAIL")
+            return self.getNextChild()
         
+        
+        ### --- end of CONSTRAINTS ---
+                
+        # make the child
+        # inherit the parent assignment plus the new assignment
+        child_design = self.design.copy()
+        if child_design.isRelaxed(self.currentCol):
+            child_design.recover(self.currentCol)
+        
+        for i in indexes:
+            child_design.addIndex(self.currentCol, i)
+        child_design.addShardKey(self.currentCol, shardKey)
+        child_design.setDenormalizationParent(self.currentCol, denorm)
+        
+        child = BBNode(child_design, self.bbsearch, False, self.depth + 1)
+        
+        return child
+    
+    def __isFeasible__(self, denorm, shardKey):
         ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
         
@@ -379,36 +406,13 @@ class BBNode():
             while denorm_parent:
                 # if the encapsulating collection has a shard key, it's a conflict
                 if denorm_parent in self.design.data:
-                    if len(self.design.getShardKeys(denorm_parent)) != 0:
+                    if self.design.getShardKeys(denorm_parent) is not None and len(self.design.getShardKeys(denorm_parent)) != 0:
                         feasible = False
                         break
                 denorm_parent = self.design.getDenormalizationParent(denorm_parent)
-                
-        # well, this is a very lazy way of doing it :D
-        # it's OK so long there are not too many consecutive infeasible nodes,
-        # then it could hit the max recursion limit...
-        if not feasible:
-            LOG.warn("FAIL")
-            return self.getNextChild()
         
-        ### --- end of CONSTRAINTS ---
-                
-        # make the child
-        # inherit the parent assignment plus the new assignment
-        child_design = self.design.copy()
-        if not child_design.hasCollection(self.currentCol):
-            child_design.addCollection(self.currentCol)
-        
-        for i in indexes :
-            child_design.addIndex(self.currentCol, i)
-        child_design.addShardKey(self.currentCol, shardKey)
-        child_design.setDenormalizationParent(self.currentCol, denorm)
-        
-        child = BBNode(child_design, self.bbsearch, False, self.depth + 1)
-        
-        return child
+        return feasible
     
-        
     def prepareChildren(self):
         # initialize iterators 
         # --> determine which collection is yet to be assigned
@@ -443,8 +447,14 @@ class BBNode():
         # for leaf nodes (complete solutions):
         # Check against the best value we have seen so far
         # If this node is better, update the optimal solution
+        print "is leaf??: ", self.isLeaf()
+        print "current design: ", self.design
         if self.isLeaf():
+            print "depth: ", self.depth
+            print "self cost: ", self.cost
+            print "best cost so far: ", self.bbsearch.bestCost
             if self.cost < self.bbsearch.bestCost:
+                LOG.info("Best Cost is updated from %s to %s", self.bbsearch.bestCost, self.cost)
                 self.bbsearch.bestCost = self.cost
                 self.bbsearch.bestDesign = self.design.copy()
         
