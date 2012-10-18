@@ -18,9 +18,15 @@ class Design(object):
     def reset(self, collectionName):
         self.data[collectionName] = None
 
-    def isRelaxed(self, collectionName):
-        return self.data[collectionName] is None
-
+    def isRelaxed(self, col_name):
+        return self.data[col_name] is None
+    
+    def recover(self, col_name):
+        self.data[col_name] = {
+            'indexes' : [],
+            'shardKeys' : [],
+            'denorm' : None
+        }
     def isComplete(self):
         """returns True when all collections are assigned designs"""
         for value in self.data.values():
@@ -61,12 +67,15 @@ class Design(object):
         d = Design()
         for k,v in self.data.iteritems():
             d.addCollection(k)
-            d.addShardKey(k, self.getShardKeys(k))
-            d.setDenormalizationParent(k, self.getDenormalizationParent(k))
-            indexes = self.getIndexes(k)
-            if indexes:
-                for i in indexes :
-                    d.addIndex(k, i)
+            if v is None:
+                d.reset(k)
+            else:
+                d.addShardKey(k, self.getShardKeys(k))
+                d.setDenormalizationParent(k, self.getDenormalizationParent(k))
+                indexes = self.getIndexes(k)
+                if indexes:
+                    for i in indexes :
+                        d.addIndex(k, i)
         return d
 
     ## ----------------------------------------------
@@ -89,10 +98,14 @@ class Design(object):
             if not other or not col_name in other.data:
                 match = False
             else:
-                for k, v in self.data[col_name].iteritems():
-                    if v <> other.data[col_name].get(k, None):
-                        match = False
-                        break
+                if self.data[col_name] and other.data[col_name]:
+                    for k, v in self.data[col_name].iteritems():
+                        if v <> other.data[col_name].get(k, None):
+                            match = False
+                            break
+                else:
+                    match = False
+                    
             if not match: result.append(col_name)
         ## FOR
         return result
@@ -106,6 +119,10 @@ class Design(object):
         if other is None: return False
         if not col_name in self.data:
             return (col_name in other)
+        
+        if not self.data[col_name] or not other.data[col_name]:
+            return False
+        
         return self.data[col_name]['denorm'] != other.data[col_name]['denorm']
     ## DEF
     
@@ -117,6 +134,10 @@ class Design(object):
         if other is None: return False
         if not col_name in self.data:
             return (col_name in other)
+        
+        if not self.data[col_name] or not other.data[col_name]:
+            return False
+        
         return self.data[col_name]['shardKeys'] != other.data[col_name]['shardKeys']
     ## DEF
 
