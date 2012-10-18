@@ -447,12 +447,7 @@ class BBNode():
         # for leaf nodes (complete solutions):
         # Check against the best value we have seen so far
         # If this node is better, update the optimal solution
-        print "is leaf??: ", self.isLeaf()
-        print "current design: ", self.design
         if self.isLeaf():
-            print "depth: ", self.depth
-            print "self cost: ", self.cost
-            print "best cost so far: ", self.bbsearch.bestCost
             if self.cost < self.bbsearch.bestCost:
                 LOG.info("Best Cost is updated from %s to %s", self.bbsearch.bestCost, self.cost)
                 self.bbsearch.bestCost = self.cost

@@ -129,7 +129,11 @@ class DiskCostComponent(AbstractCostComponent):
         for sess in self.state.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
+                if not design.hasCollection(op['collection']):
+                    if self.debug: LOG.debug("NOT in design: SKIP - All operations on %s", col_name)
+                    continue
                 if design.isRelaxed(op['collection']):
+                    if self.debug: LOG.debug("NOT in design: SKIP - All operations on %s", col_name)
                     continue
                 col_info = self.state.collections[op['collection']]
 
