@@ -330,7 +330,7 @@ class BlogWorker(AbstractWorker):
             return (txnName, (articleId))
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
-            trial = int(config[self.name]["indexing"])
+            trial = int(config[self.name]["sharding"])
             if trial == 0:
                 #single sharding key
                 articleId = self.articleZipf.next()
@@ -348,7 +348,7 @@ class BlogWorker(AbstractWorker):
             #an articleId/articleDate using a Zipfian random number generator versus 
             #a uniform distribution random number generator.
             skewfactor = float(config[self.name]["skew"])
-            trial = int(config[self.name]["sharding"])
+            trial = int(config[self.name]["indexes"])
             #The first trial (0) will consist of 90% reads and 10% writes. 
             #The second trial (1) will be 80% reads and 20% writes.
             readwriterandom = random.random()
@@ -377,25 +377,28 @@ class BlogWorker(AbstractWorker):
                     if skewrandom < skewfactor: 
                         date = randomDate(constants.START_DATE, constants.STOP_DATE)
                     else:
-                        date = dates[self.dateZipf.next()] #TODO to fix how to get the right position
+                        date = self.dates[self.dateZipf.next()] #TODO to fix how to get the right position
+                    txnName = "readArticleByDate"
+                    return (txnName, (date))
                 elif randreadop == 3:
                     if skewrandom < skewfactor:
-                        author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
+                        author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
                     else:
-                        author = authors[self.authorZipf.next()] #TODO to fix how to get the right position
+                        author = self.authors[self.authorZipf.next()] #TODO to fix how to get the right position
                     txnName = "readArticleByAuthor"
                     return (txnName, (author)) 
                 elif randreadop == 4:
                     if skewrandom < skewfactor:
                         date = random.randint(0,constants.NUMBER_OF_DATE_SUBRANGES-1) 
-                        author = authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
+                        author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
                     else:
                         date = self.dateZipf.next() #TODO use the DateZipf and make range date queries 
-                        author = authors[self.authorZipf.next()] #TODO to fix how to get the right position
+                        author = self.authors[self.authorZipf.next()] #TODO to fix how to get the right position
                     txnName = "readArticleByAuthorAndDate"
                     return (txnName, (author,date)) 
             #if write
             elif read == False: 
+		skewrandom = random.random()
                 if skewrandom < skewfactor:
                     articleId = random.randint(0, self.num_articles)
                 else:

@@ -42,7 +42,7 @@ class BlogCoordinator(AbstractCoordinator):
         ("commentsperarticle","Number of comments per article",100),
         ("experiment", "What type of experiment to execute. Valid values = %s" % constants.EXP_ALL, constants.EXP_DENORMALIZATION),
         ("sharding", "Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_SINGLE),
-        ("indexes", "Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_8020, constants.INDEXEXP_9010),
+        ("indexes", "Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_ALL, constants.INDEXEXP_9010),
         ("denormalize", "If set to true, then the COMMENTS are denormalized into ARTICLES", False),
         ("skew","Determine the percentage of the articles to be retreived with uniform distribution. The rest will be retreived with Zipfian distribution",0.3)
 ,    ]
