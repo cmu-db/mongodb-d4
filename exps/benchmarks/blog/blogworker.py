@@ -73,7 +73,7 @@ LOG = logging.getLogger(__name__)
 # 
 class BlogWorker(AbstractWorker):
     
-    def initImpl(self, config):
+    def initImpl(self, config, msg):
         
         # A list of booleans that we will randomly select
         # from to tell us whether our txn should be a read or write
@@ -84,20 +84,21 @@ class BlogWorker(AbstractWorker):
             self.workloadWrite.append(True)
         
         # Total number of articles in database
-        self.num_articles = int(self.getScaleFactor() * constants.NUM_ARTICLES)
-        
-        articleOffset = (1 / float(self.getWorkerCount())) * self.num_articles
-        self.firstArticle = int(self.getWorkerId() * articleOffset)
-        self.lastArticle = int(self.firstArticle + articleOffset)
+        #the number of articles (e.g 10000) or 10000 x scalefactor is not the real number, because if we have 16 workers, 
+        #the number of articles is not equaly divisible by the number of workers, and will be lower than that.
+        self.clientprocs = int(self.config["default"]["clientprocs"])
+        self.num_articles = int(int(self.getScaleFactor() * constants.NUM_ARTICLES) / self.clientprocs) * self.clientprocs
+        self.firstArticle = msg[0]
+        self.lastArticle = msg[1]
         self.lastCommentId = None
-        self.articleZipf = ZipfGenerator(self.num_articles, 1.0)
+        self.config[self.name]["commentsperarticle"]
+        self.articleZipf = ZipfGenerator(self.num_articles, 1.001)
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
-        
         numComments = int(config[self.name]["commentsperarticle"])
         
         # Zipfian distribution on the number of comments & their ratings
-        self.commentsZipf = ZipfGenerator(numComments, 1.0)
-        self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING, 1.0)
+        self.commentsZipf = ZipfGenerator(numComments, 1.001)
+        self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING+1, 1.001)
         self.db = self.conn[config['default']["dbname"]]   
         
         #precalcualtiong the authors names list to use Zipfian against them
@@ -105,7 +106,7 @@ class BlogWorker(AbstractWorker):
         for i in xrange(0, constants.NUM_AUTHORS):
             #authorSize = constants.AUTHOR_NAME_SIZE
             self.authors.append("authorname"+str(i))
-        self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,1.0)
+        self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,1.001)
         
         #precalcualtiong the dates list to use Zipfian against them
         self.dates = [ ]
@@ -113,10 +114,11 @@ class BlogWorker(AbstractWorker):
         self.datecount=0
         epochToStartInSeconds = int(time.mktime(constants.START_DATE.timetuple()))
         epochToStopInSeconds = int(time.mktime(constants.STOP_DATE.timetuple()))
-        for i in xrange(epochToStopInSeconds,epochToStartInSeconds,-3600):
+        # 1day = 24*60*60sec = 86400
+        for i in xrange(epochToStopInSeconds,epochToStartInSeconds,-86400):
             self.dates.append(datetime.fromtimestamp(i))
             self.datecount +=1
-        self.dateZipf = ZipfGenerator(self.datecount,1.0)
+        self.dateZipf = ZipfGenerator(self.datecount,1.001)
         
         
         
@@ -193,14 +195,6 @@ class BlogWorker(AbstractWorker):
     def loadImpl(self, config, channel, msg):
         assert self.conn != None
         
-        # The message we're given is a tuple that contains
-        # the list of author names that we'll generate articles from
-        #authors = msg.data[0]
-        #LOG.info("Generating %s data [denormalize=%s]" % (self.getBenchmarkName(), config[self.name]["denormalize"]))
-        # the list of dates that we'll generate articles from
-        #dates = msg.data[1]
-        
-        
         # HACK: Setup the indexes if we're the first client
         if self.getWorkerId() == 0:
             self.db[constants.ARTICLE_COLL].drop_indexes()
@@ -226,7 +220,7 @@ class BlogWorker(AbstractWorker):
                 self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
                 if config[self.name]["denormalize"]:
-                    LOG.info("Creating indexes (id,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
+                    LOG.info("Creating indexes (articleId,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
                     self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
                                                                   ("rating", pymongo.DESCENDING)])
                     
@@ -239,26 +233,18 @@ class BlogWorker(AbstractWorker):
             
             else:
                 raise Exception("Unexpected experiment type %s" % config[self.name]["experiment"])
-                
-                
-            ## SHARDING CONFIGURATION
-            
-            
-            
-                
+                   
         ## IF
         
         ## ----------------------------------------------
         ## LOAD ARTICLES
         ## ----------------------------------------------
-        #articlesBatch = [ ]
         articleCtr = 0
         articleTotal = self.lastArticle - self.firstArticle
-        #commentsBatch = [ ]
         commentCtr = 0
         commentTotal= 0
         numComments = int(config[self.name]["commentsperarticle"])
-        for articleId in xrange(self.firstArticle, self.lastArticle):
+        for articleId in xrange(self.firstArticle, self.lastArticle+1):
             titleSize = constants.ARTICLE_TITLE_SIZE
             title = randomString(titleSize)
             contentSize = constants.ARTICLE_CONTENT_SIZE
@@ -282,7 +268,6 @@ class BlogWorker(AbstractWorker):
                 "numComments": numComments,
             }
             articleCtr+=1;
-            #if denormalize directly insert article else store it in batch
             if config[self.name]["denormalize"]:
                 article["comments"] = [ ]
             self.db[constants.ARTICLE_COLL].insert(article)
@@ -313,29 +298,15 @@ class BlogWorker(AbstractWorker):
                     self.db[constants.COMMENT_COLL].insert(comment) 
         ## FOR (comments)
         
-        #if denormalize insert in article else insert in separate collection of comments
         if config[self.name]["denormalize"]:
-            
-    
             if articleCtr % 100 == 0 or articleCtr % 100 == 1 :
                 self.loadStatusUpdate(articleCtr / articleTotal)
                 LOG.info("ARTICLE: %6d / %d" % (articleCtr, articleTotal))
-                #if len(commentsBatch) > 0:
-                #    LOG.debug("COMMENTS: %6d" % (commentCtr))
-            #self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-            
-        #if not config[self.name]["denormalize"]:
-            #if len(articlesBatch) > 0:
-            #    self.db[constants.ARTICLE_COLL].insert(articlesBatch)
-            #if len(commentsBatch) > 0:
-            #    self.db[constants.COMMENT_COLL].insert(commentsBatch)  
-            #articlesBatch = [ ]
-            #commentsBatch = [ ]
-            ## IF
-            
-        LOG.info("FINAL-ARTICLES: %6d / %d" % (articleCtr-1, articleTotal))
-        LOG.info("FINAL-COMMENTS: %6d / %d" % (commentCtr,commentCtr))        
-                
+
+        LOG.info("ARTICLES PER THREAD: %6d / %d" % (articleCtr, articleCtr))
+        LOG.info("COMMENTS PER THREAD: %6d / %d" % (commentCtr,commentCtr))        
+        LOG.info("TOTAL ARTICLES: %6d / %d" % (self.clientprocs*articleCtr, self.clientprocs*articleCtr))
+        LOG.info("TOTAL COMMENTS: %6d / %d" % (self.clientprocs*commentCtr,self.clientprocs*commentCtr))   
     ## DEF
     
     ## ---------------------------------------------------------------------------
@@ -352,24 +323,6 @@ class BlogWorker(AbstractWorker):
     
     def next(self, config):
         assert "experiment" in config[self.name]
-        
-        ## Generate skewed target articleId if we're doing the
-        ## sharding experiments
-        #if config[self.name]["experiment"] == constants.EXP_SHARDING:
-        #    assert self.articleZipf
-        #    articleId = int(self.articleZipf.next())
-        ## Otherwise pick one at random uniformly
-        #else:
-        #    articleId = int(self.articleZipf.next())
-        #    # HACK articleId = random.randint(0, self.num_articles)
-        
-        
-    
-        ## Check wether we're doing a read or a write txn
-        #if random.choice(self.workloadWrite):
-        #    txnName = "writeComment"
-        #else:
-        #    txnName = "readArticle"
         
         if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
             articleId = random.randint(0, self.num_articles)
@@ -576,20 +529,19 @@ class BlogWorker(AbstractWorker):
             #print("~~~~~~~~~~~~~~");
         else:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-            #print(pformat(article))
             if not article is None:
                 assert 'comments' in article, pformat(article)
                 comments = article[u'comments']
-                #sort by rating ascending and take top 10..
+                #sort by rating descending and take top 10..
                 comments = sorted(comments, key=lambda k: -k[u'rating'])
                 comments = comments[0:10]
-                #    pprint(comments)
-                #    print("\n");
-        if article is None:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            return
-        assert article["id"] == articleId, \
-            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
+		#pprint(comments)
+                #print("\n");
+            elif article is None:
+                LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+                return
+            assert article["id"] == articleId, \
+                "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
         
         
     ## DEF

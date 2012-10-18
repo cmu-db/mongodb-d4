@@ -20,6 +20,34 @@ class TestDiskCostGuessIndex(CostModelTestCase):
     def setUp(self):
         CostModelTestCase.setUp(self)
 
+    def testGuessIndex_consistentAnswer(self):
+        """Check that guessIndex always returns the same answer for the same input"""
+        cm = DiskCostComponent(self.state)
+        ops = []
+        for sess in self.workload:
+            map(ops.append, sess["operations"])
+                
+        # initialize design
+        d = Design()
+        d.addCollection("apple")
+        d.addIndex("apple", ["field00", "field01"])
+        d.addIndex("apple", ["field01", "field00"])
+        d.addIndex("apple", ["field00"])
+        d.addIndex("apple", ["field01"])
+        
+        for op in ops:
+            last_index, last_covering = (None, None)
+            for i in xrange(100):
+                best_index, covering = cm.guessIndex(d, op)
+                self.assertIsNotNone(best_index)
+                self.assertIsNotNone(covering)
+                if not last_index is None:
+                    self.assertEqual(last_index, best_index)
+                    self.assertEqual(last_covering, covering)
+                last_index, last_covering = (best_index, covering)
+            ## FOR
+    ## DEF 
+        
     def testGuessIndex_indexInIncorrectOrder(self):
         """
             Design with index (field01, field00)

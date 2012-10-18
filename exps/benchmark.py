@@ -176,7 +176,7 @@ class Benchmark:
     def runBenchmark(self):
         '''Execute the target benchmark!'''
         self._channels = self.createChannels()
-        
+
         # Step 0: Flush the cache on the MongoDB host
         if self._args['flush']:
             flushBuffer(self._config["default"]["host"])

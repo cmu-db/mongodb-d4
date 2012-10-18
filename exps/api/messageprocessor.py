@@ -28,6 +28,7 @@ import sys
 import logging
 
 from message import *
+from pprint import pprint, pformat
 
 LOG = logging.getLogger(__name__)
 
@@ -44,10 +45,11 @@ class MessageProcessor:
         for item in self.channel:
             msg = getMessage(item)
             LOG.debug("Incoming Message: %s" % getMessageName(msg.header))
-            
+
             # MSG_CMD_INIT
             if msg.header == MSG_CMD_INIT:
-                self.config = msg.data
+                self.config, msgPacket = msg.data
+                
                 self.benchmark = self.config['default']['benchmark']
                 
                 # Initialize Logging
@@ -68,29 +70,29 @@ class MessageProcessor:
                 
                 # Create worker
                 self.worker = self.createWorker()
-                self.worker.init(self.config, self.channel)
+                self.worker.init(self.config, self.channel, msgPacket)
                 
             # MSG_CMD_LOAD
             # Tells the worker thread to start loading the database
             elif msg.header == MSG_CMD_LOAD:
-                self.worker.load(self.config, self.channel, msg)
+                self.worker.load(self.config, self.channel, msg.data)
             
             # MSG_CMD_STATUS
             # Return the current status of the worker thread
             elif msg.header == MSG_CMD_STATUS:
-                self.worker.status(self.config, self.channel, msg)
+                self.worker.status(self.config, self.channel, msg.data)
                 
             # MSG_CMD_EXECUTE_INIT
             # Tells the worker thread to initialize the benchmark execution
             elif msg.header == MSG_CMD_EXECUTE_INIT:
-                self.worker.executeInit(self.config, self.channel, msg)
+                self.worker.executeInit(self.config, self.channel, msg.data)
             
             # MSG_CMD_EXECUTE
             # Tells the worker thread to begin executing the benchmark
             # This will only occur once all of the threads complete the
             # EXECUTE_INIT phase.
             elif msg.header == MSG_CMD_EXECUTE:
-                self.worker.execute(self.config, self.channel, msg)
+                self.worker.execute(self.config, self.channel, msg.data)
             
             # MSG_CMD_STOP
             # Tells the worker thread to halt the benchmark

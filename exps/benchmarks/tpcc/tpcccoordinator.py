@@ -57,6 +57,7 @@ class TpccCoordinator(AbstractCoordinator) :
         ## Create our ScaleParameter stuff that we're going to need
         num_warehouses = int(config[self.name]['warehouses'])
         self._scaleParameters = scaleparameters.makeWithScaleFactor(num_warehouses, config['default']["scalefactor"])
+        return dict([(channels[i], None) for i in xrange(len(channels))])
     ## DEF
     
     def loadImpl(self, config, channels) :
@@ -66,9 +67,7 @@ class TpccCoordinator(AbstractCoordinator) :
         for w_id in range(self._scaleParameters.starting_warehouse, self._scaleParameters.ending_warehouse+1):
             idx = w_id % procs
             w_ids[idx].append(w_id)
-            
-        for i in range(len(channels)):
-            sendMessage(MSG_CMD_LOAD, w_ids[i], channels[i])
+        return dict([(channels[i], w_ids[i]) for i in xrange(len(channels))])
     ## DEF
 
 ## CLASS

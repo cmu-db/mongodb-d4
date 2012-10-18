@@ -53,8 +53,25 @@ class BlogCoordinator(AbstractCoordinator):
     
     def initImpl(self, config, channels):
         self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
+        config[self.name]["denormalize"] = (config[self.name]["denormalize"] == True)
         
-        config[self.name]["denormalize"] = (config[self.name]["denormalize"] == "True")
+       
+        # Create a dict that contains the message that you want to send to
+        # each individual channel (i.e., worker)
+        messages = { }
+        procs = len(channels)
+        articleRange = [ ]
+        articlesPerChannel = self.num_articles / procs
+        print("articlesPerChannel")
+        print(articlesPerChannel)
+        first = 0
+       
+        for i in range(len(channels)):
+            last = first + articlesPerChannel-1
+            LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
+            messages[channels[i]] = (first, last)
+            first = last + 1
+	    LOG.info(messages[channels[i]])
         
         # Experiment Type
         config[self.name]["experiment"] = config[self.name]["experiment"].strip()
@@ -92,7 +109,7 @@ class BlogCoordinator(AbstractCoordinator):
         #self.dates = [ ]
         #for i in xrange(STOP_DATE,START_DATE,-3600):
         #    self.dates.append(i)
-        #
+        #completePercent
         # Get the current max commentId
         # Figure out how many comments already exist in the database
         config[self.name]["maxCommentId"] = -1
@@ -116,19 +133,23 @@ class BlogCoordinator(AbstractCoordinator):
             LOG.debug("Indexing Type:   %s" % config[self.name]["indexes"])
             LOG.debug("MaxCommentId:    %s" % config[self.name]["maxCommentId"])
         
-        return
+        return messages
     ## DEF
     
     def loadImpl(self, config, channels):
-        procs = len(channels)
-        articleRange = [ ]
-        articlesPerChannel = self.num_articles / procs
-        first = 0
-        for i in range(len(channels)):
-            last = first + articlesPerChannel
-            LOG.info("Loading %s [%d - %d) on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
-            sendMessage(MSG_CMD_LOAD, (self.authors, config[self.name]["maxCommentId"]), channels[i])
-            first = last
+        pass
+        #procs = len(channels)
+        #articleRange = [ ]
+        #articlesPerChannel = self.num_articles / procs
+        #first = 0
+        #messages = { }
+        #for i in range(len(channels)):
+        #    last = first + articlesPerChannel
+        #    LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
+        #    messages[channels[i]] = (first, last)
+        #    first = last + 1
+	#    LOG.info(messages[channels[i]])
+        return {}
     ## DEF
 
 ## CLASS
