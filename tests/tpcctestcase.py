@@ -4,6 +4,7 @@ import random
 import time
 import string
 import unittest
+from pprint import pformat
 
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../"))
@@ -39,7 +40,7 @@ class TPCCTestCase(MongoDBTestCase):
     
     NUM_WAREHOUSES = 4
     SCALEFACTOR = 1
-    NUM_SESSIONS = 100
+    NUM_SESSIONS = 50
 
     def setUp(self):
         MongoDBTestCase.setUp(self)
@@ -87,7 +88,7 @@ class TPCCTestCase(MongoDBTestCase):
         self.assertEqual(TPCCTestCase.NUM_SESSIONS, self.metadata_db.Session.find().count())
 
         self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
-
+        
         populated_workload = list(c for c in self.metadata_db.Session.fetch())
         self.workload = populated_workload
         
@@ -96,17 +97,21 @@ class TPCCTestCase(MongoDBTestCase):
             col_info['doc_count'] = 10000
             col_info['avg_doc_size'] = 1024 # bytes
             col_info['max_pages'] = col_info['doc_count'] * col_info['avg_doc_size'] / (4 * 1024)
-            
+            for k,v in col_info['fields'].iteritems():
+                if col_name == tpccConstants.TABLENAME_ORDER_LINE:
+                    v['parent_col'] = tpccConstants.TABLENAME_ORDERS
             col_info.save()
-        #            print pformat(col_info)
+            # print pformat(col_info)
+            
         self.costModelConfig = {
             'max_memory':     1024, # MB
             'skew_intervals': 10,
             'address_size':   64,
-            'nodes':          1,
+            'nodes':          10,
             'window_size':    10
         }
-        
+
+                    
         self.state = State(self.collections, populated_workload, self.costModelConfig)
     ## DEF
     
