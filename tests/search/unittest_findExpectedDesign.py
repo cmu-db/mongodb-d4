@@ -23,8 +23,9 @@ from lnsdesigner import LNSDesigner
 from randomdesigner import RandomDesigner
 from costmodel import CostModel
 from tpcc import constants as tpccConstants
+from search import bbsearch
 
-LNS_RUN_TIME = 200 # seconds
+LNS_RUN_TIME = 600 # seconds
 
 class FindExpectedDesign(TPCCTestCase):
     """
@@ -53,7 +54,7 @@ class FindExpectedDesign(TPCCTestCase):
     ## DEF
 
 
-    def testfindExpectedDesign(self):
+    def LALAtestfindExpectedDesign(self):
         """Perform the actual search for a design"""
         # Generate all the design candidates
         # Instantiate cost model
@@ -77,34 +78,30 @@ class FindExpectedDesign(TPCCTestCase):
 
 #        initialDesign = InitialDesigner(self.collections, self.workload, None).generate()
         initialDesign = RandomDesigner(self.collections, self.workload, None).generate()
-        d = self.getManMadeBestDesign()
-        d_cost = cm.overallCost(d)
-        print "d cost: ", d_cost
-        print "d:\n", d
-        
-        d = self.getManMadeBestDesign(False)
-        d_cost = cm.overallCost(d)
-        print "d cost(no denorm): ", d_cost
-        print "d:(no denorm)\n", d
-        
         upper_bound = cm.overallCost(initialDesign)
-        print "initial Design cost: ", upper_bound
-        print "initial Design: \n", initialDesign
+        
+        collectionNames = [c for c in self.collections]
+        
+        dc = self.dc.getCandidates(collectionNames)
+        
+        d = Design()
+        for col_name in collectionNames:
+            d.addCollection(col_name)
+            d.reset(col_name)
+        print "empty design: ", d
+        print "design candidates: ", dc
         
         ln = LNSDesigner(self.collections, \
-                         self.dc, \
-                         self.workload, \
-                         None, \
-                         cm, \
-                         initialDesign, \
-                         upper_bound, \
-                         LNS_RUN_TIME)
+                        self.dc, \
+                        self.workload, \
+                        None, \
+                        cm, \
+                        initialDesign, \
+                        upper_bound, \
+                        LNS_RUN_TIME)
         solution = ln.solve()
-        print "-"*100
-        print initialDesign
-        print "-"*100
-        print "# of Relaxation Rounds:", ln.roundCtr
-        print "solution: \n", solution 
+        print "solution: ", solution
+        print "ini solution: ", initialDesign
         
     def getManMadeBestDesign(self, denorm=True):
        # create a best design mannually
