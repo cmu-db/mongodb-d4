@@ -214,5 +214,12 @@ class FastLRUBufferWithWindow:
             self.window_size,
             )
         ## DEF
-
+        
+    def validate(self):
+        """Check that the buffer is in a valid state"""
+        assert self.free_slots >= 0,\
+        "The buffer has a negative remaining space"
+        assert self.free_slots <= self.window_size,\
+        "The buffer has more remaining space than the original buffer size"
+        ## DEF
 ## CLASS

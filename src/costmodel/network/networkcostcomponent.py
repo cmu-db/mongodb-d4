@@ -75,7 +75,7 @@ class NetworkCostComponent(AbstractCostComponent):
         total_msg_count = 0
         for col_name in self.state.collections.iterkeys():
             # Collection is not in design.. don't include the op
-            if not design.hasCollection(col_name):
+            if design.isRelaxed(col_name):
                 if self.debug: LOG.debug("SKIP - All operations on %s", col_name)
                 continue
             

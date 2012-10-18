@@ -58,12 +58,12 @@ class TestNetworkCostTPCC(CostModelTestCase):
             if i == 0:
                 d.addShardKey(col_info['name'], col_info['interesting'])
             else:
-                if col_info['name'] == tpccConstants.TABLENAME_ORDER_LINE:
-                    d.setDenormalizationParent(tpccConstants.TABLENAME_ORDER_LINE, tpccConstants.TABLENAME_ORDERS)
-            
+                d.addShardKey(col_info['name'], ["_id"])
             self.cm.invalidateCache(d, col_info['name'])
             i += 1
             
+        d.setDenormalizationParent(tpccConstants.TABLENAME_ORDER_LINE, tpccConstants.TABLENAME_ORDERS)
+           
         combiner = WorkloadCombiner(self.collections, self.workload)
         combinedWorkload = combiner.process(d)
         self.state.updateWorkload(combinedWorkload)

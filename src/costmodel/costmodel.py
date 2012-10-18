@@ -86,19 +86,25 @@ class CostModel(object):
         self.combiner = WorkloadCombiner(collections, workload)
         
         self.debug = False
+        
+        self.design_set = set()
     ## DEF
 
     def overallCost(self, design):
-
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
         self.new_design = design
-        
+            
         combinedWorkload = self.combiner.process(design)
         self.state.updateWorkload(combinedWorkload)
 
+        # This is meant to apply to all components
+        # but it only works with network component
+        # for disk component, we have to use reset now
+        # TODO yang: make this beautiful
         map(self.invalidateCache, design.getDelta(self.last_design))
-
+        self.diskComponent.reset()
+        
         if self.debug:
             LOG.debug("New Design:\n%s", design)
             self.state.cache_hit_ctr.clear()
@@ -121,8 +127,7 @@ class CostModel(object):
         LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
                  self.last_cost, (stop - start))
 
-        map(AbstractCostComponent.finish, self.allComponents)
-
+        self.finish()
         self.state.restoreOriginalWorkload()
 
         return self.last_cost
@@ -134,9 +139,17 @@ class CostModel(object):
             c.invalidateCache(self.new_design, col_name)
     ## DEF
 
+    def finish(self):
+        for component in self.allComponents:
+            component.finish()
+        ## for
+    ## for
+    
     def reset(self):
         """Reset all of the internal state and cache information"""
         self.state.reset()
-        map(AbstractCostComponent.reset, self.allComponents)
+        for component in self.allComponents:
+            component.reset()
+        ## for
     ## DEF
 ## CLASS

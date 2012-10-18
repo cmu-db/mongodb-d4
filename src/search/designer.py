@@ -146,12 +146,14 @@ class Designer():
     ## DEF
     def generateDesignCandidates(self, collections, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
 
-        shardKeys = []
-        indexKeys = [[]]
-        denorm = []
         dc = DesignCandidates()
 
         for col_info in collections.itervalues():
+            
+            shardKeys = []
+            indexKeys = [[]]
+            denorm = []
+        
             interesting = col_info['interesting']
             
             # Make sure that none of our interesting fields start with 
@@ -182,7 +184,7 @@ class Designer():
                 for k,v in col_info['fields'].iteritems() :
                     if v['parent_col'] <> '' and v['parent_col'] not in denorm :
                         denorm.append(v['parent_col'])
-
+                        
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
             ## FOR
         return dc

@@ -58,6 +58,7 @@ class DiskCostComponent(AbstractCostComponent):
             self.buffers.append(lru)
     ## DEF
 
+    
     def reset(self):
         for buf in self.buffers:
             buf.reset()
@@ -128,7 +129,7 @@ class DiskCostComponent(AbstractCostComponent):
         for sess in self.state.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
-                if not design.hasCollection(op['collection']):
+                if design.isRelaxed(op['collection']):
                     continue
                 col_info = self.state.collections[op['collection']]
 
@@ -148,7 +149,6 @@ class DiskCostComponent(AbstractCostComponent):
                 pageHits = 0
                 maxHits = 0
                 isRegex = self.state.__getIsOpRegex__(cache, op)
-
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
                     for node_id in self.state.__getNodeIds__(cache, design, op):
@@ -256,11 +256,11 @@ class DiskCostComponent(AbstractCostComponent):
     ## DEF
 
     def finish(self):
-        buffer_total = sum([ lru.buffer_size for lru in self.buffers ])
-        buffer_remaining = sum([ lru.remaining for lru in self.buffers ])
+        buffer_total = sum([ lru.window_size for lru in self.buffers ])
+        buffer_remaining = sum([ lru.free_slots for lru in self.buffers ])
         buffer_ratio = (buffer_total - buffer_remaining) / float(buffer_total)
 
-        map(FastLRUBuffer.validate, self.buffers)
+        map(FastLRUBufferWithWindow.validate, self.buffers)
 
         if self.debug:
             cache_success = sum([ x for x in self.state.cache_hit_ctr.itervalues() ])
@@ -305,7 +305,7 @@ class DiskCostComponent(AbstractCostComponent):
         for i in xrange(len(indexes)):
             field_cnt = 0
             for indexKey in indexes[i]:
-                indexMatch = (indexKey == op_index_list[field_cnt])
+                indexMatch = (indexKey in op_index_list)
                 # We can't use a field if it's being used in a regex operation
                 if indexMatch and not workload.isOpRegex(op, field=indexKey):
                     field_cnt += 1
@@ -350,51 +350,4 @@ class DiskCostComponent(AbstractCostComponent):
         return best_index, covering
     ## DEF
 
-    def estimateWorkingSets(self, design, capacity):
-        '''
-            Estimate the percentage of a collection that will fit in working set space
-        '''
-        working_set_counts = {}
-        leftovers = {}
-        buffer = 0
-        needs_memory = []
-
-        if self.debug:
-            LOG.debug("Estimating collection working sets [capacity=%d]", capacity)
-
-        # iterate over sorted tuples to process in descending order of usage
-        _collections = sorted(self.state.collections.keys(), key=lambda k: self.state.collections[k]['workload_percent'], reverse=True)
-        for col_name in _collections:
-            col_info = self.state.collections[col_name]
-            memory_available = capacity * col_info['workload_percent']
-            memory_needed = col_info['avg_doc_size'] * col_info['doc_count']
-
-            if self.debug:
-                LOG.debug("%s Memory Needed: %d", col_name, memory_needed)
-
-            # is there leftover memory that can be put in a buffer for other collections?
-            if memory_needed <= memory_available :
-                working_set_counts[col_name] = 100
-                buffer += memory_available - memory_needed
-            else:
-                col_percent = memory_available / memory_needed
-                still_needs = 1.0 - col_percent
-                working_set_counts[col_name] = math.ceil(col_percent * 100)
-                needs_memory.append((still_needs, col_name))
-
-        # This is where the problem is... Need to rethink how I am doing this.
-        for still_needs, col_info in needs_memory:
-            memory_available = buffer
-            memory_needed = (1 - (working_set_counts[col_name] / 100)) *\
-                            self.state.collections[col_name]['avg_doc_size'] *\
-                            self.state.collections[col_name]['doc_count']
-
-            if memory_needed <= memory_available :
-                working_set_counts[col_name] = 100
-                buffer = memory_available - memory_needed
-            elif memory_available > 0 :
-                col_percent = memory_available / memory_needed
-                working_set_counts[col_name] += col_percent * 100
-        return working_set_counts
-    ## DEF
 ## CLASS

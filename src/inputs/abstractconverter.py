@@ -305,7 +305,9 @@ class AbstractConverter():
             Recursively traverse a single document and extract out the field information
         """
         if self.debug: LOG.debug("Extracting fields for document:\n%s" % pformat(doc))
-
+        average_query_count = 0
+        num_items = 0
+        total_query_count = 0
         for k,v in doc.iteritems():
             # Skip if this is the _id field
             if constants.SKIP_MONGODB_ID_FIELD and k == '_id': continue
@@ -336,7 +338,12 @@ class AbstractConverter():
             if not 'size_histogram' in fields[k]:
                 fields[k]['size_histogram'] = Histogram()
 
-            if fields[k]['query_use_count'] > 0 and not k in col_info['interesting']:
+            ## TODO yang: Make this more accurate
+            num_items += 1
+            total_query_count += fields[k]['query_use_count']
+            average_query_count = total_query_count / num_items
+
+            if fields[k]['query_use_count'] > average_query_count and not k in col_info['interesting']:
                 col_info['interesting'].append(k)
 
             ## ----------------------------------------------

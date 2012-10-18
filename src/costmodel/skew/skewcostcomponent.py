@@ -91,7 +91,7 @@ class SkewCostComponent(AbstractCostComponent):
         for sess in segment:
             for op in sess['operations']:
                 # Skip anything that doesn't have a design configuration
-                if not design.hasCollection(op['collection']):
+                if design.isRelaxed(op['collection']):
                     if self.debug:
                         LOG.debug("SKIP - %s Op #%d on %s", op['type'], op['query_id'], op['collection'])
                     continue
