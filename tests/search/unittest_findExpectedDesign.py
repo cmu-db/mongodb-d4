@@ -25,7 +25,7 @@ from costmodel import CostModel
 from tpcc import constants as tpccConstants
 from search import bbsearch
 
-LNS_RUN_TIME = 600 # seconds
+LNS_RUN_TIME = 36000 # seconds
 
 class FindExpectedDesign(TPCCTestCase):
     """
@@ -54,7 +54,7 @@ class FindExpectedDesign(TPCCTestCase):
     ## DEF
 
 
-    def LALAtestfindExpectedDesign(self):
+    def outtestfindExpectedDesign(self):
         """Perform the actual search for a design"""
         # Generate all the design candidates
         # Instantiate cost model
@@ -79,7 +79,8 @@ class FindExpectedDesign(TPCCTestCase):
 #        initialDesign = InitialDesigner(self.collections, self.workload, None).generate()
         initialDesign = RandomDesigner(self.collections, self.workload, None).generate()
         upper_bound = cm.overallCost(initialDesign)
-        
+        if upper_bound < 0.5:
+            exit()
         collectionNames = [c for c in self.collections]
         
         dc = self.dc.getCandidates(collectionNames)
@@ -101,7 +102,8 @@ class FindExpectedDesign(TPCCTestCase):
                         LNS_RUN_TIME)
         solution = ln.solve()
         print "solution: ", solution
-        print "ini solution: ", initialDesign
+        print "inii solution: ", initialDesign
+        print "init solution cost: ", upper_bound
         
     def getManMadeBestDesign(self, denorm=True):
        # create a best design mannually

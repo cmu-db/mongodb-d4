@@ -436,10 +436,10 @@ class BBNode():
     # retrun: True if the node should be explored, False if the node can be discarded
     def evaluate(self):
         if self.debug:
-            LOG.info("evaluated design: \n%s", self.design)
             LOG.debug(".",)
             LOG.debug(self)
         # add child only when the solution is admissible
+        LOG.info("evaluated design: \n%s", self.design)
         self.cost = self.bbsearch.costModel.overallCost(self.design)
 #        LOG.debug("EVAL NODE: %s / bound_lower:%f / bound_upper:%f / BOUND:%f", \
 #                  self.design, self.lower_bound, self.upper_bound, self.bbsearch.lower_bound)

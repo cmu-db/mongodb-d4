@@ -37,7 +37,7 @@ LOG = logging.getLogger(__name__)
 # Constants
 RELAX_RATIO_STEP = 0.1
 RELAX_RATIO_UPPER_BOUND = 0.9
-TIME_OUT_BBSEARCH = 20
+TIME_OUT_BBSEARCH = 7200
 
 # Global Value
 PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = 0
@@ -61,6 +61,8 @@ class LNSDesigner(AbstractDesigner):
         self.relaxRatio = 0.25
 
         self.debug = False
+        ### Test
+        self.count = 0
     ## DEF
 
     def solve(self):
@@ -104,6 +106,7 @@ class LNSDesigner(AbstractDesigner):
 
         self.bestCost = bestCost
 
+        print "Best cost: ", bestCost
         return bestDesign
     # DEF
 
@@ -121,7 +124,10 @@ class LNSDesigner(AbstractDesigner):
 
         while counter < numberOfRelaxedCollections:
             collectionName = table.getRandomCollection()
-
+            if collectionName == "ORDER_LINE" and self.count <= 10:
+                print "Happened!!!!!"
+                self.count += 1
+                continue
             if collectionName not in collectionNameSet:
                 relaxedCollectionsNames.append(collectionName)
                 collectionNameSet.add(collectionName)
