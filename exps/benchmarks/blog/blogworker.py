@@ -387,28 +387,22 @@ class BlogWorker(AbstractWorker):
 	    if read:
                 if randreadop == 1:
                     if skewrandom > skewfactor:
-		        LOG.info("random")
                         author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
                     else:
-                        LOG.info("skewed")
                         author = self.authors[self.authorZipf.next()] 
                     txnName = "readArticlesByAuthor"
                     return (txnName, (author)) 
                 elif randreadop == 2:
                     if skewrandom > skewfactor:
-                        LOG.info("random")
                         tag = self.tags[int(random.randint(0,constants.NUM_AUTHORS-1))]
                     else:
-                        LOG.info("skewed")
                         tag = self.tags[self.authorZipf.next()] 
                     txnName = "readArticlesByTag"
                     return (txnName, (tag))
             else:
                 if skewrandom > skewfactor:
-                    LOG.info("random")
                     articleId = random.randint(0, self.num_articles)
                 else:
-                    LOG.info("skewed")
                     articleId = self.articleZipf.next()
                 txnName="incViewsArticle" # TODO Fix the warning - it doesn't work
                 return (txnName, (articleId)) 
