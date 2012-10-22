@@ -29,7 +29,7 @@ from datetime import datetime
 ARTICLE_COLL = 'articles'
 COMMENT_COLL = 'comments'
 
-NUM_AUTHORS = 400
+NUM_AUTHORS = 32
 NUM_TAGS = 6000
 NUM_TAGS_PER_ARTICLE = 20
 

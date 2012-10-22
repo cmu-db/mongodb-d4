@@ -105,14 +105,20 @@ class BlogWorker(AbstractWorker):
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            self.authors.append("authorname"+str(i))
+            if config[self.name]["experiment"] == constants.EXP_INDEXING:
+                self.authors.append("authorname0000000000000000000000000000000000000000000000000000000000000000000"+str(i))
+            else:
+                self.authors.append("authorname"+str(i))
         self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,1.001)
         
         #precalculating tags
         self.tags = [ ]
         for i in xrange(0, constants.NUM_TAGS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            self.tags.append("tag"+str(i))
+            if config[self.name]["experiment"] == constants.EXP_INDEXING:
+                self.tags.append("tag00000000000000000000000000000000000000000000000000000000000000000000000000000"+str(i))
+            else:    
+                self.tags.append("tag"+str(i))
         self.tagZipf = ZipfGenerator(constants.NUM_TAGS,1.001)
         
         #precalcualtiong the dates list to use Zipfian against them
