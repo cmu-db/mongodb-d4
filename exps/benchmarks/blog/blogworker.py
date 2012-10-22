@@ -108,6 +108,13 @@ class BlogWorker(AbstractWorker):
             self.authors.append("authorname"+str(i))
         self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,1.001)
         
+        #precalculating tags
+        self.tags = [ ]
+        for i in xrange(0, constants.NUM_TAGS):
+            #authorSize = constants.AUTHOR_NAME_SIZE
+            self.tags.append("tag"+str(i))
+        self.tagZipf = ZipfGenerator(constants.NUM_TAGS,1.001)
+        
         #precalcualtiong the dates list to use Zipfian against them
         self.dates = [ ]
         #dates in reverse order as we want to have the most recent to be more "accessed" by Zipfian
@@ -205,15 +212,25 @@ class BlogWorker(AbstractWorker):
             
             
             if config[self.name]["experiment"] == constants.EXP_INDEXING:
-                LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
-                LOG.info("Creating indexes (author,date) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-                self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING), \
-                                                              ("date", pymongo.ASCENDING)])
+                LOG.info("Creating index on (author) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING)])
                 
-                LOG.info("Creating indexes (date) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-                self.db[constants.ARTICLE_COLL].ensure_index([("date", pymongo.ASCENDING)])
+                trial = int(config[self.name]["indexes"])
+                if trial == 1:
+                    LOG.info("Creating index on (author) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                    self.db[constants.ARTICLE_COLL].ensure_index([("tags", pymongo.ASCENDING)])
+                
+                
+                #LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                #self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                
+                #LOG.info("Creating indexes (author,date) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                #self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING), \
+                 #                                             ("date", pymongo.ASCENDING)])
+                
+                #LOG.info("Creating indexes (date) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                #self.db[constants.ARTICLE_COLL].ensure_index([("date", pymongo.ASCENDING)])
             
             elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
                 LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
@@ -249,13 +266,17 @@ class BlogWorker(AbstractWorker):
             title = randomString(titleSize)
             contentSize = constants.ARTICLE_CONTENT_SIZE
             content = randomString(contentSize)
-            slug = list(title.replace(" ", ""))
-            if len(slug) > 64: slug = slug[:64]
-            for idx in xrange(0, len(slug)):
-                if random.randint(0, 10) == 0:
-                    slug[idx] = "-"
+            #slug = list(title.replace(" ", ""))
+            #if len(slug) > 64: slug = slug[:64]
+            #for idx in xrange(0, len(slug)):
+            #    if random.randint(0, 10) == 0:
+            #       slug[idx] = "-"
             ## FOR
-            slug = "".join(slug)
+            #slug = "".join(slug)
+            articleTags = []
+            for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
+	        articleTags.append(random.choice(self.tags))
+            
             articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
             articleSlug = '%064d' % hash(str(articleId))
             article = {
@@ -266,6 +287,7 @@ class BlogWorker(AbstractWorker):
                 "slug" : articleSlug,
                 "content": content,
                 "numComments": numComments,
+                "tags": articleTags
             }
             articleCtr+=1;
             if config[self.name]["denormalize"]:
@@ -296,7 +318,8 @@ class BlogWorker(AbstractWorker):
                     self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
                 elif not config[self.name]["denormalize"]:
                     self.db[constants.COMMENT_COLL].insert(comment) 
-        ## FOR (comments)
+            ## FOR (comments)
+        ## FOR (articles)
         
         if config[self.name]["denormalize"]:
             if articleCtr % 100 == 0 or articleCtr % 100 == 1 :
@@ -378,14 +401,14 @@ class BlogWorker(AbstractWorker):
                         date = randomDate(constants.START_DATE, constants.STOP_DATE)
                     else:
                         date = self.dates[self.dateZipf.next()] #TODO to fix how to get the right position
-                    txnName = "readArticleByDate"
+                    txnName = "readArticlesByDate"
                     return (txnName, (date))
                 elif randreadop == 3:
                     if skewrandom < skewfactor:
                         author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
                     else:
                         author = self.authors[self.authorZipf.next()] #TODO to fix how to get the right position
-                    txnName = "readArticleByAuthor"
+                    txnName = "readArticlesByAuthor"
                     return (txnName, (author)) 
                 elif randreadop == 4:
                     if skewrandom < skewfactor:
@@ -434,18 +457,35 @@ class BlogWorker(AbstractWorker):
             return
         assert article["id"] == articleId, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-        None  
+        #None  
         # If we didn't denormalize, then we have to execute a second
         # query to get all of the comments for this article
-        if not denormalize:
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        else:
-            assert "comments" in article, pformat(article)
-            comments = article["comments"]
+        #if not denormalize:
+        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
+        #else:
+        #    assert "comments" in article, pformat(article)
+        #    comments = article["comments"]
     ## DEF
     
-    def readArticleByAuthor(self,denormalize,author):
-        article = self.db[constants.ARTICLE_COLL].find_one({"author": author})
+    def readArticlesByTag(self, denormalize, tag):
+        article = self.db[constants.ARTICLE_COLL].find({"id": articleId})
+        if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
+        assert article["id"] == articleId, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+        #None  
+        # If we didn't denormalize, then we have to execute a second
+        # query to get all of the comments for this article
+        #if not denormalize:
+        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
+        #else:
+        #    assert "comments" in article, pformat(article)
+        #    comments = article["comments"]
+    ## DEF
+    
+    def readArticlesByAuthor(self,denormalize,author):
+        article = self.db[constants.ARTICLE_COLL].find({"author": author})
         articleId = article["id"]
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
@@ -455,15 +495,15 @@ class BlogWorker(AbstractWorker):
             
         # If we didn't denormalize, then we have to execute a second
         # query to get all of the comments for this article
-        if not denormalize:
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        else:
-            assert "comments" in article, pformat(article)
-            comments = article["comments"]
+        #if not denormalize:
+        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
+        #else:
+        #    assert "comments" in article, pformat(article)
+        #    comments = article["comments"]
     ## DEF
     
-    def readArticleByDate(self,denormalize,date):
-        article = self.db[constants.ARTICLE_COLL].find_one({"date": date})
+    def readArticlesByDate(self,denormalize,date):
+        article = self.db[constants.ARTICLE_COLL].find({"date": date})
         articleId = article["id"]
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
@@ -500,8 +540,9 @@ class BlogWorker(AbstractWorker):
     ## DEF
     
     
-    def readArticleByAuthorAndDate(self,denormalize,author,date):
-        article = self.db[constants.ARTICLE_COLL].find_one({"author":author,"date": date})
+    
+    def readArticlesByAuthorAndDate(self,denormalize,author,date):
+        article = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
         articleId = article["id"]
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
@@ -512,11 +553,11 @@ class BlogWorker(AbstractWorker):
                 "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
         # If we didn't denormalize, then we have to execute a second
         # query to get all of the comments for this article
-        if not denormalize:
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        else:
-            assert "comments" in article, pformat(article)
-            comments = article["comments"]
+        #if not denormalize:
+        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
+        #else:
+        #    assert "comments" in article, pformat(article)
+        #    comments = article["comments"]
     ## DEF
     
     def readArticleTopTenComments(self,denormalize,articleId):
