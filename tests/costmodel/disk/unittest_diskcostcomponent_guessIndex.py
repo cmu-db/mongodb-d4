@@ -119,7 +119,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         # Guess index
         best_index, covering = cm.guessIndex(d, op)
         
-        self.assertEqual(best_index, None)
+        self.assertEqual(len(best_index), 2)
         self.assertFalse(covering)
         
         # query 5:
@@ -150,7 +150,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
             3. query uses index (field01, field00) without projection field
             result: using index (field01) because they match the most
             
-            If we have a design building indexes on (field01, field02, field00), (field01)
+            If we have a design building indexes on (field01, field03, field00), (field01)
             4. query uses index (field01, field00)
             result: using index (field01) because field01 is shorter
         """
@@ -203,7 +203,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         # query 4:
         d = Design()
         d.addCollection("apple")
-        d.addIndex("apple", ["field01", "field02", "field00"])
+        d.addIndex("apple", ["field01", "field03", "field00"])
         d.addIndex("apple", ["field01"])
         op = ops[2]
         

@@ -88,7 +88,7 @@ class TestSearchSpace (unittest.TestCase) :
         nodeList = bb.listAllNodes()
 
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 2)
+        self.assertEqual(bb.totalNodes, 3)
         self.assertEqual(bb.leafNodes, 1)
 
     def testShardingKeys(self):
@@ -109,7 +109,7 @@ class TestSearchSpace (unittest.TestCase) :
         #for n in nodeList:
         #    print n
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 5)
+        self.assertEqual(bb.totalNodes, 9)
         self.assertEqual(bb.leafNodes, 4)
         self.assertTrue(checkShardKeyExist(nodeList, ([])))
         self.assertTrue(checkShardKeyExist(nodeList, ("key1",)))
@@ -134,7 +134,7 @@ class TestSearchSpace (unittest.TestCase) :
         #for n in nodeList:
         #    print n
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 9)
+        self.assertEqual(bb.totalNodes, 17)
         self.assertEqual(bb.leafNodes, 8)
         self.assertTrue(checkShardKeyExist(nodeList, ([])))
         self.assertTrue(checkShardKeyExist(nodeList, ("key1",)))
@@ -162,7 +162,7 @@ class TestSearchSpace (unittest.TestCase) :
         nodeList = bb.listAllNodes()
 
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 27)
+        self.assertEqual(bb.totalNodes, 53)
         self.assertEqual(bb.leafNodes, 26)
 
 
@@ -184,7 +184,7 @@ class TestSearchSpace (unittest.TestCase) :
         nodeList = bb.listAllNodes()
 
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(bb.totalNodes, 9)
+        self.assertEqual(bb.totalNodes, 17)
         self.assertEqual(bb.leafNodes, 8)
         self.assertTrue(checkIndexKeyExist(nodeList, ([])))
         self.assertTrue(checkIndexKeyExist(nodeList, [("key1",)] ))
@@ -213,8 +213,8 @@ class TestSearchSpace (unittest.TestCase) :
             print n
             print "*"*50
         self.assertEqual(bb.totalNodes, len(nodeList))
-        self.assertEqual(3, bb.totalNodes)
-        self.assertEqual(2, bb.leafNodes)
+        self.assertEqual(6, bb.totalNodes)
+        self.assertEqual(3, bb.leafNodes)
 ### END Test 1
 
 if __name__ == '__main__':

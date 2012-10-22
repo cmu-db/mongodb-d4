@@ -43,6 +43,7 @@ class RandomDesigner(AbstractDesigner):
     def generate(self):
         LOG.info("Generating random design")
         design = Design()
+        rng = random.Random()
         for col_info in self.collections.itervalues():
             design.addCollection(col_info['name'])
 
@@ -53,18 +54,11 @@ class RandomDesigner(AbstractDesigner):
             # Figure out which attribute has the highest value for
             # the params that we care about when choosing the best design
             attrs = [ ]
-            while len(attrs) == 0:
-                counter = 0
-                random_num = random.randint(0, len(col_fields))
-
-                for field in col_fields:
-                    if  counter == random_num:
-                        if str(field).startswith("#") or str(field).startswith("_"):
-                            break
-                        attrs.append(field)
-                        break
-                    else:
-                        counter += 1
+            chosen_field = None
+            while chosen_field is None or str(chosen_field).startswith("#") or str(chosen_field).startswith("_"):
+                chosen_field = random.choice(col_fields)
+            attrs.append(chosen_field)
+            print "field: ", chosen_field
 
             design.addShardKey(col_info['name'], attrs)
             design.addIndex(col_info['name'], attrs)

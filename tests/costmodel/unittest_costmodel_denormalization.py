@@ -25,7 +25,7 @@ from costmodel import CostModel
 from tpcc import constants as tpccConstants
 from search import bbsearch
 
-LNS_RUN_TIME = 54000 # seconds
+LNS_RUN_TIME = 3600 # seconds
 
 class FindExpectedDesign(TPCCTestCase):
     """
@@ -42,7 +42,7 @@ class FindExpectedDesign(TPCCTestCase):
         self.designer = Designer(config, self.metadata_db, self.dataset_db)
         self.dc = self.designer.generateDesignCandidates(self.collections)
         self.assertIsNotNone(self.dc)
-        
+
         # Make sure that we don't have any invalid candidate keys
         for col_name in self.collections.iterkeys():
             for index_keys in self.dc.indexKeys[col_name]:
@@ -50,11 +50,11 @@ class FindExpectedDesign(TPCCTestCase):
                     assert not key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX), \
                         "Unexpected candidate key '%s.%s'" % (col_name, key)
         ## FOR
-        
+
     ## DEF
 
 
-    def outtestfindExpectedDesign(self):
+    def testfindExpectedDesign(self):
         """Perform the actual search for a design"""
         # Generate all the design candidates
         # Instantiate cost model
@@ -69,40 +69,21 @@ class FindExpectedDesign(TPCCTestCase):
             'window_size':    500
         }
         cm = CostModel(self.collections, self.workload, cmConfig)
-#        if self.debug:
-#            state.debug = True
-#            costmodel.LOG.setLevel(logging.DEBUG)
+        d0 = self.getManMadeDesign()
+        cost0 = cm.overallCost(d0)
 
-        # Compute initial solution and calculate its cost
-        # This will be the upper bound from starting design
+        d1 = d0.copy()
+        d1.setDenormalizationParent(tpccConstants.TABLENAME_ORDER_LINE, tpccConstants.TABLENAME_ORDERS)
+        cost1 = cm.overallCost(d1)
 
-#        initialDesign = InitialDesigner(self.collections, self.workload, None).generate()
-        initialDesign = RandomDesigner(self.collections, self.workload, None).generate()
-        upper_bound = cm.overallCost(initialDesign)
-        if upper_bound < 0.5:
-            exit()
-        print "init solution: ", initialDesign
-        print "init solution cost: ", upper_bound
-        collectionNames = [c for c in self.collections]
-        
-        dc = self.dc.getCandidates(collectionNames)
-        
-        ln = LNSDesigner(self.collections, \
-                        self.dc, \
-                        self.workload, \
-                        None, \
-                        cm, \
-                        initialDesign, \
-                        upper_bound, \
-                        LNS_RUN_TIME)
-        solution = ln.solve()
-        print "solution: ", solution
-        
-    def getManMadeBestDesign(self, denorm=True):
+        self.assertLess(cost1, cost0)
+    ## def
+
+    def getManMadeDesign(self, denorm=True):
        # create a best design mannually
-       
+
         d = Design()
-        d.addCollection(tpccConstants.TABLENAME_ITEM)        
+        d.addCollection(tpccConstants.TABLENAME_ITEM)
         d.addCollection(tpccConstants.TABLENAME_WAREHOUSE)
         d.addCollection(tpccConstants.TABLENAME_DISTRICT)
         d.addCollection(tpccConstants.TABLENAME_CUSTOMER)
@@ -110,7 +91,7 @@ class FindExpectedDesign(TPCCTestCase):
         d.addCollection(tpccConstants.TABLENAME_ORDERS)
         d.addCollection(tpccConstants.TABLENAME_NEW_ORDER)
         d.addCollection(tpccConstants.TABLENAME_ORDER_LINE)
-        
+
         d.addIndex(tpccConstants.TABLENAME_ITEM, ["I_ID"])
         d.addIndex(tpccConstants.TABLENAME_WAREHOUSE, ["W_ID"])
         d.addIndex(tpccConstants.TABLENAME_DISTRICT, ["D_W_ID", "D_ID"])
@@ -120,7 +101,7 @@ class FindExpectedDesign(TPCCTestCase):
         d.addIndex(tpccConstants.TABLENAME_STOCK, ["S_W_ID", "S_I_ID"])
         d.addIndex(tpccConstants.TABLENAME_NEW_ORDER, ["NO_W_ID", "NO_D_ID", "NO_O_ID"])
         d.addIndex(tpccConstants.TABLENAME_ORDER_LINE, ["OL_W_ID", "OL_D_ID", "OL_O_ID"])
-        
+
         d.addShardKey(tpccConstants.TABLENAME_ITEM, ["I_ID"])
         d.addShardKey(tpccConstants.TABLENAME_WAREHOUSE, ["W_ID"])
         d.addShardKey(tpccConstants.TABLENAME_DISTRICT, ["W_ID"])
@@ -129,12 +110,9 @@ class FindExpectedDesign(TPCCTestCase):
         d.addShardKey(tpccConstants.TABLENAME_STOCK, ["W_ID"])
         d.addShardKey(tpccConstants.TABLENAME_NEW_ORDER, ["W_ID"])
         d.addShardKey(tpccConstants.TABLENAME_ORDER_LINE, ["W_ID"])
-        
-        if denorm:
-            d.setDenormalizationParent(tpccConstants.TABLENAME_ORDER_LINE, tpccConstants.TABLENAME_ORDERS)
-        
+
         return d
-    
+
 if __name__ == '__main__':
     unittest.main()
 ## MAIN

@@ -8,6 +8,7 @@ import unittest
 from workload.workloadcombiner import WorkloadCombiner
 from workloadcombinersetup import CostModelTestCase
 from costmodel.disk import DiskCostComponent
+from costmodel.network import NetworkCostComponent
 from search import Design
 
 class TestWorkloadCombiner(CostModelTestCase):
@@ -15,7 +16,8 @@ class TestWorkloadCombiner(CostModelTestCase):
     def setUp(self):
         CostModelTestCase.setUp(self)
         self.cm = DiskCostComponent(self.state)
-        ## DEF
+        self.cmn = NetworkCostComponent(self.state)
+    ## DEF
 
     def testQueriesCombination(self):
         """Test if the total number of queries are reduced"""
@@ -47,40 +49,106 @@ class TestWorkloadCombiner(CostModelTestCase):
         print "number of queries after query combination: " + str(number_of_queries_from_combined_workload)
 
         self.assertGreater(original_number_of_queries, number_of_queries_from_combined_workload)
+
+    ## DEF
     
-    def testDiskCostNotChangedAfterQueryCombination(self):
-        """Disk cost should not be changed after query combination"""
-        d = Design()
+    def testDiskCostChangesAfterQueryCombination(self):
+        """
+            Assume we have collection A, B, C and we want to embed C to A
+            If we build index on field00 of A and field02 of C
+            The cost after query combination should be lower
+        """
+        d0 = Design()
         for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
             col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
+            d0.addCollection(col_info['name'])
+            d0.addIndex(col_info['name'], ['field00', 'field02'])
         
-        cost0 = self.cm.getCost(d)
+        cost0 = self.cm.getCost(d0)
         print "cost0 " + str(cost0)
 
         # Initialize a combiner
         combiner = WorkloadCombiner(self.collections, self.workload)
 
         # initialize a design with denormalization
-        d = Design()
+        d1 = Design()
         for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
             col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
-            d.addCollection(col_info['name'])
+            d1.addCollection(col_info['name'])
+            d1.addIndex(col_info['name'], ['field00', 'field02'])
             self.state.invalidateCache(col_info['name'])
             
-        d.setDenormalizationParent("koalas", "apples")
+        d1.setDenormalizationParent("koalas", "apples")
 
-        combinedWorkload = combiner.process(d)
+        combinedWorkload = combiner.process(d1)
         self.state.updateWorkload(combinedWorkload)
                 
         self.cm.reset()
         self.cm.state.reset()
-        cost1 = self.cm.getCost(d)
+        cost1 = self.cm.getCost(d1)
 
         print "cost1 " + str(cost1)
         
-        self.assertEqual(cost0, cost1)
-        
+        self.assertGreater(cost0, cost1)
+
+        # Cost should remain the same after restoring the original workload
+        self.state.restoreOriginalWorkload()
+        self.cm.reset()
+        self.cm.state.reset()
+        cost2 = self.cm.getCost(d0)
+
+        print "cost2 " + str(cost2)
+
+        self.assertEqual(cost2, cost0)
+    ## def
+    
+    def testNetworkCostShouldReduceAfterQueryCombination(self):
+        """
+            Network cost should be reduce after embedding collections
+        """
+        d0 = Design()
+        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+            d0.addCollection(col_info['name'])
+            d0.addIndex(col_info['name'], ['field00', 'field02'])
+        cost0 = self.cmn.getCost(d0)
+        print "cost0 " + str(cost0)
+
+        # Initialize a combiner
+        combiner = WorkloadCombiner(self.collections, self.workload)
+
+        # initialize a design with denormalization
+        d1 = Design()
+        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+            d1.addCollection(col_info['name'])
+            d1.addIndex(col_info['name'], ['field00', 'field02'])
+            self.state.invalidateCache(col_info['name'])
+
+        d1.setDenormalizationParent("koalas", "apples")
+
+        combinedWorkload = combiner.process(d1)
+        self.state.updateWorkload(combinedWorkload)
+
+        self.cmn.reset()
+        self.cmn.state.reset()
+        cost1 = self.cmn.getCost(d1)
+
+        print "cost1 " + str(cost1)
+
+        self.assertGreater(cost0, cost1)
+
+        # Cost should remain the same after restoring the original workload
+        self.state.restoreOriginalWorkload()
+        self.cmn.reset()
+        self.cmn.state.reset()
+        cost2 = self.cmn.getCost(d0)
+
+        print "cost2 " + str(cost2)
+
+        self.assertEqual(cost2, cost0)
+    ## def
+    
 ## CLASS
 
 if __name__ == '__main__':

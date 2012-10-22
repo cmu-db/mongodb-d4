@@ -116,10 +116,6 @@ class Parser:
         # metatdata_db in case we crash and want to inspect what happened
         self.save_checkpoints = True
         
-        # This is used to generate deterministic identifiers
-        # for similar operations
-        self.opHasher = OpHasher()
-        
         # If this flag is true, then mongosniff got an invalid message packet
         # So we'll skip until we find the next matching header
         self.skip_to_next = False
@@ -345,15 +341,6 @@ class Parser:
             # Keep track of operations by their ids so that we can add
             # the response to it later on
             self.query_response_map[self.currentOp['query_id']] = op
-            
-            # Always add the query_hash
-            try:
-                op['query_hash'] = self.opHasher.hash(op)
-            except Exception:
-                msg = "Failed to compute hash on operation\n%s" % pformat(op)
-                if self.debug: LOG.warn(msg)
-                if self.stop_on_error: raise Exception(msg)
-                return
             
             # Append it to the current session
             # TODO: Large traces will cause the sessions to get too big.

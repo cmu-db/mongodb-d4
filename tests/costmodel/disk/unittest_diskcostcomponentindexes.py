@@ -94,23 +94,6 @@ class TestDiskCostIndexes(CostModelTestCase):
         # FIXME self.assertEqual(cost0, cost1)
     ## DEF
 
-    def testEstimateWorkingSets(self):
-        """Check the working set size estimator for collections"""
-
-        d = Design()
-        col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
-        d.addCollection(col_info['name'])
-
-        max_memory = self.costModelConfig['max_memory'] * 1024 * 1024
-        workingSets = self.cm.estimateWorkingSets(d, max_memory)
-        self.assertIsNotNone(workingSets)
-        col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
-        self.assertIn(col_info['name'], workingSets)
-        setSize = workingSets[col_info['name']]
-        print col_info['name'], "->", setSize
-        self.assertGreater(setSize, 0.0)
-    ## DEF
-
 ## CLASS
 
 if __name__ == '__main__':
