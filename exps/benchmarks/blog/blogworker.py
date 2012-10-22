@@ -281,8 +281,7 @@ class BlogWorker(AbstractWorker):
             #slug = "".join(slug)
             articleTags = []
             for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
-	        articleTags.append(random.choice(self.tags))
-            
+                articleTags.append(random.choice(self.tags))
             articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
             articleSlug = '%064d' % hash(str(articleId))
             article = {
@@ -427,7 +426,7 @@ class BlogWorker(AbstractWorker):
                     return (txnName, (author,date)) 
             #if write
             elif read == False: 
-		skewrandom = random.random()
+                skewrandom = random.random()
                 if skewrandom < skewfactor:
                     articleId = random.randint(0, self.num_articles)
                 else:
@@ -585,7 +584,7 @@ class BlogWorker(AbstractWorker):
                 #sort by rating descending and take top 10..
                 comments = sorted(comments, key=lambda k: -k[u'rating'])
                 comments = comments[0:10]
-		#pprint(comments)
+                #pprint(comments)
                 #print("\n");
             elif article is None:
                 LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
