@@ -439,7 +439,7 @@ class BBNode():
             LOG.debug(".",)
             LOG.debug(self)
         # add child only when the solution is admissible
-        LOG.info("evaluated design: \n%s", self.design)
+        # LOG.info("evaluated design: \n%s", self.design)
         self.cost = self.bbsearch.costModel.overallCost(self.design)
 #        LOG.debug("EVAL NODE: %s / bound_lower:%f / bound_upper:%f / BOUND:%f", \
 #                  self.design, self.lower_bound, self.upper_bound, self.bbsearch.lower_bound)
@@ -450,6 +450,7 @@ class BBNode():
         if self.isLeaf():
             if self.cost < self.bbsearch.bestCost:
                 LOG.info("Best Cost is updated from %s to %s", self.bbsearch.bestCost, self.cost)
+                LOG.info("New Best design: \n%s", self.design)
                 self.bbsearch.bestCost = self.cost
                 self.bbsearch.bestDesign = self.design.copy()
         

@@ -23,7 +23,7 @@ class CostModelTestCase(MongoDBTestCase):
         Base test case for cost model components
     """
 
-    COLLECTION_NAMES = ["apples", "koalas"]
+    COLLECTION_NAMES = ["apples", "unexpected", "koalas"]
     NUM_DOCUMENTS = 10000000
     NUM_SESSIONS = 2
     NUM_FIELDS = 1
@@ -51,7 +51,12 @@ class CostModelTestCase(MongoDBTestCase):
                 responseContent = {"_id": _id}
                 responseId = (queryId<<8)
                 for f in xrange(0, CostModelTestCase.NUM_FIELDS):
-                    f_name = "field%02d" % f
+                    if j == 0:
+                        f_name = "field%02d" % 0
+                    elif j == 1:
+                        f_name = "field%02d" % 1
+                    else:
+                        f_name = "field%02d" % 2
                     responseContent[f_name] = random.randint(0, 100)
                     queryContent[f_name] = responseContent[f_name]
                     queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
@@ -101,7 +106,7 @@ class CostModelTestCase(MongoDBTestCase):
             'skew_intervals': CostModelTestCase.NUM_INTERVALS,
             'address_size':   64,
             'nodes':          CostModelTestCase.NUM_NODES,
-            'window_size':    1024
+            'window_size':    3
         }
 
         self.state = State(self.collections, populated_workload, self.costModelConfig)

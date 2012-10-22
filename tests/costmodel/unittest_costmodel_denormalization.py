@@ -69,13 +69,12 @@ class FindExpectedDesign(TPCCTestCase):
             'window_size':    500
         }
         cm = CostModel(self.collections, self.workload, cmConfig)
-        d = self.getManMadeDesign()
-        cost0 = cm.overallCost(d)
+        d0 = self.getManMadeDesign()
+        cost0 = cm.overallCost(d0)
 
-        d2 = d.copy()
-        d2.setDenormalizationParent(tpccConstants.TABLENAME_ORDER_LINE, tpccConstants.TABLENAME_ORDERS)
-        cost1 = cm.overallCost(d2)
-
+        d1 = d0.copy()
+        d1.setDenormalizationParent(tpccConstants.TABLENAME_ORDER_LINE, tpccConstants.TABLENAME_ORDERS)
+        cost1 = cm.overallCost(d1)
 
         self.assertLess(cost1, cost0)
     ## def

@@ -40,7 +40,7 @@ class TPCCTestCase(MongoDBTestCase):
     
     NUM_WAREHOUSES = 4
     SCALEFACTOR = 1
-    NUM_SESSIONS = 50
+    NUM_SESSIONS = 100
 
     def setUp(self):
         MongoDBTestCase.setUp(self)
