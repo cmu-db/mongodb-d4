@@ -26,6 +26,7 @@ from __future__ import division
 import re
 import logging
 import MySQLdb as mdb
+from pprint import pformat
 
 # mongodb-d4
 import catalog
@@ -109,11 +110,13 @@ class MySQLConverter(AbstractConverter):
             c3 = self.mysql_conn.cursor()
             c3.execute(sql)
             index_name = None
-            for ind_row in c3:
-                if index_name <> ind_row[2]:
-                    col_info['indexes'][ind_row[2]] = []
-                    index_name = ind_row[2]
-                col_info['indexes'][ind_row[2]].append(ind_row[4])
+            # FIXME
+            #for ind_row in c3:
+                #if index_name <> ind_row[2]:
+                    #print pformat(ind_row)
+                    #col_info['indexes'][ind_row[2]] = []
+                    #index_name = ind_row[2]
+                #col_info['indexes'][ind_row[2]].append(ind_row[4])
             ## FOR
             col_info.save()
 

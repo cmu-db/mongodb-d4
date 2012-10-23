@@ -10,7 +10,7 @@ from util import *
 class Collection(Document):
     __collection__ = constants.COLLECTION_SCHEMA
     structure = {
-        'name':             unicode,   # The name of the collection
+        'name':             basestring,# The name of the collection
         'shard_keys':       dict,      # The original sharding keys assigned for this collection (if available)
         'indexes':          [dict],    # The original index keys assigned for this collection (if available)
         'data_size':        long,      # The estimated total size of this collection
@@ -25,7 +25,7 @@ class Collection(Document):
         ## FIELDS
         ## ----------------------------------------------
         'fields': {
-            unicode: {
+            basestring: {
                 'type':             basestring, # catalog.fieldTypeToString(col_type),
                 'fields':           dict,       # nested fields
                 'query_use_count':  int,        # The number of times this field is referenced in queries
