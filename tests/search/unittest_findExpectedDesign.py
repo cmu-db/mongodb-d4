@@ -37,7 +37,6 @@ class FindExpectedDesign(TPCCTestCase):
 
         config = RawConfigParser()
         configutil.setDefaultValues(config)
-        config.read(os.path.realpath('./exfm.config'))
 
         self.designer = Designer(config, self.metadata_db, self.dataset_db)
         self.dc = self.designer.generateDesignCandidates(self.collections)
@@ -53,7 +52,7 @@ class FindExpectedDesign(TPCCTestCase):
         
     ## DEF
 
-    def outtestfindExpectedDesign(self):
+    def testfindExpectedDesign(self):
         """Perform the actual search for a design"""
         # Generate all the design candidates
         # Instantiate cost model
