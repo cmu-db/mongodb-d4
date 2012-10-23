@@ -34,6 +34,7 @@ import workload
 from abstractconverter import AbstractConverter
 import sql2mongo
 from util import *
+import utilmethods
 
 LOG = logging.getLogger(__name__)
 
@@ -174,7 +175,7 @@ class MySQLConverter(AbstractConverter):
         thread_id = None
         first = True
         uid = 0
-        hostIP = sql2mongo.detectHostIP()
+        hostIP = utilmethods.detectHostIP()
         mongo = sql2mongo.Sql2Mongo(quick_look)
         for row in c4:
             stamp = float(row[0].strftime("%s"))
@@ -189,9 +190,11 @@ class MySQLConverter(AbstractConverter):
                     first = False
                 ## ENDIF
                 session = self.metadata_db.Session()
-                session['ip_client'] = sql2mongo.stripIPtoUnicode(row[1])
+                session['ip_client'] = utilmethods.stripIPtoUnicode(row[1])
                 session['ip_server'] = hostIP
                 session['session_id'] = uid
+                session['start_time'] = 0l # FIXME
+                session['end_time'] = 0l # FIXME
                 session['operations'] = []
             ## ENDIF
             
@@ -208,7 +211,7 @@ class MySQLConverter(AbstractConverter):
                         if not len(operations):
                             LOG.warn(row[5])
                         for op in operations:
-                            op['query_type'] = sql2mongo.get_op_type(op['query_type'])
+                            op['query_type'] = mongo.get_op_type(mongo.query_type)
                             op['query_id'] = self.next_query_id
                             session['operations'].append(op)
                             self.next_query_id += 1
@@ -219,7 +222,7 @@ class MySQLConverter(AbstractConverter):
                             uid += 1
                         ## ENDIF
                         session = self.metadata_db.Session()
-                        session['ip_client'] = sql2mongo.stripIPtoUnicode(row[1])
+                        session['ip_client'] = utilmethods.stripIPtoUnicode(row[1])
                         session['ip_server'] = hostIP
                         session['session_id'] = uid
                         session['operations'] = []

@@ -69,14 +69,14 @@ class Sql2Mongo (object) :
             op['resp_size'] = 0
             
             op['query_group'] = Sql2Mongo.query_id
-            op['query_id'] = -1
-            op['resp_id'] = -1
+            op['query_id'] = -1l
+            op['resp_id'] = -1l
             op['query_hash'] = None
-            op['update_upsert'] = 0
-            op['update_multi'] = 0
+            op['update_upsert'] = False
+            op['update_multi'] = False
             op['query_limit'] = -1
             op['query_offset'] = 0
-            op['query_aggregate'] = 0
+            op['query_aggregate'] = False
             
             if self.query_type == 'DELETE' :
                 op['query_content'].append(self.generate_content_remove(table))
