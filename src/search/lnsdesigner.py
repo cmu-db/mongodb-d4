@@ -37,7 +37,7 @@ LOG = logging.getLogger(__name__)
 # Constants
 RELAX_RATIO_STEP = 0.1
 RELAX_RATIO_UPPER_BOUND = 0.9
-TIME_OUT_BBSEARCH = 9000
+TIME_OUT_BBSEARCH = 5400
 
 # Global Value
 PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = 0
@@ -57,7 +57,6 @@ class LNSDesigner(AbstractDesigner):
         self.bestCost = bestCost
         self.timeout = timeout
         self.designCandidates = designCandidates
-        self.roundCtr = 0
         self.relaxRatio = 0.25
 
         self.debug = False
@@ -72,6 +71,7 @@ class LNSDesigner(AbstractDesigner):
         bestDesign = self.initialDesign.copy()
         bestCost = self.bestCost
         table = TemperatureTable(self.collections)
+        notUpdateRound = 0
 
         while True:
             relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign)
@@ -86,7 +86,14 @@ class LNSDesigner(AbstractDesigner):
             if bb.bestCost < bestCost:
                 bestCost = bb.bestCost
                 bestDesign = bbDesign
-                
+                notUpdateRound = 0
+            else:
+                notUpdateRound += 1
+
+            if notUpdateRound >= 2:
+                # if it haven't found a better design in two rounds, give up
+                break
+
             if self.debug:
                 LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
                 LOG.info("\n====Design Candidates====\n%s", dc)
@@ -102,7 +109,6 @@ class LNSDesigner(AbstractDesigner):
 
             if self.timeout <= 0:
                 break
-            self.roundCtr += 1
 
         self.bestCost = bestCost
 

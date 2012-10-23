@@ -25,7 +25,7 @@ from costmodel import CostModel
 from tpcc import constants as tpccConstants
 from search import bbsearch
 
-LNS_RUN_TIME = 54000 # seconds
+LNS_RUN_TIME = 28800 # seconds
 
 class FindExpectedDesign(TPCCTestCase):
     """
@@ -54,7 +54,7 @@ class FindExpectedDesign(TPCCTestCase):
     ## DEF
 
 
-    def outtestfindExpectedDesign(self):
+    def testfindExpectedDesign(self):
         """Perform the actual search for a design"""
         # Generate all the design candidates
         # Instantiate cost model
@@ -76,11 +76,8 @@ class FindExpectedDesign(TPCCTestCase):
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
 
-#        initialDesign = InitialDesigner(self.collections, self.workload, None).generate()
-        initialDesign = RandomDesigner(self.collections, self.workload, None).generate()
+        initialDesign = InitialDesigner(self.collections, self.workload, None).generate()
         upper_bound = cm.overallCost(initialDesign)
-        if upper_bound < 0.5:
-            exit()
         print "init solution: ", initialDesign
         print "init solution cost: ", upper_bound
         collectionNames = [c for c in self.collections]
@@ -97,43 +94,7 @@ class FindExpectedDesign(TPCCTestCase):
                         LNS_RUN_TIME)
         solution = ln.solve()
         print "solution: ", solution
-        
-    def getManMadeBestDesign(self, denorm=True):
-       # create a best design mannually
-       
-        d = Design()
-        d.addCollection(tpccConstants.TABLENAME_ITEM)        
-        d.addCollection(tpccConstants.TABLENAME_WAREHOUSE)
-        d.addCollection(tpccConstants.TABLENAME_DISTRICT)
-        d.addCollection(tpccConstants.TABLENAME_CUSTOMER)
-        d.addCollection(tpccConstants.TABLENAME_STOCK)
-        d.addCollection(tpccConstants.TABLENAME_ORDERS)
-        d.addCollection(tpccConstants.TABLENAME_NEW_ORDER)
-        d.addCollection(tpccConstants.TABLENAME_ORDER_LINE)
-        
-        d.addIndex(tpccConstants.TABLENAME_ITEM, ["I_ID"])
-        d.addIndex(tpccConstants.TABLENAME_WAREHOUSE, ["W_ID"])
-        d.addIndex(tpccConstants.TABLENAME_DISTRICT, ["D_W_ID", "D_ID"])
-        d.addIndex(tpccConstants.TABLENAME_CUSTOMER, ["C_W_ID", "C_D_ID","C_ID"])
-        d.addIndex(tpccConstants.TABLENAME_ORDERS, ["O_W_ID", "O_D_ID", "O_C_ID"])
-        d.addIndex(tpccConstants.TABLENAME_ORDERS, ["O_W_ID", "O_D_ID", "O_ID"])
-        d.addIndex(tpccConstants.TABLENAME_STOCK, ["S_W_ID", "S_I_ID"])
-        d.addIndex(tpccConstants.TABLENAME_NEW_ORDER, ["NO_W_ID", "NO_D_ID", "NO_O_ID"])
-        d.addIndex(tpccConstants.TABLENAME_ORDER_LINE, ["OL_W_ID", "OL_D_ID", "OL_O_ID"])
-        
-        d.addShardKey(tpccConstants.TABLENAME_ITEM, ["I_ID"])
-        d.addShardKey(tpccConstants.TABLENAME_WAREHOUSE, ["W_ID"])
-        d.addShardKey(tpccConstants.TABLENAME_DISTRICT, ["W_ID"])
-        d.addShardKey(tpccConstants.TABLENAME_CUSTOMER, ["W_ID"])
-        d.addShardKey(tpccConstants.TABLENAME_ORDERS, ["W_ID"])
-        d.addShardKey(tpccConstants.TABLENAME_STOCK, ["W_ID"])
-        d.addShardKey(tpccConstants.TABLENAME_NEW_ORDER, ["W_ID"])
-        d.addShardKey(tpccConstants.TABLENAME_ORDER_LINE, ["W_ID"])
-        
-        if denorm:
-            d.setDenormalizationParent(tpccConstants.TABLENAME_ORDER_LINE, tpccConstants.TABLENAME_ORDERS)
-        
-        return d
+    ## DEF
     
 if __name__ == '__main__':
     unittest.main()

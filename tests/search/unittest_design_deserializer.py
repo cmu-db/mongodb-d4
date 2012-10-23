@@ -1,4 +1,3 @@
-
 import unittest
 import os
 import sys
@@ -11,6 +10,7 @@ sys.path.append(os.path.join(basedir, "../"))
 from util import constants
 from tpcctestcase import TPCCTestCase
 from search import Design
+from design_deserializer import Deserializer
 from costmodel import CostModel
 from tpcc import constants as tpccConstants
 
@@ -39,13 +39,15 @@ class FindExpectedDesign(TPCCTestCase):
         }
         cm = CostModel(self.collections, self.workload, cmConfig)
         d0 = self.getManMadeDesign()
+        f = open('/tmp/d4_test_deserializer.output', 'w')
+        f.write("%s" % d0)
+        f.close()
         cost0 = cm.overallCost(d0)
-
-        d1 = d0.copy()
-        d1.setDenormalizationParent(tpccConstants.TABLENAME_ORDER_LINE, tpccConstants.TABLENAME_ORDERS)
+        ds = Deserializer('/tmp/d4_test_deserializer.output')
+        d1 = ds.Deserialize()
         cost1 = cm.overallCost(d1)
 
-        self.assertLess(cost1, cost0)
+        self.assertEqual(cost1, cost0)
     ## def
 
     def getManMadeDesign(self, denorm=True):
