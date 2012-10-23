@@ -53,8 +53,7 @@ class FindExpectedDesign(TPCCTestCase):
         
     ## DEF
 
-
-    def testfindExpectedDesign(self):
+    def outtestfindExpectedDesign(self):
         """Perform the actual search for a design"""
         # Generate all the design candidates
         # Instantiate cost model
