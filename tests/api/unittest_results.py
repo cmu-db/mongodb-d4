@@ -37,9 +37,9 @@ class TestResults(unittest.TestCase):
             txn = random.choice(self.txnNames)
             id = r1.startTransaction(txn)
             assert id != None
-            r1.stopTransaction(id)
+            r1.stopTransaction(id, 1)
         ## FOR
-        r1.stopBenchmark(5000)
+        r1.stopBenchmark()
         print r1.show()
         
         # Append the time and then make sure they're the same
@@ -56,7 +56,7 @@ class TestResults(unittest.TestCase):
             txn = random.choice(self.txnNames)
             id = r.startTransaction(txn)
             assert id != None
-            r.stopTransaction(id)
+            r.stopTransaction(id, 1)
         ## FOR
         
         # Serialize

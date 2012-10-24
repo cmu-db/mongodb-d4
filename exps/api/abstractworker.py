@@ -174,8 +174,6 @@ class AbstractWorker:
         self.lastChannel = channel
         config['default']['execute'] = True
         config['default']['reset'] = False
-        #total ops per worker/thread
-        optCountTotal=0
         r = Results()
         assert r
         LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
@@ -189,9 +187,7 @@ class AbstractWorker:
             if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:
                 opCount = self.executeImpl(config, txn, params)
-                optCountTotal+=opCount
-                #r.countOperations(optCountTotal)
-                r.stopTransaction(txn_id)
+                r.stopTransaction(txn_id, opCount)
             except KeyboardInterrupt:
                 return -1
             except (Exception, AssertionError), ex:
@@ -201,7 +197,7 @@ class AbstractWorker:
                 r.abortTransaction(txn_id)
                 pass
         ## WHILE   
-        r.stopBenchmark(optCountTotal)
+        r.stopBenchmark()
         sendMessage(MSG_EXECUTE_COMPLETED, r, channel)
     ## DEF
         
