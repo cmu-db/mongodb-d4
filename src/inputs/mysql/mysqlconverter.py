@@ -179,6 +179,8 @@ class MySQLConverter(AbstractConverter):
         mongo = sql2mongo.Sql2Mongo(quick_look)
         for row in c4:
             stamp = float(row[0].strftime("%s"))
+            print "row[2]: ", row[2]
+            print "thread_id: ", thread_id
             if row[2] <> thread_id :
                 thread_id = row[2]
                 if not first:
@@ -193,8 +195,8 @@ class MySQLConverter(AbstractConverter):
                 session['ip_client'] = utilmethods.stripIPtoUnicode(row[1])
                 session['ip_server'] = hostIP
                 session['session_id'] = uid
-                session['start_time'] = 0l # FIXME
-                session['end_time'] = 0l # FIXME
+                session['start_time'] = 0.0
+                session['end_time'] = 0.0
                 session['operations'] = []
             ## ENDIF
             
@@ -218,6 +220,7 @@ class MySQLConverter(AbstractConverter):
                         ## ENDFOR
                     elif row[5].strip().lower() == 'commit' :
                         if len(session['operations']) > 0 :
+                            print "start_time: ", session['start_time']
                             session.save()
                             uid += 1
                         ## ENDIF
