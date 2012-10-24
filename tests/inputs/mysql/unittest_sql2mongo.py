@@ -89,7 +89,7 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
         ## Figure out projects in TRACE format
-        self.assertEqual({u'query':{}}, result[0])
+        self.assertEqual({u'#query':{}}, result[0])
         
     def testSelectQuery03(self) :
         sql = 'SELECT * FROM users WHERE age=33'
@@ -101,7 +101,7 @@ class TestConversions (unittest.TestCase) :
         sql = 'SELECT * FROM users WHERE age=33'
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
-        output = {u'query':{'age':33.0}}
+        output = {u'#query':{'age':33.0}}
         self.assertEqual(output, result[0])
     
     def testSelectQuery04(self) :
@@ -114,7 +114,7 @@ class TestConversions (unittest.TestCase) :
         sql = 'SELECT a,b FROM users WHERE age=33'
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
-        output = {u'query':{'age':33.0}}
+        output = {u'#query':{'age':33.0}}
         self.assertEqual(output, result[0])
         
     def testSelectQuery05(self) :
@@ -133,7 +133,7 @@ class TestConversions (unittest.TestCase) :
         sql = 'SELECT * FROM users WHERE age>33'
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
-        output = {'query' : {'age' : { 'gt' : 33.0}}}
+        output = {'#query' : {'age' : { 'gt' : 33.0}}}
         self.assertEqual(output, result[0])
         
     def testSelectQuery07(self) :
@@ -206,7 +206,7 @@ class TestConversions (unittest.TestCase) :
         sql = 'SELECT * FROM users WHERE a > 10 AND a < 20'
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
-        output = {u'query' : { 'a' : { 'gt':10.0, 'lt':20.0}}}
+        output = {u'#query' : { 'a' : { 'gt':10.0, 'lt':20.0}}}
         self.assertEqual(output, result[0])
     
     '''
