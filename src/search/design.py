@@ -32,6 +32,14 @@ class Design(object):
             'shardKeys' : [],
             'denorm' : None
         }
+    def hasDenorm(self):
+        for col_name in self.data.iterkeys():
+            if self.data[col_name] and self.data[col_name]['denorm']:
+                return True
+            ## ENDIF
+        ## FOR
+        return False
+        
     def isComplete(self):
         """returns True when all collections are assigned designs"""
         for value in self.data.values():
