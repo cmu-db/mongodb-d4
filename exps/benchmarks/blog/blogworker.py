@@ -487,11 +487,14 @@ class BlogWorker(AbstractWorker):
         assert m != None, "Invalid operation name '%s'" % op
         try:
             result = m(config[self.name]["denormalize"], params)
+            result = m(config[self.name]["denormalize"], params)
+            result = m(config[self.name]["denormalize"], params)
+            result = m(config[self.name]["denormalize"], params)
         except:
             LOG.warn("Unexpected error when executing %s" % op)
             raise
         
-        return 1 # number of operations
+        return 4 # number of operations
     ## DEF
     
     def readArticleById(self, denormalize, articleId):
@@ -641,9 +644,8 @@ class BlogWorker(AbstractWorker):
     
     def incViewsArticle(self,denormalize,articleId):
         #Increase the views of an article by one
-        result=self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},True)
-        if not result:
-            LOG.warn("Failed to increase views on %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            return
+        #LOG.info("incView="+str(articleId))
+        self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},False)
+        return
 
 ## CLASS

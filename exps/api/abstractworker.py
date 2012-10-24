@@ -190,6 +190,7 @@ class AbstractWorker:
             try:
                 opCount = self.executeImpl(config, txn, params)
                 optCountTotal+=opCount
+                #r.countOperations(optCountTotal)
                 r.stopTransaction(txn_id)
             except KeyboardInterrupt:
                 return -1

@@ -71,6 +71,15 @@ class Results:
         txn_name, txn_start = self.running[id]
         del self.running[id]
         
+    
+    #def countOperations(self,opCount):
+    #    op_name, txn_start = self.running[id]
+    #   
+    #    for i in xrange(0,opCount):
+    #        self.txn_counters.put(op_name+str(random.random()))
+    #    
+    #    #assert self.txn_counters[op_name] > 0
+    
     def stopTransaction(self, id):
         """Record that the benchmark completed an invocation of the given transaction"""
         assert id in self.running
@@ -93,7 +102,7 @@ class Results:
             LOG.debug("Completed %s in %f sec" % (txn_name, duration))
     ## DEF
         
-    def append(self, r):
+    def append(self, r):  
         self.totalOps += r.opCount
         for txn_name in r.txn_counters.keys():
             self.txn_counters.put(txn_name, delta=r.txn_counters[txn_name])
@@ -140,12 +149,19 @@ class Results:
             ret += "Data Loading Time: %d seconds\n\n" % (load_time)
         
         ret += "Execution Results after %d seconds\n%s" % (duration, line)
-        ret += f % ("", "Executed", u"Total Time (ms)", "Rate")
-        
+        ret += f % ("", "Executed", u"Total Time (ms)", "Rate") 
         total_time = duration
-        #total_cnt = self.txn_counters.getSampleCount()
+        total_cnt = self.txn_counters.getSampleCount()
         #total_running_time = 0
-        total_cnt = self.totalOps
+        
+        
+        #HACK so that unittest_results work too
+        #total_cnt = self.totalOps
+        #if total_cnt == 0:
+        #    for txn in sorted(self.txn_counters.keys()):
+	#        total_cnt +=self.txn_counters[txn]
+        
+        
         for txn in sorted(self.txn_counters.keys()):
             txn_time = self.txn_times[txn]
             txn_cnt = "%6d - %4.1f%%" % (self.txn_counters[txn], (self.txn_counters[txn] / float(total_cnt))*100)
