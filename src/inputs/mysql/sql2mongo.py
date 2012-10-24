@@ -628,15 +628,20 @@ class Sql2Mongo (object) :
             if op.to_unicode() == '=' :
                 return ':'
             elif op.to_unicode() == '>' :
-                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gt' # $gt - $ removed to make python happy
+                return "$gt"
+                # return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gt' # $gt - $ removed to make python happy
             elif op.to_unicode() == '>=' :
-                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gte' # $gte - $ removed to make python happy
+                return "$gte"
+                # return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gte' # $gte - $ removed to make python happy
             elif op.to_unicode() == '<' :
-                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lt' # $lt - $ removed to make python happy
+                return "$lt"
+                #return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lt' # $lt - $ removed to make python happy
             elif op.to_unicode() == '<=' :
-                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lte' # $lte - $ removed to make python happy
+                return "$lte"
+                #return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lte' # $lte - $ removed to make python happy
             elif op.to_unicode() == '!=' :
-                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'ne' # $ne - $ removed to make python happy
+                return "$ne"
+                #return constants.REPLACE_KEY_DOLLAR_PREFIX + 'ne' # $ne - $ removed to make python happy
             elif op.to_unicode() == 'LIKE' :
                 return 'LIKE'
             else :
@@ -777,15 +782,19 @@ class Sql2Mongo (object) :
         if (self.use_or == True) :
             parts = []
             for col, ops in self.where_cols[tbl_name].iteritems() :
+                if col.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                    col = "$" + col[1:]
                 if len(ops) == 1 :
                     if ops[0][0] == ':' :
-                            cmd = col + ops[0][0] + ops[0][1]
+                        cmd = col + ops[0][0] + ops[0][1]
                     else :
                         cmd = col + ':{' + ops[0][0] + ':' + ops[0][1] + '}'
                     parts.append(cmd)
                 else :
                     inner_parts = []
                     for tups in ops :
+                        if tups[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                            tups[0] = "$" + tups[0][1:]
                         inner_parts.append(tups[0] + ':' + tups[1])
                     parts.append('\'' + col + '\':{' + ','.join(inner_parts) + '}')
             return '{$or:[{' + '},{'.join(parts) + '}]}'
@@ -793,6 +802,8 @@ class Sql2Mongo (object) :
             if len(self.where_cols[tbl_name]) > 0 :
                 parts = []
                 for col, ops in self.where_cols[tbl_name].iteritems() :
+                    if col.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                        col = "$" + col[1:]
                     if len(ops) == 1 :
                         if ops[0][0] == ':' :
                             cmd = col + ops[0][0] + ops[0][1]
@@ -802,6 +813,8 @@ class Sql2Mongo (object) :
                     else :
                         inner_parts = []
                         for tups in self.where_cols[tbl_name][col] :
+                            if tups[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                                tups[0] = "$" + tups[0][1:]
                             inner_parts.append(tups[0] + ':' + tups[1])
                         parts.append('\'' + col + '\':{' + ','.join(inner_parts) + '}')
                 return '{' + ','.join(parts) + '}'
@@ -836,7 +849,7 @@ class Sql2Mongo (object) :
         output = []
         for alias, table in self.table_aliases.iteritems() :
             query_dict = self.render_trace_where_clause(table)
-            dict = {u'query': query_dict}
+            dict = {constants.REPLACE_KEY_DOLLAR_PREFIX+'query': query_dict}
             output.append(dict)
         return output
     ## End render_trace_query()
