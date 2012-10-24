@@ -38,6 +38,8 @@ import utilmethods
 
 LOG = logging.getLogger(__name__)
 
+MYSQL_LOG_TABLE_NAME = "general_log"
+
 ## ==============================================
 ## MySQLConverter
 ## ==============================================
@@ -52,8 +54,10 @@ class MySQLConverter(AbstractConverter):
         self.dbUser = dbUser
         self.dbPass = dbPass
         self.mysql_conn = mdb.connect(host=dbHost, port=dbPort, db=dbName, user=dbUser, passwd=dbPass)
-
         self.next_query_id = 1000l
+        
+        # LOG.setLevel(logging.DEBUG)
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
 
     def loadImpl(self):
@@ -78,19 +82,20 @@ class MySQLConverter(AbstractConverter):
     ## DEF
     
     def extractSchema(self):
-        LOG.info("Extracting schema from MySQL")
-        
         c1 = self.mysql_conn.cursor()
         c1.execute("""
             SELECT TABLE_NAME
             FROM information_schema.TABLES
-            WHERE TABLE_SCHEMA = %s""", self.dbName)
-        quick_look = {}
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME != %s""", \
+            (self.dbName, MYSQL_LOG_TABLE_NAME))
+        tbl_cols = {}
+        LOG.info("Extracting table information from database '%s'", self.dbName)
         for row in c1:
             tbl_name = row[0]
             col_info = self.metadata_db.Collection()
             col_info['name'] = tbl_name
-            quick_look[col_info['name']] = []
+            tbl_cols[col_info['name']] = []
+            if self.debug: LOG.debug("Created metadata object for collection '%s'", tbl_name)
             
             c2 = self.mysql_conn.cursor()
             c2.execute("""
@@ -100,10 +105,11 @@ class MySQLConverter(AbstractConverter):
             """, (self.dbName, tbl_name))
             for col_row in c2:
                 col_name = col_row[0]
-                quick_look[col_info['name']].append(col_name)
+                tbl_cols[col_info['name']].append(col_name)
                 col_type = catalog.sqlTypeToPython(col_row[1])
                 col_type_str = catalog.fieldTypeToString(col_type)
                 col_info["fields"][col_name] = catalog.Collection.fieldFactory(col_name, col_type_str)
+                LOG.debug("Created column information for '%s.%s'", tbl_name, col_name)
             ## FOR
             
             # Get the index information from MySQL for this table
@@ -111,6 +117,7 @@ class MySQLConverter(AbstractConverter):
             c3 = self.mysql_conn.cursor()
             c3.execute(sql)
             index_name = None
+            LOG.info("Extracting index information from table '%s'", tbl_name)
             # FIXME
             #for ind_row in c3:
                 #if index_name <> ind_row[2]:
@@ -121,20 +128,43 @@ class MySQLConverter(AbstractConverter):
             ## FOR
             col_info.save()
 
-            col_data = self.dataset_db[tbl_name]
-            sql = 'SELECT * FROM ' + self.dbName + '.' + tbl_name
-            c4 = self.mysql_conn.cursor()
-            c4.execute(sql)
-            for data_row in c4 :
-                mongo_record = {}
-                i = 0
-                for column in quick_look[tbl_name] :
-                    mongo_record[column] = data_row[i]
-                    i += 1
-                ## ENDFOR
-                col_data.insert(mongo_record)
-            ## ENDFOR
+            ## -----------------------------------------------------------
+            ## EXTRACT DATA
+            ## -----------------------------------------------------------
+            self.extractData(tbl_name, tbl_cols[tbl_name])
+            
         ## ENDFOR
+    ## DEF
+    
+    def extractData(self, tbl_name, tbl_cols, batchSize=100):
+        assert isinstance(tbl_cols, list)
+        
+        cur = self.mysql_conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM %s.%s" % (self.dbName, tbl_name))
+        row_total = cur.fetchone()[0]
+        cur.close()
+
+        LOG.info("Copying %d rows from table '%s' into MongoDB", row_total, tbl_name)
+        col_data = self.dataset_db[tbl_name]
+        c4 = self.mysql_conn.cursor()
+        c4.execute("SELECT * FROM %s.%s" % (self.dbName, tbl_name))
+        row_ctr = 0
+        batch = [ ]
+        for data_row in c4 :
+            mongo_record = dict((tbl_cols[i], data_row[i]) for i in xrange(len(tbl_cols)))
+            batch.append(mongo_record)
+            row_ctr += 1
+            
+            if len(batch) >= batchSize:
+                if self.debug: LOG.debug("Inserting new batch with %d records to %s [%d / %d]", len(batch), tbl_name, row_ctr, row_total)
+                col_data.insert(batch)
+                batch = [ ]
+        ## ENDFOR
+        if len(batch) > 0: 
+            if self.debug: LOG.debug("Inserting new batch with %d records to %s [%d / %d]", len(batch), tbl_name, row_ctr, row_total)
+            col_data.insert(batch)
+        assert row_total == row_ctr
+        LOG.info("Sucessfully copied %d rows from table '%s' into MongoDB", row_ctr, tbl_name)
     ## DEF
 
     def extractForeignKeys(self):
@@ -165,22 +195,25 @@ class MySQLConverter(AbstractConverter):
     def extractWorkload(self):
         LOG.info("Extracting workload from MySQL query log")
 
-        quick_look = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
-
+        # All the timestamps should be relative to the first timestamp
+        cur = self.mysql_conn.cursor()
+        cur.execute("SELECT MIN(event_time) FROM %s" % MYSQL_LOG_TABLE_NAME)
+        start_timestamp = float(cur.fetchone()[0].strftime("%s"))
+        cur.close()
+        if self.debug: LOG.debug("Workload Start Timestamp: %s", start_timestamp)
+        
         c4 = self.mysql_conn.cursor()
-        c4.execute("""
-            SELECT * FROM general_log ORDER BY thread_id, event_time;
-        """)
+        c4.execute("SELECT * FROM %s ORDER BY thread_id, event_time" % MYSQL_LOG_TABLE_NAME)
 
         thread_id = None
         first = True
         uid = 0
         hostIP = utilmethods.detectHostIP()
-        mongo = sql2mongo.Sql2Mongo(quick_look)
+        tbl_cols = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
+        mongo = sql2mongo.Sql2Mongo(tbl_cols)
         for row in c4:
-            stamp = float(row[0].strftime("%s"))
-            print "row[2]: ", row[2]
-            print "thread_id: ", thread_id
+            timestamp = start_timestamp - float(row[0].strftime("%s"))
+            
             if row[2] <> thread_id :
                 thread_id = row[2]
                 if not first:
@@ -209,18 +242,22 @@ class MySQLConverter(AbstractConverter):
                     success = False
                 if success:
                     if mongo.query_type <> 'UNKNOWN' :
-                        operations = mongo.generate_operations(stamp)
-                        if not len(operations):
-                            LOG.warn(row[5])
+                        operations = mongo.generate_operations(timestamp)
+                        if operations is None or not len(operations):
+                            LOG.warn("SKIP: %s", row[5])
+                            continue
                         for op in operations:
                             op['query_type'] = mongo.get_op_type(mongo.query_type)
                             op['query_id'] = self.next_query_id
                             session['operations'].append(op)
+                            if not session['start_time'] and op['query_time']:
+                                session['start_time'] = op['query_time']
+                            session['end_time'] = op['query_time']
                             self.next_query_id += 1
                         ## ENDFOR
                     elif row[5].strip().lower() == 'commit' :
                         if len(session['operations']) > 0 :
-                            print "start_time: ", session['start_time']
+                            #if self.debug: LOG.debug("start_time: %s", session['start_time'])
                             session.save()
                             uid += 1
                         ## ENDIF

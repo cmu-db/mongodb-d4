@@ -253,13 +253,11 @@ class AbstractConverter():
             post-processing stuff in the AbstractConverter will populate
             the statistics information for each collection
         """
-        cols = self.dataset_db.collection_names()
-
-        LOG.info("Extracting schema catalog from %d collections.", len(cols))
-        for colName in cols:
+        for colName in self.dataset_db.collection_names():
             # Skip ignored collections
             if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
                 continue
+            LOG.info("Extracting schema catalog information from collection '%s'", colName)
 
             # Get the collection information object
             # We will use this to store the number times each key is referenced in a query

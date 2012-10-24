@@ -3,8 +3,11 @@
 import sqlparse
 import json
 import yaml
+import logging
 
 from util import constants
+
+LOG = logging.getLogger(__name__)
 
 '''
 @todo: Handle nested queries?
@@ -20,6 +23,7 @@ class Sql2Mongo (object) :
     def __init__(self, schema = {}) :
         self.schema = schema
         self.reset()
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## End __init__()
     
     '''
@@ -42,7 +46,7 @@ class Sql2Mongo (object) :
 
     def generate_content_query(self, table) :
         query_dict = self.render_trace_where_clause(table)
-        return {'query': query_dict}
+        return {constants.REPLACE_KEY_DOLLAR_PREFIX+'query': query_dict}
     ## End generate_content_query()
 
     def generate_content_remove(self, table) :
@@ -57,7 +61,11 @@ class Sql2Mongo (object) :
 
     def generate_operations(self, timestamp) :
         operations = []
-        for table in self.tables :
+        for table in self.tables:
+            if not table in self.schema:
+                if self.debug: LOG.warn("Skipping query on table '%s'", table)
+                return None
+            
             op = dict()
             op['collection'] = table
             op['query_time'] = timestamp
@@ -77,33 +85,43 @@ class Sql2Mongo (object) :
             op['query_limit'] = -1
             op['query_offset'] = 0
             op['query_aggregate'] = False
-            
-            if self.query_type == 'DELETE' :
-                op['query_content'].append(self.generate_content_remove(table))
-            elif self.query_type == 'INSERT' :
-                op['query_content'].append(self.generate_content_insert(table))
-            elif self.query_type == 'SELECT' :
+
+            ## SELECT
+            if op['type'] == constants.OP_TYPE_QUERY:
                 op['query_content'].append(self.generate_content_query(table))
                 op['query_limit'] = int(self.limit[table])
                 op['query_offset'] = int(self.skip[table])
-            elif self.query_type == 'UPDATE' :
+            
+            ## DELETE
+            elif op['type'] == constants.OP_TYPE_DELETE:
+                op['query_content'].append(self.generate_content_remove(table))
+                
+            ## INSERT
+            elif op['type'] == constants.OP_TYPE_INSERT:
+                op['query_content'].append(self.generate_content_insert(table))
+                
+            ## UPDATE
+            elif op['type'] == constants.OP_TYPE_UPDATE:
                 content = self.generate_content_update(table)
                 for i in content :
                     op['query_content'].append(i)
-                op['update_multi'] = 1
+                op['update_multi'] = True
+            else:
+                raise Exception("Unexpected operation type '%s'" % op['type'])
+                
             operations.append(op)
         return operations
     ## End generate_operations()
         
     def mongo_type(self) :
-        if self.query_type == 'DELETE' :
-            return u'$remove'
+        if self.query_type == 'SELECT' :
+            return constants.OP_TYPE_QUERY
+        elif self.query_type == 'DELETE' :
+            return constants.OP_TYPE_DELETE
         elif self.query_type == 'INSERT' :
-            return u'$insert'
-        elif self.query_type == 'SELECT' :
-            return u'$query'
+            return constants.OP_TYPE_INSERT
         elif self.query_type == 'UPDATE' :
-            return u'$update'
+            return constants.OP_TYPE_DELETE
         else :
             return None
     ## End mongo_type()
@@ -610,15 +628,15 @@ class Sql2Mongo (object) :
             if op.to_unicode() == '=' :
                 return ':'
             elif op.to_unicode() == '>' :
-                return 'gt' # $gt - $ removed to make python happy
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gt' # $gt - $ removed to make python happy
             elif op.to_unicode() == '>=' :
-                return 'gte' # $gte - $ removed to make python happy
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gte' # $gte - $ removed to make python happy
             elif op.to_unicode() == '<' :
-                return 'lt' # $lt - $ removed to make python happy
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lt' # $lt - $ removed to make python happy
             elif op.to_unicode() == '<=' :
-                return 'lte' # $lte - $ removed to make python happy
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lte' # $lte - $ removed to make python happy
             elif op.to_unicode() == '!=' :
-                return 'ne' # $ne - $ removed to make python happy
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'ne' # $ne - $ removed to make python happy
             elif op.to_unicode() == 'LIKE' :
                 return 'LIKE'
             else :
