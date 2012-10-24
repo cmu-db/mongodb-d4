@@ -249,6 +249,7 @@ class AbstractCoordinator:
         self.total_results = Results()
         for ch in channels:
             msg = getMessage(ch.receive())
+            LOG.info("why??") # TODO why it is not printed in the LOG.info  but is printed in cmd ??
             if msg.header == MSG_EXECUTE_COMPLETED:
                 r = msg.data
                 self.total_results.append(r)
