@@ -39,7 +39,7 @@ class TestResults(unittest.TestCase):
             assert id != None
             r1.stopTransaction(id)
         ## FOR
-        r1.stopBenchmark()
+        r1.stopBenchmark(5000)
         print r1.show()
         
         # Append the time and then make sure they're the same

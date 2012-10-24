@@ -144,13 +144,13 @@ class Results:
         
         total_time = duration
         #total_cnt = self.txn_counters.getSampleCount()
-        total_running_time = 0
+        #total_running_time = 0
         total_cnt = self.totalOps
         for txn in sorted(self.txn_counters.keys()):
             txn_time = self.txn_times[txn]
             txn_cnt = "%6d - %4.1f%%" % (self.txn_counters[txn], (self.txn_counters[txn] / float(total_cnt))*100)
-            rate = u"%.02f op/s" % ((self.txn_counters[txn] / txn_time))
-            total_running_time +=txn_time
+            rate = u"%.02f op/s" % ((self.txn_counters[txn] / total_time))
+            #total_running_time +=txn_time
             #rate = u"%.02f op/s" % ((self.txn_counters[txn] / total_time))
             #rate = u"%.02f op/s" % ((self.opCount / total_time))
             ret += f % (txn, txn_cnt, str(txn_time * 1000), rate)
@@ -161,10 +161,10 @@ class Results:
         
         rate = 0
         if total_time > 0:
-            rate = total_cnt / float(total_running_time)
+            rate = total_cnt / float(total_time)
         #total_rate = "%.02f txn/s" % rate
         total_rate = "%.02f op/s" % rate
-        ret += f % ("TOTAL", str(total_cnt), str(total_running_time * 1000), total_rate)
+        ret += f % ("TOTAL", str(total_cnt), str(total_time * 1000), total_rate)
 
         return (ret.encode('utf-8'))
 ## CLASS

@@ -406,7 +406,7 @@ class BlogWorker(AbstractWorker):
                     articleId = random.randint(0, self.num_articles)
                 else:
                     articleId = self.articleZipf.next()
-                LOG.info("incViews"+str(articleId))    
+                #LOG.info("incViews"+str(articleId))    
                 opName="incViewsArticle" # TODO Fix the warning - it doesn't work
                 return (opName, (articleId)) 
             ##The skew percentage determines which operations we will grab 
