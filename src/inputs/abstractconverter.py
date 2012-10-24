@@ -342,8 +342,9 @@ class AbstractConverter():
             average_query_count = total_query_count / num_items
 
             if fields[k]['query_use_count'] > average_query_count and not k in col_info['interesting']:
+                col_info['interesting_tuple'].append((k, fields[k]['query_use_count']))
                 col_info['interesting'].append(k)
-
+                
             ## ----------------------------------------------
             ## NESTED FIELDS
             ## ----------------------------------------------

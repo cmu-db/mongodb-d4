@@ -151,10 +151,10 @@ class Designer():
         for col_info in collections.itervalues():
             
             shardKeys = []
-            indexKeys = [[]]
+            indexKeys = []
             denorm = []
-        
-            interesting = col_info['interesting']
+
+            interesting = self.__get_reordered_list__(col_info['interesting_tuple'])
             
             # Make sure that none of our interesting fields start with 
             # the character that we used to convert $ commands
@@ -173,11 +173,20 @@ class Designer():
 
             # deal with indexes
             if isIndexesEnabled:
+                interesting_tuple = col_info['interesting_tuple']
+                unsorted_index = []
                 LOG.debug("Indexes is enabled")
-                for o in xrange(1, len(interesting) + 1) :
-                    for i in itertools.combinations(interesting, o) :
-                        indexKeys.append(i)
-
+                for o in xrange(1, len(interesting_tuple) + 1) :
+                    for i in itertools.combinations(interesting_tuple, o):
+                        index = None
+                        # calculate the total query use count for index containing more than one key
+                        if o > 1:
+                            index= self.__calculate_query_count__(i)
+                        else:
+                            index = i[0]
+                        unsorted_index.append(index)
+                indexKeys = self.__get_reordered_list__(unsorted_index)
+                
             # deal with de-normalization
             if isDenormalizationEnabled:
                 LOG.debug("Demormalization is enabled")
@@ -188,7 +197,26 @@ class Designer():
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
             ## FOR
         return dc
+
+    def __calculate_query_count__(self, keys):
+        index = []
+        score = 0
+        for tup in keys:
+            index.append(tup[0])
+            score += tup[1]
+
+        return index, score
+    ## DEF
+    def __get_reordered_list__(self, unsorted_list):
+        """
+            This method reorders the elements in unsorted_list based on its second value
+        """
+        sorted_list = sorted(unsorted_list, key = lambda element : element[1], reverse=True)
+
+        return [x[0] for x in sorted_list]
         
+    ## DEF
+    
     def loadCollections(self):
         collections = dict()
         for col_info in self.metadata_db.Collection.fetch():

@@ -20,7 +20,8 @@ class Collection(Document):
         'workload_queries': int,       # The number operations that reference this collection
         'workload_percent': float,     # The percentage of the total workload that touch this collection
         'interesting':      [basestring], # TODO(ckeith)
-
+        'interesting_tuple': [(basestring, int)], # Interesting keys with its query_use_count
+        
         ## ----------------------------------------------
         ## FIELDS
         ## ----------------------------------------------
