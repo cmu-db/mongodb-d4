@@ -30,6 +30,28 @@ class TestResults(unittest.TestCase):
         self.assertEquals(len(r1.completed), len(r2.completed))
     ## DEF
     
+    def testOpCount(self):
+        totalOpCount = 0
+        results = [ Results() for i in xrange(10)  ]
+        map(Results.startBenchmark, results)
+        for r in results:
+            for i in xrange(0, 5000):
+                txn = random.choice(self.txnNames)
+                id = r.startTransaction(txn)
+                assert id != None
+                ops = random.randint(1, 10)
+                r.stopTransaction(id, ops)
+                totalOpCount += ops
+            ## FOR
+        ## FOR
+        map(Results.stopBenchmark, results)
+        
+        r = Results()
+        map(r.append, results)
+        self.assertEquals(totalOpCount, r.opCount)
+    ## DEF
+        
+    
     def testAppend(self):
         r1 = Results()
         r1.startBenchmark()
