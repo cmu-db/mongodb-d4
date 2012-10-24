@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------
 # Copyright (C) 2012
 # Yang Lu - http://www.cs.brown.edu/~yanglu/
@@ -174,7 +174,8 @@ class AbstractWorker:
         self.lastChannel = channel
         config['default']['execute'] = True
         config['default']['reset'] = False
-        
+        #total ops per worker/thread
+        optCountTotal=0
         r = Results()
         assert r
         LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
@@ -187,7 +188,8 @@ class AbstractWorker:
             
             if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:
-                val = self.executeImpl(config, txn, params)
+                opCount = self.executeImpl(config, txn, params)
+                optCountTotal+=opCount
                 r.stopTransaction(txn_id)
             except KeyboardInterrupt:
                 return -1
@@ -197,9 +199,8 @@ class AbstractWorker:
                 if self.stop_on_error: raise
                 r.abortTransaction(txn_id)
                 pass
-        ## WHILE
-            
-        r.stopBenchmark()
+        ## WHILE   
+        r.stopBenchmark(optCountTotal)
         sendMessage(MSG_EXECUTE_COMPLETED, r, channel)
     ## DEF
         
