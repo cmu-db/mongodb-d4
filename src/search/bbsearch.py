@@ -210,7 +210,7 @@ class CompoundKeyIterator:
         else:
             result = None
             if self.currentSize == 0:
-                self.currentSize = 1    
+                self.currentSize = 1
                 result = []
             else:
                 if self.currentIterator is None:
@@ -309,28 +309,28 @@ class BBNode():
     
     # returns None if all children have been enumerated
     def getNextChild(self):
-        
-        LOG.debug("GET NEXT CHILD")
+        if self.debug:
+            LOG.debug("GET NEXT CHILD")
         
         # use iterators to determine the next assignment for the current collection
         
         # initialize to previous values
+        shardKey = self.shardIter.getLastValue()
         indexes = self.indexIter.getLastValue()
-        denorm = self.denormIter.getLastValue()
 
-        # SHARD KEY ITERATION
+        # DENORM KEY ITERATION
         try:
-            shardKey = self.shardIter.next()
+            denorm = self.denormIter.next()
         except:
-            self.shardIter.rewind()
-            shardKey = self.shardIter.next()
+            self.denormIter.rewind()
+            denorm = self.denormIter.next()
             
-            # DENORM ITERATION
+            # ShARDKEY ITERATION
             try:
-                denorm = self.denormIter.next()
+                shardKey = self.shardIter.next()
             except:
-                self.denormIter.rewind()
-                denorm = self.denormIter.next()
+                self.shardIter.rewind()
+                shardKey = self.shardIter.next()
                 
                 # INDEX KEYS ITERATION
                 try:
@@ -439,7 +439,7 @@ class BBNode():
             LOG.debug(".",)
             LOG.debug(self)
         # add child only when the solution is admissible
-        # LOG.info("evaluated design: \n%s", self.design)
+        LOG.info("Evaluated design: \n%s", self.design)
         self.cost = self.bbsearch.costModel.overallCost(self.design)
 #        LOG.debug("EVAL NODE: %s / bound_lower:%f / bound_upper:%f / BOUND:%f", \
 #                  self.design, self.lower_bound, self.upper_bound, self.bbsearch.lower_bound)
