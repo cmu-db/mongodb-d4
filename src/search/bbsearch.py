@@ -175,6 +175,14 @@ class SimpleKeyIterator:
                 self.lastValue = None
             else:
                 self.current += 1
+                ## HACK HACK HACK
+                # This iterator doesn't consider this situation:
+                # if the denorm is None, it will return None twice, which will
+                # cause the same design to be executed twice
+                # So we want to change it to that if denorm is None, we will
+                # raise an exception here
+                if not self.lastValue and self.lastValue == self.keys[self.current - 1]:
+                    raise StopIteration
                 self.lastValue = self.keys[self.current - 1]
             self.first = False
             return self.lastValue
@@ -317,7 +325,7 @@ class BBNode():
         # initialize to previous values
         shardKey = self.shardIter.getLastValue()
         indexes = self.indexIter.getLastValue()
-
+        
         # DENORM KEY ITERATION
         try:
             denorm = self.denormIter.next()
@@ -349,10 +357,8 @@ class BBNode():
         if not self.__isFeasible__(denorm, shardKey):
             LOG.warn("FAIL")
             return self.getNextChild()
-        
-        
+            
         ### --- end of CONSTRAINTS ---
-                
         # make the child
         # inherit the parent assignment plus the new assignment
         child_design = self.design.copy()
@@ -363,11 +369,10 @@ class BBNode():
             child_design.addIndex(self.currentCol, i)
         child_design.addShardKey(self.currentCol, shardKey)
         child_design.setDenormalizationParent(self.currentCol, denorm)
-        
         child = BBNode(child_design, self.bbsearch, False, self.depth + 1)
         
         return child
-    
+
     def __isFeasible__(self, denorm, shardKey):
         ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
