@@ -298,7 +298,7 @@ class DiskCostComponent(AbstractCostComponent):
                 op_index_list.append(key)
         # add the projection keys into op_index_set
         # The op["query_fileds"] is the projection
-        projectionFields = op['query_fields']
+        projectionFields = op.get('query_fields', None)
 
         if projectionFields:
             for key in projectionFields.iterkeys():
