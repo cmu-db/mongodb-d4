@@ -16,16 +16,13 @@ from ConfigParser import RawConfigParser
 from search.designer import Designer
 from search import Design
 from designcandidates import DesignCandidates
-import itertools
 from initialdesigner import InitialDesigner
-from randomdesigner import RandomDesigner
 from lnsdesigner import LNSDesigner
-from randomdesigner import RandomDesigner
 from costmodel import CostModel
 from tpcc import constants as tpccConstants
 from search import bbsearch
 
-LNS_RUN_TIME = 28800 # seconds
+LNS_RUN_TIME = 2 * 60 * 60 # seconds
 
 class FindExpectedDesign(TPCCTestCase):
     """
@@ -67,12 +64,6 @@ class FindExpectedDesign(TPCCTestCase):
             'window_size':    500
         }
         cm = CostModel(self.collections, self.workload, cmConfig)
-#        if self.debug:
-#            state.debug = True
-#            costmodel.LOG.setLevel(logging.DEBUG)
-
-        # Compute initial solution and calculate its cost
-        # This will be the upper bound from starting design
 
         initialDesign = InitialDesigner(self.collections, self.workload, None).generate()
         upper_bound = cm.overallCost(initialDesign)
@@ -81,7 +72,7 @@ class FindExpectedDesign(TPCCTestCase):
         collectionNames = [c for c in self.collections]
         
         dc = self.dc.getCandidates(collectionNames)
-        
+        print "candidates: ", dc
         ln = LNSDesigner(self.collections, \
                         self.dc, \
                         self.workload, \
@@ -91,6 +82,7 @@ class FindExpectedDesign(TPCCTestCase):
                         upper_bound, \
                         LNS_RUN_TIME)
         solution = ln.solve()
+        print "Best cost: ", ln.bestCost
         print "solution: ", solution
     ## DEF
     

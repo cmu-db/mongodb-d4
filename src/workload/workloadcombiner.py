@@ -61,12 +61,16 @@ class WorkloadCombiner:
         
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
-    
+
     def process(self, design):
         """
             For a new design, return a modified version of the workload where operations
             are combined with each other based on the denormalization scheme.
         """
+        ## If the design doesn't have any collection embedding, return None
+        if not design.hasDenorm():
+            return None
+            
         collectionsInProperOrder = self.__GetCollectionsInProperOder__(design)
 
         for col_name in collectionsInProperOrder:

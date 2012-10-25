@@ -175,6 +175,14 @@ class SimpleKeyIterator:
                 self.lastValue = None
             else:
                 self.current += 1
+                ## HACK HACK HACK
+                # This iterator doesn't consider this situation:
+                # if the denorm is None, it will return None twice, which will
+                # cause the same design to be executed twice
+                # So we want to change it to that if denorm is None, we will
+                # raise an exception here
+                if not self.lastValue and self.lastValue == self.keys[self.current - 1]:
+                    raise StopIteration
                 self.lastValue = self.keys[self.current - 1]
             self.first = False
             return self.lastValue
@@ -210,7 +218,7 @@ class CompoundKeyIterator:
         else:
             result = None
             if self.currentSize == 0:
-                self.currentSize = 1    
+                self.currentSize = 1
                 result = []
             else:
                 if self.currentIterator is None:
@@ -309,28 +317,28 @@ class BBNode():
     
     # returns None if all children have been enumerated
     def getNextChild(self):
-        
-        LOG.debug("GET NEXT CHILD")
+        if self.debug:
+            LOG.debug("GET NEXT CHILD")
         
         # use iterators to determine the next assignment for the current collection
         
         # initialize to previous values
+        shardKey = self.shardIter.getLastValue()
         indexes = self.indexIter.getLastValue()
-        denorm = self.denormIter.getLastValue()
-
-        # SHARD KEY ITERATION
+        
+        # DENORM KEY ITERATION
         try:
-            shardKey = self.shardIter.next()
+            denorm = self.denormIter.next()
         except:
-            self.shardIter.rewind()
-            shardKey = self.shardIter.next()
+            self.denormIter.rewind()
+            denorm = self.denormIter.next()
             
-            # DENORM ITERATION
+            # ShARDKEY ITERATION
             try:
-                denorm = self.denormIter.next()
+                shardKey = self.shardIter.next()
             except:
-                self.denormIter.rewind()
-                denorm = self.denormIter.next()
+                self.shardIter.rewind()
+                shardKey = self.shardIter.next()
                 
                 # INDEX KEYS ITERATION
                 try:
@@ -349,10 +357,8 @@ class BBNode():
         if not self.__isFeasible__(denorm, shardKey):
             LOG.warn("FAIL")
             return self.getNextChild()
-        
-        
+            
         ### --- end of CONSTRAINTS ---
-                
         # make the child
         # inherit the parent assignment plus the new assignment
         child_design = self.design.copy()
@@ -363,11 +369,10 @@ class BBNode():
             child_design.addIndex(self.currentCol, i)
         child_design.addShardKey(self.currentCol, shardKey)
         child_design.setDenormalizationParent(self.currentCol, denorm)
-        
         child = BBNode(child_design, self.bbsearch, False, self.depth + 1)
         
         return child
-    
+
     def __isFeasible__(self, denorm, shardKey):
         ###             CONSTRAINTS     
         ### --- Solution Feasibility Check ---
@@ -439,7 +444,7 @@ class BBNode():
             LOG.debug(".",)
             LOG.debug(self)
         # add child only when the solution is admissible
-        # LOG.info("evaluated design: \n%s", self.design)
+        LOG.info("Evaluated design: \n%s", self.design)
         self.cost = self.bbsearch.costModel.overallCost(self.design)
 #        LOG.debug("EVAL NODE: %s / bound_lower:%f / bound_upper:%f / BOUND:%f", \
 #                  self.design, self.lower_bound, self.upper_bound, self.bbsearch.lower_bound)

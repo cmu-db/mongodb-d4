@@ -148,6 +148,22 @@ class TestWorkloadCombiner(CostModelTestCase):
 
         self.assertEqual(cost2, cost0)
     ## def
+
+    def testNotCollectionEmbeddingProcessShouldReturnNone(self):
+        """
+            If the given design has no collection embedding, we should return right away
+        """
+        d0 = Design()
+        for i in xrange(len(CostModelTestCase.COLLECTION_NAMES)):
+            col_info = self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+            d0.addCollection(col_info['name'])
+            d0.addIndex(col_info['name'], ['field00', 'field02'])
+
+        # Initialize a combiner
+        combiner = WorkloadCombiner(self.collections, self.workload)
+
+        combinedWorkload = combiner.process(d0)
+        self.assertEqual(None, combinedWorkload)
     
 ## CLASS
 

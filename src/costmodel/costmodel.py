@@ -96,7 +96,8 @@ class CostModel(object):
         self.new_design = design
             
         combinedWorkload = self.combiner.process(design)
-        self.state.updateWorkload(combinedWorkload)
+        if combinedWorkload:
+            self.state.updateWorkload(combinedWorkload)
 
         # This is meant to apply to all components
         # but it only works with network component
@@ -128,7 +129,8 @@ class CostModel(object):
                  self.last_cost, (stop - start))
 
         self.finish()
-        self.state.restoreOriginalWorkload()
+        if combinedWorkload:
+            self.state.restoreOriginalWorkload()
 
         return self.last_cost
     ## DEF
