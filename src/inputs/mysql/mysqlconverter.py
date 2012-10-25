@@ -131,7 +131,7 @@ class MySQLConverter(AbstractConverter):
             ## -----------------------------------------------------------
             ## EXTRACT DATA
             ## -----------------------------------------------------------
-            self.extractData(tbl_name, tbl_cols[tbl_name])
+            #self.extractData(tbl_name, tbl_cols[tbl_name])
             
         ## ENDFOR
     ## DEF

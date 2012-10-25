@@ -4,6 +4,7 @@ import sqlparse
 import json
 import yaml
 import logging
+from pprint import pformat
 
 from util import constants
 
@@ -48,6 +49,13 @@ class Sql2Mongo (object) :
         query_dict = self.render_trace_where_clause(table)
         return {constants.REPLACE_KEY_DOLLAR_PREFIX+'query': query_dict}
     ## End generate_content_query()
+    
+    def generate_content_fields(self, table):
+        ret = None
+        if table in self.project_cols and len(self.project_cols[table]) > 0:
+            ret = dict([ (c, 1) for c in self.project_cols[table] ])
+        return ret
+    ## DEF generate_content_fields
 
     def generate_content_remove(self, table) :
         return self.render_trace_where_clause(table)
@@ -71,6 +79,7 @@ class Sql2Mongo (object) :
             op['query_time'] = timestamp
             op['resp_time'] = None
             op['query_content'] = []
+            op['query_fields'] = None
             op['resp_content'] = []
             op['type'] = self.mongo_type()
             op['query_size'] = 0
@@ -89,6 +98,7 @@ class Sql2Mongo (object) :
             ## SELECT
             if op['type'] == constants.OP_TYPE_QUERY:
                 op['query_content'].append(self.generate_content_query(table))
+                op['query_fields'] = self.generate_content_fields(table)
                 op['query_limit'] = int(self.limit[table])
                 op['query_offset'] = int(self.skip[table])
             

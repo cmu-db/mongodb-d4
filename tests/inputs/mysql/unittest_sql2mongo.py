@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os,sys
 import unittest
+from pprint import pprint
 
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../../src"))
@@ -81,6 +82,15 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
         self.assertEqual({u'#query' :{}}, result[0])
+        
+    def testSelectQuery01Op(self) :
+        sql = 'SELECT a,b FROM users'
+        self.mongo.process_sql(sql)
+        result = self.mongo.generate_operations(100)
+        self.assertEqual(1, len(result))
+        self.assertIsNotNone(result[0]["query_fields"])
+        for c in [ "a", "b" ]:
+            self.assertIn(c, result[0]["query_fields"])
     
     def testSelectQuery02(self) :
         sql = 'SELECT a,b FROM users'
@@ -92,8 +102,16 @@ class TestConversions (unittest.TestCase) :
         sql = 'SELECT a,b FROM users'
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
-        ## Figure out projects in TRACE format
         self.assertEqual({u'#query':{}}, result[0])
+        
+    def testSelectQuery02Op(self) :
+        sql = 'SELECT a,b FROM users'
+        self.mongo.process_sql(sql)
+        result = self.mongo.generate_operations(100)
+        self.assertEqual(1, len(result))
+        self.assertIsNotNone(result[0]["query_fields"])
+        for c in [ "a", "b" ]:
+            self.assertIn(c, result[0]["query_fields"])
         
     def testSelectQuery03(self) :
         sql = 'SELECT * FROM users WHERE age=33'
@@ -107,6 +125,13 @@ class TestConversions (unittest.TestCase) :
         result = self.mongo.render_trace()
         output = {u'#query':{'age':33.0}}
         self.assertEqual(output, result[0])
+        
+    def testSelectQuery03Op(self) :
+        sql = 'SELECT * FROM users WHERE age=33'
+        self.mongo.process_sql(sql)
+        result = self.mongo.generate_operations(100)
+        self.assertEqual(1, len(result))
+        self.assertIsNone(result[0]["query_fields"])
     
     def testSelectQuery04(self) :
         sql = 'SELECT a,b FROM users WHERE age=33'
@@ -214,14 +239,17 @@ class TestConversions (unittest.TestCase) :
         output = {u'#query' : { 'a' : { '#gt':10.0, '#lt':20.0}}}
         self.assertEqual(output, result[0])
     
-    '''
     def testSelectQuery15(self) :
         sql = 'SELECT avg(rating) FROM review r, user u WHERE u.u_id = r.u_id AND r.u_id=2000 ORDER BY rating LIMIT 10'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
-        print self.mongo.render_trace()
-        self.assertEqual(True, False)
-    '''
+        #print self.mongo.render_trace()
+    
+    def testSelectQuery15Op(self) :
+        sql = 'SELECT avg(rating) FROM review r, user u WHERE u.u_id = r.u_id AND r.u_id=2000 ORDER BY rating LIMIT 10'
+        self.mongo.process_sql(sql)
+        result = self.mongo.generate_operations(100)
+        self.assertEqual(2, len(result))
     
     def testUpdateQuery01(self) :
         sql = "UPDATE users SET a=1 WHERE b='q'"
