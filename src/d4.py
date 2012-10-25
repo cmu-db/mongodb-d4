@@ -231,6 +231,5 @@ if __name__ == '__main__':
         stop = time.time()
         LOG.info("Total Time: %.1f sec", (stop - start))
 
-    # solutions['final'] = solution.toDICT()
-    # print json.dumps(solutions, sort_keys=False, indent=4)
+    print finalSolution.toJSON()
 ## MAIN
