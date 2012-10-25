@@ -38,6 +38,8 @@ import time
 
 LOG = logging.getLogger(__name__)
 
+LNSEARCH_TIME_OUT = 10 * 60 * 60
+
 ## ==============================================
 ## Designer
 ## This is the central object that will have all of the
@@ -317,9 +319,9 @@ class Designer():
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
         
-        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, 1200)
+        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, LNSEARCH_TIME_OUT)
         solution = ln.solve()
-        LOG.info("Final Cost: %s", ln.bestCost)
+
         return solution
     ## DEF
 

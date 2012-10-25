@@ -36,7 +36,7 @@ LOG = logging.getLogger(__name__)
 
 # Constants
 RELAX_RATIO_STEP = 0.1
-RELAX_RATIO_UPPER_BOUND = 0.9
+RELAX_RATIO_UPPER_BOUND = 0.5
 TIME_OUT_BBSEARCH = 5400
 
 # Global Value
@@ -69,7 +69,6 @@ class LNSDesigner(AbstractDesigner):
             main public method. Simply call to get the optimal solution
         """
         bestDesign = self.initialDesign.copy()
-        bestCost = self.bestCost
         table = TemperatureTable(self.collections)
         elapsedTime = 0
         bbsearch_time_out = 10 * 60 # 10 minutes
@@ -83,18 +82,20 @@ class LNSDesigner(AbstractDesigner):
                 return bestDesign
 
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
-            bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, bbsearch_time_out)
+            bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, self.bestCost, bbsearch_time_out)
             bbDesign = bb.solve()
 
-            if bb.bestCost < bestCost:
-                bestCost = bb.bestCost
-                bestDesign = bbDesign
+            if bb.bestCost < self.bestCost:
+                LOG.info("LNSearch: Best score is updated from %s to %s", self.bestCost, bb.bestCost)
+                self.bestCost = bb.bestCost
+                bestDesign = bbDesign.copy()
                 elapsedTime = 0
             else:
                 elapsedTime += bb.usedTime
 
             if elapsedTime >= 60 * 60: # 1 hour
                 # if it haven't found a better design for one hour, give up
+                LOG.info("Haven't found a better design for %s minutes. QUIT", elapsedTime)
                 break
 
             if self.debug:
@@ -102,20 +103,21 @@ class LNSDesigner(AbstractDesigner):
                 LOG.info("\n====Design Candidates====\n%s", dc)
                 LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
                 LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
-                LOG.info("\n========Best Score=======\n%s", bestCost)
+                LOG.info("\n========Best Score=======\n%s", self.bestCost)
                 LOG.info("\n========Best Design======\n%s", bestDesign)
 
             self.relaxRatio += RELAX_RATIO_STEP
             if self.relaxRatio > RELAX_RATIO_UPPER_BOUND:
                 self.relaxRatio = RELAX_RATIO_UPPER_BOUND
+                
             self.timeout -= bb.usedTime
             bbsearch_time_out += RELAX_RATIO_STEP / 0.1 * 30
 
             if self.timeout <= 0:
                 break
+        ## WHILE
 
-        self.bestCost = bestCost
-
+        LOG.info("Final Cost: %s", self.bestCost)
         return bestDesign
     # DEF
 
