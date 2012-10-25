@@ -71,27 +71,30 @@ class LNSDesigner(AbstractDesigner):
         bestDesign = self.initialDesign.copy()
         bestCost = self.bestCost
         table = TemperatureTable(self.collections)
-        notUpdateRound = 0
-
+        elapsedTime = 0
+        bbsearch_time_out = 10 * 60 # 10 minutes
         while True:
+            LOG.info("started one bbsearch, current bbsearch_time_out is: %s", bbsearch_time_out)
             relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign)
+            print "relaxed collections: ", relaxedCollectionsNames
+            print "related design lala: ", relaxedDesign
             # when relax cannot make any progress
             if relaxedCollectionsNames is None and relaxedDesign is None:
                 return bestDesign
 
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
-            bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, TIME_OUT_BBSEARCH)
+            bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, bbsearch_time_out)
             bbDesign = bb.solve()
 
             if bb.bestCost < bestCost:
                 bestCost = bb.bestCost
                 bestDesign = bbDesign
-                notUpdateRound = 0
+                elapsedTime = 0
             else:
-                notUpdateRound += 1
+                elapsedTime += bb.usedTime
 
-            if notUpdateRound >= 2:
-                # if it haven't found a better design in two rounds, give up
+            if elapsedTime >= 60 * 60: # 1 hour
+                # if it haven't found a better design for one hour, give up
                 break
 
             if self.debug:
@@ -106,13 +109,13 @@ class LNSDesigner(AbstractDesigner):
             if self.relaxRatio > RELAX_RATIO_UPPER_BOUND:
                 self.relaxRatio = RELAX_RATIO_UPPER_BOUND
             self.timeout -= bb.usedTime
+            bbsearch_time_out += RELAX_RATIO_STEP / 0.1 * 30
 
             if self.timeout <= 0:
                 break
 
         self.bestCost = bestCost
 
-        print "Best cost: ", bestCost
         return bestDesign
     # DEF
 
@@ -130,10 +133,6 @@ class LNSDesigner(AbstractDesigner):
 
         while counter < numberOfRelaxedCollections:
             collectionName = table.getRandomCollection()
-            if collectionName == "ORDER_LINE" and self.count <= 10:
-                print "Happened!!!!!"
-                self.count += 1
-                continue
             if collectionName not in collectionNameSet:
                 relaxedCollectionsNames.append(collectionName)
                 collectionNameSet.add(collectionName)
@@ -168,7 +167,7 @@ class TemperatureTable():
     def __init__(self, collections):
         self.totalTemperature = 0.0
         self.temperatureList = []
-
+        self.rng = random.Random()
         for coll in collections.itervalues():
             temperature = coll['data_size'] / coll['workload_queries']
             self.temperatureList.append((temperature, coll['name']))
@@ -176,7 +175,7 @@ class TemperatureTable():
 
     def getRandomCollection(self):
         upper_bound = self.totalTemperature
-        r = random.randint(0, int(self.totalTemperature))
+        r = self.rng.randint(0, int(self.totalTemperature))
         for temperature, name in sorted(self.temperatureList, reverse=True):
             lower_bound = upper_bound - temperature
             if lower_bound <= r <= upper_bound:
