@@ -170,25 +170,27 @@ class MySQLConverter(AbstractConverter):
     def extractForeignKeys(self):
         LOG.info("Extracting foreign keys from MySQL")
         
+        sql = """
+        SELECT CONCAT( table_name, '.', column_name, '.', 
+        referenced_table_name, '.', referenced_column_name ) AS list_of_fks 
+        FROM INFORMATION_SCHEMA.key_column_usage 
+        WHERE referenced_table_schema = %s 
+        AND referenced_table_name IS NOT NULL 
+        """
         c3 = self.mysql_conn.cursor()
-        c3.execute("""
-            SELECT CONCAT( table_name, '.', column_name, '.', 
-                referenced_table_name, '.', referenced_column_name ) AS list_of_fks 
-            FROM INFORMATION_SCHEMA.key_column_usage 
-            WHERE referenced_table_schema = %s 
-                AND referenced_table_name IS NOT NULL 
-        """, (self.dbName))
+        c3.execute(sql, (self.dbName))
         
         for row in c3 :
-            rel = row[0].split('.')
+            rel = tuple(row[0].split('.'))
+            if self.debug: LOG.debug("Foreign Key: %s", rel)
             if len(rel) == 4 :
-                # rel = [ child_table, child_field, parent_table, parent_field]
-                #collection = metadata_db.Collection.find_one({'name' : rel[0]})
-                col_info = self.metadata_db.Collection.fetch({"name": rel[0]})
-
-                col_info['fields'][rel[1]]['parent_col'] = rel[2]
-                col_info['fields'][rel[1]]['parent_field'] = rel[3]
-                col_info['fields'][rel[1]]['parent_conf'] = 1.0
+                child_table, child_field, parent_table, parent_field = rel
+                col_info = self.metadata_db.Collection.fetch_one({"name": child_table})
+                assert child_field in col_info['fields']
+                field = col_info['fields'][child_field]
+                field['parent_col'] = parent_table
+                field['parent_key'] = parent_field
+                field['parent_conf'] = 1.0
                 col_info.save()
     ## DEF
         
