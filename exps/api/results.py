@@ -37,11 +37,10 @@ class Results:
         self.stop = None
         self.txn_id = 0
         self.opCount = 0
-        self.completed = [ ]
+        self.completed = [ ] # (txnName, timestamp)
         self.txn_counters = Histogram()
         self.txn_times = { }
         self.running = { }
-        self.totalOps = 0
         
     def startBenchmark(self):
         """Mark the benchmark as having been started"""
@@ -50,14 +49,12 @@ class Results:
         self.start = time.time()
         return self.start
         
-    def stopBenchmark(self,opCount):
+    def stopBenchmark(self):
         """Mark the benchmark as having been stopped"""
         assert self.start != None
         assert self.stop == None
         LOG.debug("Stopping benchmark statistics collection")
         self.stop = time.time()
-        self.opCount = opCount;
-        #LOG.info("opCount"+str(opCount))
         
     def startTransaction(self, txn):
         self.txn_id += 1
@@ -71,7 +68,7 @@ class Results:
         txn_name, txn_start = self.running[id]
         del self.running[id]
         
-    def stopTransaction(self, id):
+    def stopTransaction(self, id, opCount):
         """Record that the benchmark completed an invocation of the given transaction"""
         assert id in self.running
         
@@ -85,6 +82,9 @@ class Results:
         total_time = self.txn_times.get(txn_name, 0)
         self.txn_times[txn_name] = total_time + duration
         
+        # OpCount
+        self.opCount += opCount
+        
         # Txn Counter Histogram
         self.txn_counters.put(txn_name)
         assert self.txn_counters[txn_name] > 0
@@ -93,8 +93,8 @@ class Results:
             LOG.debug("Completed %s in %f sec" % (txn_name, duration))
     ## DEF
         
-    def append(self, r):
-        self.totalOps += r.opCount
+    def append(self, r):  
+        self.opCount += r.opCount
         for txn_name in r.txn_counters.keys():
             self.txn_counters.put(txn_name, delta=r.txn_counters[txn_name])
             
@@ -140,16 +140,15 @@ class Results:
             ret += "Data Loading Time: %d seconds\n\n" % (load_time)
         
         ret += "Execution Results after %d seconds\n%s" % (duration, line)
-        ret += f % ("", "Executed", u"Total Time (ms)", "Rate")
-        
+        ret += f % ("", "Executed", u"Total Time (ms)", "Rate") 
         total_time = duration
-        #total_cnt = self.txn_counters.getSampleCount()
+        total_cnt = self.txn_counters.getSampleCount()
         #total_running_time = 0
-        total_cnt = self.totalOps
+        
         for txn in sorted(self.txn_counters.keys()):
             txn_time = self.txn_times[txn]
             txn_cnt = "%6d - %4.1f%%" % (self.txn_counters[txn], (self.txn_counters[txn] / float(total_cnt))*100)
-            rate = u"%.02f op/s" % ((self.txn_counters[txn] / total_time))
+            rate = u"%.02f txn/s" % ((self.txn_counters[txn] / total_time))
             #total_running_time +=txn_time
             #rate = u"%.02f op/s" % ((self.txn_counters[txn] / total_time))
             #rate = u"%.02f op/s" % ((self.opCount / total_time))
@@ -161,7 +160,8 @@ class Results:
         
         rate = 0
         if total_time > 0:
-            rate = total_cnt / float(total_time)
+            rate = self.opCount / float(total_time)
+            # TXN RATE rate = total_cnt / float(total_time)
         #total_rate = "%.02f txn/s" % rate
         total_rate = "%.02f op/s" % rate
         ret += f % ("TOTAL", str(total_cnt), str(total_time * 1000), total_rate)

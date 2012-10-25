@@ -30,6 +30,28 @@ class TestResults(unittest.TestCase):
         self.assertEquals(len(r1.completed), len(r2.completed))
     ## DEF
     
+    def testOpCount(self):
+        totalOpCount = 0
+        results = [ Results() for i in xrange(10)  ]
+        map(Results.startBenchmark, results)
+        for r in results:
+            for i in xrange(0, 5000):
+                txn = random.choice(self.txnNames)
+                id = r.startTransaction(txn)
+                assert id != None
+                ops = random.randint(1, 10)
+                r.stopTransaction(id, ops)
+                totalOpCount += ops
+            ## FOR
+        ## FOR
+        map(Results.stopBenchmark, results)
+        
+        r = Results()
+        map(r.append, results)
+        self.assertEquals(totalOpCount, r.opCount)
+    ## DEF
+        
+    
     def testAppend(self):
         r1 = Results()
         r1.startBenchmark()
@@ -37,9 +59,9 @@ class TestResults(unittest.TestCase):
             txn = random.choice(self.txnNames)
             id = r1.startTransaction(txn)
             assert id != None
-            r1.stopTransaction(id)
+            r1.stopTransaction(id, 1)
         ## FOR
-        r1.stopBenchmark(5000)
+        r1.stopBenchmark()
         print r1.show()
         
         # Append the time and then make sure they're the same
@@ -56,7 +78,7 @@ class TestResults(unittest.TestCase):
             txn = random.choice(self.txnNames)
             id = r.startTransaction(txn)
             assert id != None
-            r.stopTransaction(id)
+            r.stopTransaction(id, 1)
         ## FOR
         
         # Serialize
