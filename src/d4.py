@@ -114,6 +114,9 @@ if __name__ == '__main__':
                              'the internal catalog database.')
     agroup.add_argument('--stop-on-error', action='store_true',
                         help='Stop processing when an invalid record is encountered.')
+
+    aparser.add_argument('--output-design', type=str,
+                         help='Path to final design file.')
                          
     args = vars(aparser.parse_args())
 
@@ -231,5 +234,11 @@ if __name__ == '__main__':
         stop = time.time()
         LOG.info("Total Time: %.1f sec", (stop - start))
 
-    print finalSolution.toJSON()
+    outputfile = args.get("output_design", None)
+    if outputfile:
+        f = open(outputfile, 'w')
+        f.write(finalSolution.toJSON())
+        f.close()
+    else:
+        print finalSolution.toJSON()
 ## MAIN

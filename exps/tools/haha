@@ -1,0 +1,68 @@
+{
+    "SUBSCRIBER": {
+        "denorm": null, 
+        "shardKeys": [
+            "s_id"
+        ], 
+        "indexes": [
+            [
+                "sub_nbr"
+            ], 
+            [
+                "s_id"
+            ]
+        ]
+    }, 
+    "ACCESS_INFO": {
+        "denorm": null, 
+        "shardKeys": [
+            "s_id"
+        ], 
+        "indexes": [
+            [
+                "ai_type", 
+                "s_id"
+            ], 
+            [
+                "ai_type"
+            ], 
+            [
+                "s_id"
+            ]
+        ]
+    }, 
+    "SPECIAL_FACILITY": {
+        "denorm": null, 
+        "shardKeys": [
+            "s_id"
+        ], 
+        "indexes": [
+            [
+                "s_id"
+            ], 
+            [
+                "is_active"
+            ]
+        ]
+    }, 
+    "CALL_FORWARDING": {
+        "denorm": null, 
+        "shardKeys": [
+            "s_id", 
+            "sf_type", 
+            "start_time"
+        ], 
+        "indexes": [
+            [
+                "end_time"
+            ], 
+            [
+                "end_time", 
+                "sf_type"
+            ], 
+            [
+                "sf_type"
+            ]
+        ]
+    }
+}
