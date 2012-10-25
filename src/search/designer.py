@@ -206,11 +206,13 @@ class Designer():
                         indexKeys.append((key,))
             # deal with de-normalization
             if isDenormalizationEnabled:
-                LOG.debug("Demormalization is enabled")
-                for k,v in col_info['fields'].iteritems() :
-                    if v['parent_col'] <> '' and v['parent_col'] not in denorm :
-                        denorm.append(v['parent_col'])
-                        
+                LOG.debug("Denormalization is enabled")
+                #for k,v in col_info['fields'].iteritems() :
+                    #if v['parent_col'] <> '' and v['parent_col'] not in denorm :
+                        #denorm.append(v['parent_col'])
+                denorm = list(denormalizationPairs[col_info["name"]])
+                print "col_name: ", col_info["name"]
+                print "denorm: ", denorm
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
             ## FOR
         return dc
@@ -286,7 +288,7 @@ class Designer():
         collections = self.loadCollections()
         workload = self.loadWorkload(collections)
         # Generate all the design candidates
-        designCandidates = self.generateDesignCandidates(collections, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
+        designCandidates = self.generateDesignCandidates(collections, workload, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
 
         # Instantiate cost model
         cmConfig = {
@@ -309,26 +311,17 @@ class Designer():
         
         initialDesign = InitialDesigner(collections, workload, self.config).generate()
         LOG.info("Initial Design\n%s", initialDesign)
-        
-        startTime = time.time()
         upper_bound = cm.overallCost(initialDesign)
-        endTime = time.time()
-        print "Time elapsed: ", endTime - startTime
-
-        startTime = time.time()
-        upper_bound = cm.overallCost(initialDesign)
-        endTime = time.time()
-        print "Time elapsed: ", endTime - startTime
-
         LOG.info("Computed initial design [COST=%s]", upper_bound)
 
 #        cm.debug = True
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
         
-        #ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, 1200)
-        #solution = ln.solve()
-        #return solution
+        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, 1200)
+        solution = ln.solve()
+        LOG.info("Best Cost: \n%s", ln.bestCost)
+        return solution
     ## DEF
 
 ## CLASS
