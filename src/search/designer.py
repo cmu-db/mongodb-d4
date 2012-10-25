@@ -185,8 +185,15 @@ class Designer():
                         else:
                             index = i[0]
                         unsorted_index.append(index)
-                indexKeys = self.__get_reordered_list__(unsorted_index)
-                
+                raw_indexKeys = self.__get_reordered_list__(unsorted_index)
+                ## HACK HACK HACK
+                # we reordered the index keys but they are not stored in tuples any more
+                # in order not to break other code, we need to put them back to tuples again
+                for key in raw_indexKeys:
+                    if type(key) == list:
+                        indexKeys.append(tuple(key))
+                    else:
+                        indexKeys.append((key,))
             # deal with de-normalization
             if isDenormalizationEnabled:
                 LOG.debug("Demormalization is enabled")
@@ -213,7 +220,7 @@ class Designer():
         """
         sorted_list = sorted(unsorted_list, key = lambda element : element[1], reverse=True)
 
-        return [x[0] for x in sorted_list]
+        return [(x[0]) for x in sorted_list]
         
     ## DEF
     
