@@ -211,8 +211,7 @@ class Designer():
                     #if v['parent_col'] <> '' and v['parent_col'] not in denorm :
                         #denorm.append(v['parent_col'])
                 denorm = list(denormalizationPairs[col_info["name"]])
-                print "col_name: ", col_info["name"]
-                print "denorm: ", denorm
+
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
             ## FOR
         return dc
@@ -320,7 +319,7 @@ class Designer():
         
         ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, 1200)
         solution = ln.solve()
-        LOG.info("Best Cost: \n%s", ln.bestCost)
+        LOG.info("Final Cost: %s", ln.bestCost)
         return solution
     ## DEF
 
