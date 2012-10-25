@@ -628,20 +628,20 @@ class Sql2Mongo (object) :
             if op.to_unicode() == '=' :
                 return ':'
             elif op.to_unicode() == '>' :
-                return "$gt"
-                # return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gt' # $gt - $ removed to make python happy
+                #return "$gt"
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gt' # $gt - $ removed to make python happy
             elif op.to_unicode() == '>=' :
-                return "$gte"
-                # return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gte' # $gte - $ removed to make python happy
+                #return "$gte"
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'gte' # $gte - $ removed to make python happy
             elif op.to_unicode() == '<' :
-                return "$lt"
-                #return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lt' # $lt - $ removed to make python happy
+                #return "$lt"
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lt' # $lt - $ removed to make python happy
             elif op.to_unicode() == '<=' :
-                return "$lte"
-                #return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lte' # $lte - $ removed to make python happy
+                #return "$lte"
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'lte' # $lte - $ removed to make python happy
             elif op.to_unicode() == '!=' :
-                return "$ne"
-                #return constants.REPLACE_KEY_DOLLAR_PREFIX + 'ne' # $ne - $ removed to make python happy
+                #return "$ne"
+                return constants.REPLACE_KEY_DOLLAR_PREFIX + 'ne' # $ne - $ removed to make python happy
             elif op.to_unicode() == 'LIKE' :
                 return 'LIKE'
             else :
@@ -783,7 +783,7 @@ class Sql2Mongo (object) :
             parts = []
             for col, ops in self.where_cols[tbl_name].iteritems() :
                 if col.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
-                    col = "$" + col[1:]
+                    col = "#" + col[1:]
                 if len(ops) == 1 :
                     if ops[0][0] == ':' :
                         cmd = col + ops[0][0] + ops[0][1]
@@ -803,7 +803,7 @@ class Sql2Mongo (object) :
                 parts = []
                 for col, ops in self.where_cols[tbl_name].iteritems() :
                     if col.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
-                        col = "$" + col[1:]
+                        col = "#" + col[1:]
                     if len(ops) == 1 :
                         if ops[0][0] == ':' :
                             cmd = col + ops[0][0] + ops[0][1]
@@ -812,9 +812,9 @@ class Sql2Mongo (object) :
                         parts.append(cmd)
                     else :
                         inner_parts = []
-                        for tups in self.where_cols[tbl_name][col] :
+                        for tups in map(list, self.where_cols[tbl_name][col]):
                             if tups[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
-                                tups[0] = "$" + tups[0][1:]
+                                tups[0] = "#" + tups[0][1:]
                             inner_parts.append(tups[0] + ':' + tups[1])
                         parts.append('\'' + col + '\':{' + ','.join(inner_parts) + '}')
                 return '{' + ','.join(parts) + '}'
