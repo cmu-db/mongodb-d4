@@ -144,9 +144,19 @@ class Designer():
             page_size=self.page_size,
         )
     ## DEF
-    def generateDesignCandidates(self, collections, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
+    def generateDesignCandidates(self, collections, workload, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
 
         dc = DesignCandidates()
+        
+        denormalizationPairs = dict([ (col_name, set()) for col_name in collections.iterkeys()])
+        for sess in workload:
+            sessCollections = set([ op["collection"] for op in sess["operations"] ])
+            for col_name0 in sessCollections:
+                for col_name1 in sessCollections:
+                    if col_name0 != col_name1:
+                        denormalizationPairs[col_name0].add(col_name1)
+        ## FOR
+            
 
         for col_info in collections.itervalues():
             
