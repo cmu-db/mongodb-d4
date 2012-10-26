@@ -36,7 +36,7 @@ class FindExpectedDesign(TPCCTestCase):
         configutil.setDefaultValues(config)
 
         self.designer = Designer(config, self.metadata_db, self.dataset_db)
-        self.dc = self.designer.generateDesignCandidates(self.collections)
+        self.dc = self.designer.generateDesignCandidates(self.collections, self.workload)
         self.assertIsNotNone(self.dc)
         
         # Make sure that we don't have any invalid candidate keys
