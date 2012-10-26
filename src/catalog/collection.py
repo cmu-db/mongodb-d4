@@ -20,7 +20,6 @@ class Collection(Document):
         'workload_queries': int,       # The number operations that reference this collection
         'workload_percent': float,     # The percentage of the total workload that touch this collection
         'interesting':      [basestring], # TODO(ckeith)
-        'interesting_tuple': [(basestring, int)], # Interesting keys with its query_use_count
         
         ## ----------------------------------------------
         ## FIELDS
@@ -31,7 +30,7 @@ class Collection(Document):
                 'fields':           dict,       # nested fields
                 'query_use_count':  int,        # The number of times this field is referenced in queries
                 'cardinality':      int,        # Number of distinct values
-                'selectivity':      int,        # Cardinalty / Tuple Count
+                'selectivity':      float,      # Cardinalty / Tuple Count
                 'avg_size':         int,        # The average size of the values for this field (bytes)
                 'parent_col':       basestring, # TODO(ckeith)
                 'parent_key':       basestring, # TODO(ckeith)
@@ -69,7 +68,7 @@ class Collection(Document):
             'fields':           { },
             'query_use_count':  0,
             'cardinality':      0,
-            'selectivity':      0,
+            'selectivity':      0.0,
             'avg_size':         0,
             'parent_col':       None,
             'parent_key':       None,
