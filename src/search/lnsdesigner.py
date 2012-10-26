@@ -68,12 +68,14 @@ class LNSDesigner(AbstractDesigner):
         """
             main public method. Simply call to get the optimal solution
         """
+        LOG.info("Design candidates: \n%s", self.designCandidates)
         bestDesign = self.initialDesign.copy()
         table = TemperatureTable(self.collections)
         elapsedTime = 0
         isExhaustedSearch = False
         # If we have 4 or less collections, we run bbsearch till it finishes
         if len(self.collections) <= constants.EXAUSTED_SEARCH_BAR:
+            LOG.info("Infinity mode is ON!!!")
             bbsearch_time_out = INIFITY # as long as possible
             isExhaustedSearch = True
         else:
