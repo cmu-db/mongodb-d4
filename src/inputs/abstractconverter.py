@@ -253,6 +253,7 @@ class AbstractConverter():
             post-processing stuff in the AbstractConverter will populate
             the statistics information for each collection
         """
+        LOG.info("Extracting database schema catalog from workload trace")
         for colName in self.dataset_db.collection_names():
             # Skip ignored collections
             if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
