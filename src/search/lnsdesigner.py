@@ -37,7 +37,7 @@ LOG = logging.getLogger(__name__)
 # Constants
 RELAX_RATIO_STEP = 0.1
 RELAX_RATIO_UPPER_BOUND = 0.5
-TIME_OUT_BBSEARCH = 5400
+INIFITY = float('inf')
 
 # Global Value
 PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = 0
@@ -71,12 +71,16 @@ class LNSDesigner(AbstractDesigner):
         bestDesign = self.initialDesign.copy()
         table = TemperatureTable(self.collections)
         elapsedTime = 0
-        bbsearch_time_out = 10 * 60 # 10 minutes
+        isExhaustedSearch = False
+        # If we have 4 or less collections, we run bbsearch till it finishes
+        if len(self.collections) <= constants.EXAUSTED_SEARCH_BAR:
+            bbsearch_time_out = INIFITY # as long as possible
+            isExhaustedSearch = True
+        else:
+            bbsearch_time_out = 10 * 60 # 10 minutes
         while True:
             LOG.info("started one bbsearch, current bbsearch_time_out is: %s", bbsearch_time_out)
             relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign)
-            print "relaxed collections: ", relaxedCollectionsNames
-            print "related design lala: ", relaxedDesign
             # when relax cannot make any progress
             if relaxedCollectionsNames is None and relaxedDesign is None:
                 return bestDesign
@@ -92,7 +96,10 @@ class LNSDesigner(AbstractDesigner):
                 elapsedTime = 0
             else:
                 elapsedTime += bb.usedTime
-
+            
+            if isExhaustedSearch:
+                elapsedTime = INIFITY
+                
             if elapsedTime >= 60 * 60: # 1 hour
                 # if it haven't found a better design for one hour, give up
                 LOG.info("Haven't found a better design for %s minutes. QUIT", elapsedTime)
