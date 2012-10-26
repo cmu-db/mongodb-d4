@@ -26,6 +26,7 @@ import logging
 from pprint import pformat
 
 # mongodb-d4
+import workload
 import catalog
 from initialdesigner import InitialDesigner
 from lnsdesigner import LNSDesigner
@@ -146,28 +147,17 @@ class Designer():
             page_size=self.page_size,
         )
     ## DEF
-    def generateDesignCandidates(self, collections, workload, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
+    def generateDesignCandidates(self, collections, sessions, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
 
         dc = DesignCandidates()
-        
-        denormalizationPairs = dict([ (col_name, set()) for col_name in collections.iterkeys()])
-        for sess in workload:
-            sessCollections = set([ op["collection"] for op in sess["operations"] ])
-            for col_name0 in sessCollections:
-                for col_name1 in sessCollections:
-                    if col_name0 != col_name1:
-                        denormalizationPairs[col_name0].add(col_name1)
-        ## FOR
             
-
         for col_info in collections.itervalues():
             
             shardKeys = []
             indexKeys = []
             denorm = []
-
-            interesting = self.__get_reordered_list__(col_info['interesting_tuple'])
             
+            interesting = col_info['interesting']
             # Make sure that none of our interesting fields start with 
             # the character that we used to convert $ commands
             for key in interesting:
@@ -185,56 +175,73 @@ class Designer():
 
             # deal with indexes
             if isIndexesEnabled:
-                interesting_tuple = col_info['interesting_tuple']
-                unsorted_index = []
+                single_indexes = []
                 LOG.debug("Indexes is enabled")
-                for o in xrange(1, len(interesting_tuple) + 1) :
-                    for i in itertools.combinations(interesting_tuple, o):
-                        index = None
-                        # calculate the total query use count for index containing more than one key
-                        if o > 1:
-                            index= self.__calculate_query_count__(i)
-                        else:
-                            index = i[0]
-                        unsorted_index.append(index)
-                raw_indexKeys = self.__get_reordered_list__(unsorted_index)
-                ## HACK HACK HACK
-                # we reordered the index keys but they are not stored in tuples any more
-                # in order not to break other code, we need to put them back to tuples again
-                for key in raw_indexKeys:
-                    if type(key) == list:
-                        indexKeys.append(tuple(key))
-                    else:
-                        indexKeys.append((key,))
+                for o in xrange(1, len(interesting) + 1) :
+                    if o > constants.MAX_INDEX_SIZE: break
+                    for i in itertools.permutations(interesting, o):
+                        indexKeys.append(i)
+                        if o == 1:
+                            single_indexes.append(i[0])
+                        ## IF
+                    ## FOR
+                ## FOR
+            self.__remove_bad_indexes__(single_indexes, indexKeys, sessions, col_info)
+            
             # deal with de-normalization
             if isDenormalizationEnabled:
                 LOG.debug("Denormalization is enabled")
-                #for k,v in col_info['fields'].iteritems() :
-                    #if v['parent_col'] <> '' and v['parent_col'] not in denorm :
-                        #denorm.append(v['parent_col'])
-                denorm = list(denormalizationPairs[col_info["name"]])
+                for k,v in col_info['fields'].iteritems() :
+                    if v['parent_col'] <> '' and v['parent_col'] not in denorm :
+                        denorm.append(v['parent_col'])
 
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
             ## FOR
         return dc
-
-    def __calculate_query_count__(self, keys):
-        index = []
-        score = 0
-        for tup in keys:
-            index.append(tup[0])
-            score += tup[1]
-
-        return index, score
+    
+    def __remove_bad_indexes__(self, single_indexes, indexKeys, sessions, col_info):
+        """
+            Here we want to remove some logically or heuristically bad indexes
+        """
+        copy_indexKeys = indexKeys[:]
+        map_indexesEverUsedByItself = self.__getDictOfIndexesEverUsedByItself__(single_indexes, sessions)
+        for index in copy_indexKeys:
+            if len(index) == 1:    
+                # if the index only has one key, we remove those with trivial selectivity
+                if col_info['fields'][index[0]] < constants.MIN_SELECTIVITY:
+                    indexKeys.remove(index)
+            ## IF
+            else:
+            # If the index has more than one keys, we remove index based on the following logic
+            # If we have an index (f0, f1). Check if f0 is always used together with f1 and f1 is
+            # ever used individually. If yes, we want to remove this index. If no, keep this index
+                if map_indexesEverUsedByItself[index[0]]: continue                
+                
+                for i in xrange(1, len(index)):
+                    if map_indexesEverUsedByItself[index[i]]:
+                            indexKeys.remove(index)
+                    ## IF
+                ## FOR
+            ## ELSE
     ## DEF
-    def __get_reordered_list__(self, unsorted_list):
-        """
-            This method reorders the elements in unsorted_list based on its second value
-        """
-        sorted_list = sorted(unsorted_list, key = lambda element : element[1], reverse=True)
-
-        return [(x[0]) for x in sorted_list]
-        
+    
+    def __getDictOfIndexesEverUsedByItself__(self, single_indexes, sessions):
+        map_indexesEverUsedByItself = dict([[x, False] for x in single_indexes])
+        for sess in sessions:
+            for op in sess['operations']:
+                op_contents = workload.getOpContents(op)
+                for query in op_contents:
+                    if len(query) == 1:
+                        for key in query.iterkeys():
+                            if key in single_indexes:
+                                map_indexesEverUsedByItself[key] = True
+                            ##IF
+                        ## FOR
+                    ## IF
+                ## FOR
+            ## FOR
+        ## FOR
+        return map_indexesEverUsedByItself           
     ## DEF
     
     def loadCollections(self):
