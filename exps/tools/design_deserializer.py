@@ -28,7 +28,8 @@ class Deserializer:
         """
         for key, value in doc.iteritems():
             design.addCollection(key)
-            design.addIndex(key, value['indexes'])
+            for index in value['indexes']:
+                design.addIndex(key, index)
             design.addShardKey(key, value['shardKeys'])
             design.setDenormalizationParent(key, value['denorm'])
         ## FOR
