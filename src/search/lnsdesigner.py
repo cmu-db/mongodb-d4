@@ -72,7 +72,7 @@ class LNSDesigner(AbstractDesigner):
         isExhaustedSearch = False
         # If we have 4 or less collections, we run bbsearch till it finishes
         if len(self.collections) <= constants.EXAUSTED_SEARCH_BAR:
-            LOG.info("Infinity mode is ON!!!")
+            LOG.info("Infinity Mode is ON!!!")
             bbsearch_time_out = INIFITY # as long as possible
             isExhaustedSearch = True
             self.relaxRatio = 1.0
@@ -126,16 +126,17 @@ class LNSDesigner(AbstractDesigner):
 
     def __relax__(self, table, design, ratio):
         numberOfRelaxedCollections = int(round(len(self.collections) * ratio))
-
+        relaxedDesign = design.copy()
+        
         if numberOfRelaxedCollections == len(self.collections):
             for col_name in self.collections:
                 relaxedDesign.reset(col_name)
+            relaxedCollectionsNames = self.collections.keys()[:]
             ## FOR
         ## IF
         else:
             collectionNameSet = set()
             relaxedCollectionsNames = []
-            relaxedDesign = design.copy()
             while numberOfRelaxedCollections > 0:
                 collectionName = table.getRandomCollection()
                 if collectionName not in collectionNameSet:

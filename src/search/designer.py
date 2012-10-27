@@ -192,7 +192,7 @@ class Designer():
             if isDenormalizationEnabled:
                 LOG.debug("Denormalization is enabled")
                 for k,v in col_info['fields'].iteritems() :
-                    if v['parent_col'] <> '' and v['parent_col'] not in denorm :
+                    if v['parent_col'] <> None and v['parent_col'] not in denorm :
                         denorm.append(v['parent_col'])
 
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
