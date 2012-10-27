@@ -39,9 +39,6 @@ RELAX_RATIO_STEP = 0.1
 RELAX_RATIO_UPPER_BOUND = 0.5
 INIFITY = float('inf')
 
-# Global Value
-PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = 0
-
 ## ==============================================
 ## LNSDesigner
 ## ==============================================
@@ -78,15 +75,12 @@ class LNSDesigner(AbstractDesigner):
             LOG.info("Infinity mode is ON!!!")
             bbsearch_time_out = INIFITY # as long as possible
             isExhaustedSearch = True
+            self.relaxRatio = 1.0
         else:
             bbsearch_time_out = 10 * 60 # 10 minutes
         while True:
-            LOG.info("started one bbsearch, current bbsearch_time_out is: %s", bbsearch_time_out)
-            relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign)
-            # when relax cannot make any progress
-            if relaxedCollectionsNames is None and relaxedDesign is None:
-                return bestDesign
-
+            LOG.info("Started one bbsearch, current bbsearch_time_out is: %s, relax ratio is: %s", bbsearch_time_out, self.relaxRatio)
+            relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign, self.relaxRatio)
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
             bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, self.bestCost, bbsearch_time_out)
             bbDesign = bb.solve()
@@ -130,50 +124,30 @@ class LNSDesigner(AbstractDesigner):
         return bestDesign
     # DEF
 
-    def __relax__(self, table, design):
-        numberOfRelaxedCollections = self.getNumberOfRelaxedCollections()
+    def __relax__(self, table, design, ratio):
+        numberOfRelaxedCollections = int(round(len(self.collections) * ratio))
 
-        # when numberOfRelaxedCollections reach the limit
-        if numberOfRelaxedCollections is None:
-            return None, None
-
-        counter = 0
-        collectionNameSet = set()
-        relaxedCollectionsNames = []
-        relaxedDesign = design.copy()
-
-        while counter < numberOfRelaxedCollections:
-            collectionName = table.getRandomCollection()
-            if collectionName not in collectionNameSet:
-                relaxedCollectionsNames.append(collectionName)
-                collectionNameSet.add(collectionName)
-                counter += 1
-
-                if not relaxedDesign.hasCollection(collectionName):
-                    relaxedDesign.addCollection(collectionName)
-                relaxedDesign.reset(collectionName)
-
+        if numberOfRelaxedCollections == len(self.collections):
+            for col_name in self.collections:
+                relaxedDesign.reset(col_name)
+            ## FOR
+        ## IF
+        else:
+            collectionNameSet = set()
+            relaxedCollectionsNames = []
+            relaxedDesign = design.copy()
+            while numberOfRelaxedCollections > 0:
+                collectionName = table.getRandomCollection()
+                if collectionName not in collectionNameSet:
+                    relaxedCollectionsNames.append(collectionName)
+                    collectionNameSet.add(collectionName)
+                    relaxedDesign.reset(collectionName)
+                    numberOfRelaxedCollections -= 1
+                ## IF
+            ## WHILE
         return relaxedCollectionsNames, relaxedDesign
-
-    def getNumberOfRelaxedCollections(self):
-        global PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS
-
-        num = int(round(len(self.collections.keys()) * self.relaxRatio))
-
-        while num == PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS:
-            self.relaxRatio += RELAX_RATIO_STEP
-
-            # if the ratio is larger than one...the number of relaxed collection will
-            # be larger than the number of collections...it doesn't sound good
-            if self.relaxRatio > 1:
-                return None
-            num = int(round(len(self.collections.keys()) * self.relaxRatio))
-
-        PREVIOUS_NUMBER_OF_RELAXED_COLLECTIONS = num
-
-        return num
     ## DEF
-
+    
 class TemperatureTable():
     def __init__(self, collections):
         self.totalTemperature = 0.0
