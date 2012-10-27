@@ -41,12 +41,9 @@ class FindExpectedDesign(TPCCTestCase):
         cm = CostModel(self.collections, self.workload, cmConfig)
         d0 = self.getManMadeDesign()
         print d0
-        f = open('/tmp/d4_test_deserializer.output', 'w')
-        f.write("%s" % d0.toJSON())
-        f.close()
-        
+        output_design = d0.toJSON() 
         cost0 = cm.overallCost(d0)
-        ds = Deserializer('/tmp/d4_test_deserializer.output')
+        ds = Deserializer(output_design)
         d1 = ds.Deserialize()
         print d1
         cost1 = cm.overallCost(d1)

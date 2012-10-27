@@ -9,11 +9,8 @@ sys.path.append(os.path.join(basedir, "../../src/search"))
 from design import Design
 
 class Deserializer:
-    def __init__(self, file_path):
-        f = open(file_path, 'r')
-        lines = f.readlines()
-        f.close()
-        self.json_doc = json.loads(''.join(lines))
+    def __init__(self, json_string):
+        self.json_doc = json.loads(json_string)
     ## DEF
 
     def Deserialize(self):
