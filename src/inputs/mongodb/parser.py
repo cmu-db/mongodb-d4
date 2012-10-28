@@ -546,18 +546,22 @@ class Parser:
         try:
             obj = yaml.load(yaml_line)
         except (yaml.scanner.ScannerError, yaml.parser.ParserError, yaml.reader.ReaderError) as err:
-            msg = "Invalid Content on Line %d: Failed to convert YAML to JSON:\n%s" % (self.line_ctr, yaml_line)
+            msg = "Failed to parse YAML on Line %d - %s" % (self.line_ctr, err)
+            if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
             return
         
-        valid_json = json.dumps(obj)
-        obj = yaml.load(valid_json)
-        if not obj:
-            msg = "Invalid Content on Line %d: Content parsed to YAML, not to JSON\n%s" % (self.line_ctr, yaml_line)
-            if self.stop_on_error: raise Exception(msg)
-            LOG.warn(msg)
-            return
+        try:
+            valid_json = json.dumps(obj)
+            obj = yaml.load(valid_json)
+        finally:
+            if not obj:
+                msg = "Failed to Convert YAML to JSON on Line %d" % (self.line_ctr)
+                if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
+                if self.stop_on_error: raise Exception(msg)
+                LOG.warn(msg)
+                return
         return obj
     ## DEF
 
