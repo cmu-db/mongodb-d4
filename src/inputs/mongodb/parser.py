@@ -208,7 +208,7 @@ class Parser:
                 elif not self.skip_to_next:
                     self.process_content_line(line)
             except:
-                error_ctr += 1
+                self.error_ctr += 1
                 LOG.error("Unexpected error when processing line %d" % self.line_ctr)
                 raise
             finally:
@@ -536,14 +536,14 @@ class Parser:
     def yaml2json(self, yaml_line):
         # this is not a content line... it can't be yaml
         if not yaml_line.startswith("{"):
-            error_ctr += 1
+            self.error_ctr += 1
             msg = "Invalid Content on Line %d: JSON does not start with '{'" % self.line_ctr
             if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
             return
         elif not yaml_line.endswith("}"):
-            error_ctr += 1
+            self.error_ctr += 1
             msg = "Invalid Content on Line %d: JSON does not end with '}'" % self.line_ctr
             if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
@@ -553,7 +553,7 @@ class Parser:
         try:
             obj = yaml.load(yaml_line)
         except (yaml.scanner.ScannerError, yaml.parser.ParserError, yaml.reader.ReaderError) as err:
-            error_ctr += 1
+            self.error_ctr += 1
             msg = "Failed to parse YAML on Line %d - %s" % (self.line_ctr, err)
             if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
@@ -565,7 +565,7 @@ class Parser:
             obj = yaml.load(valid_json)
         finally:
             if not obj:
-                error_ctr += 1
+                self.error_ctr += 1
                 msg = "Failed to Convert YAML to JSON on Line %d" % (self.line_ctr)
                 if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
                 if self.stop_on_error: raise Exception(msg)
