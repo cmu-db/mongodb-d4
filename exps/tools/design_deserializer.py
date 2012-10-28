@@ -9,11 +9,8 @@ sys.path.append(os.path.join(basedir, "../../src/search"))
 from design import Design
 
 class Deserializer:
-    def __init__(self, file_path):
-        f = open(file_path, 'r')
-        lines = f.readlines()
-        f.close()
-        self.json_doc = json.loads(''.join(lines))
+    def __init__(self, json_string):
+        self.json_doc = json.loads(json_string)
     ## DEF
 
     def Deserialize(self):
@@ -28,7 +25,8 @@ class Deserializer:
         """
         for key, value in doc.iteritems():
             design.addCollection(key)
-            design.addIndex(key, value['indexes'])
+            for index in value['indexes']:
+                design.addIndex(key, index)
             design.addShardKey(key, value['shardKeys'])
             design.setDenormalizationParent(key, value['denorm'])
         ## FOR

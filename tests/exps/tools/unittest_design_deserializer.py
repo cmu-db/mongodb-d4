@@ -6,6 +6,7 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../../src"))
 sys.path.append(os.path.join(basedir, "../../../src/search"))
 sys.path.append(os.path.join(basedir, "../.."))
+sys.path.append(os.path.join(basedir, "../../../exps/tools"))
 
 from util import constants
 from tpcctestcase import TPCCTestCase
@@ -39,12 +40,12 @@ class FindExpectedDesign(TPCCTestCase):
         }
         cm = CostModel(self.collections, self.workload, cmConfig)
         d0 = self.getManMadeDesign()
-        f = open('/tmp/d4_test_deserializer.output', 'w')
-        f.write("%s" % d0)
-        f.close()
+        print d0
+        output_design = d0.toJSON() 
         cost0 = cm.overallCost(d0)
-        ds = Deserializer('/tmp/d4_test_deserializer.output')
+        ds = Deserializer(output_design)
         d1 = ds.Deserialize()
+        print d1
         cost1 = cm.overallCost(d1)
 
         self.assertEqual(cost1, cost0)

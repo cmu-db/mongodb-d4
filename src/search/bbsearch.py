@@ -175,14 +175,6 @@ class SimpleKeyIterator:
                 self.lastValue = None
             else:
                 self.current += 1
-                ## HACK HACK HACK
-                # This iterator doesn't consider this situation:
-                # if the denorm is None, it will return None twice, which will
-                # cause the same design to be executed twice
-                # So we want to change it to that if denorm is None, we will
-                # raise an exception here
-                if not self.lastValue and self.lastValue == self.keys[self.current - 1]:
-                    raise StopIteration
                 self.lastValue = self.keys[self.current - 1]
             self.first = False
             return self.lastValue

@@ -94,3 +94,12 @@ DEFAULT_PAGE_SIZE = 4096 # bytes
 
 # Window size in lru buffer: how many collection are preloaded into the buffer
 WINDOW_SIZE = 1024
+
+## ==============================================
+## CANDIDATES GENERATOR CONSTRAINTS
+## ==============================================
+MIN_SELECTIVITY = 0.25
+
+MAX_INDEX_SIZE = 5
+
+EXAUSTED_SEARCH_BAR = 4

@@ -70,7 +70,7 @@ class AbstractConverter():
                 v['query_use_count'] = 0
                 v['query_hash']  = 0
                 v['cardinality'] = 0
-                v['selectivity'] = 0
+                v['selectivity'] = 0.0
                 v['avg_size']    = 0
             col_info.save()
         ## FOR
@@ -253,6 +253,7 @@ class AbstractConverter():
             post-processing stuff in the AbstractConverter will populate
             the statistics information for each collection
         """
+        LOG.info("Extracting database schema catalog from workload trace")
         for colName in self.dataset_db.collection_names():
             # Skip ignored collections
             if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
@@ -304,9 +305,9 @@ class AbstractConverter():
         """
         if self.debug: LOG.debug("Extracting fields for document:\n%s" % pformat(doc))
         average_query_count = 0
-        num_items = 0
         total_query_count = 0
         for k,v in doc.iteritems():
+            # k is always a unicode string
             # Skip if this is the _id field
             if constants.SKIP_MONGODB_ID_FIELD and k == '_id': continue
 
@@ -335,14 +336,7 @@ class AbstractConverter():
             # of each field. We will use this later on to compute the weighted average
             if not 'size_histogram' in fields[k]:
                 fields[k]['size_histogram'] = Histogram()
-
-            ## TODO yang: Make this more accurate
-            num_items += 1
-            total_query_count += fields[k]['query_use_count']
-            average_query_count = total_query_count / num_items
-
-            if fields[k]['query_use_count'] > average_query_count and not k in col_info['interesting']:
-                col_info['interesting_tuple'].append((k, fields[k]['query_use_count']))
+            if fields[k]['query_use_count'] > 0 and not k in col_info['interesting']:
                 col_info['interesting'].append(k)
                 
             ## ----------------------------------------------
@@ -417,7 +411,6 @@ class AbstractConverter():
         ## FOR
     ## DEF
 
-
     def computeFieldStats(self, col_info, fields):
         """
             Recursively calculate the cardinality of each field.
@@ -436,14 +429,13 @@ class AbstractConverter():
                 else:
                     field['avg_size'] = 0
                 del field['size_histogram']
-
             # Use the distinct values set to determine cardinality + selectivity
             if 'distinct_values' in field:
                 field['cardinality'] = len(field['distinct_values'])
                 if not col_info['doc_count']:
-                    field['selectivity'] = 0
+                    field['selectivity'] = 0.0
                 else :
-                    field['selectivity'] = field['cardinality'] / col_info['doc_count']
+                    field['selectivity'] = float(field['cardinality']) / col_info['doc_count']
                 del field['distinct_values']
             if 'fields' in field and field['fields']:
                 self.computeFieldStats(col_info, field['fields'])
