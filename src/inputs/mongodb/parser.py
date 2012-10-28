@@ -110,6 +110,7 @@ class Parser:
         self.sess_limit = None
         self.op_limit = None
         self.recreated_db = None
+        self.error_ctr = 0
         self.stop_on_error = False
 
         # If set to true, then we will periodically save the Sessions out to the
@@ -207,11 +208,13 @@ class Parser:
                 elif not self.skip_to_next:
                     self.process_content_line(line)
             except:
+                error_ctr += 1
                 LOG.error("Unexpected error when processing line %d" % self.line_ctr)
                 raise
             finally:
                 # Checkpoint!
                 if self.save_checkpoints and self.line_ctr % 10000 == 0:
+                    LOG.info("Saving checkpoint at line %d [sessions=%d / ops=%d / errors=%d]", self.line_ctr, self.sess_ctr, self.op_ctr, self.error_ctr)
                     self.saveSessions(self.session_map.itervalues())
 
             if not self.sess_limit is None and self.sess_ctr >= self.sess_limit:
@@ -229,6 +232,8 @@ class Parser:
         self.postProcess()
         
         self.saveSessions(self.session_map.itervalues())
+        
+        LOG.info("Completed processing %d lines from workload trace [errors=%d]", self.line_ctr, self.error_ctr)
     ## DEF
     
     def saveSessions(self, sessions, noSplit=False):
@@ -531,12 +536,14 @@ class Parser:
     def yaml2json(self, yaml_line):
         # this is not a content line... it can't be yaml
         if not yaml_line.startswith("{"):
+            error_ctr += 1
             msg = "Invalid Content on Line %d: JSON does not start with '{'" % self.line_ctr
             if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
             return
         elif not yaml_line.endswith("}"):
+            error_ctr += 1
             msg = "Invalid Content on Line %d: JSON does not end with '}'" % self.line_ctr
             if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
@@ -546,6 +553,7 @@ class Parser:
         try:
             obj = yaml.load(yaml_line)
         except (yaml.scanner.ScannerError, yaml.parser.ParserError, yaml.reader.ReaderError) as err:
+            error_ctr += 1
             msg = "Failed to parse YAML on Line %d - %s" % (self.line_ctr, err)
             if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
@@ -557,6 +565,7 @@ class Parser:
             obj = yaml.load(valid_json)
         finally:
             if not obj:
+                error_ctr += 1
                 msg = "Failed to Convert YAML to JSON on Line %d" % (self.line_ctr)
                 if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
                 if self.stop_on_error: raise Exception(msg)
