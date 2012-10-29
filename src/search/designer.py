@@ -186,7 +186,7 @@ class Designer():
                         ## IF
                     ## FOR
                 ## FOR
-            self.__remove_bad_indexes__(single_indexes, indexKeys, sessions, col_info)
+                self.__remove_bad_indexes__(single_indexes, indexKeys, sessions, col_info)
             
             # deal with de-normalization
             if isDenormalizationEnabled:
