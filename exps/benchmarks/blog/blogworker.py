@@ -221,6 +221,9 @@ class BlogWorker(AbstractWorker):
             
             if config[self.name]["experiment"] == constants.EXP_INDEXING:
                 
+                LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name)
+                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                       
                 LOG.info("Creating index on (author) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
                 self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING)])
                 
