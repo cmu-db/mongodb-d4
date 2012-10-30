@@ -160,11 +160,12 @@ class Results:
         
         rate = 0
         if total_time > 0:
-            rate = self.opCount / float(total_time)
+            rate = total_cnt / float(total_time)
             # TXN RATE rate = total_cnt / float(total_time)
         #total_rate = "%.02f txn/s" % rate
         total_rate = "%.02f op/s" % rate
-        ret += f % ("TOTAL", str(total_cnt), str(total_time * 1000), total_rate)
+        #total_rate = str(rate)
+        ret += f % ("TOTAL", str(total_cnt), str(total_time*1000), total_rate)
 
         return (ret.encode('utf-8'))
 ## CLASS
