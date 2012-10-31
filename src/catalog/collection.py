@@ -36,18 +36,9 @@ class Collection(Document):
                 'parent_key':       basestring, # TODO(ckeith)
                 'parent_conf':      float,      # TODO(ckeith)
             }
-        },
-        ## ----------------------------------------------
-        ## CANDIDATES
-        ## ----------------------------------------------
-        'candidates': {
-            basestring: {
-                'indexes':          [basestring], # Indexes
-                'selectivity':      float,  # The number of unique tuples / tuple count
-                'candidates':       dict,   # Nested candidates
-            }
         }
     }
+    
     required_fields = [
         'name', 'doc_count'
     ]
