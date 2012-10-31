@@ -149,7 +149,6 @@ class AbstractConverter():
 
             # Get the collection information object
             # We will use this to store the number times each key is referenced in a query
-            print "col_name: ", colName
             col_info = self.metadata_db.Collection.one({'name': colName})
             assert col_info
 

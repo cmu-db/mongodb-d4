@@ -338,7 +338,7 @@ class Designer():
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
 
-        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, reordered_design, upper_bound, LNSEARCH_TIME_OUT)
+        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, LNSEARCH_TIME_OUT)
         solution = ln.solve()
 
         return solution
