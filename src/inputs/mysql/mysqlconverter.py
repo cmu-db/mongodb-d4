@@ -53,7 +53,7 @@ class MySQLConverter(AbstractConverter):
         self.dbName = dbName
         self.dbUser = dbUser
         self.dbPass = dbPass
-        self.mysql_conn = mdb.connect(host=dbHost, port=dbPort, db=dbName, user=dbUser, passwd=dbPass)
+        self.mysql_conn = mdb.connect(host=dbHost, port=dbPort, db=dbName, user=dbUser, passwd=dbPass, charset='utf8')
         self.next_query_id = 1000l
         
         # LOG.setLevel(logging.DEBUG)
@@ -157,16 +157,24 @@ class MySQLConverter(AbstractConverter):
             
             if len(batch) >= batchSize:
                 if self.debug: LOG.debug("Inserting new batch with %d records to %s [%d / %d]", len(batch), tbl_name, row_ctr, row_total)
-                col_data.insert(batch)
+                try:
+                    col_data.insert(batch)
+                except:
+                    LOG.warn("Failed to insert data into '%s'\n%s", tbl_name, pformat(batch))
+                    raise
                 batch = [ ]
         ## ENDFOR
         if len(batch) > 0: 
             if self.debug: LOG.debug("Inserting new batch with %d records to %s [%d / %d]", len(batch), tbl_name, row_ctr, row_total)
-            col_data.insert(batch)
+            try:
+                col_data.insert(batch)
+            except:
+                LOG.warn("Failed to insert data into '%s'\n%s", tbl_name, pformat(batch))
+                raise
         assert row_total == row_ctr
         LOG.info("Sucessfully copied %d rows from table '%s' into MongoDB", row_ctr, tbl_name)
     ## DEF
-
+    
     def extractForeignKeys(self):
         LOG.info("Extracting foreign keys from MySQL")
         
