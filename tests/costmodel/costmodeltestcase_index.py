@@ -50,10 +50,10 @@ class CostModelTestCase(MongoDBTestCase):
 
             responseContent = {"_id": _id}
             responseId = (queryId<<8)
-            
+
             for j in xrange(2):
                 f_name_target = "field%02d" % j
-            
+
                 responseContent[f_name_target] = random.randint(0, 100)
                 queryContent[f_name_target] = responseContent[f_name_target]
                 queryPredicates[f_name_target] = constants.PRED_TYPE_EQUALITY
@@ -77,7 +77,7 @@ class CostModelTestCase(MongoDBTestCase):
             timestamp += 2
             sess.save()
         ## FOR (sess)
-        
+
         # Use the MongoSniffConverter to populate our metadata
         converter = MongoSniffConverter(self.metadata_db, self.dataset_db)
         converter.no_mongo_parse = True
@@ -104,7 +104,7 @@ class CostModelTestCase(MongoDBTestCase):
             'skew_intervals': CostModelTestCase.NUM_INTERVALS,
             'address_size':   64,
             'nodes':          CostModelTestCase.NUM_NODES,
-            'window_size':    10
+            'window_size':    5
         }
 
         self.state = State(self.collections, populated_workload, self.costModelConfig)

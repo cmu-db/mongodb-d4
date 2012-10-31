@@ -58,11 +58,11 @@ class DiskCostComponent(AbstractCostComponent):
             self.buffers.append(lru)
     ## DEF
 
-    
+
     def reset(self):
         for buf in self.buffers:
             buf.reset()
-            
+
     def getCostImpl(self, design):
         """
             Estimate the Disk Cost for a design and a workload
@@ -125,7 +125,7 @@ class DiskCostComponent(AbstractCostComponent):
         totalWorst = 0
         totalCost = 0
         sess_ctr = 0
-        
+
         for sess in self.state.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
@@ -221,7 +221,7 @@ class DiskCostComponent(AbstractCostComponent):
                             if self.debug:
                                 LOG.debug("Node #%02d: Estimated %d collection scan pageHits for op #%d on %s",\
                                     node_id, hits, op["query_id"], op["collection"])
-                        
+
                         # We have a covering index, which means that we don't have
                         # to do a look-up on the document in the collection.
                         # But we still need to increase maxHits so that the final
@@ -255,7 +255,7 @@ class DiskCostComponent(AbstractCostComponent):
         evicted = sum([ lru.evicted for lru in self.buffers ])
         LOG.info("Computed Disk Cost: %s [pageHits=%d / worstCase=%d / evicted=%d]",\
                  final_cost, totalCost, totalWorst, evicted)
-        
+
         return final_cost
     ## DEF
 
@@ -298,12 +298,14 @@ class DiskCostComponent(AbstractCostComponent):
                 op_index_list.append(key)
         # add the projection keys into op_index_set
         # The op["query_fileds"] is the projection
+        hasProjectionField = False
         projectionFields = op.get('query_fields', None)
 
         if projectionFields:
+            hasProjectionField = True
             for key in projectionFields.iterkeys():
                 op_index_list.append(key)
-            
+
         best_index = None
         best_ratio = None
         for i in xrange(len(indexes)):
@@ -313,7 +315,7 @@ class DiskCostComponent(AbstractCostComponent):
                 # We can't use a field if it's being used in a regex operation
                 if indexMatch and not workload.isOpRegex(op, field=indexKey):
                     field_cnt += 1
-                
+
                 if not indexMatch or field_cnt >= len(op_index_list):
                     break
             field_ratio = field_cnt / float(len(indexes[i]))
@@ -323,7 +325,7 @@ class DiskCostComponent(AbstractCostComponent):
                 if field_ratio == best_ratio:
                     if len(indexes[i]) < len(best_index):
                         continue
-                
+
                 if field_ratio != 0:
                     best_index = indexes[i]
                     best_ratio = field_ratio
@@ -334,22 +336,25 @@ class DiskCostComponent(AbstractCostComponent):
 
         # Check whether this is a covering index
         covering = False
-        if best_index and op['type'] == constants.OP_TYPE_QUERY:
-            # Extract the indexes from best_index
-            best_index_list = []
-            for index in best_index:
-                best_index_list.append(index)
-            
-            if len(op_index_list) <= len(best_index_list):
-                counter = 0
-                while counter < len(op_index_list):
-                    if op_index_list[counter] != best_index_list[counter]:
-                        break
-                    counter += 1
-                        
-                if counter == len(op_index_list):
-                    covering = True
+        if hasProjectionField:
+            if best_index and op['type'] == constants.OP_TYPE_QUERY:
+                # Extract the indexes from best_index
+                best_index_list = []
+                for index in best_index:
+                    best_index_list.append(index)
+
+                if len(op_index_list) <= len(best_index_list):
+                    counter = 0
+                    while counter < len(op_index_list):
+                        if op_index_list[counter] != best_index_list[counter]:
+                            break
+                        counter += 1
+
+                    if counter == len(op_index_list):
+                        covering = True
+                ## IF
             ## IF
+        ## IF
 
         return best_index, covering
     ## DEF

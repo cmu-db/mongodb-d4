@@ -35,28 +35,28 @@ class CostModelTestCase(MongoDBTestCase):
 
         # WORKLOAD
         timestamp = time.time()
-        
+
         sess = self.metadata_db.Session()
         sess['session_id'] = 0
         sess['ip_client'] = "client:%d" % (1234+0)
         sess['ip_server'] = "server:5678"
         sess['start_time'] = timestamp
-        
+
         # generate query 0 querying field00
         _id = str(random.random())
         queryId = long((0<<16) + 0)
         queryContent = { }
         queryPredicates = { }
         projectionField = { }
-        
+
         responseContent = {"_id": _id}
         responseId = (queryId<<8)
-        
+
         responseContent['field00'] = random.randint(0, 100)
         queryContent['field00'] = responseContent['field00']
         queryPredicates['field00'] = constants.PRED_TYPE_EQUALITY
         projectionField['field02'] = random.randint(0, 100)
-        
+
         queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
         op = Session.operationFactory()
         op['collection']    = CostModelTestCase.COLLECTION_NAME
@@ -70,24 +70,24 @@ class CostModelTestCase(MongoDBTestCase):
         op['query_fields']   = projectionField
         timestamp += 1
         op['resp_time']    = timestamp
-        
+
         sess['operations'].append(op)
-        
+
         # generate query 1 querying field01
         _id = str(random.random())
-        queryId = long((1<<16) + 0)
+        queryId = long((1<<16) + 1)
         queryContent = { }
         queryPredicates = { }
-        
+
         responseContent = {"_id": _id}
         responseId = (queryId<<8)
         projectionField = { }
-        
+
         responseContent['field01'] = random.randint(0, 100)
         queryContent['field01'] = responseContent['field01']
         queryPredicates['field01'] = constants.PRED_TYPE_EQUALITY
         projectionField['field02'] = random.randint(0, 100)
-        
+
         queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
         op = Session.operationFactory()
         op['collection']    = CostModelTestCase.COLLECTION_NAME
@@ -101,19 +101,19 @@ class CostModelTestCase(MongoDBTestCase):
         op['query_fields']   = projectionField
         timestamp += 1
         op['resp_time']    = timestamp
-        
+
         sess['operations'].append(op)
-        
+
         # generate query 2 querying field00, field01
         _id = str(random.random())
-        queryId = long((2<<16) + 0)
+        queryId = long((2<<16) + 2)
         queryContent = { }
         queryPredicates = { }
         projectionField = { }
-        
+
         responseContent = {"_id": _id}
         responseId = (queryId<<8)
-        
+
         responseContent['field01'] = random.randint(0, 100)
         queryContent['field01'] = responseContent['field01']
         queryPredicates['field01'] = constants.PRED_TYPE_EQUALITY
@@ -121,9 +121,9 @@ class CostModelTestCase(MongoDBTestCase):
         responseContent['field00'] = random.randint(0, 100)
         queryContent['field00'] = responseContent['field01']
         queryPredicates['field00'] = constants.PRED_TYPE_EQUALITY
-        
+
         projectionField['field02'] = random.randint(0, 100)
-        
+
         queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
         op = Session.operationFactory()
         op['collection']    = CostModelTestCase.COLLECTION_NAME
@@ -137,14 +137,51 @@ class CostModelTestCase(MongoDBTestCase):
         op['query_fields']   = projectionField
         timestamp += 1
         op['resp_time']    = timestamp
-        
+
         sess['operations'].append(op)
-        
+
         sess['end_time'] = timestamp
-        timestamp += 2
-        
+        timestamp += 1
+
+        # generate query 2 querying field00, field01 but without projection field
+        _id = str(random.random())
+        queryId = long((2<<16) + 3)
+        queryContent = { }
+        queryPredicates = { }
+        projectionField = { }
+
+        responseContent = {"_id": _id}
+        responseId = (queryId<<8)
+
+        responseContent['field01'] = random.randint(0, 100)
+        queryContent['field01'] = responseContent['field01']
+        queryPredicates['field01'] = constants.PRED_TYPE_EQUALITY
+
+        responseContent['field00'] = random.randint(0, 100)
+        queryContent['field00'] = responseContent['field01']
+        queryPredicates['field00'] = constants.PRED_TYPE_EQUALITY
+
+        queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
+        op = Session.operationFactory()
+        op['collection']    = CostModelTestCase.COLLECTION_NAME
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = queryId
+        op['query_content'] = [ queryContent ]
+        op['resp_content']  = [ responseContent ]
+        op['resp_id']       = responseId
+        op['predicates']    = queryPredicates
+        op['query_time']    = timestamp
+        op['query_fields']   = projectionField
+        timestamp += 1
+        op['resp_time']    = timestamp
+
+        sess['operations'].append(op)
+
+        sess['end_time'] = timestamp
+        timestamp += 1
+
         sess.save()
-        
+
         # Use the MongoSniffConverter to populate our metadata
         converter = MongoSniffConverter(self.metadata_db, self.dataset_db)
         converter.no_mongo_parse = True
