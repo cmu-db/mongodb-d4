@@ -23,12 +23,14 @@
 # -----------------------------------------------------------------------
 import itertools
 import logging
+import operator
 from pprint import pformat
 
 # mongodb-d4
 import workload
 import catalog
 from initialdesigner import InitialDesigner
+from design import Design
 from lnsdesigner import LNSDesigner
 from randomdesigner import RandomDesigner
 from costmodel import CostModel
@@ -52,19 +54,19 @@ class Designer():
     def __init__(self, config, metadata_db, dataset_db):
         # SafeConfigParser
         self.config = config
-        
+
         # The metadata database will contain:
         #   (1) Collection catalog
         #   (2) Workload sessions
         #   (3) Workload stats
         self.metadata_db = metadata_db
-        
+
         # The dataset database will contain a reconstructed
         # invocation of the database.
         # We need this because the main script will need to
         # compute whatever stuff that it needs
         self.dataset_db = dataset_db
-        
+
         self.initialSolution = None
         self.finalSolution = None
 
@@ -80,7 +82,7 @@ class Designer():
 
     def setOptionsFromArguments(self, args):
         """Set the internal parameters of the Designer based on command-line arguments"""
-        
+
         # HACK HACK HACK HACK
         skip = set(["config", "metadata_db", "dataset_db"])
         for key in args:
@@ -147,23 +149,24 @@ class Designer():
             page_size=self.page_size,
         )
     ## DEF
+
     def generateDesignCandidates(self, collections, sessions, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
 
         dc = DesignCandidates()
-            
+
         for col_info in collections.itervalues():
-            
+
             shardKeys = []
             indexKeys = []
             denorm = []
-            
-            interesting = col_info['interesting']
-            # Make sure that none of our interesting fields start with 
+
+            interesting = self.__remove_single_keys_with_low_selectivity__(col_info, col_info['interesting'])
+            # Make sure that none of our interesting fields start with
             # the character that we used to convert $ commands
             for key in interesting:
                 assert not key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX), \
                     "Unexpected candidate key '%s.%s'" % (col_info["name"], key)
-            
+
             if constants.SKIP_MONGODB_ID_FIELD and "_id" in interesting:
                 interesting = interesting[:]
                 interesting.remove("_id")
@@ -175,19 +178,9 @@ class Designer():
 
             # deal with indexes
             if isIndexesEnabled:
-                single_indexes = []
-                LOG.debug("Indexes is enabled")
-                for o in xrange(1, len(interesting) + 1) :
-                    if o > constants.MAX_INDEX_SIZE: break
-                    for i in itertools.permutations(interesting, o):
-                        indexKeys.append(i)
-                        if o == 1:
-                            single_indexes.append(i[0])
-                        ## IF
-                    ## FOR
-                ## FOR
-                self.__remove_bad_indexes__(single_indexes, indexKeys, sessions, col_info)
-            
+                indexKeys.extend(self.__get_proper_compound_keys__(col_info['candidates']))
+                self.__remove_bad_indexes__(col_info['interesting'], indexKeys, sessions, col_info)
+                indexKeys.extend(interesting)
             # deal with de-normalization
             if isDenormalizationEnabled:
                 LOG.debug("Denormalization is enabled")
@@ -198,7 +191,35 @@ class Designer():
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
             ## FOR
         return dc
-    
+
+    def __remove_single_keys_with_low_selectivity__(self, col_info, keys):
+        res = keys[:]
+        for key in keys:
+            if col_info['fields'][key]['selectivity'] < constants.MIN_SELECTIVITY:
+                res.remove(key)
+            ## IF
+        ## FOR
+        return res
+    ## DEF
+
+    def __get_proper_compound_keys__(self, candidates):
+        indexes = []
+        counter_v = 0
+        counter_i = 0
+        for k, candidate in candidates.iteritems():
+            if candidate['selectivity'] >= constants.MIN_SELECTIVITY:
+                indexes.append(candidate['indexes'])
+                counter_v += 1
+            else:
+                counter_i += 1
+            ## IF
+            if len(candidate['candidates']) > 0:
+                indexes.entend(self.__remove_compound_keys_with_low_selectivity__(candidate['candidates']))
+            ## IF
+        ## FOR
+        return indexes
+    ## DEF
+
     def __remove_bad_indexes__(self, single_indexes, indexKeys, sessions, col_info):
         """
             Here we want to remove some logically or heuristically bad indexes
@@ -206,25 +227,17 @@ class Designer():
         copy_indexKeys = indexKeys[:]
         map_indexesEverUsedByItself = self.__getDictOfIndexesEverUsedByItself__(single_indexes, sessions)
         for index in copy_indexKeys:
-            if len(index) == 1:    
-                # if the index only has one key, we remove those with trivial selectivity
-                if col_info['fields'][index[0]] < constants.MIN_SELECTIVITY:
-                    indexKeys.remove(index)
-            ## IF
-            else:
-            # If the index has more than one keys, we remove index based on the following logic
             # If we have an index (f0, f1). Check if f0 is always used together with f1 and f1 is
             # ever used individually. If yes, we want to remove this index. If no, keep this index
-                if map_indexesEverUsedByItself[index[0]]: continue                
-                
-                for i in xrange(1, len(index)):
-                    if map_indexesEverUsedByItself[index[i]]:
-                            indexKeys.remove(index)
-                    ## IF
-                ## FOR
-            ## ELSE
+            if map_indexesEverUsedByItself[index[0]]: continue
+
+            for i in xrange(1, len(index)):
+                if map_indexesEverUsedByItself[index[i]]:
+                        indexKeys.remove(index)
+                ## IF
+            ## FOR
     ## DEF
-    
+
     def __getDictOfIndexesEverUsedByItself__(self, single_indexes, sessions):
         map_indexesEverUsedByItself = dict([[x, False] for x in single_indexes])
         for sess in sessions:
@@ -241,9 +254,9 @@ class Designer():
                 ## FOR
             ## FOR
         ## FOR
-        return map_indexesEverUsedByItself           
+        return map_indexesEverUsedByItself
     ## DEF
-    
+
     def loadCollections(self):
         collections = dict()
         for col_info in self.metadata_db.Collection.fetch():
@@ -259,7 +272,7 @@ class Designer():
             LOG.info("Loaded %d collections from metadata catalog" % len(collections))
         return collections
     ## DEF
-    
+
     def loadWorkload(self, collections):
         # We want to bring down all of the sessions that we are going to use to compute the
         # cost of each design
@@ -288,11 +301,11 @@ class Designer():
 
     def search(self):
         """Perform the actual search for a design"""
-        
+
         isShardingEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_sharding')
         isIndexesEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_indexes')
         isDenormalizationEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_denormalization')
-        
+
         collections = self.loadCollections()
         workload = self.loadWorkload(collections)
         # Generate all the design candidates
@@ -316,17 +329,16 @@ class Designer():
 
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
-        
+
         initialDesign = InitialDesigner(collections, workload, self.config).generate()
         LOG.info("Initial Design\n%s", initialDesign)
         upper_bound = cm.overallCost(initialDesign)
         LOG.info("Computed initial design [COST=%s]", upper_bound)
-
 #        cm.debug = True
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
-        
-        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, LNSEARCH_TIME_OUT)
+
+        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, reordered_design, upper_bound, LNSEARCH_TIME_OUT)
         solution = ln.solve()
 
         return solution

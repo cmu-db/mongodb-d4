@@ -20,7 +20,7 @@ class Collection(Document):
         'workload_queries': int,       # The number operations that reference this collection
         'workload_percent': float,     # The percentage of the total workload that touch this collection
         'interesting':      [basestring], # TODO(ckeith)
-        
+
         ## ----------------------------------------------
         ## FIELDS
         ## ----------------------------------------------
@@ -36,14 +36,17 @@ class Collection(Document):
                 'parent_key':       basestring, # TODO(ckeith)
                 'parent_conf':      float,      # TODO(ckeith)
             }
+        },
+        ## ----------------------------------------------
+        ## CANDIDATES
+        ## ----------------------------------------------
+        'candidates': {
+            basestring: {
+                'indexes':          [basestring], # Indexes
+                'selectivity':      float,  # The number of unique tuples / tuple count
+                'candidates':       dict,   # Nested candidates
+            }
         }
-        
-        #'canidates': {
-            #'index_keys': {
-                #int: [basestring],
-            #}
-            #'shard_keys': 
-        #}
     }
     required_fields = [
         'name', 'doc_count'

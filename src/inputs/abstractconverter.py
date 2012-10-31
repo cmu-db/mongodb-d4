@@ -101,6 +101,9 @@ class AbstractConverter():
         # STEP 3: Process dataset
         self.extractSchemaCatalog()
 
+        # STEP 4: Process design candidates
+        self.generateDesignCandidates()
+
         # Finalize workload percentage statistics for each collection
         percent_total = 0.0
         for col_info in self.metadata_db.Collection.find():
@@ -136,6 +139,123 @@ class AbstractConverter():
             LOG.debug("Query Class Histogram:\n%s" % self.hasher.histogram)
     ## DEF
 
+    def generateDesignCandidates(self):
+        LOG.info("Generating Design Candidates...")
+        for colName in self.dataset_db.collection_names():
+            # Skip ignored collections
+            if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
+                continue
+            LOG.info("Generating design candidates for collection '%s'", colName)
+
+            # Get the collection information object
+            # We will use this to store the number times each key is referenced in a query
+            print "col_name: ", colName
+            col_info = self.metadata_db.Collection.one({'name': colName})
+            assert col_info
+
+            # Examine each document in the dataset for this collection
+            for doc in self.dataset_db[colName].find():
+                if not 'candidates' in col_info:
+                    col_info['candidates'] = { }
+                self.processCandidatesField(col_info, col_info['candidates'], doc)
+            ## FOR
+
+            # Calculate cardinality and selectivity
+            self.computeCompondFieldsStats(col_info['candidates'])
+
+            if self.debug:
+                LOG.debug("Saved new catalog entry for collection '%s'" % colName)
+            col_info.save()
+        ## FOR
+        ## FOR
+    ## DEF
+
+    def computeCandidatesData(self, doc, valid_keys, candidates, key_window, value_window, level):
+        if level == 0:
+            key = ''.join(key_window)
+            if not key in candidates:
+                candidates[key] = { }
+            if not 'distinct_values' in candidates[key]:
+                candidates[key]['distinct_values'] = set()
+            if not 'total_values' in candidates[key]:
+                candidates[key]['total_values'] = 0
+            if not 'indexes' in candidates[key]:
+                candidates[key]['indexes'] = list(key_window)[:]
+
+            candidates[key]['distinct_values'].add(tuple(value_window))
+            candidates[key]['total_values'] += 1
+        else:
+            for k, v in doc.iteritems():
+                if k in valid_keys and k not in key_window:
+                    f_type = type(v)
+                    if f_type == dict:
+                        # Check for a special data field
+                        if len(v) == 1 and v.keys()[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                            v = v[v.keys()[0]]
+                            key_window.append(k)
+                            value_window.append(v)
+
+                            self.computeCandidatesData(doc, valid_keys, candidates, key_window, value_window, level - 1)
+                            key_window.remove(k)
+                            value_window.remove(v)
+                            ## IF
+                        else:
+                            if not 'candidates' in candidates:
+                                candidates['candidates'] = { }
+                            self.processCandidatesField(col_info, candidates[k]['candidates'], doc[k])
+                        ## ELSE
+                    elif f_type == list:
+                        for i in xrange(len(doc[k])):
+                            inner_type = type(doc[k][i])
+                            if inner_type == dict:
+                                if not 'candidates' in candidates:
+                                    candidates['candidates'] = { }
+                                self.processCandidatesField(col_info, candidates[k]['candidates'], doc[k][i])
+                            else:
+                                key_window.append(k)
+                                value_window.append(v[i])
+
+                                self.computeCandidatesData(doc, valid_keys, candidates, key_window, value_window, level - 1)
+                                key_window.remove(k)
+                                value_window.remove(v[i])
+                            ## ELSE
+                        ## FOR
+                    else:
+                        key_window.append(k)
+                        value_window.append(v)
+                        self.computeCandidatesData(doc, valid_keys, candidates, key_window, value_window, level - 1)
+                        key_window.remove(k)
+                        value_window.remove(v)
+                    ## ELSE
+                ## FOR
+            ## IF
+        ## FOR
+    ## DEF
+
+    def processCandidatesField(self, col_info, candidates, doc):
+        key_window = [ ]
+        value_window = [ ]
+
+        for i in xrange(2, constants.MAX_INDEX_SIZE):
+            self.computeCandidatesData(doc, col_info['interesting'], candidates, key_window, value_window, i)
+            ## FOR
+        ## DEF
+    ## DEF
+
+    def computeCompondFieldsStats(self, candidates):
+        for k, candidate in candidates.iteritems():
+            if 'candidates' in candidates[k] and len(candidates[k]['candidates']) > 0:
+                self.computeCompondFieldsStats(candidate)
+            else:
+                candidate['selectivity'] = float(len(candidate['distinct_values'])) / candidate['total_values']
+                if not 'candidates' in candidate:
+                    candidate['candidates'] = { }
+                del candidate['distinct_values']
+                del candidate['total_values']
+        ## FOR
+    ## DEF
+
+    ## DEF
     def computeWorkloadStats(self):
         """Process Workload Trace"""
         LOG.info("Computing database statistics from workload trace")
@@ -307,7 +427,6 @@ class AbstractConverter():
         average_query_count = 0
         total_query_count = 0
         for k,v in doc.iteritems():
-            # k is always a unicode string
             # Skip if this is the _id field
             if constants.SKIP_MONGODB_ID_FIELD and k == '_id': continue
 
@@ -338,7 +457,7 @@ class AbstractConverter():
                 fields[k]['size_histogram'] = Histogram()
             if fields[k]['query_use_count'] > 0 and not k in col_info['interesting']:
                 col_info['interesting'].append(k)
-                
+
             ## ----------------------------------------------
             ## NESTED FIELDS
             ## ----------------------------------------------
