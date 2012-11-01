@@ -373,7 +373,7 @@ class BBNode():
             # ShARDKEY ITERATION
             try:
                 shardKey = None
-                while sharKey == None:
+                while shardKey == None:
                     shardKey = self.shardIter.next()
             except:
                 self.shardIter.rewind()
