@@ -254,6 +254,9 @@ class MySQLConverter(AbstractConverter):
                     query = mongo.process_sql(sql)
                 except (NameError, KeyError, IndexError) as e :
                     success = False
+                except Exception as e:
+                    LOG.error("Failed to process SQL:\n" + sql)
+                    raise
                 if success:
                     if mongo.query_type <> 'UNKNOWN' :
                         operations = mongo.generate_operations(timestamp)
