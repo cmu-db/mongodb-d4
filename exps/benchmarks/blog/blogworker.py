@@ -387,11 +387,13 @@ class BlogWorker(AbstractWorker):
             skewfactor = float(config[self.name]["skew"])
             skewrandom = random.random()
             if skewrandom > skewfactor:
+                 LOG.debug("random~~~")
                  author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
                  tag = self.tags[int(random.randint(0,constants.NUM_AUTHORS-1))]
             else:
+                 LOG.debug("zipfian~~~")
                  author = self.authors[self.authorZipf.next()]
-                 tag = self.tags[self.authorZipf.next()] 
+                 tag = self.tags[self.tagZipf.next()] 
             opName = "readArticlesByAuthorAndTag"
             return (opName, (author,tag))
             
@@ -544,8 +546,8 @@ class BlogWorker(AbstractWorker):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
    
     def readArticlesByAuthorAndTag(self,denormalize,author,tag):
-        #LOG.info("author~"+str(author))
-        #LOG.info("tag~"+str(tag))
+        LOG.debug("author~"+str(author))
+        LOG.debug("tag~"+str(tag))
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"tags": tag})
    
     
