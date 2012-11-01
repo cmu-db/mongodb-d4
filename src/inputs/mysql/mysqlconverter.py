@@ -204,10 +204,15 @@ class MySQLConverter(AbstractConverter):
         
     def extractWorkload(self):
         LOG.info("Extracting workload from MySQL query log")
+        
+        cur = self.mysql_conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM %s.%s" % (self.dbName, MYSQL_LOG_TABLE_NAME))
+        row_total = cur.fetchone()[0]
+        cur.close()
 
         # All the timestamps should be relative to the first timestamp
         cur = self.mysql_conn.cursor()
-        cur.execute("SELECT MIN(event_time) FROM %s" % MYSQL_LOG_TABLE_NAME)
+        cur.execute("SELECT MIN(event_time) FROM %s.%s" % (self.dbName, MYSQL_LOG_TABLE_NAME))
         start_timestamp = float(cur.fetchone()[0].strftime("%s"))
         cur.close()
         if self.debug: LOG.debug("Workload Start Timestamp: %s", start_timestamp)
@@ -221,6 +226,7 @@ class MySQLConverter(AbstractConverter):
         hostIP = utilmethods.detectHostIP()
         tbl_cols = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
         mongo = sql2mongo.Sql2Mongo(tbl_cols)
+        query_ctr = 0
         for row in c4:
             timestamp = start_timestamp - float(row[0].strftime("%s"))
             
@@ -256,7 +262,14 @@ class MySQLConverter(AbstractConverter):
                     success = False
                 except Exception as e:
                     LOG.error("Failed to process SQL:\n" + sql)
-                    raise
+                    success = False
+                    pass
+                    #raise
+                finally:
+                    query_ctr += 1
+                    if query_ctr % 50000 == 0:
+                        LOG.info("Processed %d / %d queries [%d%%]", query_ctr, row_total, 100*query_ctr/float(row_total))
+                        
                 if success:
                     if mongo.query_type <> 'UNKNOWN' :
                         operations = mongo.generate_operations(timestamp)
