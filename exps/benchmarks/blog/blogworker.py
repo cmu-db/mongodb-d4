@@ -395,7 +395,6 @@ class BlogWorker(AbstractWorker):
             opName = "readArticlesByAuthorAndTag"
             return (opName, (author,tag))
             
-            
             #read = False
             
             #if readwriterandom < readpercent:
@@ -486,7 +485,6 @@ class BlogWorker(AbstractWorker):
                 #opName="incViewsArticle"
                 #return (opName, (articleId)) 
             #do the increase of views
-        return
    ## DEF
         
     def executeImpl(self, config, op, params):
@@ -500,7 +498,7 @@ class BlogWorker(AbstractWorker):
         m = getattr(self, op)
         assert m != None, "Invalid operation name '%s'" % op
         try:
-            result = m(config[self.name]["denormalize"], params)
+            result = m(config[self.name]["denormalize"], *params)
         except:
             LOG.warn("Unexpected error when executing %s" % op)
             raise
@@ -546,6 +544,8 @@ class BlogWorker(AbstractWorker):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
    
     def readArticlesByAuthorAndTag(self,denormalize,author,tag):
+        #LOG.info("author~"+str(author))
+        #LOG.info("tag~"+str(tag))
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"tags": tag})
    
     
