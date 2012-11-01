@@ -227,7 +227,11 @@ class MySQLConverter(AbstractConverter):
             if row[2] <> thread_id :
                 thread_id = row[2]
                 if not first:
-                    if len(session['operations']) > 0 :
+                    if len(session['operations']) > 0:
+                        if session['start_time'] is None:
+                            session['start_time'] = session['operations'][0]['query_time']
+                        if session['end_time'] is None:
+                            session['end_time'] = session['operations'][-1]['query_time']
                         session.save()
                         uid += 1
                     ## ENDIF
@@ -238,8 +242,8 @@ class MySQLConverter(AbstractConverter):
                 session['ip_client'] = utilmethods.stripIPtoUnicode(row[1])
                 session['ip_server'] = hostIP
                 session['session_id'] = uid
-                session['start_time'] = 0.0
-                session['end_time'] = 0.0
+                session['start_time'] = None
+                session['end_time'] = None
                 session['operations'] = []
             ## ENDIF
             
@@ -260,7 +264,7 @@ class MySQLConverter(AbstractConverter):
                             op['query_type'] = mongo.get_op_type(mongo.query_type)
                             op['query_id'] = self.next_query_id
                             session['operations'].append(op)
-                            if not session['start_time'] and op['query_time']:
+                            if session['start_time'] is None and op['query_time']:
                                 session['start_time'] = op['query_time']
                             session['end_time'] = op['query_time']
                             self.next_query_id += 1
@@ -268,6 +272,10 @@ class MySQLConverter(AbstractConverter):
                     elif row[5].strip().lower() == 'commit' :
                         if len(session['operations']) > 0 :
                             #if self.debug: LOG.debug("start_time: %s", session['start_time'])
+                            if session['start_time'] is None:
+                                session['start_time'] = session['operations'][0]['query_time']
+                            if session['end_time'] is None:
+                                session['end_time'] = session['operations'][-1]['query_time']
                             session.save()
                             uid += 1
                         ## ENDIF
@@ -275,6 +283,8 @@ class MySQLConverter(AbstractConverter):
                         session['ip_client'] = utilmethods.stripIPtoUnicode(row[1])
                         session['ip_server'] = hostIP
                         session['session_id'] = uid
+                        session['start_time'] = None
+                        session['end_time'] = None
                         session['operations'] = []
                     ## ENDIF
                 ## ENDIF
