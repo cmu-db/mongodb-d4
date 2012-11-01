@@ -22,7 +22,7 @@ class TestCompoundKeyIterator (unittest.TestCase):
         pass
     ## DEF
 
-    def testIfWeFindAllInvalidCombinations(self):
+    def testIfWeFindAllInvalidCombinationsWithInterestingKeys_2(self):
         '''
             The compoundKeyIterator tries to get all the possible combinations of the given keys
             but it is proper to evaluate some combinations, like ((f0), (f0, f1)).
@@ -33,11 +33,8 @@ class TestCompoundKeyIterator (unittest.TestCase):
             singleCandidateKeys.append("f" + str(i))
 
         candidateKeys = self.__calculate_permutations__(singleCandidateKeys)
-        print "candidateKeys: ", len(candidateKeys)
         originalkeys = self.__calculate_combinations__(candidateKeys)
-        print "originalkeys: ", len(originalkeys)
         iterator = bbsearch.CompoundKeyIterator(candidateKeys, -1)
-        print "invalide keys: ", len(iterator.invalidCombinations)
         
         valid_keys = [ ]
         while True:
@@ -51,7 +48,106 @@ class TestCompoundKeyIterator (unittest.TestCase):
                     self.assertTrue(res not in iterator.invalidCombinations)
             except StopIteration:
                 break
-        print "valid_keys: ", len(valid_keys)
+        
+        self.assertEqual(len(valid_keys) + len(iterator.invalidCombinations), len(originalkeys))
+    ## DEF
+    
+    def testIfWeFindAllInvalidCombinationsWithInterestingKeys_3(self):
+        singleCandidateKeys = [ ]
+        for i in xrange(3):
+            singleCandidateKeys.append("f" + str(i))
+
+        candidateKeys = self.__calculate_permutations__(singleCandidateKeys)
+        originalkeys = self.__calculate_combinations__(candidateKeys)
+        iterator = bbsearch.CompoundKeyIterator(candidateKeys, -1)
+        
+        valid_keys = [ ]
+        while True:
+            try:
+                res = None
+                while res == None:
+                    res = iterator.next()
+                ## WHILE
+                if len(res) != 0:
+                    valid_keys.append(res)
+                    self.assertTrue(res not in iterator.invalidCombinations)
+            except StopIteration:
+                break
+        
+        self.assertEqual(len(valid_keys) + len(iterator.invalidCombinations), len(originalkeys))
+    ## DEF
+    
+    def testIfWeFindAllInvalidCombinationsWithInterestingKeys_4(self):
+        singleCandidateKeys = [ ]
+        for i in xrange(4):
+            singleCandidateKeys.append("f" + str(i))
+
+        candidateKeys = self.__calculate_permutations__(singleCandidateKeys)
+        originalkeys = self.__calculate_combinations__(candidateKeys)
+        iterator = bbsearch.CompoundKeyIterator(candidateKeys, -1)
+        
+        valid_keys = [ ]
+        while True:
+            try:
+                res = None
+                while res == None:
+                    res = iterator.next()
+                ## WHILE
+                if len(res) != 0:
+                    valid_keys.append(res)
+                    self.assertTrue(res not in iterator.invalidCombinations)
+            except StopIteration:
+                break
+        
+        self.assertEqual(len(valid_keys) + len(iterator.invalidCombinations), len(originalkeys))
+    ## DEF
+    
+    def testIfWeFindAllInvalidCombinationsWithInterestingKeys_5(self):
+        singleCandidateKeys = [ ]
+        for i in xrange(5):
+            singleCandidateKeys.append("f" + str(i))
+
+        candidateKeys = self.__calculate_permutations__(singleCandidateKeys)
+        originalkeys = self.__calculate_combinations__(candidateKeys)
+        iterator = bbsearch.CompoundKeyIterator(candidateKeys, -1)
+        
+        valid_keys = [ ]
+        while True:
+            try:
+                res = None
+                while res == None:
+                    res = iterator.next()
+                ## WHILE
+                if len(res) != 0:
+                    valid_keys.append(res)
+                    self.assertTrue(res not in iterator.invalidCombinations)
+            except StopIteration:
+                break
+        
+        self.assertEqual(len(valid_keys) + len(iterator.invalidCombinations), len(originalkeys))
+    ## DEF
+    
+    def testIfWeFindAllInvalidCombinationsWithInterestingKeys_6(self):
+        singleCandidateKeys = [ ]
+        for i in xrange(6):
+            singleCandidateKeys.append("f" + str(i))
+
+        candidateKeys = self.__calculate_permutations__(singleCandidateKeys)
+        originalkeys = self.__calculate_combinations__(candidateKeys)
+        iterator = bbsearch.CompoundKeyIterator(candidateKeys, -1)
+        
+        valid_keys = [ ]
+        while True:
+            try:
+                res = None
+                while res == None:
+                    res = iterator.next()
+                ## WHILE
+                if len(res) != 0:
+                    valid_keys.append(res)
+                    self.assertTrue(res not in iterator.invalidCombinations)
+            except StopIteration:
+                break
         
         self.assertEqual(len(valid_keys) + len(iterator.invalidCombinations), len(originalkeys))
     ## DEF
