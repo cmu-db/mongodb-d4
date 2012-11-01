@@ -5,7 +5,7 @@ import sys
 import design
 import itertools
 import signal
-
+from util import constants
 import logging
 logging.basicConfig(level = logging.INFO,
 format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -217,6 +217,8 @@ class CompoundKeyIterator:
                     self.currentIterator = itertools.combinations(self.keys, self.currentSize)
                 try:
                     result = self.currentIterator.next()
+                    if result in self.invalidCombinations:
+                        return None
                 except:
                     self.currentSize += 1
                     self.currentIterator = None
@@ -240,6 +242,46 @@ class CompoundKeyIterator:
     def __iter__(self):
         return self
     
+    def __generate_invalid_combinations__(self, keys, maxCompoundCount):
+        """
+            We don't want to evaluate combinations like ((f0), (f0, f1)) or ((f0, f1), (f0, f1, f2))
+            But we want to evalute them seperately
+        """
+        invalid_combination = set()
+        marker = None
+        for i in xrange(2, maxCompoundCount + 1):
+            if i > constants.MAX_INDEX_SIZE: break
+            iterator = itertools.combinations(keys, i)
+            try:
+                while True:
+                    result = iterator.next()
+                    for keys0 in result:
+                        for keys1 in result:
+                            marker = True
+                            if keys1 != keys0:
+                                counter = 0
+                                while counter < len(keys0):
+                                    if keys0[counter] != keys1[counter]:
+                                        marker = False
+                                        break
+                                    counter += 1
+                                    ## IF
+                                ## WHILE
+                                if marker:
+                                    invalid_combination.add(result)
+                                    break
+                           ## IF
+                        if marker:
+                            break
+                       ## IF
+                    ## FOR
+                ## WHILE
+            except StopIteration:
+                pass
+        ## FOR
+        
+        return invalid_combination
+    ## DEF
     '''
     maxCompoundCount - maximum number of elements in the compound key.
     anything < 0 means "unlimited"
@@ -250,10 +292,13 @@ class CompoundKeyIterator:
         self.currentSize = 0
         self.keys = keys
         self.currentIterator = None
+        self.invalidCombinations = None
         if maxCompoundCount < 0:
-            self.maxCompoundCount = len(keys)
+            self.maxCompoundCount = constants.MAX_INDEX_SIZE
         else:
             self.maxCompoundCount = maxCompoundCount
+        
+        self.invalidCombinations = self.__generate_invalid_combinations__(self.keys, self.maxCompoundCount)
 ## CLASS
 
 ## ==============================================
@@ -327,14 +372,18 @@ class BBNode():
             
             # ShARDKEY ITERATION
             try:
-                shardKey = self.shardIter.next()
+                shardKey = None
+                while sharKey == None:
+                    shardKey = self.shardIter.next()
             except:
                 self.shardIter.rewind()
                 shardKey = self.shardIter.next()
                 
                 # INDEX KEYS ITERATION
                 try:
-                    indexes = self.indexIter.next()
+                    indexes = None
+                    while indexes == None:
+                        indexes = self.indexIter.next()
                 except:
                     # all combinations exhausted
                     # == all children enumerated

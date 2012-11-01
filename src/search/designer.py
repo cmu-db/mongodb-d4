@@ -160,7 +160,8 @@ class Designer():
             indexKeys = []
             denorm = []
 
-            interesting = self.__remove_single_keys_with_low_selectivity__(col_info, col_info['interesting'])
+            interesting = col_info['interesting']
+            interesting = self.__remove_heuristicaly_bad_key__(col_info, interesting)
             # Make sure that none of our interesting fields start with
             # the character that we used to convert $ commands
             for key in interesting:
@@ -178,83 +179,43 @@ class Designer():
 
             # deal with indexes
             if isIndexesEnabled:
-                indexKeys.extend(self.__get_proper_compound_keys__(col_info['candidates']))
-                self.__remove_bad_indexes__(col_info['interesting'], indexKeys, sessions, col_info)
-                indexKeys.extend(interesting)
+                LOG.debug("Indexes is enabled")
+                for o in xrange(1, len(interesting) + 1) :
+                    if o > constants.MAX_INDEX_SIZE: break
+                    for i in itertools.permutations(interesting, o):
+                        indexKeys.append(i)
+                    ## FOR
+                ## FOR
             # deal with de-normalization
+            if len(indexKeys) > 10:
+                LOG.warn("Too many index keys: %s", len(indexKeys))
             if isDenormalizationEnabled:
                 LOG.debug("Denormalization is enabled")
                 for k,v in col_info['fields'].iteritems() :
                     if v['parent_col'] <> None and v['parent_col'] not in denorm :
                         denorm.append(v['parent_col'])
-
+            
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
             ## FOR
+        
         return dc
 
-    def __remove_single_keys_with_low_selectivity__(self, col_info, keys):
+    def __remove_heuristicaly_bad_key__(self, col_info, keys):
         res = keys[:]
+        key_selectivtiy = []
         for key in keys:
-            if col_info['fields'][key]['selectivity'] < constants.MIN_SELECTIVITY:
+            key_selectivtiy.append((col_info['fields'][key]['selectivity'], key))
+            if col_info['fields'][key]['selectivity'] < constants.MIN_SELECTIVITY or \
+            (col_info['fields'][key]['selectivity'] >= constants.MIN_SELECTIVITY and col_info['fields'][key]['cardinality'] < 3):
                 res.remove(key)
             ## IF
         ## FOR
+        if len(res) == 0:
+            sorted_res = sorted(key_selectivtiy, reverse=True)
+            sorted_key = [x[1] for x in sorted_res]
+            res = sorted_key[:constants.NUMBER_OF_BACKUP_KEYS]
+
         return res
-    ## DEF
-
-    def __get_proper_compound_keys__(self, candidates):
-        indexes = []
-        counter_v = 0
-        counter_i = 0
-        for k, candidate in candidates.iteritems():
-            if candidate['selectivity'] >= constants.MIN_SELECTIVITY:
-                indexes.append(candidate['indexes'])
-                counter_v += 1
-            else:
-                counter_i += 1
-            ## IF
-            if len(candidate['candidates']) > 0:
-                indexes.entend(self.__remove_compound_keys_with_low_selectivity__(candidate['candidates']))
-            ## IF
-        ## FOR
-        return indexes
-    ## DEF
-
-    def __remove_bad_indexes__(self, single_indexes, indexKeys, sessions, col_info):
-        """
-            Here we want to remove some logically or heuristically bad indexes
-        """
-        copy_indexKeys = indexKeys[:]
-        map_indexesEverUsedByItself = self.__getDictOfIndexesEverUsedByItself__(single_indexes, sessions)
-        for index in copy_indexKeys:
-            # If we have an index (f0, f1). Check if f0 is always used together with f1 and f1 is
-            # ever used individually. If yes, we want to remove this index. If no, keep this index
-            if map_indexesEverUsedByItself[index[0]]: continue
-
-            for i in xrange(1, len(index)):
-                if map_indexesEverUsedByItself[index[i]]:
-                        indexKeys.remove(index)
-                ## IF
-            ## FOR
-    ## DEF
-
-    def __getDictOfIndexesEverUsedByItself__(self, single_indexes, sessions):
-        map_indexesEverUsedByItself = dict([[x, False] for x in single_indexes])
-        for sess in sessions:
-            for op in sess['operations']:
-                op_contents = workload.getOpContents(op)
-                for query in op_contents:
-                    if len(query) == 1:
-                        for key in query.iterkeys():
-                            if key in single_indexes:
-                                map_indexesEverUsedByItself[key] = True
-                            ##IF
-                        ## FOR
-                    ## IF
-                ## FOR
-            ## FOR
-        ## FOR
-        return map_indexesEverUsedByItself
     ## DEF
 
     def loadCollections(self):
