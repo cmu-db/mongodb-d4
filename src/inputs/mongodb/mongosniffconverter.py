@@ -41,8 +41,11 @@ from abstractconverter import AbstractConverter
 import parser
 import reconstructor
 import sessionizer
+import normalizer
+
 from workload import Session
 from util import Histogram
+from util import constants
 
 LOG = logging.getLogger(__name__)
 
@@ -59,6 +62,7 @@ class MongoSniffConverter(AbstractConverter):
         self.no_mongo_parse = False
         self.no_mongo_reconstruct = False
         self.no_mongo_sessionizer = False
+        self.no_mongo_normalize = False
         self.mongo_skip = None
         self.sess_limit = None
         self.op_limit = None
@@ -70,11 +74,41 @@ class MongoSniffConverter(AbstractConverter):
             
         if not self.no_mongo_reconstruct:
             self.reconstructDatabase()
-            
+
         if not self.no_mongo_sessionizer:
             self.sessionizeWorkload()
+
+        self.printAllOperations()
+        if not self.no_mongo_normalize:
+            self.normalizeDatabase()
+        self.printAllOperations()
+        exit("CUPCAKE")
     ## DEF
-    
+
+    def printAllOperations(self):
+        for sess in self.metadata_db.Session.fetch():
+            for op in sess['operations']:
+                print "op_content: ", op['query_content']
+            ## FOR
+        ## FOR
+    ## DEF
+
+    ## ----------------------------------------------
+    ## NORMALIZE DATASET AND RE-CONSTRUCT OPERATIONS
+    ## ----------------------------------------------
+    def normalizeDatabase(self):
+        """
+        If a collection has a field which contains several fields,
+        we extract those fields and make a new collection out of it
+        """
+        n = normalizer.Normalizer(self.metadata_db, self.dataset_db)
+
+        # Bombs away!
+        LOG.info("Processing mongodb dataset normalization")
+        n.process()
+        LOG.info("Finshing normalization")
+    ## DEF
+
     ## ----------------------------------------------
     ## WORKLOAD PARSING + LOADING
     ## ----------------------------------------------

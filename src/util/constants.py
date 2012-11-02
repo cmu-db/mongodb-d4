@@ -105,3 +105,13 @@ MAX_INDEX_SIZE = 3
 EXAUSTED_SEARCH_BAR = 4
 
 NUMBER_OF_BACKUP_KEYS = 2
+
+## ==============================================
+## MONGO DATASET RECONSTRUCTION CONSTRAINTS
+## ==============================================
+
+# The minimum size of nested fields, with which we will extract them from its parent collection
+MIN_SIZE_OF_NESTED_FIELDS = 3
+
+# We want to SKIP these two fields since we are functional fields not data fields
+FUNCTIONAL_FIELD = 'parent_col'

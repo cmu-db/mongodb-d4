@@ -120,16 +120,28 @@ class AbstractConverter():
         total = self.metadata_db.Session.find().count()
         LOG.info("Adding query hashes to %d sessions" % total)
         for sess in self.metadata_db.Session.fetch():
-            for op in sess['operations']:
+            # It is possible that the query content of some operations, which will
+            # cause sess.save() to fail. To work this around, we just delete the incomplete op
+            # from the session
+            for i in xrange(len(sess['operations']) - 1, - 1, -1):
+                op = sess['operations'][i]
                 # For some reason even though the hash is an int, it
                 # gets converted into a long when it shows up in MongoDB
                 # I don't know why and frankly, I don't really care
                 # So we'll just cast everything to a long and make sure that
                 # the Session schema expects it to be a long
-                op["query_hash"] = long(self.hasher.hash(op))
-                if self.debug:
-                    LOG.debug("  %d.%d -> Hash:%d", sess["session_id"], op["query_id"], op["query_hash"])
-            sess.save()
+                try:
+                    op["query_hash"] = long(self.hasher.hash(op))
+                    if self.debug:
+                        LOG.debug("  %d.%d -> Hash:%d", sess["session_id"], op["query_id"], op["query_hash"])
+                except Exception:
+                    sess['operations'].remove(op)
+                ## TRY
+            try:
+                sess.save()
+            except Exception:
+                print "session: ", sess['operations']
+                exit("CUPCAKE")
             if self.debug: LOG.debug("Updated Session #%d", sess["session_id"])
         ## FOR
         if self.debug:
@@ -309,6 +321,10 @@ class AbstractConverter():
         for k,v in doc.iteritems():
             # Skip if this is the _id field
             if constants.SKIP_MONGODB_ID_FIELD and k == '_id': continue
+            # If the field is a functional field, like parent_col, add it to the field and then skip the following steps
+            if k == constants.FUNCTIONAL_FIELD:
+                fields[k] = v
+                continue
 
             f_type = type(v)
             f_type_str = catalog.fieldTypeToString(f_type)
