@@ -387,11 +387,13 @@ class BlogWorker(AbstractWorker):
             skewfactor = float(config[self.name]["skew"])
             skewrandom = random.random()
             if skewrandom > skewfactor:
-                 LOG.debug("random~~~")
+                 #LOG.debug("random~~~")
                  author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
-                 tag = self.tags[int(random.randint(0,constants.NUM_AUTHORS-1))]
+                 tag = self.tags[int(random.randint(0,constants.NUM_TAGS-1))]
             else:
-                 LOG.debug("zipfian~~~")
+                 #LOG.debug("zipfian~~~")
+                 #author = self.authors[0]
+                 #tag = self.tags[0]
                  author = self.authors[self.authorZipf.next()]
                  tag = self.tags[self.tagZipf.next()] 
             opName = "readArticlesByAuthorAndTag"
@@ -500,7 +502,8 @@ class BlogWorker(AbstractWorker):
         m = getattr(self, op)
         assert m != None, "Invalid operation name '%s'" % op
         try:
-            result = m(config[self.name]["denormalize"], *params)
+            #result = m(config[self.name]["denormalize"], *params)
+            result = m(*params)
         except:
             LOG.warn("Unexpected error when executing %s" % op)
             raise
@@ -508,7 +511,7 @@ class BlogWorker(AbstractWorker):
         return 1 # number of operations
     ## DEF
     
-    def readArticleById(self, denormalize, articleId):
+    def readArticleById(self, articleId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
@@ -517,19 +520,20 @@ class BlogWorker(AbstractWorker):
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
             
     
-    def readArticlesByTag(self, denormalize, tag):
+    def readArticlesByTag(self, tag):
+        LOG.debug("~tag"+str(tag))
         articles = self.db[constants.ARTICLE_COLL].find({"tags": tag})
+        LOG.debug(str(articles.count))
     
-    
-    def readArticlesByAuthor(self,denormalize,author):
+    def readArticlesByAuthor(self,author):
         articles = self.db[constants.ARTICLE_COLL].find({"author": author})
     
     
-    def readArticlesByDate(self,denormalize,date):
+    def readArticlesByDate(self,date):
         article = self.db[constants.ARTICLE_COLL].find({"date": date})
     
     
-    def readArticleByIdAndSlug(self,denormalize,id,slug):
+    def readArticleByIdAndSlug(self,id,slug):
         article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"slug": slug})
         articleId = article["id"]
         if not article:
@@ -542,16 +546,18 @@ class BlogWorker(AbstractWorker):
     
     
     
-    def readArticlesByAuthorAndDate(self,denormalize,author,date):
+    def readArticlesByAuthorAndDate(self,author,date):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
    
-    def readArticlesByAuthorAndTag(self,denormalize,author,tag):
-        LOG.debug("author~"+str(author))
-        LOG.debug("tag~"+str(tag))
+    def readArticlesByAuthorAndTag(self,author,tag):
+        #LOG.debug("author~"+str(author))
+        #LOG.debug("tag~"+str(tag))
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"tags": tag})
-   
+        for article in articles:
+            pass    
+        #LOG.debug(str(articles.count()))
     
-    def readArticleTopTenComments(self,denormalize,articleId):
+    def readArticleTopTenComments(self,articleId):
         # We are searching for the comments that had been written for the article with articleId 
         # and we sort them in descending order of user rating
         if not denormalize: 
@@ -580,7 +586,7 @@ class BlogWorker(AbstractWorker):
         
     ## DEF
     
-    def incViewsArticle(self,denormalize,articleId):
+    def incViewsArticle(self,articleId):
         #Increase the views of an article by one
         #LOG.info("incView="+str(articleId))
         self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},False)
