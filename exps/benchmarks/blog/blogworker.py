@@ -328,12 +328,14 @@ class BlogWorker(AbstractWorker):
                 }
                 commentCtr += 1
                 commentsBatch.append(comment) 
-                if config[self.name]["denormalize"]:
+                #if config[self.name]["denormalize"]:
                     #self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
-                    self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})
+                    
                 elif not config[self.name]["denormalize"]:
                     self.db[constants.COMMENT_COLL].insert(comment) 
             ## FOR (comments)
+            if config[self.name]["denormalize"]:
+	        self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})  
         ## FOR (articles)
         
         if config[self.name]["denormalize"]:
