@@ -67,6 +67,7 @@ STRIP_FIELDS = [
     "predicates",
     "query_hash",
     "query_time",
+    "query_size",
     "query_id",
     "resp_.*",
 ]
@@ -101,6 +102,7 @@ if __name__ == '__main__':
                                       description="%s - Distributed Document Database Designer" % constants.PROJECT_NAME)
                                       
     # Configuration File Options
+    aparser.add_argument('project', help='Project Name')
     aparser.add_argument('--config', type=file,
                          help='Path to %s configuration file' % constants.PROJECT_NAME)
     aparser.add_argument('--debug', action='store_true',
@@ -162,19 +164,24 @@ if __name__ == '__main__':
     if not collections:
         raise Exception("No collections were found in metadata catalog")
         
-    #with sys.stdout as fd:
-        #writer = csv.writer(fd)
-        #writer.writerow(SCHEMA_COLUMNS)
-        #for col_name, col_info in collections.iteritems():
-            #dumpSchema(col_name, col_info["fields"], writer)
-            #writer.writerow([""]*len(SCHEMA_COLUMNS))
-        ### FOR
-    ### WITH
+        
+    LOG.info("Dumping schema catalog")
+    schemaFile = "%s-schema.csv" % args["project"]
+    with open(schemaFile, "w") as fd:
+        writer = csv.writer(fd)
+        writer.writerow(SCHEMA_COLUMNS)
+        for col_name, col_info in collections.iteritems():
+            dumpSchema(col_name, col_info["fields"], writer)
+            writer.writerow([""]*len(SCHEMA_COLUMNS))
+        ## FOR
+    ## WITH
+    LOG.info("Created Schema File: %s", schemaFile)
 
     ## ----------------------------------------------
     ## DUMP WORKLOAD
     ## ----------------------------------------------
 
+    LOG.info("Dumping sample queries")
     h = Histogram()
     query_hash_xref = { }
     for sess in metadata_db.Session.fetch():
@@ -191,28 +198,35 @@ if __name__ == '__main__':
     limit = 10
     total_queries = h.getSampleCount()
     toStrip = [ re.compile(r) for r in STRIP_FIELDS ]
-    for hash in sorted(h.keys(), key=lambda x: h[x], reverse=True):
-        percentage = (h[hash] / float(total_queries)) * 100
-        print "Query Count: %.1f%%" % percentage
-        op = random.choice(query_hash_xref[hash])
-        # Remove all of the resp_* fields
-        for k in op.keys():
-            for regex in toStrip:
-                if regex.match(k):
-                    del op[k]
-                    break
-            if op["type"] != constants.OP_TYPE_UPDATE:
-                for k in ["update_multi", "update_upsert"]:
-                    if k in op: del op[k]
-            ## IF
-            if "query_aggregate" in op and op["query_aggregate"] == False:
-                del op["query_aggregate"]
-                
+    
+    queryFile = "%s-queries.txt" % args["project"]
+    with open(queryFile, "w") as fd:
+        first = True
+        for hash in sorted(h.keys(), key=lambda x: h[x], reverse=True):
+            percentage = (h[hash] / float(total_queries)) * 100
+            op = random.choice(query_hash_xref[hash])
+            # Remove all of the resp_* fields
+            for k in op.keys():
+                for regex in toStrip:
+                    if regex.match(k):
+                        del op[k]
+                        break
+                if op["type"] != constants.OP_TYPE_UPDATE:
+                    for k in ["update_multi", "update_upsert"]:
+                        if k in op: del op[k]
+                ## IF
+                if "query_aggregate" in op and op["query_aggregate"] == False:
+                    del op["query_aggregate"]
+                    
+            ## FOR
+            if not first: fd.write("\n%s\n\n" % ("-"*100))
+            fd.write("Query Count: %.1f%%\n" % percentage)
+            fd.write(pformat(op) + "\n")
+            if limit == 0: break
+            limit -= 1
+            first = False
         ## FOR
-        print pformat(op)
-        print
-        if limit == 0: break
-        limit -= 1
-    ## FOR
+    ## WITH
+    LOG.info("Created Sample Workload: %s", queryFile)
 
 ## MAIN
