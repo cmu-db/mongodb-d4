@@ -311,7 +311,7 @@ class BlogWorker(AbstractWorker):
             ## ----------------------------------------------
             ## LOAD COMMENTS
             ## ----------------------------------------------
-            
+            commentsBatch = [ ]
             LOG.debug("Comments for article %d: %d" % (articleId, numComments))
             for ii in xrange(0, numComments):
                 #lastDate = randomDate(articleDate, constants.STOP_DATE)
@@ -327,8 +327,10 @@ class BlogWorker(AbstractWorker):
                     "rating": int(self.ratingZipf.next())
                 }
                 commentCtr += 1
+                commentsBatch.append(comment) 
                 if config[self.name]["denormalize"]:
-                    self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
+                    #self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
+                    self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})
                 elif not config[self.name]["denormalize"]:
                     self.db[constants.COMMENT_COLL].insert(comment) 
             ## FOR (comments)
@@ -521,17 +523,19 @@ class BlogWorker(AbstractWorker):
             
     
     def readArticlesByTag(self, tag):
-        LOG.debug("~tag"+str(tag))
         articles = self.db[constants.ARTICLE_COLL].find({"tags": tag})
-        LOG.debug(str(articles.count))
+        for article in articles:
+            pass 
     
     def readArticlesByAuthor(self,author):
         articles = self.db[constants.ARTICLE_COLL].find({"author": author})
-    
+        for article in articles:
+            pass     
     
     def readArticlesByDate(self,date):
         article = self.db[constants.ARTICLE_COLL].find({"date": date})
-    
+        for article in articles:
+            pass 
     
     def readArticleByIdAndSlug(self,id,slug):
         article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"slug": slug})
@@ -548,7 +552,9 @@ class BlogWorker(AbstractWorker):
     
     def readArticlesByAuthorAndDate(self,author,date):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
-   
+        for article in articles:
+            pass  
+
     def readArticlesByAuthorAndTag(self,author,tag):
         #LOG.debug("author~"+str(author))
         #LOG.debug("tag~"+str(tag))
@@ -588,7 +594,6 @@ class BlogWorker(AbstractWorker):
     
     def incViewsArticle(self,articleId):
         #Increase the views of an article by one
-        #LOG.info("incView="+str(articleId))
         self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},False)
         return
 
