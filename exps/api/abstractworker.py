@@ -177,25 +177,34 @@ class AbstractWorker:
         r = Results()
         assert r
         LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
-        start = r.startBenchmark()
         debug = LOG.isEnabledFor(logging.DEBUG)
 
-        while (time.time() - start) <= config['default']['duration']:
+        totalTime =  config['default']['duration'] + config['default']['warmup']
+        warmup = True
+        now = time.time()
+        while (now - start) <= totalTime:
+            # Check whether we are still in warm-up period
+            if warmup and (now - start) >= config['default']['warmup']:
+                logging.debug("Turning off warm-up period. Starting to collect benchmark data")
+                warmup = False
+                start = r.startBenchmark()
+            
             txn, params = self.next(config)
-            txn_id = r.startTransaction(txn)
+            if not warmup: txn_id = r.startTransaction(txn)
             
             if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:
                 opCount = self.executeImpl(config, txn, params)
-                r.stopTransaction(txn_id, opCount)
+                if not warmup: r.stopTransaction(txn_id, opCount)
             except KeyboardInterrupt:
                 return -1
             except (Exception, AssertionError), ex:
                 logging.warn("Failed to execute Transaction '%s': %s" % (txn, ex))
                 if debug: traceback.print_exc(file=sys.stdout)
                 if self.stop_on_error: raise
-                r.abortTransaction(txn_id)
+                if not warmup: r.abortTransaction(txn_id)
                 pass
+            now = time.time()
         ## WHILE   
         r.stopBenchmark()
         sendMessage(MSG_EXECUTE_COMPLETED, r, channel)
