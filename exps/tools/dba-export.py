@@ -25,13 +25,13 @@
 from __future__ import division
 from __future__ import with_statement
 
-import os
-from pprint import pformat
-import sys
+import os, sys
 import argparse
 import logging
-import time
+import random
 import csv
+import re
+from pprint import pformat
 from ConfigParser import RawConfigParser
 
 # Third-Party Dependencies
@@ -46,7 +46,7 @@ import workload
 from search import Designer
 from util import configutil
 from util import constants
-from util import termcolor
+from util.histogram import Histogram
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -62,6 +62,13 @@ SCHEMA_COLUMNS = [
     "cardinality",
     "selectivity",
     "query_use_count",
+]
+STRIP_FIELDS = [
+    "predicates",
+    "query_hash",
+    "query_time",
+    "query_id",
+    "resp_.*",
 ]
 
 def dumpSchema(collection, fields, writer, spacer=""):
@@ -155,15 +162,57 @@ if __name__ == '__main__':
     if not collections:
         raise Exception("No collections were found in metadata catalog")
         
-    with sys.stdout as fd:
-        writer = csv.writer(fd)
-        writer.writerow(SCHEMA_COLUMNS)
-        for col_name, col_info in collections.iteritems():
-            dumpSchema(col_name, col_info["fields"], writer)
-            writer.writerow([""]*len(SCHEMA_COLUMNS))
-        ## FOR
-    ## WITH
+    #with sys.stdout as fd:
+        #writer = csv.writer(fd)
+        #writer.writerow(SCHEMA_COLUMNS)
+        #for col_name, col_info in collections.iteritems():
+            #dumpSchema(col_name, col_info["fields"], writer)
+            #writer.writerow([""]*len(SCHEMA_COLUMNS))
+        ### FOR
+    ### WITH
 
+    ## ----------------------------------------------
+    ## DUMP WORKLOAD
+    ## ----------------------------------------------
+
+    h = Histogram()
+    query_hash_xref = { }
+    for sess in metadata_db.Session.fetch():
+        for op in sess["operations"]:
+            h.put(op["query_hash"])
+            if not op["query_hash"] in query_hash_xref:
+                query_hash_xref[op["query_hash"]] = [ ]
+            query_hash_xref[op["query_hash"]].append(op)
+        ## FOR
+    ## FOR
+    #print h
+    #print "-"*100
     
+    limit = 10
+    total_queries = h.getSampleCount()
+    toStrip = [ re.compile(r) for r in STRIP_FIELDS ]
+    for hash in sorted(h.keys(), key=lambda x: h[x], reverse=True):
+        percentage = (h[hash] / float(total_queries)) * 100
+        print "Query Count: %.1f%%" % percentage
+        op = random.choice(query_hash_xref[hash])
+        # Remove all of the resp_* fields
+        for k in op.keys():
+            for regex in toStrip:
+                if regex.match(k):
+                    del op[k]
+                    break
+            if op["type"] != constants.OP_TYPE_UPDATE:
+                for k in ["update_multi", "update_upsert"]:
+                    if k in op: del op[k]
+            ## IF
+            if "query_aggregate" in op and op["query_aggregate"] == False:
+                del op["query_aggregate"]
+                
+        ## FOR
+        print pformat(op)
+        print
+        if limit == 0: break
+        limit -= 1
+    ## FOR
 
 ## MAIN
