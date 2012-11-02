@@ -31,6 +31,7 @@ import logging
 import random
 import csv
 import re
+import string
 from pprint import pformat
 from ConfigParser import RawConfigParser
 
@@ -169,7 +170,7 @@ if __name__ == '__main__':
     schemaFile = "%s-schema.csv" % args["project"]
     with open(schemaFile, "w") as fd:
         writer = csv.writer(fd)
-        writer.writerow(SCHEMA_COLUMNS)
+        writer.writerow(map(string.upper, SCHEMA_COLUMNS))
         for col_name, col_info in collections.iteritems():
             dumpSchema(col_name, col_info["fields"], writer)
             writer.writerow([""]*len(SCHEMA_COLUMNS))
