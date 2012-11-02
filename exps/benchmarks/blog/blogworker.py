@@ -331,7 +331,7 @@ class BlogWorker(AbstractWorker):
                 #if config[self.name]["denormalize"]:
                     #self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
                     
-                elif not config[self.name]["denormalize"]:
+                if not config[self.name]["denormalize"]:
                     self.db[constants.COMMENT_COLL].insert(comment) 
             ## FOR (comments)
             if config[self.name]["denormalize"]:
