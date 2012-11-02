@@ -257,6 +257,13 @@ class Sql2Mongo (object) :
         ''' Determine column values '''
         column_values = []
         values_loc = values_loc + 2
+        # Hack for wikipedia
+        #if token.__class__.__name__ == 'Parenthesis':
+            #print
+            #print values_loc
+            #print self.stmt.tokens[values_loc]
+            #values_loc += 1
+            #print self.stmt.tokens
         for token in self.stmt.tokens[values_loc].tokens :
             cls = token.__class__.__name__
             if cls == 'IdentifierList' :

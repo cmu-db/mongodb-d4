@@ -46,7 +46,22 @@ class LNSDesigner(AbstractDesigner):
     """
         Implementation of the large-neighborhood search design algorithm
     """
-
+    class RandomCollectionGenerator:
+        def __init__(self, collections):
+            self.rng = random.Random()
+            self.collections = [ ]
+            for col_name in collections.iterkeys():
+                self.collections.append(col_name)
+            ## FOR
+            self.length = len(self.collections)
+        ## DEF
+        
+        def getRandomCollection(self):
+            r = self.rng.randint(0, self.length - 1)
+            return self.collections[r]
+        ## DEF
+    ## CLASS
+    
     def __init__(self, collections, designCandidates, workload, config, costModel, initialDesign, bestCost, timeout):
         AbstractDesigner.__init__(self, collections, workload, config)
         self.costModel = costModel
@@ -67,7 +82,7 @@ class LNSDesigner(AbstractDesigner):
         """
         LOG.info("Design candidates: \n%s", self.designCandidates)
         bestDesign = self.initialDesign.copy()
-        table = TemperatureTable(self.collections)
+        col_generator = LNSDesigner.RandomCollectionGenerator(self.collections)
         elapsedTime = 0
         isExhaustedSearch = False
         # If we have 4 or less collections, we run bbsearch till it finishes
@@ -80,7 +95,10 @@ class LNSDesigner(AbstractDesigner):
             bbsearch_time_out = 10 * 60 # 10 minutes
         while True:
             LOG.info("Started one bbsearch, current bbsearch_time_out is: %s, relax ratio is: %s", bbsearch_time_out, self.relaxRatio)
-            relaxedCollectionsNames, relaxedDesign = self.__relax__(table, bestDesign, self.relaxRatio)
+            
+            relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, self.relaxRatio)
+            
+            LOG.info("Relaxed collections\n %s", relaxedCollectionsNames)
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
             bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, self.bestCost, bbsearch_time_out)
             bbDesign = bb.solve()
@@ -124,7 +142,7 @@ class LNSDesigner(AbstractDesigner):
         return bestDesign
     # DEF
 
-    def __relax__(self, table, design, ratio):
+    def __relax__(self, generator, design, ratio):
         numberOfRelaxedCollections = int(round(len(self.collections) * ratio))
         relaxedDesign = design.copy()
         
@@ -138,7 +156,7 @@ class LNSDesigner(AbstractDesigner):
             collectionNameSet = set()
             relaxedCollectionsNames = []
             while numberOfRelaxedCollections > 0:
-                collectionName = table.getRandomCollection()
+                collectionName = generator.getRandomCollection()
                 if collectionName not in collectionNameSet:
                     relaxedCollectionsNames.append(collectionName)
                     collectionNameSet.add(collectionName)
@@ -148,22 +166,3 @@ class LNSDesigner(AbstractDesigner):
             ## WHILE
         return relaxedCollectionsNames, relaxedDesign
     ## DEF
-    
-class TemperatureTable():
-    def __init__(self, collections):
-        self.totalTemperature = 0.0
-        self.temperatureList = []
-        self.rng = random.Random()
-        for coll in collections.itervalues():
-            temperature = coll['data_size'] / coll['workload_queries']
-            self.temperatureList.append((temperature, coll['name']))
-            self.totalTemperature = self.totalTemperature + temperature
-
-    def getRandomCollection(self):
-        upper_bound = self.totalTemperature
-        r = self.rng.randint(0, int(self.totalTemperature))
-        for temperature, name in sorted(self.temperatureList, reverse=True):
-            lower_bound = upper_bound - temperature
-            if lower_bound <= r <= upper_bound:
-                return name
-            upper_bound = lower_bound

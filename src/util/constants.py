@@ -100,6 +100,8 @@ WINDOW_SIZE = 1024
 ## ==============================================
 MIN_SELECTIVITY = 0.25
 
-MAX_INDEX_SIZE = 5
+MAX_INDEX_SIZE = 3
 
 EXAUSTED_SEARCH_BAR = 4
+
+NUMBER_OF_BACKUP_KEYS = 2

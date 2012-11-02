@@ -230,7 +230,8 @@ class BlogWorker(AbstractWorker):
                 trial = int(config[self.name]["indexes"])
                 if trial == 1:
                     LOG.info("Creating index on (author) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-                    self.db[constants.ARTICLE_COLL].ensure_index([("tags", pymongo.ASCENDING)])
+                    self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING), \
+                                                                  ("tags",pymongo.ASCENDING)])
                 
                 
                 #LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
@@ -286,7 +287,7 @@ class BlogWorker(AbstractWorker):
             #slug = "".join(slug)
             articleTags = []
             for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
-	        articleTags.append(random.choice(self.tags))
+                 articleTags.append(random.choice(self.tags))
             
             articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
             articleSlug = '%064d' % hash(str(articleId))
@@ -310,7 +311,7 @@ class BlogWorker(AbstractWorker):
             ## ----------------------------------------------
             ## LOAD COMMENTS
             ## ----------------------------------------------
-            
+            commentsBatch = [ ]
             LOG.debug("Comments for article %d: %d" % (articleId, numComments))
             for ii in xrange(0, numComments):
                 #lastDate = randomDate(articleDate, constants.STOP_DATE)
@@ -326,11 +327,15 @@ class BlogWorker(AbstractWorker):
                     "rating": int(self.ratingZipf.next())
                 }
                 commentCtr += 1
-                if config[self.name]["denormalize"]:
-                    self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
-                elif not config[self.name]["denormalize"]:
+                commentsBatch.append(comment) 
+                #if config[self.name]["denormalize"]:
+                    #self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
+                    
+                if not config[self.name]["denormalize"]:
                     self.db[constants.COMMENT_COLL].insert(comment) 
             ## FOR (comments)
+            if config[self.name]["denormalize"]:
+	        self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})  
         ## FOR (articles)
         
         if config[self.name]["denormalize"]:
@@ -380,38 +385,51 @@ class BlogWorker(AbstractWorker):
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
             trial = int(config[self.name]["indexes"])
-            randreadop = random.randint(1,2)
-            readwriterandom = random.random()
-            readpercent = 0.8
+            #randreadop = random.randint(1,2)
+            #readwriterandom = random.random()
+            #readpercent = 0.8
             skewfactor = float(config[self.name]["skew"])
             skewrandom = random.random()
-            read = False
-            
-            if readwriterandom < readpercent:
-	        read = True
-	    if read:
-                if randreadop == 1:
-                    if skewrandom > skewfactor:
-                        author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
-                    else:
-                        author = self.authors[self.authorZipf.next()] 
-                    opName = "readArticlesByAuthor"
-                    return (opName, (author)) 
-                elif randreadop == 2:
-                    if skewrandom > skewfactor:
-                        tag = self.tags[int(random.randint(0,constants.NUM_AUTHORS-1))]
-                    else:
-                        tag = self.tags[self.authorZipf.next()] 
-                    opName = "readArticlesByTag"
-                    return (opName, (tag))
+            if skewrandom > skewfactor:
+                 #LOG.debug("random~~~")
+                 author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
+                 tag = self.tags[int(random.randint(0,constants.NUM_TAGS-1))]
             else:
-                if skewrandom > skewfactor:
-                    articleId = random.randint(0, self.num_articles)
-                else:
-                    articleId = self.articleZipf.next()
-                #LOG.info("incViews"+str(articleId))    
-                opName="incViewsArticle" # TODO Fix the warning - it doesn't work
-                return (opName, (articleId)) 
+                 #LOG.debug("zipfian~~~")
+                 #author = self.authors[0]
+                 #tag = self.tags[0]
+                 author = self.authors[self.authorZipf.next()]
+                 tag = self.tags[self.tagZipf.next()] 
+            opName = "readArticlesByAuthorAndTag"
+            return (opName, (author,tag))
+            
+            #read = False
+            
+            #if readwriterandom < readpercent:
+                #read = True
+            #if read:
+                #if randreadop == 1:
+                    #if skewrandom > skewfactor:
+                        #author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
+                    #else:
+                        #author = self.authors[self.authorZipf.next()] 
+                    #opName = "readArticlesByAuthor"
+                    #return (opName, (author)) 
+                #elif randreadop == 2:
+                    #if skewrandom > skewfactor:
+                        #tag = self.tags[int(random.randint(0,constants.NUM_AUTHORS-1))]
+                    #else:
+                        #tag = self.tags[self.authorZipf.next()] 
+                    #opName = "readArticlesByTag"
+                    #return (opName, (tag))
+            #else:
+                #if skewrandom > skewfactor:
+                    #articleId = random.randint(0, self.num_articles)
+                #else:
+                    #articleId = self.articleZipf.next()
+                ##LOG.info("incViews"+str(articleId))    
+                #opName="incViewsArticle" # TODO Fix the warning - it doesn't work
+                #return (opName, (articleId)) 
             ##The skew percentage determines which operations we will grab 
             ##an articleId/articleDate using a Zipfian random number generator versus 
             ##a uniform distribution random number generator.
@@ -467,7 +485,7 @@ class BlogWorker(AbstractWorker):
                 
             #if write
             #elif read == False: 
-		#skewrandom = random.random()
+                #skewrandom = random.random()
                 #if skewrandom < skewfactor:
                     #articleId = random.randint(0, self.num_articles)
                 #else:
@@ -475,7 +493,6 @@ class BlogWorker(AbstractWorker):
                 #opName="incViewsArticle"
                 #return (opName, (articleId)) 
             #do the increase of views
-        return
    ## DEF
         
     def executeImpl(self, config, op, params):
@@ -489,94 +506,40 @@ class BlogWorker(AbstractWorker):
         m = getattr(self, op)
         assert m != None, "Invalid operation name '%s'" % op
         try:
-            result = m(config[self.name]["denormalize"], params)
-            result = m(config[self.name]["denormalize"], params)
-            result = m(config[self.name]["denormalize"], params)
-            result = m(config[self.name]["denormalize"], params)
+            #result = m(config[self.name]["denormalize"], *params)
+            result = m(*params)
         except:
             LOG.warn("Unexpected error when executing %s" % op)
             raise
         
-        return 4 # number of operations
+        return 1 # number of operations
     ## DEF
     
-    def readArticleById(self, denormalize, articleId):
+    def readArticleById(self, articleId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
         assert article["id"] == articleId, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-        #None  
-        # If we didn't denormalize, then we have to execute a second
-        # query to get all of the comments for this article
-        #if not denormalize:
-        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        #else:
-        #    assert "comments" in article, pformat(article)
-        #    comments = article["comments"]
-    ## DEF
-    
-    def readArticlesByTag(self, denormalize, tag):
-        articles = self.db[constants.ARTICLE_COLL].find({"tags": tag})
-        
-        #LOG.info("tag="+str(tag))
-        #LOG.info("articlesnumberbytag="+str(articles.count()))
-        #if not article:
-        #    LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-        #    return
-        #assert article["id"] == articleId, \
-        #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-        #None  
-        # If we didn't denormalize, then we have to execute a second
-        # query to get all of the comments for this article
-        #if not denormalize:
-        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        #else:
-        #    assert "comments" in article, pformat(article)
-        #    comments = article["comments"]
-    ## DEF
-    
-    def readArticlesByAuthor(self,denormalize,author):
-        articles = self.db[constants.ARTICLE_COLL].find({"author": author})
-        
-        
-        #LOG.info("articlesnumberbyauthor="+str(articles.count()))
-        #articleId = article["id"]
-        #if not article:
-        #    LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-        #    return
-        #assert article["author"] == author, \
-        #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
             
-        # If we didn't denormalize, then we have to execute a second
-        # query to get all of the comments for this article
-        #if not denormalize:
-        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        #else:
-        #    assert "comments" in article, pformat(article)
-        #    comments = article["comments"]
-    ## DEF
     
-    def readArticlesByDate(self,denormalize,date):
+    def readArticlesByTag(self, tag):
+        articles = self.db[constants.ARTICLE_COLL].find({"tags": tag})
+        for article in articles:
+            pass 
+    
+    def readArticlesByAuthor(self,author):
+        articles = self.db[constants.ARTICLE_COLL].find({"author": author})
+        for article in articles:
+            pass     
+    
+    def readArticlesByDate(self,date):
         article = self.db[constants.ARTICLE_COLL].find({"date": date})
-        #articleId = article["id"]
-        #if not article:
-        #    LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-        #    return
-        #assert article["author"] == author, \
-        #"Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-        #    
-        ## If we didn't denormalize, then we have to execute a second
-        ## query to get all of the comments for this article
-        #if not denormalize:
-        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        #else:
-        #    assert "comments" in article, pformat(article)
-        #    comments = article["comments"]
-    ## DEF
+        for article in articles:
+            pass 
     
-    def readArticleByIdAndSlug(self,denormalize,id,slug):
+    def readArticleByIdAndSlug(self,id,slug):
         article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"slug": slug})
         articleId = article["id"]
         if not article:
@@ -586,37 +549,23 @@ class BlogWorker(AbstractWorker):
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         assert article["id"] == id, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
-        # If we didn't denormalize, then we have to execute a second
-        # query to get all of the comments for this article
-        #if not denormalize:
-        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        #else:
-        #    assert "comments" in article, pformat(article)
-        #    comments = article["comments"]
-    ## DEF
     
     
     
-    def readArticlesByAuthorAndDate(self,denormalize,author,date):
-        article = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
-        #articleId = article["id"]
-        #if not article:
-        #    LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-        #    return
-        #assert article["author"] == author, \
-        #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-        #assert article["date"] == date, \
-        #        "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
-        # If we didn't denormalize, then we have to execute a second
-        # query to get all of the comments for this article
-        #if not denormalize:
-        #    comments = self.db[constants.COMMENT_COLL].find({"article": articleId})
-        #else:
-        #    assert "comments" in article, pformat(article)
-        #    comments = article["comments"]
-    ## DEF
+    def readArticlesByAuthorAndDate(self,author,date):
+        articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
+        for article in articles:
+            pass  
+
+    def readArticlesByAuthorAndTag(self,author,tag):
+        #LOG.debug("author~"+str(author))
+        #LOG.debug("tag~"+str(tag))
+        articles = self.db[constants.ARTICLE_COLL].find({"author":author,"tags": tag})
+        for article in articles:
+            pass    
+        #LOG.debug(str(articles.count()))
     
-    def readArticleTopTenComments(self,denormalize,articleId):
+    def readArticleTopTenComments(self,articleId):
         # We are searching for the comments that had been written for the article with articleId 
         # and we sort them in descending order of user rating
         if not denormalize: 
@@ -634,7 +583,7 @@ class BlogWorker(AbstractWorker):
                 #sort by rating descending and take top 10..
                 comments = sorted(comments, key=lambda k: -k[u'rating'])
                 comments = comments[0:10]
-		#pprint(comments)
+                #pprint(comments)
                 #print("\n");
             elif article is None:
                 LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
@@ -645,9 +594,8 @@ class BlogWorker(AbstractWorker):
         
     ## DEF
     
-    def incViewsArticle(self,denormalize,articleId):
+    def incViewsArticle(self,articleId):
         #Increase the views of an article by one
-        #LOG.info("incView="+str(articleId))
         self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},False)
         return
 

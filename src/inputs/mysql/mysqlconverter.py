@@ -204,10 +204,15 @@ class MySQLConverter(AbstractConverter):
         
     def extractWorkload(self):
         LOG.info("Extracting workload from MySQL query log")
+        
+        cur = self.mysql_conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM %s.%s" % (self.dbName, MYSQL_LOG_TABLE_NAME))
+        row_total = cur.fetchone()[0]
+        cur.close()
 
         # All the timestamps should be relative to the first timestamp
         cur = self.mysql_conn.cursor()
-        cur.execute("SELECT MIN(event_time) FROM %s" % MYSQL_LOG_TABLE_NAME)
+        cur.execute("SELECT MIN(event_time) FROM %s.%s" % (self.dbName, MYSQL_LOG_TABLE_NAME))
         start_timestamp = float(cur.fetchone()[0].strftime("%s"))
         cur.close()
         if self.debug: LOG.debug("Workload Start Timestamp: %s", start_timestamp)
@@ -221,13 +226,18 @@ class MySQLConverter(AbstractConverter):
         hostIP = utilmethods.detectHostIP()
         tbl_cols = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
         mongo = sql2mongo.Sql2Mongo(tbl_cols)
+        query_ctr = 0
         for row in c4:
             timestamp = start_timestamp - float(row[0].strftime("%s"))
             
             if row[2] <> thread_id :
                 thread_id = row[2]
                 if not first:
-                    if len(session['operations']) > 0 :
+                    if len(session['operations']) > 0:
+                        if session['start_time'] is None:
+                            session['start_time'] = session['operations'][0]['query_time']
+                        if session['end_time'] is None:
+                            session['end_time'] = session['operations'][-1]['query_time']
                         session.save()
                         uid += 1
                     ## ENDIF
@@ -238,8 +248,8 @@ class MySQLConverter(AbstractConverter):
                 session['ip_client'] = utilmethods.stripIPtoUnicode(row[1])
                 session['ip_server'] = hostIP
                 session['session_id'] = uid
-                session['start_time'] = 0.0
-                session['end_time'] = 0.0
+                session['start_time'] = None
+                session['end_time'] = None
                 session['operations'] = []
             ## ENDIF
             
@@ -250,6 +260,16 @@ class MySQLConverter(AbstractConverter):
                     query = mongo.process_sql(sql)
                 except (NameError, KeyError, IndexError) as e :
                     success = False
+                except Exception as e:
+                    LOG.error("Failed to process SQL:\n" + sql)
+                    success = False
+                    pass
+                    #raise
+                finally:
+                    query_ctr += 1
+                    if query_ctr % 50000 == 0:
+                        LOG.info("Processed %d / %d queries [%d%%]", query_ctr, row_total, 100*query_ctr/float(row_total))
+                        
                 if success:
                     if mongo.query_type <> 'UNKNOWN' :
                         operations = mongo.generate_operations(timestamp)
@@ -260,7 +280,7 @@ class MySQLConverter(AbstractConverter):
                             op['query_type'] = mongo.get_op_type(mongo.query_type)
                             op['query_id'] = self.next_query_id
                             session['operations'].append(op)
-                            if not session['start_time'] and op['query_time']:
+                            if session['start_time'] is None and op['query_time']:
                                 session['start_time'] = op['query_time']
                             session['end_time'] = op['query_time']
                             self.next_query_id += 1
@@ -268,6 +288,10 @@ class MySQLConverter(AbstractConverter):
                     elif row[5].strip().lower() == 'commit' :
                         if len(session['operations']) > 0 :
                             #if self.debug: LOG.debug("start_time: %s", session['start_time'])
+                            if session['start_time'] is None:
+                                session['start_time'] = session['operations'][0]['query_time']
+                            if session['end_time'] is None:
+                                session['end_time'] = session['operations'][-1]['query_time']
                             session.save()
                             uid += 1
                         ## ENDIF
@@ -275,6 +299,8 @@ class MySQLConverter(AbstractConverter):
                         session['ip_client'] = utilmethods.stripIPtoUnicode(row[1])
                         session['ip_server'] = hostIP
                         session['session_id'] = uid
+                        session['start_time'] = None
+                        session['end_time'] = None
                         session['operations'] = []
                     ## ENDIF
                 ## ENDIF
