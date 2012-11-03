@@ -188,7 +188,7 @@ class AbstractWorker:
             
             
         LOG.info("Turning off warm-up period. Starting to collect benchmark data")    
-        start = time.time()
+        start = r.startBenchmark()
         while (time.time() - start) <= int(config['default']['duration']):
             txn, params = self.next(config)
             txn_id = r.startTransaction(txn)
