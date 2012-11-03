@@ -30,7 +30,7 @@ class Collection(Document):
                 'fields':           dict,       # nested fields
                 'query_use_count':  int,        # The number of times this field is referenced in queries
                 'cardinality':      int,        # Number of distinct values
-                'selectivity':      float,      # Cardinalty / Tuple Count
+                'selectivity':      float,      # Cardinality / Number of all values
                 'avg_size':         int,        # The average size of the values for this field (bytes)
                 'parent_col':       basestring, # TODO(ckeith)
                 'parent_key':       basestring, # TODO(ckeith)
