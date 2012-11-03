@@ -506,8 +506,8 @@ class BlogWorker(AbstractWorker):
         m = getattr(self, op)
         assert m != None, "Invalid operation name '%s'" % op
         try:
-            #result = m(config[self.name]["denormalize"], *params)
-            result = m(*params)
+            result = m(config[self.name]["denormalize"], *params)
+            #result = m(*params)
         except:
             LOG.warn("Unexpected error when executing %s" % op)
             raise
@@ -515,7 +515,7 @@ class BlogWorker(AbstractWorker):
         return 1 # number of operations
     ## DEF
     
-    def readArticleById(self, articleId):
+    def readArticleById(self,denormalize, articleId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
@@ -524,22 +524,22 @@ class BlogWorker(AbstractWorker):
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
             
     
-    def readArticlesByTag(self, tag):
+    def readArticlesByTag(self,denormalize, tag):
         articles = self.db[constants.ARTICLE_COLL].find({"tags": tag})
         for article in articles:
             pass 
     
-    def readArticlesByAuthor(self,author):
+    def readArticlesByAuthor(self,denormalize,author):
         articles = self.db[constants.ARTICLE_COLL].find({"author": author})
         for article in articles:
             pass     
     
-    def readArticlesByDate(self,date):
+    def readArticlesByDate(self,denormalize,date):
         article = self.db[constants.ARTICLE_COLL].find({"date": date})
         for article in articles:
             pass 
     
-    def readArticleByIdAndSlug(self,id,slug):
+    def readArticleByIdAndSlug(self,denormalize,id,slug):
         article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"slug": slug})
         articleId = article["id"]
         if not article:
@@ -552,12 +552,12 @@ class BlogWorker(AbstractWorker):
     
     
     
-    def readArticlesByAuthorAndDate(self,author,date):
+    def readArticlesByAuthorAndDate(self,denormalize,author,date):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
         for article in articles:
             pass  
 
-    def readArticlesByAuthorAndTag(self,author,tag):
+    def readArticlesByAuthorAndTag(self,denormalize,author,tag):
         #LOG.debug("author~"+str(author))
         #LOG.debug("tag~"+str(tag))
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"tags": tag})
@@ -565,10 +565,10 @@ class BlogWorker(AbstractWorker):
             pass    
         #LOG.debug(str(articles.count()))
     
-    def readArticleTopTenComments(self,articleId):
+    def readArticleTopTenComments(self,denormalize,articleId):
         # We are searching for the comments that had been written for the article with articleId 
         # and we sort them in descending order of user rating
-        if not config[self.name]["denormalize"]: 
+        if not denormalize: 
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
             comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort("rating",-1)
             #for comment in comments:
@@ -594,7 +594,7 @@ class BlogWorker(AbstractWorker):
         
     ## DEF
     
-    def incViewsArticle(self,articleId):
+    def incViewsArticle(self,denormalize,articleId):
         #Increase the views of an article by one
         self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},False)
         return
