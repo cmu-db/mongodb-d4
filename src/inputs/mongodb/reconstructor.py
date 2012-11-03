@@ -136,7 +136,8 @@ class Reconstructor:
         payload = op["query_content"]
         col = op["collection"]
         if self.debug: LOG.debug("Deleting documents from collection %s..", col)
-        self.dataset_db[col].remove(payload)
+        for doc in payload:
+            self.dataset_db[col].remove(doc)
         return True
     ## DEF
 
