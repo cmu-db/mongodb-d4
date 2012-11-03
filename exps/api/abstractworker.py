@@ -181,7 +181,7 @@ class AbstractWorker:
 
         start = time.time()
         LOG.info("Starting warm-up period")
-        while (time.time()-start) <= config['default']['warmup']:
+        while (time.time()-start) <= int(config['default']['warmup']):
             LOG.info(start-time.time())
             txn, params = self.next(config)
             self.executeImpl(config, txn, params)
@@ -189,7 +189,7 @@ class AbstractWorker:
             
         LOG.info("Turning off warm-up period. Starting to collect benchmark data")    
         start = time.time()
-        while (time.time() - start) <= config['default']['duration']:
+        while (time.time() - start) <= int(config['default']['duration']):
             txn, params = self.next(config)
             txn_id = r.startTransaction(txn)
             if debug: LOG.debug("Executing '%s' transaction" % txn)
