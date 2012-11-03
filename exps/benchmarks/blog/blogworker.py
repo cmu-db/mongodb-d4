@@ -568,7 +568,7 @@ class BlogWorker(AbstractWorker):
     def readArticleTopTenComments(self,articleId):
         # We are searching for the comments that had been written for the article with articleId 
         # and we sort them in descending order of user rating
-        if not denormalize: 
+        if not config[self.name]["denormalize"]: 
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
             comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort("rating",-1)
             #for comment in comments:
