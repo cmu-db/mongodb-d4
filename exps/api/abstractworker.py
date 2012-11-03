@@ -182,6 +182,7 @@ class AbstractWorker:
         totalTime =  config['default']['duration'] + config['default']['warmup']
         warmup = True
         now = time.time()
+        start = now
         while (now - start) <= totalTime:
             # Check whether we are still in warm-up period
             if warmup and (now - start) >= config['default']['warmup']:
