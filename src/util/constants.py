@@ -113,5 +113,8 @@ NUMBER_OF_BACKUP_KEYS = 2
 # The minimum size of nested fields, with which we will extract them from its parent collection
 MIN_SIZE_OF_NESTED_FIELDS = 3
 
+# Split documents with more than K fields
+MIN_SPLIT_SIZE = 3
+
 # We want to SKIP these two fields since we are functional fields not data fields
 FUNCTIONAL_FIELD = 'parent_col'
