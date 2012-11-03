@@ -179,34 +179,28 @@ class AbstractWorker:
         LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
         debug = LOG.isEnabledFor(logging.DEBUG)
 
-        totalTime =  config['default']['duration'] + config['default']['warmup']
-        warmup = True
-        now = time.time()
-        start = now
-        while (now - start) <= totalTime:
-            # Check whether we are still in warm-up period
-            if warmup and (now - start) >= config['default']['warmup']:
-                logging.debug("Turning off warm-up period. Starting to collect benchmark data")
-                warmup = False
-                start = r.startBenchmark()
-            
+        start = time.time()
+        LOG.info("Starting warm-up period")
+        while (start - time.time()) <= config['default']['warmup']:
             txn, params = self.next(config)
-            if not warmup: txn_id = r.startTransaction(txn)
-            
+            self.executeImpl(config, txn, params)
+        LOG.info("Turning off warm-up period. Starting to collect benchmark data")    
+        start = time.time()
+        while (time.time() - start) <= config['default']['duration']:
+            txn, params = self.next(config)
+            txn_id = r.startTransaction(txn)
             if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:
                 opCount = self.executeImpl(config, txn, params)
-                if not warmup: r.stopTransaction(txn_id, opCount)
+                r.stopTransaction(txn_id, opCount)
             except KeyboardInterrupt:
                 return -1
             except (Exception, AssertionError), ex:
                 logging.warn("Failed to execute Transaction '%s': %s" % (txn, ex))
                 if debug: traceback.print_exc(file=sys.stdout)
                 if self.stop_on_error: raise
-                if not warmup: r.abortTransaction(txn_id)
+                r.abortTransaction(txn_id)
                 pass
-            now = time.time()
-        ## WHILE   
         r.stopBenchmark()
         sendMessage(MSG_EXECUTE_COMPLETED, r, channel)
     ## DEF
