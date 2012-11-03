@@ -248,7 +248,7 @@ class BlogWorker(AbstractWorker):
                 LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
                 self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
-                if config[self.name]["denormalize"]:
+                if not config[self.name]["denormalize"]:
                     LOG.info("Creating indexes (articleId,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
                     self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
                                                                   ("rating", pymongo.DESCENDING)])
