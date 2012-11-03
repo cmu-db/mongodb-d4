@@ -131,7 +131,7 @@ class BlogCoordinator(AbstractCoordinator):
             LOG.debug("Sharding Type:   %s" % config[self.name]["sharding"])
             LOG.debug("Denormalize:     %s" % config[self.name]["denormalize"])
             LOG.debug("Indexing Type:   %s" % config[self.name]["indexes"])
-            LOG.debug("MaxCommentId:    %s" % config[self.name]["maxCommentId"])
+            #LOG.debug("MaxCommentId:    %s" % config[self.name]["maxCommentId"])
         
         return messages
     ## DEF
