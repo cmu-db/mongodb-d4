@@ -570,7 +570,9 @@ class BlogWorker(AbstractWorker):
         # and we sort them in descending order of user rating
         if not denormalize: 
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort("rating",-1)
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort("rating",-1).limit(10)
+            for comment in comments:
+	        pass
             #for comment in comments:
             #    pprint(comment)
             #    print("\n");
