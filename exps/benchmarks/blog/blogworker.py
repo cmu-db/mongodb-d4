@@ -367,7 +367,7 @@ class BlogWorker(AbstractWorker):
         if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
             articleId = random.randint(0, self.num_articles)
             opName = "readArticleTopTenComments"
-            return (opName, (articleId))
+            return (opName, (articleId,))
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
             trial = int(config[self.name]["sharding"])
@@ -375,7 +375,7 @@ class BlogWorker(AbstractWorker):
                 #single sharding key
                 articleId = self.articleZipf.next()
                 opName = "readArticleById"
-                return (opName, (articleId))
+                return (opName, (articleId,))
             elif trial == 1:
                 #composite sharding key
                 articleId = self.articleZipf.next()
