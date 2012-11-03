@@ -26,6 +26,8 @@ import os
 import sys
 import logging
 from pprint import pformat
+import time
+import copy
 
 # Third-Party Dependencies
 basedir = os.path.realpath(os.path.dirname(__file__))
@@ -80,8 +82,8 @@ class Normalizer:
                     raise
             ## FOR
 
-        LOG.info("Reconstructing dataset...")
-        fieldscol2col = self.reconstructDataset(changed_fields)
+        fieldscol2col = { } # map from field name to new collection
+        self.reconstructDataset(changed_fields, fieldscol2col)
         self.reconstructMetaData(changed_fields, fieldscol2col)
     ## DEF
 
@@ -90,6 +92,11 @@ class Normalizer:
         Recursively traverse a single document and extract out the field information
         """
         if self.debug: LOG.debug("Examing fields for document:\n%s" % pformat(doc))
+
+        # if a doc has too few fields, ignore it
+        if len(doc) <= constants.MIN_SPLIT_SIZE:
+            return
+
         for k,v in doc.iteritems():
             # Skip if this is the _id field
             if constants.SKIP_MONGODB_ID_FIELD and k == '_id': continue
@@ -99,45 +106,63 @@ class Normalizer:
                 # If we find a qualified sub-collection
                 # 1. Delete it from the old collection
                 # 2. Add it to the dataset as a new collection
-                changed_fields.append((parent_col, k, v))
+                changed_fields.append((parent_col, k, doc['_id']))
             ## IF
         ## FOR
     ## DEF
 
-    def reconstructDataset(self, changed_fields):
+    def reconstructDataset(self, changed_fields, fieldscol2col):
         """
         We have got the fields should be deleted, now it is time to reconstruct the dataset
         """
-        if self.debug: LOG.info("Reconstructing dataset!")
-        fieldscol2col = { }
+        LOG.info("Reconstructing dataset!")
         # First, remove the fields in changed_fields
         for field in changed_fields:
             col_name = field[0]
-            payload = {field[1] : field[2]}
-            if self.debug: LOG.debug("Deleting documents from collection %s..", col_name)
-            self.dataset_db[col_name].remove(payload)
-        # Then we add the fields to dataset as new collections
-        for field in changed_fields:
-            col_name = field[0] + "__" + field[1]
-            if not field[1] in fieldscol2col:
-                fieldscol2col[(field[0], field[1])] = col_name
+            field_key = field[1]
+            doc_id = field[2]
 
-            payload = {'parent_col' : field[0], field[1] : field[2]}
-            # we should refer this collection back to its parent collection
-            if self.debug: LOG.debug("Adding collection %s to dataset..", col_name)
-            self.dataset_db[col_name].save(payload)
+            doc = self.dataset_db[col_name].find_one({"_id" : doc_id})
+            assert doc
+
+            original_doc = copy.deepcopy(doc)
+            removed_field = None
+            try:
+                removed_field = doc.pop(field_key)
+                assert removed_field
+            except Exception:
+                for doc in self.dataset_db[col_name].find():
+                    print "dump doc: ", pformat(doc)
+                raise
+            # Put the removed field into dataset as a new collection
+            self.addNewCollection2Dataset(field, removed_field, fieldscol2col)
+            # Replace the old doc with new one
+            self.dataset_db[col_name].update(original_doc, doc, True, False)
         ## FOR
 
-        return fieldscol2col
+    ## DEF
+
+    def addNewCollection2Dataset(self, field, removed_field, fieldscol2col):
+        col_name = field[0] + "__" + field[1]
+        if not (field[0], field[1]) in fieldscol2col:
+            fieldscol2col[(field[0], field[1])] = col_name
+
+        # we should refer this collection back to its parent collection
+        doc = {'parent_col' : field[0], field[1] : removed_field}
+        if self.debug: LOG.debug("Adding collection %s to dataset..", col_name)
+        self.dataset_db[col_name].save(doc)
     ## DEF
 
     def reconstructMetaData(self, changed_fields, fieldscol2col):
         """
         Since we have re-constructed the database
         """
+        LOG.info("Reconstructing metadata!")
+        op_counter = 0
         col2fields = self.generateDict(changed_fields)
         for sess in self.metadata_db.Session.fetch():
             for i in xrange(len(sess['operations']) - 1, - 1, -1):
+                op_counter += 1
                 offset = 1 # indicate where we should insert the splitted operation. It depends on if we remove the current operation
                 op = sess['operations'][i]
                 col_name = op['collection']
@@ -149,44 +174,60 @@ class Normalizer:
                     counter = 0
                     while counter < len(payload):
                         doc = payload[counter] # doc is a dict type
-                        for key in doc.iterkeys():
-                            if key in fields:
-                                changed_query.append((counter, key))
+                        for key, value in doc.iteritems():
+                            if type(value) == dict:
+                                for k in value.iterkeys():
+                                    if k in fields:
+                                        LOG.info("counter: %d, key: %s, value: %s", counter, key, k)
+                                        changed_query.append((counter, key, k))
+                                    ## IF
+                                ## FOR
                             ## IF
+                            else:
+                                if value in fields:
+                                    LOG.info("counter: %d, key: %s, value: %s", counter, key, k)
+                                    changed_query.append((counter, key, value))
+                                ## IF
+                            ## ELSE
                         ## FOR
-                    ## WHILE
+                        counter += 1
+                    # WHILE
                     # If we have queries to split
                     if len(changed_query) > 0:
                         # construct new queries
                         for tup in changed_query:
-                            old_query_content = payload[tup[0]].pop(tup[1])
+                            old_query_content = payload[tup[0]][tup[1]].pop(tup[2])
                             # If the doc is empty after the pop, remove it from the payload
-                            if len(payload[tup[0]]) == 0:
-                                payload.remove(payload[tup[0]])
-                                # If the payload is empty, we remove the op from the session queue
-                                if len(payload) == 0:
-                                    sess.remove(op)
-                                    offset -= 1
-                                ## IF
+                            if len(payload[tup[0]][tup[1]]) == 0:
+                                payload[tup[0]].pop(tup[1])
+                                if len(payload[tup[0]]) == 0:
+                                    payload.remove(payload[tup[0]])
+                                    # If the payload is empty, we remove the op from the session queue
+                                    if len(payload) == 0:
+                                        sess['operations'].remove(op)
+                                        offset -= 1
+                                    ## IF
                             ## IF
                             new_op = Session.operationFactory()
-
-                            new_op['collection'] = fieldscol2col[(col_name, tup[1])]
+                            new_col = fieldscol2col[(col_name, tup[2])]
+                            LOG.info("Creating a new operation to collection: %s", new_col)
+                            new_op['collection'] = new_col
                             new_op['type']  = op['type']
-                            ## new_op['query_id']      = queryId
-                            new_op['query_content'] = [ old_query_content ]
-                            #new_op['resp_content']  = [ responseContent ]
-                            #new_op['resp_id']       = responseId
-                            #new_op['predicates']    = queryPredicates
+                            new_op['query_id']      = long(hash(time.time()))
+                            new_op['query_content'] = [ {tup[1] : {tup[2] : old_query_content}} ]
+                            new_op['resp_content']  = new_op['query_content']
+                            new_op['resp_id']       = new_op['query_id'] + 1
+                            new_op['predicates']    = op['predicates']
                             new_op['query_time']    = op['query_time']
                             new_op['resp_time']    = op['resp_time']
 
                             # add the new query after the current one of the session queue
-                            sess.insert(i + offset, new_op)
+                            sess['operations'].insert(i + offset, new_op)
                         ## FOR
                     ## IF
                 ## IF
             ## FOR
+            sess.save()
         ## FOR
     ## DEF
 
@@ -194,6 +235,7 @@ class Normalizer:
         """
         Generate a map from collection -> fields, which simplifies the metadata reconstruction process
         """
+        LOG.info("Generating dictionaries for metadata reconstruction")
         col2fields = { }
         for field in changed_fields:
             col_name = field[0]
@@ -203,5 +245,7 @@ class Normalizer:
             ## IF
             col2fields[col_name].add(field_name)
         ## FOR
+        LOG.info("Dictionary done!")
+        print "dict: \n", col2fields
         return col2fields
     ## DEF

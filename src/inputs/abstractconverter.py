@@ -79,10 +79,22 @@ class AbstractConverter():
     def process(self, no_load=False, no_post_process=False, page_size=constants.DEFAULT_PAGE_SIZE):
         if not no_load: self.loadImpl()
         if not no_post_process: self.postProcess(page_size)
+        self.printAllCollectionInfo()
     ## DEF
 
     def loadImpl(self):
         raise NotImplementedError("Unimplemented %s.loadImpl()" % self.__init__.im_class)
+    ## DEF
+
+    def printAllCollectionInfo(self):
+        for colName in self.dataset_db.collection_names():
+            # Skip ignored collections
+            if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
+                continue
+            col_info = self.metadata_db.Collection.one({'name': colName})
+            print "col_name: ", col_info['name']
+            print "col_info\n", pformat(col_info)
+        ## FOR
     ## DEF
 
     def postProcess(self, page_size=constants.DEFAULT_PAGE_SIZE):
@@ -119,6 +131,7 @@ class AbstractConverter():
     def addQueryHashes(self):
         total = self.metadata_db.Session.find().count()
         LOG.info("Adding query hashes to %d sessions" % total)
+        invalid_sess = [ ]
         for sess in self.metadata_db.Session.fetch():
             # It is possible that the query content of some operations, which will
             # cause sess.save() to fail. To work this around, we just delete the incomplete op
@@ -140,12 +153,13 @@ class AbstractConverter():
             try:
                 sess.save()
             except Exception:
-                print "session: ", sess['operations']
-                exit("CUPCAKE")
+                LOG.info("session can not be saved due to operations error. Dump:\n%s", sess['operations'])
+                sess.delete()
             if self.debug: LOG.debug("Updated Session #%d", sess["session_id"])
         ## FOR
         if self.debug:
             LOG.debug("Query Class Histogram:\n%s" % self.hasher.histogram)
+        ## IF
     ## DEF
 
     def computeWorkloadStats(self):
@@ -306,8 +320,11 @@ class AbstractConverter():
 
             if self.debug:
                 LOG.debug("Saved new catalog entry for collection '%s'" % colName)
-            col_info.save()
-
+            try:
+                col_info.save()
+            except Exception:
+                print "abnormal col_info\n", pformat(col_info)
+                raise
         ## FOR
     ## DEF
 
@@ -316,16 +333,14 @@ class AbstractConverter():
             Recursively traverse a single document and extract out the field information
         """
         if self.debug: LOG.debug("Extracting fields for document:\n%s" % pformat(doc))
-        average_query_count = 0
-        total_query_count = 0
+
+        # Check if the current doc has parent_col, but this will only apply to its fields
+        parent_col = doc.get('parent_col', None)
+
         for k,v in doc.iteritems():
             # Skip if this is the _id field
             if constants.SKIP_MONGODB_ID_FIELD and k == '_id': continue
-            # If the field is a functional field, like parent_col, add it to the field and then skip the following steps
-            if k == constants.FUNCTIONAL_FIELD:
-                fields[k] = v
-                continue
-
+            if k == constants.FUNCTIONAL_FIELD: continue
             f_type = type(v)
             f_type_str = catalog.fieldTypeToString(f_type)
 
@@ -347,6 +362,8 @@ class AbstractConverter():
             # we call computeFieldStats()
             if not 'distinct_values' in fields[k]:
                 fields[k]['distinct_values'] = set()
+            if not "num_values" in fields[k]:
+                fields[k]['num_values'] = 0
             # Likewise, we will also store a histogram for the different sizes
             # of each field. We will use this later on to compute the weighted average
             if not 'size_histogram' in fields[k]:
@@ -371,6 +388,9 @@ class AbstractConverter():
                     col_info['data_size'] += size
                     fields[k]['size_histogram'].put(size)
                     fields[k]['distinct_values'].add(v)
+                    fields[k]['num_values'] += 1
+                    if parent_col:
+                        fields[k]['parent_col'] = parent_col
                 else:
                     if self.debug: LOG.debug("Extracting keys in nested field for '%s'" % k)
                     if not 'fields' in fields[k]: fields[k]['fields'] = { }
@@ -408,7 +428,9 @@ class AbstractConverter():
                         fields[k]['fields'][constants.LIST_INNER_FIELD] = inner
                         fields[k]['size_histogram'].put(inner_size)
                         fields[k]['distinct_values'].add(doc[k][i])
-
+                        fields[k]['num_values'] += 1
+                        if parent_col:
+                            fields[k]['parent_col'] = parent_col
                 ## FOR (list)
             ## ----------------------------------------------
             ## SCALAR VALUES
@@ -423,6 +445,9 @@ class AbstractConverter():
                 col_info['data_size'] += size
                 fields[k]['size_histogram'].put(size)
                 fields[k]['distinct_values'].add(v)
+                fields[k]['num_values'] += 1
+                if parent_col:
+                    fields[k]['parent_col'] = parent_col
         ## FOR
     ## DEF
 
@@ -446,12 +471,17 @@ class AbstractConverter():
                 del field['size_histogram']
             # Use the distinct values set to determine cardinality + selectivity
             if 'distinct_values' in field:
+#                print "*" * 20
+#                print "col_name: ", col_info['name']
+#                print "field: ", k
+#                print "distinct values: ", pformat(field['distinct_values'])
                 field['cardinality'] = len(field['distinct_values'])
-                if not col_info['doc_count']:
+                if field['num_values'] == 0:
                     field['selectivity'] = 0.0
                 else :
-                    field['selectivity'] = float(field['cardinality']) / col_info['doc_count']
+                    field['selectivity'] = float(field['cardinality']) / field['num_values']
                 del field['distinct_values']
+                del field['num_values']
             if 'fields' in field and field['fields']:
                 self.computeFieldStats(col_info, field['fields'])
         ## FOR
