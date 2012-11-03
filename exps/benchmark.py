@@ -304,6 +304,7 @@ def flushBuffer(host):
     LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
     for cmd in remoteCmds:
         subprocess.check_call("ssh %s %s \"%s\"" % (host, sshOpts, cmd), shell=True)
+    time.sleep(30)
     ## FOR
 ## DEF
 
