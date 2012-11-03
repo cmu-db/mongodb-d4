@@ -177,13 +177,21 @@ class AbstractWorker:
         r = Results()
         assert r
         LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
-        start = r.startBenchmark()
         debug = LOG.isEnabledFor(logging.DEBUG)
 
-        while (time.time() - start) <= config['default']['duration']:
+        start = time.time()
+        LOG.info("Starting warm-up period")
+        while (time.time()-start) <= int(config['default']['warmup']):
+            #LOG.info(time.time()-start)
+            txn, params = self.next(config)
+            self.executeImpl(config, txn, params)
+            
+            
+        LOG.info("Turning off warm-up period. Starting to collect benchmark data")    
+        start = r.startBenchmark()
+        while (time.time() - start) <= int(config['default']['duration']):
             txn, params = self.next(config)
             txn_id = r.startTransaction(txn)
-            
             if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:
                 opCount = self.executeImpl(config, txn, params)
@@ -196,7 +204,6 @@ class AbstractWorker:
                 if self.stop_on_error: raise
                 r.abortTransaction(txn_id)
                 pass
-        ## WHILE   
         r.stopBenchmark()
         sendMessage(MSG_EXECUTE_COMPLETED, r, channel)
     ## DEF

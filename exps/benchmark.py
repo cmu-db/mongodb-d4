@@ -72,6 +72,7 @@ class Benchmark:
         ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
         ("scalefactor", "Benchmark database scale factor", 1.0),
         ("duration", "Benchmark execution time in seconds", 60),
+        ("warmup", "Benchmark warm-up period", 60),
         ("clients", "Comma-separated list of machines to use for benchmark clients", "localhost"),
         ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
         ("design", "Path to database design file (must be supported by benchmark).", ""),
@@ -293,12 +294,18 @@ def setupBenchmarkPath(benchmark):
 ## flushBuffer
 ## ==============================================
 def flushBuffer(host):
-    remoteCmd = "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'"
+    remoteCmds = [
+        "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
+        "sudo service mongodb restart",
+    ]
     sshOpts = "-o \"UserKnownHostsFile /dev/null\" " + \
               "-o \"StrictHostKeyChecking no\""
-    
-    LOG.info("Flushing OS cache on host '%s'" % host)
-    subprocess.check_call("ssh %s %s \"%s\"" % (host, sshOpts, remoteCmd), shell=True)
+
+    LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
+    for cmd in remoteCmds:
+        subprocess.check_call("ssh %s %s \"%s\"" % (host, sshOpts, cmd), shell=True)
+    time.sleep(30)
+    ## FOR
 ## DEF
 
 ## ==============================================

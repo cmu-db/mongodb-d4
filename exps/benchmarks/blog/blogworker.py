@@ -248,7 +248,7 @@ class BlogWorker(AbstractWorker):
                 LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
                 self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
-                if config[self.name]["denormalize"]:
+                if not config[self.name]["denormalize"]:
                     LOG.info("Creating indexes (articleId,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
                     self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
                                                                   ("rating", pymongo.DESCENDING)])
@@ -311,7 +311,7 @@ class BlogWorker(AbstractWorker):
             ## ----------------------------------------------
             ## LOAD COMMENTS
             ## ----------------------------------------------
-            
+            commentsBatch = [ ]
             LOG.debug("Comments for article %d: %d" % (articleId, numComments))
             for ii in xrange(0, numComments):
                 #lastDate = randomDate(articleDate, constants.STOP_DATE)
@@ -327,11 +327,15 @@ class BlogWorker(AbstractWorker):
                     "rating": int(self.ratingZipf.next())
                 }
                 commentCtr += 1
-                if config[self.name]["denormalize"]:
-                    self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
-                elif not config[self.name]["denormalize"]:
+                commentsBatch.append(comment) 
+                #if config[self.name]["denormalize"]:
+                    #self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$push":{"comments":comment}}) 
+                    
+                if not config[self.name]["denormalize"]:
                     self.db[constants.COMMENT_COLL].insert(comment) 
             ## FOR (comments)
+            if config[self.name]["denormalize"]:
+	        self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})  
         ## FOR (articles)
         
         if config[self.name]["denormalize"]:
@@ -363,7 +367,7 @@ class BlogWorker(AbstractWorker):
         if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
             articleId = random.randint(0, self.num_articles)
             opName = "readArticleTopTenComments"
-            return (opName, (articleId))
+            return (opName, (articleId,))
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
             trial = int(config[self.name]["sharding"])
@@ -371,7 +375,7 @@ class BlogWorker(AbstractWorker):
                 #single sharding key
                 articleId = self.articleZipf.next()
                 opName = "readArticleById"
-                return (opName, (articleId))
+                return (opName, (articleId,))
             elif trial == 1:
                 #composite sharding key
                 articleId = self.articleZipf.next()
@@ -387,11 +391,15 @@ class BlogWorker(AbstractWorker):
             skewfactor = float(config[self.name]["skew"])
             skewrandom = random.random()
             if skewrandom > skewfactor:
+                 #LOG.debug("random~~~")
                  author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
-                 tag = self.tags[int(random.randint(0,constants.NUM_AUTHORS-1))]
+                 tag = self.tags[int(random.randint(0,constants.NUM_TAGS-1))]
             else:
+                 #LOG.debug("zipfian~~~")
+                 #author = self.authors[0]
+                 #tag = self.tags[0]
                  author = self.authors[self.authorZipf.next()]
-                 tag = self.tags[self.authorZipf.next()] 
+                 tag = self.tags[self.tagZipf.next()] 
             opName = "readArticlesByAuthorAndTag"
             return (opName, (author,tag))
             
@@ -499,6 +507,7 @@ class BlogWorker(AbstractWorker):
         assert m != None, "Invalid operation name '%s'" % op
         try:
             result = m(config[self.name]["denormalize"], *params)
+            #result = m(*params)
         except:
             LOG.warn("Unexpected error when executing %s" % op)
             raise
@@ -506,7 +515,7 @@ class BlogWorker(AbstractWorker):
         return 1 # number of operations
     ## DEF
     
-    def readArticleById(self, denormalize, articleId):
+    def readArticleById(self,denormalize, articleId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
@@ -515,17 +524,20 @@ class BlogWorker(AbstractWorker):
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
             
     
-    def readArticlesByTag(self, denormalize, tag):
+    def readArticlesByTag(self,denormalize, tag):
         articles = self.db[constants.ARTICLE_COLL].find({"tags": tag})
-    
+        for article in articles:
+            pass 
     
     def readArticlesByAuthor(self,denormalize,author):
         articles = self.db[constants.ARTICLE_COLL].find({"author": author})
-    
+        for article in articles:
+            pass     
     
     def readArticlesByDate(self,denormalize,date):
         article = self.db[constants.ARTICLE_COLL].find({"date": date})
-    
+        for article in articles:
+            pass 
     
     def readArticleByIdAndSlug(self,denormalize,id,slug):
         article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"slug": slug})
@@ -542,19 +554,25 @@ class BlogWorker(AbstractWorker):
     
     def readArticlesByAuthorAndDate(self,denormalize,author,date):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
-   
+        for article in articles:
+            pass  
+
     def readArticlesByAuthorAndTag(self,denormalize,author,tag):
-        #LOG.info("author~"+str(author))
-        #LOG.info("tag~"+str(tag))
+        #LOG.debug("author~"+str(author))
+        #LOG.debug("tag~"+str(tag))
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"tags": tag})
-   
+        for article in articles:
+            pass    
+        #LOG.debug(str(articles.count()))
     
     def readArticleTopTenComments(self,denormalize,articleId):
         # We are searching for the comments that had been written for the article with articleId 
         # and we sort them in descending order of user rating
         if not denormalize: 
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort("rating",-1)
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort("rating",-1).limit(10)
+            for comment in comments:
+	        pass
             #for comment in comments:
             #    pprint(comment)
             #    print("\n");
@@ -580,7 +598,6 @@ class BlogWorker(AbstractWorker):
     
     def incViewsArticle(self,denormalize,articleId):
         #Increase the views of an article by one
-        #LOG.info("incView="+str(articleId))
         self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},False)
         return
 

@@ -33,12 +33,19 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         self.assertEqual(u'db.users.insert({a:3,b:5})', result[0])
-    
+            
     def testInsertQuery01Trace(self) :
         sql = 'INSERT INTO users VALUES (3,5)'
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
         output = {'a' : 3, 'b' : 5}
+        self.assertEqual(output, result[0])
+        
+    def testQueryType02(self) :
+        sql = 'INSERT INTO users (a, b, name) VALUES (1, 2, "rob");'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {'a' : 1, 'b' : 2, 'name': 'rob'}
         self.assertEqual(output, result[0])
         
     def testQueryTypeCommit(self) :
@@ -52,9 +59,9 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.query_type
         self.assertEqual('DELETE', result)
-    
+        
     def testQueryTypeInsert(self) :
-        sql = 'INSERT INTO users VALUES (1, 2)'
+        sql = 'INSERT INTO users VALUES (1, 2);'
         self.mongo.process_sql(sql)
         result = self.mongo.query_type
         self.assertEqual('INSERT', result)

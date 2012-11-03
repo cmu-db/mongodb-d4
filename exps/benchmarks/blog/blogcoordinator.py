@@ -112,17 +112,17 @@ class BlogCoordinator(AbstractCoordinator):
         #completePercent
         # Get the current max commentId
         # Figure out how many comments already exist in the database
-        config[self.name]["maxCommentId"] = -1
+        #config[self.name]["maxCommentId"] = -1
         
-        if not config['default']["reset"] and config[self.name]["denormalize"]:
-            #assert False
-            pass
-        elif not config['default']["reset"]:
-            LOG.debug("Calculating maxCommentId for %s" % constants.COMMENT_COLL)
-            db = self.conn[config['default']["dbname"]]
-            if db[constants.COMMENT_COLL].count() > 0:
-                result = db[constants.COMMENT_COLL].find({}, {"id":1}).sort("id", -1).limit(1)[0]
-                config[self.name]["maxCommentId"] = result["id"]
+        #if not config['default']["reset"] and config[self.name]["denormalize"]:
+        #    #assert False
+        #    pass
+        #elif not config['default']["reset"]:
+            #LOG.debug("Calculating maxCommentId for %s" % constants.COMMENT_COLL)
+           # db = self.conn[config['default']["dbname"]]
+            #if db[constants.COMMENT_COLL].count() > 0:
+            #    result = db[constants.COMMENT_COLL].find({}, {"id":1}).sort("id", -1).limit(1)[0]
+            #    config[self.name]["maxCommentId"] = result["id"]
         ## IF
         
         if LOG.isEnabledFor(logging.DEBUG):
@@ -131,7 +131,7 @@ class BlogCoordinator(AbstractCoordinator):
             LOG.debug("Sharding Type:   %s" % config[self.name]["sharding"])
             LOG.debug("Denormalize:     %s" % config[self.name]["denormalize"])
             LOG.debug("Indexing Type:   %s" % config[self.name]["indexes"])
-            LOG.debug("MaxCommentId:    %s" % config[self.name]["maxCommentId"])
+            #LOG.debug("MaxCommentId:    %s" % config[self.name]["maxCommentId"])
         
         return messages
     ## DEF

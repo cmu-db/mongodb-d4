@@ -227,10 +227,10 @@ class Designer():
             if not col_info['doc_count'] or not col_info['avg_doc_size']:
                 continue
             collections[col_info['name']] = col_info
-            ## FOR
-            if not collections:
-                raise Exception("No collections were found in metadata catalog")
-            LOG.info("Loaded %d collections from metadata catalog" % len(collections))
+        ## FOR
+        if not collections:
+            raise Exception("No collections were found in metadata catalog")
+        LOG.info("Loaded %d collections from metadata catalog" % len(collections))
         return collections
     ## DEF
 
