@@ -181,9 +181,12 @@ class AbstractWorker:
 
         start = time.time()
         LOG.info("Starting warm-up period")
-        while (start - time.time()) <= config['default']['warmup']:
+        while (time.time()-start) <= config['default']['warmup']:
+            LOG.info(start-time.time())
             txn, params = self.next(config)
             self.executeImpl(config, txn, params)
+            
+            
         LOG.info("Turning off warm-up period. Starting to collect benchmark data")    
         start = time.time()
         while (time.time() - start) <= config['default']['duration']:
