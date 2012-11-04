@@ -365,7 +365,12 @@ class BlogWorker(AbstractWorker):
         assert "experiment" in config[self.name]
         
         if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
-            articleId = random.randint(0, self.num_articles)
+            skewfactor = 0.8
+            skewrandom = random.random()
+            if skewrandom > skewfactor:
+                articleId = random.randint(0, self.num_articles)
+            else:
+	        articleId = self.articleZipf.next()
             opName = "readArticleTopTenComments"
             return (opName, (articleId,))
             
