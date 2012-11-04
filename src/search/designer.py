@@ -150,7 +150,7 @@ class Designer():
         )
     ## DEF
 
-    def generateDesignCandidates(self, collections, sessions, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
+    def generateDesignCandidates(self, collections, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
 
         dc = DesignCandidates()
 
@@ -197,7 +197,7 @@ class Designer():
             
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
             ## FOR
-        
+
         return dc
 
     def __remove_heuristicaly_bad_key__(self, col_info, keys):
@@ -231,6 +231,28 @@ class Designer():
         if not collections:
             raise Exception("No collections were found in metadata catalog")
         LOG.info("Loaded %d collections from metadata catalog" % len(collections))
+
+        # Remove the new collections that there are no operations accessing
+        valid_extra_collections = set()
+        invalid_key = [ ]
+        for sess in self.metadata_db.Session.fetch():
+            for op in sess["operations"]:
+                if op['collection'].count('__') > 0:
+                    valid_extra_collections.add(op['collection'])
+            ## FOR
+        ## FOR
+
+        for k in collections.iterkeys():
+            if k.count('__') > 0 and not k in valid_extra_collections:
+                invalid_key.append(k)
+            ## IF
+        ## FOR
+        # Remove
+        for key in invalid_key:
+            # But we still want to key
+            key.index("__")
+            collections.pop(key)
+        ## FOR
         return collections
     ## DEF
 
@@ -270,7 +292,7 @@ class Designer():
         collections = self.loadCollections()
         workload = self.loadWorkload(collections)
         # Generate all the design candidates
-        designCandidates = self.generateDesignCandidates(collections, workload, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
+        designCandidates = self.generateDesignCandidates(collections, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
 
         # Instantiate cost model
         cmConfig = {

@@ -79,7 +79,7 @@ class AbstractConverter():
     def process(self, no_load=False, no_post_process=False, page_size=constants.DEFAULT_PAGE_SIZE):
         if not no_load: self.loadImpl()
         if not no_post_process: self.postProcess(page_size)
-        self.printAllCollectionInfo()
+        # self.printAllCollectionInfo()
     ## DEF
 
     def loadImpl(self):

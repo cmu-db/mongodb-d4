@@ -95,7 +95,10 @@ class InitialDesigner(AbstractDesigner):
             max_keys = h.getMaxCountKeys()
             if self.debug:
                 LOG.debug("Sharding Key Candidates %s => %s", col_name, max_keys)
-            design.addShardKey(col_name, random.choice(max_keys))
+            if len(max_keys) > 0:
+                design.addShardKey(col_name, random.choice(max_keys))
+            else:
+                design.addShardKey(col_name, [])
         ## FOR
     ## DEF
     
