@@ -54,17 +54,17 @@ from util import termcolor
 from multi_search import MultiClientDesigner
 from messageprocessor import *
 
-logging.basicConfig(level = logging.INFO,
-                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-                    datefmt="%m-%d-%Y %H:%M:%S",
-                    stream = sys.stdout)
-
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
 ## main
 ## ==============================================
 if __name__ == '__main__':
+    logging.basicConfig(level = logging.INFO,
+                        format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                        datefmt="%m-%d-%Y %H:%M:%S",
+                        stream = sys.stdout)
+
     aparser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                       description="%s - Distributed Document Database Designer" % constants.PROJECT_NAME)
                                       
@@ -250,6 +250,12 @@ if __name__ == '__main__':
 ## EXECNET PROCESSOR
 ## ==============================================
 if __name__ == '__channelexec__':
+    logFormat = "%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s"
+    logging.basicConfig(level = logging.INFO,
+                        format=logFormat,
+                        datefmt="%m-%d-%Y %H:%M:%S",
+                        filename="d4.log")
+    
 #import pycallgraph
 #import os
 #pycallgraph.start_trace()

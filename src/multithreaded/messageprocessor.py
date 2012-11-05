@@ -53,12 +53,6 @@ class MessageProcessor:
 
             # MSG_CMD_INIT
             if msg.header == MSG_CMD_INIT:
-                logFormat = "%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s"
-                logging.basicConfig(level = logging.INFO,
-                                    format=logFormat,
-                                    datefmt="%m-%d-%Y %H:%M:%S",
-                                    filename="d4.log")
-                # Create worker
                 self.worker = Worker(msg.data[0],  msg.data[1], self.channel)
             
             elif msg.header == MSG_CMD_LOAD_DB:
