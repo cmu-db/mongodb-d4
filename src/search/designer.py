@@ -57,7 +57,7 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class Designer():
 
-    def __init__(self, config, metadata_db, dataset_db, channel):
+    def __init__(self, config, metadata_db, dataset_db, channel=None):
         # SafeConfigParser
         self.config = config
 

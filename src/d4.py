@@ -188,7 +188,11 @@ if __name__ == '__main__':
             dataset_db.drop_collection(col_name)
         ## FOR
     ## IF
-
+    
+    # This designer is only used for input processing
+    designer = Designer(config, metadata_db, dataset_db)
+    designer.setOptionsFromArguments(args)
+    
     start = time.time()
     try:
         ## ----------------------------------------------
