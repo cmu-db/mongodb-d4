@@ -25,6 +25,8 @@ import itertools
 import logging
 import operator
 from pprint import pformat
+import os
+import sys
 
 # mongodb-d4
 import workload
