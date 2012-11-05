@@ -41,7 +41,6 @@ if __name__ == '__channelexec__':
 else:
     basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../libs"))
-sys.path.append(os.path.join(basedir, "multithreaded/"))
 import mongokit
 
 # mongodb-d4
@@ -51,8 +50,8 @@ from search import Designer
 from util import configutil
 from util import constants
 from util import termcolor
-from multi_search import MultiClientDesigner
-from messageprocessor import *
+from multithreaded import multi_search
+from multithreaded import messageprocessor
 
 LOG = logging.getLogger(__name__)
 
@@ -232,7 +231,7 @@ if __name__ == '__main__':
         #import pycallgraph
         #pycallgraph.start_trace()
         # Bombs away!!! Quote from the previous contributors 
-        mcd = MultiClientDesigner(config, args)
+        mcd = multi_search.MultiClientDesigner(config, args)
         mcd.runSearch()
         #try:
             #finalSolution = designer.search()
