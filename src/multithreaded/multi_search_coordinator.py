@@ -114,13 +114,16 @@ class Coordinator:
                 elif msg.header == MSG_FOUND_BEST_COST:
                     bestCost = msg.data[0]
                     bestDesign = msg.data[1]
-                    LOG.info("Got new best design. Distribute it!")
-                    if self.bestCost > bestCost:
+                    
+                    if bestCost < self.bestCost:
+                        LOG.info("Got new best design. Distribute it!")
+                        LOG.info("Best cost is updated from %s to %s", self.bestCost, bestCost)
+                        LOG.info("New best design\n%s", bestDesign)
                         self.bestCost = bestCost
                         self.bestDesign = bestDesign.copy()
+                        finished_update = 0
+                        self.send2All(MSG_CMD_UPDATE_BEST_COST, (bestCost, bestDesign))
                     ## IF
-                    finished_update = 0
-                    self.send2All(MSG_CMD_UPDATE_BEST_COST, (bestCost, bestDesign))
                 ## ELIF
                 elif msg.header == MSG_START_SEARCHING:
                     LOG.info("One process started searching, we are good :)")
