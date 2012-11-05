@@ -70,7 +70,7 @@ class TestSearchSpace (unittest.TestCase) :
         self.costmodel = DummyCostModel(dummy_bounding_f)
     ## DEF
 
-    def testSimpleSearch(self):
+    def outtestSimpleSearch(self):
         '''
         dummy example: since the bounding function returns always float('inf'),
         this should basically traverse the entire tree
@@ -195,7 +195,7 @@ class TestSearchSpace (unittest.TestCase) :
         self.assertTrue(checkIndexKeyExist(nodeList, [("key1", "key2"), ("key1", "key3")] ))
         self.assertTrue(checkIndexKeyExist(nodeList, [("key1",), ("key1", "key2"), ("key1", "key3")] ))
 
-    def testDenormalization(self):
+    def outtestDenormalization(self):
         '''
         now with some denorm...
         3 leaf nodes: no denorm, col1->col2, col2->col1
