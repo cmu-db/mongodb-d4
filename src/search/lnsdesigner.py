@@ -77,7 +77,7 @@ class LNSDesigner(AbstractDesigner):
         self.patient_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'patient_time')
         self.init_bbsearch_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'init_bbsearch_time')
         
-        self.init_ratio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'init_relax_ratio')
+        self.relaxRatio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'init_relax_ratio')
         self.ratio_step = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'relax_ratio_step')
         self.max_ratio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'max_relax_ratio')
         
@@ -106,15 +106,15 @@ class LNSDesigner(AbstractDesigner):
             LOG.info("Infinity Mode is ON!!!")
             bbsearch_time_out = INIFITY # as long as possible
             isExhaustedSearch = True
-            self.init_ratio = 1.0
+            self.relaxRatio = 1.0
         else:
             bbsearch_time_out = self.init_bbsearch_time
         ## IF
         
         while True:
-            LOG.info("Started one bbsearch, current bbsearch_time_out is: %s, relax ratio is: %s", bbsearch_time_out, self.init_ratio)
+            LOG.info("Started one bbsearch, current bbsearch_time_out is: %s, relax ratio is: %s", bbsearch_time_out, self.relaxRatio)
             
-            relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, self.init_ratio)
+            relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, self.relaxRatio)
             
             LOG.info("Relaxed collections\n %s", relaxedCollectionsNames)
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
