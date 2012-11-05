@@ -23,6 +23,7 @@
 # -----------------------------------------------------------------------
 import logging
 import math
+from pprint import pformat
 
 import catalog
 from util.histogram import Histogram
@@ -116,7 +117,11 @@ class NodeEstimator(object):
                 for content in workload.getOpContents(op):
                     values = catalog.getFieldValues(shardingKeys, content)
                     if self.debug: LOG.debug("%s -> %s", shardingKeys, values)
-                    node_id = self.computeTouchedNode(values)
+                    try:
+                        node_id = self.computeTouchedNode(values)
+                    except:
+                        LOG.error("Unexpected error when computing touched nodes\n%s" % pformat(values))
+                        raise
                     for i in xrange(num_touched):
                         if node_id >= self.num_nodes: node_id = 0
                         results.add(node_id)
