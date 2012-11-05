@@ -56,6 +56,7 @@ class Coordinator:
         running_clients = len(self.channels)
         started_process = 0
         started_searching_process = 0
+        started_loading = 0
         
         while True:
             distrubute_value = True
@@ -87,6 +88,11 @@ class Coordinator:
                     started_process += 1
                     if started_process == len(self.channels):
                         LOG.info("Perfect! All the processes are running!")
+                elif data.header == MSG_START_LOADING:
+                    LOG.info("One process started loading, we are good :)")
+                    started_loading += 1
+                    if started_loading == len(self.channels):
+                        LOG.info("Perfect! All the processes have started loading")
                 elif data.header == MSG_START_SEARCHING:
                     LOG.info("One process started searching, we are good :)")
                     started_searching_process += 1

@@ -39,6 +39,11 @@ from util import configutil
 from designcandidates import DesignCandidates
 import time
 
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../multithreaded"))
+
+from message import *
+
 LOG = logging.getLogger(__name__)
 
 LNSEARCH_TIME_OUT = 10 * 60 * 60
@@ -288,7 +293,7 @@ class Designer():
 
     def search(self):
         """Perform the actual search for a design"""
-
+        sendMessage(MSG_START_LOADING, None, self.channel)
         isShardingEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_sharding')
         isIndexesEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_indexes')
         isDenormalizationEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_denormalization')
