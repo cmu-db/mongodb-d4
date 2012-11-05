@@ -34,7 +34,7 @@ LOG = logging.getLogger(__name__)
 class NodeEstimator(object):
 
     def __init__(self, collections, num_nodes):
-        assert type(collections) == dict
+        assert isinstance(collections, dict)
 #        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.collections = collections
@@ -154,7 +154,7 @@ class NodeEstimator(object):
             Compute which node the given set of values will need to go
             This is just a simple (hash % N), where N is the number of nodes in the cluster
         """
-        assert type(values) == tuple
+        assert isinstance(values, tuple)
         return hash(values) % self.num_nodes
     ## DEF
 
