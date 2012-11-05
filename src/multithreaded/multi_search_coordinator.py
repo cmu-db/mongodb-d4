@@ -55,6 +55,7 @@ class Coordinator:
         
         running_clients = len(self.channels)
         started_process = 0
+        started_searching_process = 0
         
         while True:
             distrubute_value = True
@@ -64,6 +65,7 @@ class Coordinator:
                 
                 if data.header == MSG_EXECUTE_COMPLETED:
                     running_clients -= 1
+                    LOG.info("One process has terminated, there are %d left.", )
                     if running_clients == 0:
                         break
                 elif data.header == MSG_NEW_BEST_COST:
@@ -83,8 +85,13 @@ class Coordinator:
                 elif data.header == MSG_START_EXECUTING:
                     LOG.info("One process is started, we are good :)")
                     started_process += 1
-                    if started_process == running_clients:
+                    if started_process == len(self.channels):
                         LOG.info("Perfect! All the processes are running!")
+                elif data.header == MSG_START_SEARCHING:
+                    LOG.info("One process started searching, we are good :)")
+                    started_searching_process += 1
+                    if started_searching_process == len(self.channels):
+                        LOG.info("Perfect! All the processes have started searching")
                 else:
                     LOG.info("Got invalid command: %s", data.header)
                     exit("CUPCAKE")

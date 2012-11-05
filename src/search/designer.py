@@ -323,8 +323,8 @@ class Designer():
         LOG.info("Computed initial design [COST=%s]", upper_bound)
 #        cm.debug = True
 #        costmodel.LOG.setLevel(logging.DEBUG)
-        LOG.info("Executing D4 search algorithm...")
-
+        
+        sendMessage(MSG_START_SEARCHING, None, self.channel)
         lock = thread.allocate_lock()
         outputfile = self.__dict__.get("output_design", None)
         self.search_method = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, LNSEARCH_TIME_OUT, self.channel, lock, outputfile)
