@@ -155,7 +155,11 @@ class DiskCostComponent(AbstractCostComponent):
                 isRegex = self.state.__getIsOpRegex__(cache, op)
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
-                    for node_id in self.state.__getNodeIds__(cache, design, op):
+                    try:
+                        opNodes = self.state.__getNodeIds__(cache, design, op)
+                    except:
+                        raise Exception("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                    for node_id in opNodes:
                         lru = self.buffers[node_id]
 
                         # TODO: Need to handle whether it's a scan or an equality predicate

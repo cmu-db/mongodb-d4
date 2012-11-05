@@ -50,8 +50,8 @@ from search import Designer
 from util import configutil
 from util import constants
 from util import termcolor
-from multithreaded import multi_search
-from multithreaded import messageprocessor
+from multithreaded.multi_search import MultiClientDesigner
+from multithreaded.messageprocessor import MessageProcessor
 
 LOG = logging.getLogger(__name__)
 
@@ -231,7 +231,7 @@ if __name__ == '__main__':
         #import pycallgraph
         #pycallgraph.start_trace()
         # Bombs away!!! Quote from the previous contributors 
-        mcd = multi_search.MultiClientDesigner(config, args)
+        mcd = MultiClientDesigner(config, args)
         mcd.runSearch()
         #try:
             #finalSolution = designer.search()
@@ -250,7 +250,7 @@ if __name__ == '__main__':
 ## ==============================================
 if __name__ == '__channelexec__':
     logFormat = "%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s"
-    logging.basicConfig(level = logging.INFO,
+    logging.basicConfig(level=logging.INFO,
                         format=logFormat,
                         datefmt="%m-%d-%Y %H:%M:%S",
                         filename="d4.log")
