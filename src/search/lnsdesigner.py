@@ -23,6 +23,7 @@
 # -----------------------------------------------------------------------
 
 import sys
+import os
 import math
 import random
 import logging
@@ -32,6 +33,10 @@ from util import *
 from search import bbsearch
 from abstractdesigner import AbstractDesigner
 
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../multithreaded"))
+
+from message import *
 LOG = logging.getLogger(__name__)
 
 # Constants
@@ -62,7 +67,7 @@ class LNSDesigner(AbstractDesigner):
         ## DEF
     ## CLASS
     
-    def __init__(self, collections, designCandidates, workload, config, costModel, initialDesign, bestCost, timeout):
+    def __init__(self, collections, designCandidates, workload, config, costModel, initialDesign, bestCost, timeout, channel=None, lock=None, outputfile=None):
         AbstractDesigner.__init__(self, collections, workload, config)
         self.costModel = costModel
         self.initialDesign = initialDesign
@@ -71,12 +76,17 @@ class LNSDesigner(AbstractDesigner):
         self.designCandidates = designCandidates
         self.relaxRatio = 0.25
 
+        self.channel = channel
+        self.bbsearch_method = None
+        self.bestLock = lock
+        self.outputfile = outputfile
+        
         self.debug = False
         ### Test
         self.count = 0
     ## DEF
 
-    def solve(self):
+    def run(self):
         """
             main public method. Simply call to get the optimal solution
         """
@@ -100,21 +110,21 @@ class LNSDesigner(AbstractDesigner):
             
             LOG.info("Relaxed collections\n %s", relaxedCollectionsNames)
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
-            bb = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, self.bestCost, bbsearch_time_out)
-            bbDesign = bb.solve()
+            self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, self.bestCost, bbsearch_time_out, self.channel, self.bestCost)
+            bbDesign = self.bbsearch_method.solve()
 
-            if bb.bestCost < self.bestCost:
-                LOG.info("LNSearch: Best score is updated from %s to %s", self.bestCost, bb.bestCost)
-                self.bestCost = bb.bestCost
+            if self.bbsearch_method.bestCost < self.bestCost:
+                LOG.info("LNSearch: Best score is updated from %s to %s", self.bestCost, self.bbsearch_method.bestCost)
+                self.bestCost = self.bbsearch_method.bestCost
                 bestDesign = bbDesign.copy()
                 elapsedTime = 0
             else:
-                elapsedTime += bb.usedTime
+                elapsedTime += self.bbsearch_method.usedTime
             
             if isExhaustedSearch:
                 elapsedTime = INIFITY
                 
-            if elapsedTime >= 60 * 60: # 1 hour
+            if elapsedTime >= 2 * 60 * 60: # 1 hour
                 # if it haven't found a better design for one hour, give up
                 LOG.info("Haven't found a better design for %s minutes. QUIT", elapsedTime)
                 break
@@ -123,7 +133,7 @@ class LNSDesigner(AbstractDesigner):
                 LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
                 LOG.info("\n====Design Candidates====\n%s", dc)
                 LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
-                LOG.info("\n=====BBSearch Score======\n%s", bb.bestCost)
+                LOG.info("\n=====BBSearch Score======\n%s", self.bbsearch_method.bestCost)
                 LOG.info("\n========Best Score=======\n%s", self.bestCost)
                 LOG.info("\n========Best Design======\n%s", bestDesign)
 
@@ -131,15 +141,21 @@ class LNSDesigner(AbstractDesigner):
             if self.relaxRatio > RELAX_RATIO_UPPER_BOUND:
                 self.relaxRatio = RELAX_RATIO_UPPER_BOUND
                 
-            self.timeout -= bb.usedTime
+            self.timeout -= self.bbsearch_method.usedTime
             bbsearch_time_out += RELAX_RATIO_STEP / 0.1 * 30
 
             if self.timeout <= 0:
                 break
         ## WHILE
 
-        LOG.info("Final Cost: %s", self.bestCost)
-        return bestDesign
+        sendMessage(MSG_EXECUTE_COMPLETED, None, self.channel)
+        LOG.info("Current thread is terminated")
+        if self.outputfile:
+            f = open(self.outputfile, 'w')
+            f.write(finalSolution.toJSON())
+            f.close()
+        else:
+            print finalSolution.toJSON()
     # DEF
 
     def __relax__(self, generator, design, ratio):

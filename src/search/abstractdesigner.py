@@ -23,13 +23,14 @@
 # -----------------------------------------------------------------------
 
 import logging
+from threading import Thread
 
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
 ## Abstract Designer
 ## ==============================================
-class AbstractDesigner():
+class AbstractDesigner(Thread):
     
     def __init__(self, collections, workload, config):
         assert isinstance(collections, dict)
@@ -44,5 +45,7 @@ class AbstractDesigner():
         
     def generate(self):
         raise NotImplementedError("Unimplemented %s.generate()" % self.__init__.im_class)
-        
+    
+    def run(self):
+        pass
 ## CLASS

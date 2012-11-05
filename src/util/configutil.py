@@ -13,6 +13,7 @@ SECT_CLUSTER   = "cluster"
 SECT_DESIGNER  = "designer"
 SECT_COSTMODEL = "costmodel"
 SECT_MYSQL     = "mysql"
+SECT_MULTI_SEARCH = "multithread"
 
 ALL_SECTIONS = set()
 _key = None
@@ -63,6 +64,12 @@ constants.METADATA_DB_NAME),
         ("user", "MySQL user name", None),
         ("pass", "MySQL user password", None),
     ],
+    
+    # Multi-threaded search configuration
+    SECT_MULTI_SEARCH: [
+        ("num_clients", "number of clients the LNS/BB search will be run on", 1)
+    ],
+    
 }
 
 ## ==============================================

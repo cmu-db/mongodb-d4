@@ -2,6 +2,7 @@
 
 import time
 import sys
+import os
 import design
 import itertools
 import signal
@@ -12,6 +13,11 @@ format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
 datefmt="%m-%d-%Y %H:%M:%S",
 stream = sys.stdout)
 LOG = logging.getLogger(__name__)
+
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../multithreaded"))
+
+from message import *
 
 '''
 CONSTANTS & CONFIG
@@ -44,7 +50,7 @@ class BBSearch ():
         initialized, solving, solved, timed_out, user_terminated
     """
 
-    def __init__(self, designCandidate, costModel, relaxedDesingn, bestCost, timeout):
+    def __init__(self, designCandidate, costModel, relaxedDesingn, bestCost, timeout, channel=None, lock=None):
         """
             class constructor
             args:
@@ -69,6 +75,9 @@ class BBSearch ():
         self.status = "initialized"
         self.usedTime = 0 # track how much time it runs
 
+        self.channel = channel
+        self.bestLock = lock
+        
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         return
 
@@ -493,16 +502,21 @@ class BBNode():
         # for leaf nodes (complete solutions):
         # Check against the best value we have seen so far
         # If this node is better, update the optimal solution
+        self.bbsearch.bestLock.acquire()
         if self.isLeaf():
             if self.cost < self.bbsearch.bestCost:
-                LOG.info("Best Cost is updated from %s to %s", self.bbsearch.bestCost, self.cost)
-                LOG.info("New Best design: \n%s", self.design)
                 self.bbsearch.bestCost = self.cost
                 self.bbsearch.bestDesign = self.design.copy()
-        
+                LOG.info("Best Cost is updated from %s to %s", self.bbsearch.bestCost, self.cost)
+                LOG.info("New Best design: \n%s", self.design)
+                LOG.info("Sending update to coorinator...")
+                sendMessage(MSG_NEW_BEST_COST, (self.bbsearch.bestCost, self.bbsearch.bestDesign), self.bbsearch.channel)
+                
         # A node can be pruned when its cost is greater than the global best_cost
         # So when this function returns False, the node is discarded
-        return self.cost <= self.bbsearch.bestCost
+        isCostBetter = (self.cost <= self.bbsearch.bestCost)
+        self.bbsearch.bestLock.release()
+        return isCostBetter
         
 
     # mostly for testing. Recursive.

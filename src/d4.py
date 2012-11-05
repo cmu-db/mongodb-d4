@@ -34,8 +34,14 @@ import time
 from ConfigParser import RawConfigParser
 
 # Third-Party Dependencies
-basedir = os.path.realpath(os.path.dirname(__file__))
+# Third-Party Dependencies
+if __name__ == '__channelexec__':
+    # Remote execnet invocations won't have a __file__
+    basedir = os.getcwd()
+else:
+    basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../libs"))
+sys.path.append(os.path.join(basedir, "multithreaded/"))
 import mongokit
 
 # mongodb-d4
@@ -45,6 +51,8 @@ from search import Designer
 from util import configutil
 from util import constants
 from util import termcolor
+from multi_search import MultiClientDesigner
+from messageprocessor import *
 
 logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
@@ -117,7 +125,7 @@ if __name__ == '__main__':
 
     aparser.add_argument('--output-design', type=str,
                          help='Path to final design file.')
-                         
+    
     args = vars(aparser.parse_args())
 
     if args['debug']: LOG.setLevel(logging.DEBUG)
@@ -181,9 +189,6 @@ if __name__ == '__main__':
         ## FOR
     ## IF
 
-    designer = Designer(config, metadata_db, dataset_db)
-    designer.setOptionsFromArguments(args)
-
     start = time.time()
     try:
         ## ----------------------------------------------
@@ -224,21 +229,33 @@ if __name__ == '__main__':
         ## ----------------------------------------------
         #import pycallgraph
         #pycallgraph.start_trace()
-        try:
-            finalSolution = designer.search()
-        finally:
-            #pycallgraph.make_dot_graph('d4.png')
-            pass
-        LOG.info("Final Solution:\n%s", finalSolution)
+        # Bombs away!!! Quote from the previous contributors 
+        mcd = MultiClientDesigner(config, args)
+        mcd.runSearch()
+        #try:
+            #finalSolution = designer.search()
+        #finally:
+            ##pycallgraph.make_dot_graph('d4.png')
+            #pass
+        #LOG.info("Final Solution:\n%s", finalSolution)
     finally:
         stop = time.time()
         LOG.info("Total Time: %.1f sec", (stop - start))
 
-    outputfile = args.get("output_design", None)
-    if outputfile:
-        f = open(outputfile, 'w')
-        f.write(finalSolution.toJSON())
-        f.close()
-    else:
-        print finalSolution.toJSON()
 ## MAIN
+
+## ==============================================
+## EXECNET PROCESSOR
+## ==============================================
+if __name__ == '__channelexec__':
+#import pycallgraph
+#import os
+#pycallgraph.start_trace()
+#pid=os.getpid()
+#try:
+    mp = MessageProcessor(channel)
+    mp.processMessage()
+    #finally:
+    #    pycallgraph.make_dot_graph("d4-"+str(pid)+".png")
+    #    pass
+    ## EXEC

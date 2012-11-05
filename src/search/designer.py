@@ -51,7 +51,7 @@ LNSEARCH_TIME_OUT = 10 * 60 * 60
 ## ==============================================
 class Designer():
 
-    def __init__(self, config, metadata_db, dataset_db):
+    def __init__(self, config, metadata_db, dataset_db, channel):
         # SafeConfigParser
         self.config = config
 
@@ -77,6 +77,10 @@ class Designer():
         self.sess_limit = None
         self.op_limit = None
 
+        # Used for multithread
+        self.channel = channel
+        self.search_method = None
+        
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
 
@@ -321,10 +325,10 @@ class Designer():
 #        costmodel.LOG.setLevel(logging.DEBUG)
         LOG.info("Executing D4 search algorithm...")
 
-        ln = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, LNSEARCH_TIME_OUT)
-        solution = ln.solve()
-
-        return solution
+        lock = thread.allocate_lock()
+        outputfile = self.__dict__.get("output_design", None)
+        self.search_method = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, LNSEARCH_TIME_OUT, self.channel, lock, outputfile)
+        self.search_method.start()
     ## DEF
 
 ## CLASS
