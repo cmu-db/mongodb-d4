@@ -2,6 +2,7 @@
 from message import *
 import sys
 import time
+import Queue
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -12,6 +13,8 @@ class Coordinator:
         self.bestCost = sys.maxint
         self.config = None
         self.bestDesign = None
+        
+        self.debug = False
     ## DEF
     
     def init(self, config, channels, args):
@@ -44,69 +47,114 @@ class Coordinator:
         LOG.info("All clients are initialized")
     ## DEF
     
+    def sendLoadDBCommand(self):
+        LOG.info("Sending out load database commands")
+        self.send2All(MSG_CMD_LOAD_DB, None)
+        
+        bestInitCost = sys.maxint
+        bestInitDesign = None
+        num_of_response = 0
+        
+        while True:
+            try:
+                chan, res = self.queue.get(timeout=60)
+                msg = getMessage(res)
+                if msg.header == MSG_INITIAL_DESIGN:
+                    num_of_response += 1
+                    LOG.info("Got one initial design")
+                    if msg.data[0] < bestInitCost:
+                        bestInitCost = msg.data[0]
+                        bestInitDesign = msg.data[1].copy()
+                    ## IF
+                    if num_of_response == len(self.channels):
+                        LOG.info("Got all responses and found the best initial design. Distribute it to all clients...")
+                        break
+                    ## IF
+                else:
+                    LOG.info("INVALID command %s", msg.header)
+                    exit("CUPCAKE")
+            except Queue.Empty:
+                LOG.info("WAITING, Got %d responses", num_of_response)
+        ## WHILE
+        
+        assert bestInitCost != sys.maxint
+        assert bestInitDesign
+        
+        self.bestCost = bestInitCost
+        self.bestDesign = bestInitDesign
+        
+        return bestInitCost, bestInitDesign
+    ## DEF
+    
+    def sendExecuteCommand(self, bestInitCost, bestInitDesign):
+        self.send2All(MSG_CMD_EXECUTE, (bestInitCost, bestInitDesign))
+        
+        running_clients = len(self.channels)
+        started_searching_process = 0
+        evaluated_design = 0
+        finished_update = 0
+        
+        while True:
+            try:
+                chan, res = self.queue.get(timeout=60)
+                msg = getMessage(res)
+                
+                if msg.header == MSG_EXECUTE_COMPLETED:
+                    running_clients -= 1
+                    LOG.info("One process has terminated, there are %d left.", )
+                    if running_clients == 0:
+                        break
+                ## IF
+                elif msg.header == MSG_EVALUATED_ONE_DESIGN:
+                    evaluated_design += 1
+                    if self.debug:
+                        LOG.info("Best cost: %s", msg.data[0])
+                        LOG.info("Evaluated cost: %s", msg.data[1])
+                ## ELIF
+                elif msg.header == MSG_FOUND_BEST_COST:
+                    bestCost = msg.data[0]
+                    bestDesign = msg.data[1]
+                    LOG.info("Got new best design. Distribute it!")
+                    if self.bestCost > bestCost:
+                        self.bestCost = bestCost
+                        self.bestDesign = bestDesign.copy()
+                    ## IF
+                    finished_update = 0
+                    self.send2All(MSG_CMD_UPDATE_BEST_COST, (bestCost, bestDesign))
+                ## ELIF
+                elif msg.header == MSG_START_SEARCHING:
+                    LOG.info("One process started searching, we are good :)")
+                    started_searching_process += 1
+                    if started_searching_process == len(self.channels):
+                        LOG.info("Perfect! All the processes have started searching")
+                ## ELIF
+                elif msg.header == MSG_FINISHED_UPDATE:
+                    LOG.info("One process finished updating new best cost")
+                    finished_update += 1
+                    if finished_update == len(self.channels):
+                        LOG.info("Perfect! All the processes have finished update")
+                else:
+                    LOG.info("Got invalid command: %s", msg.header)
+                    exit("CUPCAKE")
+                    
+            except Queue.Empty:
+                LOG.info("WAITING, clients left: %s", running_clients)
+                LOG.info("Number of evaluated design: %d", evaluated_design)
+                LOG.info("Best cost: %s", self.bestCost)
+                LOG.info("Best Design:\n%s", self.bestDesign)
+        ## WHILE
     def execute(self):
         """
             send messages to channels to tell them to start running
             update the local best cost and distribute the new values to every channel
         """ 
-        # Tell all clients to run search algorithm
         start = time.time()
-        self.send2All(MSG_CMD_EXECUTE, None)
+        # STEP 0. Tell the clients to load the database from mongodb and generate their own initial design
+        bestInitCost, bestInitDesign = self.sendLoadDBCommand()
         
-        running_clients = len(self.channels)
-        started_process = 0
-        started_searching_process = 0
-        started_loading = 0
+        # STEP 1. Tell the clients to start the search algorithm from the same initial design
+        self.sendExecuteCommand(bestInitCost, bestInitDesign)
         
-        while True:
-            distrubute_value = True
-            try:
-                chan, res = self.queue.get(timeout=60)
-                data = getMessage(res)
-                
-                if data.header == MSG_EXECUTE_COMPLETED:
-                    running_clients -= 1
-                    LOG.info("One process has terminated, there are %d left.", )
-                    if running_clients == 0:
-                        break
-                elif data.header == MSG_NEW_BEST_COST:
-                    bestCost = data[0]
-                    bestDesign = data[1]
-                    
-                    if self.bestCost > bestCost:
-                        if self.bestCost == sys.maxint:
-                            distrubute_value = False
-                        self.bestCost = bestCost
-                        self.bestDesign = bestDesign.copy()
-                    ## IF
-                    
-                    if distrubute_value:
-                        self.send2All(MSG_CMD_UPDATE_BEST_COST, (bestCost, bestDesign))
-                    ## IF
-                elif data.header == MSG_START_EXECUTING:
-                    LOG.info("One process is started, we are good :)")
-                    started_process += 1
-                    if started_process == len(self.channels):
-                        LOG.info("Perfect! All the processes are running!")
-                elif data.header == MSG_START_LOADING:
-                    LOG.info("One process started loading, we are good :)")
-                    started_loading += 1
-                    if started_loading == len(self.channels):
-                        LOG.info("Perfect! All the processes have started loading")
-                elif data.header == MSG_START_SEARCHING:
-                    LOG.info("One process started searching, we are good :)")
-                    started_searching_process += 1
-                    if started_searching_process == len(self.channels):
-                        LOG.info("Perfect! All the processes have started searching")
-                else:
-                    LOG.info("Got invalid command: %s", data.header)
-                    exit("CUPCAKE")
-                    
-            except Exception:
-                LOG.info("WAITING, clients left: %s", running_clients)
-                LOG.info("Best cost: %s", self.bestCost)
-                LOG.info("Best Design:\n%s", self.bestDesign)
-        ## WHILE
         end = time.time()
         LOG.info("All the clients finished executing")
         LOG.info("Best cost: %s", self.bestCost)

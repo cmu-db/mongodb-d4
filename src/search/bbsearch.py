@@ -82,6 +82,15 @@ class BBSearch ():
         return
 
     
+    def updateBest(self, bestCost, bestDesign):
+        self.bestLock.acquire()
+        if self.bestCost < bestCost:
+            self.bestCost = bestCost
+            self.bestDesign = bestDesign.copy()
+        ## IF
+        self.bestLock.release()
+    ## DEF
+    
     def solve(self):
         """
             main public method. Simply call to get the optimal solution
@@ -494,7 +503,6 @@ class BBNode():
             LOG.debug(".",)
             LOG.debug(self)
         # add child only when the solution is admissible
-        LOG.info("Evaluated design: \n%s", self.design)
         self.cost = self.bbsearch.costModel.overallCost(self.design)
 #        LOG.debug("EVAL NODE: %s / bound_lower:%f / bound_upper:%f / BOUND:%f", \
 #                  self.design, self.lower_bound, self.upper_bound, self.bbsearch.lower_bound)
@@ -504,13 +512,11 @@ class BBNode():
         # If this node is better, update the optimal solution
         self.bbsearch.bestLock.acquire()
         if self.isLeaf():
+            sendMessage(MSG_EVALUATED_ONE_DESIGN, (self.bbsearch.bestCost, self.cost), self.bbsearch.channel)
             if self.cost < self.bbsearch.bestCost:
                 self.bbsearch.bestCost = self.cost
                 self.bbsearch.bestDesign = self.design.copy()
-                LOG.info("Best Cost is updated from %s to %s", self.bbsearch.bestCost, self.cost)
-                LOG.info("New Best design: \n%s", self.design)
-                LOG.info("Sending update to coorinator...")
-                sendMessage(MSG_NEW_BEST_COST, (self.bbsearch.bestCost, self.bbsearch.bestDesign), self.bbsearch.channel)
+                sendMessage(MSG_FOUND_BEST_COST, (self.bbsearch.bestCost, self.bbsearch.bestDesign), self.bbsearch.channel)
                 
         # A node can be pruned when its cost is greater than the global best_cost
         # So when this function returns False, the node is discarded

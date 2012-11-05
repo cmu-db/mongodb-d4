@@ -88,6 +88,10 @@ class Designer():
         # Used for multithread
         self.channel = channel
         self.search_method = None
+        self.designCandidates = None
+        self.collections = None
+        self.cm = None
+        self.workload = None
         
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
@@ -294,17 +298,16 @@ class Designer():
     ## DESIGNER EXECUTION
     ## -------------------------------------------------------------------------
 
-    def search(self):
+    def load(self):
         """Perform the actual search for a design"""
-        sendMessage(MSG_START_LOADING, None, self.channel)
         isShardingEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_sharding')
         isIndexesEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_indexes')
         isDenormalizationEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_denormalization')
 
-        collections = self.loadCollections()
-        workload = self.loadWorkload(collections)
+        self.collections = self.loadCollections()
+        self.workload = self.loadWorkload(self.collections)
         # Generate all the design candidates
-        designCandidates = self.generateDesignCandidates(collections, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
+        self.designCandidates = self.generateDesignCandidates(self.collections, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
 
         # Instantiate cost model
         cmConfig = {
@@ -317,7 +320,7 @@ class Designer():
             'address_size':   self.config.getint(configutil.SECT_COSTMODEL, 'address_size'),
             'window_size':    self.config.getint(configutil.SECT_COSTMODEL, 'window_size')
         }
-        cm = CostModel(collections, workload, cmConfig)
+        self.cm = CostModel(self.collections, self.workload, cmConfig)
 #        if self.debug:
 #            state.debug = True
 #            costmodel.LOG.setLevel(logging.DEBUG)
@@ -325,17 +328,18 @@ class Designer():
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
 
-        initialDesign = InitialDesigner(collections, workload, self.config).generate()
-        LOG.info("Initial Design\n%s", initialDesign)
-        upper_bound = cm.overallCost(initialDesign)
-        LOG.info("Computed initial design [COST=%s]", upper_bound)
-#        cm.debug = True
-#        costmodel.LOG.setLevel(logging.DEBUG)
-        
-        sendMessage(MSG_START_SEARCHING, None, self.channel)
+        initialDesign = InitialDesigner(self.collections, self.workload, self.config).generate()
+        initialCost = self.cm.overallCost(initialDesign)
+        return initialCost, initialDesign
+    ## DEF
+    
+    def search(self, initialCost, initialDesign):
+        """
+            Main search process starts here
+        """
         lock = thread.allocate_lock()
         outputfile = self.__dict__.get("output_design", None)
-        self.search_method = LNSDesigner(collections, designCandidates, workload, self.config, cm, initialDesign, upper_bound, LNSEARCH_TIME_OUT, self.channel, lock, outputfile)
+        self.search_method = LNSDesigner(self.collections, self.designCandidates, self.workload, self.config, self.cm, initialDesign, initialCost, LNSEARCH_TIME_OUT, self.channel, lock, outputfile)
         self.search_method.start()
     ## DEF
 

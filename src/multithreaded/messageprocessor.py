@@ -54,14 +54,16 @@ class MessageProcessor:
             # MSG_CMD_INIT
             if msg.header == MSG_CMD_INIT:
                 # Create worker
-                self.worker = Worker(msg.data[0], self.channel, msg.data[1])
+                self.worker = Worker(msg.data[0],  msg.data[1], self.channel)
             
+            elif msg.header == MSG_CMD_LOAD_DB:
+                self.worker.load()
             # MSG_CMD_EXECUTE
             # Tells the worker thread to begin the search process
             # This will only occur once all of the threads complete the
             # EXECUTE_INIT phase.
             elif msg.header == MSG_CMD_EXECUTE:
-                self.worker.execute()
+                self.worker.execute(msg.data[0], msg.data[1])
             
             # MSG_CMD_UPDATE_BEST_COST
             # update the best cost of the current client

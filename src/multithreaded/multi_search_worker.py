@@ -17,7 +17,7 @@ import logging
 LOG = logging.getLogger(__name__)
 
 class Worker:
-    def __init__(self, config, channel, args):
+    def __init__(self, config, args, channel):
         self.config = config
         self.channel = channel
         self.args = args
@@ -33,24 +33,28 @@ class Worker:
         sendMessage(MSG_INIT_COMPLETED, None, self.channel)
     ## DEF
     
-    def execute(self):
+    def load(self):
+        """
+            Load data from mongodb
+        """
+        initialCost, initialDesign = self.designer.load()
+        sendMessage(MSG_INITIAL_DESIGN, (initialCost, initialDesign), self.channel)
+    ## DEF
+    
+    def execute(self, initialCost, initialDesign):
         """
             Run LNS/BB search and inform the coordinator once getting a new best design
         """
-        sendMessage(MSG_START_EXECUTING, None, self.channel)
-        self.designer.search()
+        sendMessage(MSG_START_SEARCHING, None, self.channel)
+        self.designer.search(initialCost, initialDesign)
     ## DEF
     
     def update(self, data):
         bestCost = data[0]
         bestDesign = data[1]
         
-        self.designer.search_method.bestLock.acquire()
-        
-        self.designer.search_method.bbsearch_method.bestCost = bestCost
-        self.designer.search_method.bbsearch_method.bestDesign = bestDesign.copy()
-        
-        self.designer.search_method.bestLock.release()
+        self.designer.search_method.bbsearch_method.updateBest(bestCost, bestDesign)
+        sendMessage(MSG_FINISHED_UPDATE, None, self.channel)
     ## DEF
     
     def establishConnection(self):

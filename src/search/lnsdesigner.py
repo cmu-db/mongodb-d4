@@ -124,7 +124,7 @@ class LNSDesigner(AbstractDesigner):
             if isExhaustedSearch:
                 elapsedTime = INIFITY
                 
-            if elapsedTime >= 2 * 60 * 60: # 1 hour
+            if elapsedTime >= 1 * 60 * 60: # 1 hour
                 # if it haven't found a better design for one hour, give up
                 LOG.info("Haven't found a better design for %s minutes. QUIT", elapsedTime)
                 break
@@ -152,10 +152,10 @@ class LNSDesigner(AbstractDesigner):
         LOG.info("Current thread is terminated")
         if self.outputfile:
             f = open(self.outputfile, 'w')
-            f.write(finalSolution.toJSON())
+            f.write(self.bestDesign.toJSON())
             f.close()
         else:
-            print finalSolution.toJSON()
+            print self.bestDesign.toJSON()
     # DEF
 
     def __relax__(self, generator, design, ratio):
