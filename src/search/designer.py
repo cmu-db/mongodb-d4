@@ -45,6 +45,7 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../multithreaded"))
 
 from message import *
+import thread
 
 LOG = logging.getLogger(__name__)
 

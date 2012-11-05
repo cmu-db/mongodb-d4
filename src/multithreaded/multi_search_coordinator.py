@@ -31,7 +31,7 @@ class Coordinator:
         num_clients = len(self.channels)
         while True:
             try:
-                chan, res = self.queue.get(timeout=1)
+                chan, res = self.queue.get(timeout=60)
                 assert getMessage(res).header == MSG_INIT_COMPLETED
                 num_clients -= 1
                 if num_clients == 0:

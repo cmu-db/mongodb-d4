@@ -33,6 +33,7 @@ LOG = logging.getLogger(__name__)
 class AbstractDesigner(Thread):
     
     def __init__(self, collections, workload, config):
+        Thread.__init__(self)
         assert isinstance(collections, dict)
         assert not workload is None
         #assert not config is None

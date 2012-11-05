@@ -110,7 +110,7 @@ class LNSDesigner(AbstractDesigner):
             
             LOG.info("Relaxed collections\n %s", relaxedCollectionsNames)
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
-            self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, self.bestCost, bbsearch_time_out, self.channel, self.bestCost)
+            self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, self.bestCost, bbsearch_time_out, self.channel, self.bestLock)
             bbDesign = self.bbsearch_method.solve()
 
             if self.bbsearch_method.bestCost < self.bestCost:
