@@ -67,14 +67,21 @@ class LNSDesigner(AbstractDesigner):
         ## DEF
     ## CLASS
     
-    def __init__(self, collections, designCandidates, workload, config, costModel, initialDesign, bestCost, timeout, channel=None, lock=None, outputfile=None):
+    def __init__(self, collections, designCandidates, workload, config, costModel, initialDesign, bestCost, channel=None, lock=None, outputfile=None):
         AbstractDesigner.__init__(self, collections, workload, config)
         self.costModel = costModel
         self.initialDesign = initialDesign
         self.bestCost = bestCost
-        self.timeout = timeout
+        
+        self.timeout = self.config.getint(configutil.SECT_MULTI_SEARCH, 'time_for_lnssearch')
+        self.patient_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'patient_time')
+        self.init_bbsearch_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'init_bbsearch_time')
+        
+        self.init_ratio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'init_relax_ratio')
+        self.ratio_step = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'relax_ratio_step')
+        self.max_ratio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'max_relax_ratio')
+        
         self.designCandidates = designCandidates
-        self.relaxRatio = 0.25
 
         self.channel = channel
         self.bbsearch_method = None
@@ -90,7 +97,6 @@ class LNSDesigner(AbstractDesigner):
         """
             main public method. Simply call to get the optimal solution
         """
-        LOG.info("Design candidates: \n%s", self.designCandidates)
         bestDesign = self.initialDesign.copy()
         col_generator = LNSDesigner.RandomCollectionGenerator(self.collections)
         elapsedTime = 0
@@ -100,13 +106,15 @@ class LNSDesigner(AbstractDesigner):
             LOG.info("Infinity Mode is ON!!!")
             bbsearch_time_out = INIFITY # as long as possible
             isExhaustedSearch = True
-            self.relaxRatio = 1.0
+            self.init_ratio = 1.0
         else:
-            bbsearch_time_out = 10 * 60 # 10 minutes
+            bbsearch_time_out = self.init_bbsearch_time
+        ## IF
+        
         while True:
-            LOG.info("Started one bbsearch, current bbsearch_time_out is: %s, relax ratio is: %s", bbsearch_time_out, self.relaxRatio)
+            LOG.info("Started one bbsearch, current bbsearch_time_out is: %s, relax ratio is: %s", bbsearch_time_out, self.init_ratio)
             
-            relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, self.relaxRatio)
+            relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, self.init_ratio)
             
             LOG.info("Relaxed collections\n %s", relaxedCollectionsNames)
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
@@ -124,7 +132,7 @@ class LNSDesigner(AbstractDesigner):
             if isExhaustedSearch:
                 elapsedTime = INIFITY
                 
-            if elapsedTime >= 1 * 60 * 60: # 1 hour
+            if elapsedTime >= self.patient_time:
                 # if it haven't found a better design for one hour, give up
                 LOG.info("Haven't found a better design for %s minutes. QUIT", elapsedTime)
                 break
@@ -137,12 +145,12 @@ class LNSDesigner(AbstractDesigner):
                 LOG.info("\n========Best Score=======\n%s", self.bestCost)
                 LOG.info("\n========Best Design======\n%s", bestDesign)
 
-            self.relaxRatio += RELAX_RATIO_STEP
-            if self.relaxRatio > RELAX_RATIO_UPPER_BOUND:
-                self.relaxRatio = RELAX_RATIO_UPPER_BOUND
+            self.relaxRatio += self.ratio_step
+            if self.relaxRatio > self.max_ratio:
+                self.relaxRatio = self.max_ratio
                 
             self.timeout -= self.bbsearch_method.usedTime
-            bbsearch_time_out += RELAX_RATIO_STEP / 0.1 * 30
+            bbsearch_time_out += self.ratio_step / 0.1 * 30
 
             if self.timeout <= 0:
                 break

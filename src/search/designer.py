@@ -49,8 +49,6 @@ import thread
 
 LOG = logging.getLogger(__name__)
 
-LNSEARCH_TIME_OUT = 10 * 60 * 60
-
 ## ==============================================
 ## Designer
 ## This is the central object that will have all of the
@@ -338,8 +336,9 @@ class Designer():
             Main search process starts here
         """
         lock = thread.allocate_lock()
+        
         outputfile = self.__dict__.get("output_design", None)
-        self.search_method = LNSDesigner(self.collections, self.designCandidates, self.workload, self.config, self.cm, initialDesign, initialCost, LNSEARCH_TIME_OUT, self.channel, lock, outputfile)
+        self.search_method = LNSDesigner(self.collections, self.designCandidates, self.workload, self.config, self.cm, initialDesign, initialCost, self.channel, lock, outputfile)
         self.search_method.start()
     ## DEF
 

@@ -67,7 +67,13 @@ constants.METADATA_DB_NAME),
     
     # Multi-threaded search configuration
     SECT_MULTI_SEARCH: [
-        ("num_clients", "number of clients the LNS/BB search will be run on", 1)
+        ("num_clients", "number of clients the LNS/BB search will be run on", 1),
+        ("time_for_lnssearch", "seconds that the lns search will run", 2*60*60),
+        ("patient_time", "seconds within which if a better design is not found, we quit lns search", 60*60),
+        ("init_bbsearch_time", "time bbsearch will run at the first time", 10*60),
+        ("init_relax_ratio", "initial relax ratio", 0.25),
+        ("max_relax_ratio", "maximum relax ratio", 0.5),
+        ("relax_ratio_step", "the increase step of relax ratio", 0.1)
     ],
     
 }
