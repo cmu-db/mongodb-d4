@@ -94,13 +94,13 @@ class BlogWorker(AbstractWorker):
         self.lastArticle = msg[1]
         self.lastCommentId = None
         self.config[self.name]["commentsperarticle"]
-        self.articleZipf = ZipfGenerator(self.num_articles, 1.001)
+        self.articleZipf = ZipfGenerator(self.num_articles, float(config[self.name]["skew"]))
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
         numComments = int(config[self.name]["commentsperarticle"])
         
         # Zipfian distribution on the number of comments & their ratings
-        self.commentsZipf = ZipfGenerator(numComments, 1.001)
-        self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING+1, 1.001)
+        self.commentsZipf = ZipfGenerator(numComments,float(config[self.name]["skew"]))
+        self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING+1, float(config[self.name]["skew"]))
         self.db = self.conn[config['default']["dbname"]]   
         
         #precalcualtiong the authors names list to use Zipfian against them
@@ -111,7 +111,7 @@ class BlogWorker(AbstractWorker):
                 self.authors.append("authorname0000000000000000000000000000000000000000000000000000000000000000000"+str(i))
             else:
                 self.authors.append("authorname"+str(i))
-        self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,1.001)
+        self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,float(config[self.name]["skew"]))
         
         #precalculating tags
         self.tags = [ ]
@@ -121,7 +121,7 @@ class BlogWorker(AbstractWorker):
                 self.tags.append("tag00000000000000000000000000000000000000000000000000000000000000000000000000000"+str(i))
             else:    
                 self.tags.append("tag"+str(i))
-        self.tagZipf = ZipfGenerator(constants.NUM_TAGS,1.001)
+        self.tagZipf = ZipfGenerator(constants.NUM_TAGS,float(config[self.name]["skew"]))
         
         #precalcualtiong the dates list to use Zipfian against them
         self.dates = [ ]
@@ -133,7 +133,7 @@ class BlogWorker(AbstractWorker):
         for i in xrange(epochToStopInSeconds,epochToStartInSeconds,-86400):
             self.dates.append(datetime.fromtimestamp(i))
             self.datecount +=1
-        self.dateZipf = ZipfGenerator(self.datecount,1.001)
+        self.dateZipf = ZipfGenerator(self.datecount,float(config[self.name]["skew"]))
         
         
         
@@ -393,18 +393,21 @@ class BlogWorker(AbstractWorker):
             #randreadop = random.randint(1,2)
             #readwriterandom = random.random()
             #readpercent = 0.8
-            skewfactor = float(config[self.name]["skew"])
-            skewrandom = random.random()
-            if skewrandom > skewfactor:
-                 #LOG.debug("random~~~")
-                 author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
-                 tag = self.tags[int(random.randint(0,constants.NUM_TAGS-1))]
-            else:
+            #skewfactor = float(config[self.name]["skew"])
+            #skewrandom = random.random()
+            #if skewrandom > skewfactor:
+            #     #LOG.debug("random~~~")
+            #     author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
+            #     tag = self.tags[int(random.randint(0,constants.NUM_TAGS-1))]
+            #else:
                  #LOG.debug("zipfian~~~")
                  #author = self.authors[0]
                  #tag = self.tags[0]
-                 author = self.authors[self.authorZipf.next()]
-                 tag = self.tags[self.tagZipf.next()] 
+                
+            author = self.authors[self.authorZipf.next()]
+            tag = self.tags[self.tagZipf.next()] 
+                 #author = self.authors[0]
+                 #tag = self.tags[0]
             opName = "readArticlesByAuthorAndTag"
             return (opName, (author,tag))
             
