@@ -152,10 +152,10 @@ class LNSDesigner(AbstractDesigner):
         LOG.info("Current thread is terminated")
         if self.outputfile:
             f = open(self.outputfile, 'w')
-            f.write(self.bestDesign.toJSON())
+            f.write(bestDesign.toJSON())
             f.close()
         else:
-            print self.bestDesign.toJSON()
+            print bestDesign.toJSON()
     # DEF
 
     def __relax__(self, generator, design, ratio):

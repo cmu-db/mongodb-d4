@@ -93,6 +93,7 @@ class Coordinator:
         started_searching_process = 0
         evaluated_design = 0
         finished_update = 0
+        num_bestDesign = 0
         
         while True:
             try:
@@ -101,7 +102,7 @@ class Coordinator:
                 
                 if msg.header == MSG_EXECUTE_COMPLETED:
                     running_clients -= 1
-                    LOG.info("One process has terminated, there are %d left.", )
+                    LOG.info("One process has terminated, there are %d left.", running_clients)
                     if running_clients == 0:
                         break
                 ## IF
@@ -110,6 +111,11 @@ class Coordinator:
                     if self.debug:
                         LOG.info("Best cost: %s", msg.data[0])
                         LOG.info("Evaluated cost: %s", msg.data[1])
+                        
+                    # Output current status every 1000 evaluation
+                    if evaluated_design % 1000 == 0:
+                        raise Queue.Empty
+                    
                 ## ELIF
                 elif msg.header == MSG_FOUND_BEST_COST:
                     bestCost = msg.data[0]
@@ -119,6 +125,8 @@ class Coordinator:
                         LOG.info("Got new best design. Distribute it!")
                         LOG.info("Best cost is updated from %s to %s", self.bestCost, bestCost)
                         LOG.info("New best design\n%s", bestDesign)
+                        num_bestDesign += 1
+                        
                         self.bestCost = bestCost
                         self.bestDesign = bestDesign.copy()
                         finished_update = 0
@@ -143,6 +151,7 @@ class Coordinator:
             except Queue.Empty:
                 LOG.info("WAITING, clients left: %s", running_clients)
                 LOG.info("Number of evaluated design: %d", evaluated_design)
+                LOG.info("Found %s better designs so far", num_bestDesign)
                 LOG.info("Best cost: %s", self.bestCost)
                 LOG.info("Best Design:\n%s", self.bestDesign)
         ## WHILE
@@ -161,7 +170,7 @@ class Coordinator:
         end = time.time()
         LOG.info("All the clients finished executing")
         LOG.info("Best cost: %s", self.bestCost)
-        LOG.info("Best design: %s", self.bestDesign)
+        LOG.info("Best design: \n%s", self.bestDesign)
         LOG.info("Time elapsed: %s", end - start)
     ## DEF
     

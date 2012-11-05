@@ -504,6 +504,7 @@ class BBNode():
             LOG.debug(self)
         # add child only when the solution is admissible
         self.cost = self.bbsearch.costModel.overallCost(self.design)
+        sendMessage(MSG_EVALUATED_ONE_DESIGN, (self.bbsearch.bestCost, self.cost), self.bbsearch.channel)
 #        LOG.debug("EVAL NODE: %s / bound_lower:%f / bound_upper:%f / BOUND:%f", \
 #                  self.design, self.lower_bound, self.upper_bound, self.bbsearch.lower_bound)
 
@@ -512,7 +513,6 @@ class BBNode():
         # If this node is better, update the optimal solution
         self.bbsearch.bestLock.acquire()
         if self.isLeaf():
-            sendMessage(MSG_EVALUATED_ONE_DESIGN, (self.bbsearch.bestCost, self.cost), self.bbsearch.channel)
             if self.cost < self.bbsearch.bestCost:
                 self.bbsearch.bestCost = self.cost
                 self.bbsearch.bestDesign = self.design.copy()
