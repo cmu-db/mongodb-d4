@@ -84,7 +84,7 @@ class BBSearch ():
     
     def updateBest(self, bestCost, bestDesign):
         self.bestLock.acquire()
-        if self.bestCost < bestCost:
+        if bestCost < self.bestCost:
             self.bestCost = bestCost
             self.bestDesign = bestDesign.copy()
         ## IF
