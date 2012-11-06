@@ -140,10 +140,12 @@ class Coordinator:
                     ## IF
                 ## ELIF
                 elif msg.header == MSG_SEARCH_INFO:
+                    LOG.info("%s","*"*40)
                     LOG.info("One client starts a new BBsearch")
+                    LOG.info("Time limit for this round: %s", msg.data[1])
                     LOG.info("Relaxed collections: %s", msg.data[0])
                     LOG.info("Relaxed Design:\n%s", msg.data[2])
-                    LOG.info("Time limit for this round: %s", msg.data[1])
+                    LOG.info("Current best design:\n%s", msg.data[3])
                 ## ELIF
                 elif msg.header == MSG_START_SEARCHING:
                     LOG.info("One process started searching, we are good :)")
