@@ -4,67 +4,87 @@
 import os, sys
 import random
 import unittest
+import logging
 from pprint import pprint
 
-import logging
-logging.basicConfig(level = logging.INFO,
-    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-    datefmt="%m-%d-%Y %H:%M:%S",
-    stream = sys.stdout)
-
 basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, "../../libs"))
-sys.path.append(os.path.join(basedir, "../../src"))
+sys.path.append(os.path.join(basedir, "../"))
 
+# mongodb-d4
+from tpcctestcase import TPCCTestCase
+from search import Design
+from workload import Session
 import catalog
 from search import InitialDesigner
-from util import constants
+from util import constants, configutil
 
-COLLECTIONS = [ 'squirrels', 'girls' ]
-FIELDS_PER_COLLECTION = 6
-
-class TestDesign (unittest.TestCase):
+class TestInitialDesigner(TPCCTestCase):
 
     def setUp(self):
-        self.collections = [ ]
-        for col_name in COLLECTIONS:
-            col_info = catalog.Collection()
-            col_info['name'] = col_name
-            col_info['workload_queries'] = random.randint(1000, 2000)
-
-            for i in xrange(0, FIELDS_PER_COLLECTION):
-                f_name = "field%02d" % i
-                f_type = catalog.fieldTypeToString(int)
-                f = catalog.Collection.fieldFactory(f_name, f_type)
-
-                if i % 2 == 0:
-                    f['query_use_count'] = col_info['workload_queries']
-                    col_info['interesting'].append(f_name)
-                col_info['fields'][f_name] = f
-            ## FOR (fields)
-            self.collections.append(col_info)
-            pprint(col_info)
-        ## FOR (collections)
+        TPCCTestCase.setUp(self)
+        self.config = configutil.makeDefaultConfig()
+        self.designer = InitialDesigner(self.collections, self.workload, self.config)
+        self.col_keys = self.designer.generateCollectionHistograms()
+        self.design = Design()
+        map(self.design.addCollection, self.col_keys.iterkeys())
+    ## DEF
+    
+    def testCheckForInvalidKeys(self):
+        d = self.designer.generate()
+        self.assertIsNotNone(d)
+        
+        # Make sure that we don't have any invalid keys
+        for col_name in d.getCollections():
+            for index_keys in d.getIndexes(col_name):
+                for key in index_keys:
+                    assert not key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX), \
+                        "Invalid index key '%s.%s'" % (col_name, key)
+                ## FOR
+            for key in d.getShardKeys(col_name):
+                assert not key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX), \
+                    "Invalid shard key '%s.%s'" % (col_name, key)
+        ## FOR
     ## DEF
 
-    def testGenerate(self):
-        designer = InitialDesigner(self.collections)
-        d = designer.generate()
-        self.assertIsNotNone(d)
-
-        # For each collection, the 'interesting' fields should
-        # have been selected as the indexes and sharding keys
-        # We don't need to worry about denormalization
-        for col_info in self.collections:
-            sharding = d.getShardKeys(col_info['name'])
-            print "SHARDING:", sharding
-            print "INTERESTING:", sorted(col_info['interesting'])
-            self.assertListEqual(sorted(col_info['interesting']), sorted(sharding))
-
-            indexes = d.getIndexes(col_info['name'])
-            self.assertListEqual(sorted(col_info['interesting']), sorted(indexes[0]))
-        ## FOR
-
+    def testSelectShardingKeys(self):
+        # Select on set of keys at random and increase its occurence
+        # in the histogram so that we will pick it
+        expected = { }
+        for col_name, h in self.col_keys.iteritems():
+            keys = random.choice(h.keys())
+            h.put(keys, 999999)
+            expected[col_name] = keys
+        
+        self.designer.__selectShardingKeys__(self.design, self.col_keys)
+        
+        # Then check to make sure it picked what we expected it to
+        for col_name in self.col_keys.iterkeys():
+            shard_keys = self.design.getShardKeys(col_name)
+            self.assertIsNotNone(shard_keys)
+            self.assertIsInstance(shard_keys, tuple)
+            self.assertEquals(expected[col_name], shard_keys)
+        #print self.design
+    ## DEF
+    
+    def testSelectIndexKeys(self):
+        # Select on set of keys at random and increase its occurence
+        # in the histogram so that we will pick it
+        expected = { }
+        for col_name, h in self.col_keys.iteritems():
+            keys = random.choice(h.keys())
+            h.put(keys, 999999)
+            expected[col_name] = keys
+        
+        node_memory = self.config.get(configutil.SECT_CLUSTER, "node_memory")
+        self.designer.__selectIndexKeys__(self.design, self.col_keys, node_memory)
+        #print self.design
+        
+        # Then check to make sure it picked what we expected it to
+        for col_name in self.col_keys.iterkeys():
+            index_keys = self.design.getIndexKeys(col_name)
+            self.assertIsNotNone(index_keys)
+            self.assertIsInstance(index_keys, list)
+            # FIXME self.assertEquals(expected[col_name], shard_keys)
     ## DEF
 
 ## CLASS

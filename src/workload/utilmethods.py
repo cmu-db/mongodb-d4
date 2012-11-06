@@ -40,43 +40,35 @@ def getOpContents(op):
                 raise
 
     # INSERT + UPDATE + DELETE
-    elif op['type'] in [constants.OP_TYPE_INSERT, constants.OP_TYPE_UPDATE, constants.OP_TYPE_DELETE]:
+    elif op['type'] in [constants.OP_TYPE_INSERT, \
+                        constants.OP_TYPE_ISERT, \
+                        constants.OP_TYPE_UPDATE, \
+                        constants.OP_TYPE_DELETE]:
         contents = op['query_content']
+    else:
+        raise Exception("Unexpected type '%s' for %s" % (op['type'], op))
 
     return contents
+## DEF
+
+
+def getReferencedFields(op):
+    """
+        Return a tuple of all the fields referenced in the fields dict
+        The fields will be sorted lexiographically so that two documents with
+        the same fields always come back with the same tuple
+    """
+    fields = set()
+    for contents in getOpContents(op):
+        for key in contents.iterkeys():
+            if not key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                fields.add(key)
+    return tuple(sorted(list(fields)))
 ## DEF
 
 ## ==============================================
 ## OLD STUFF
 ## ==============================================
-
-@DeprecationWarning
-def getReferencedFields(op):
-    """Get a list of the fields referenced in the given operation"""
-    content = op["query_content"]
-    
-    # QUERY
-    if op["type"] == constants.OP_TYPE_QUERY:
-        if not op["query_aggregate"]: 
-            fields = content[parser.OP_TYPE_QUERY].keys()
-    # DELETE
-    elif op["type"] == constants.OP_TYPE_DELETE:
-        fields = content.keys()
-
-    # UPDATE
-    elif op["type"] == constants.OP_TYPE_UPDATE:
-        fields = set()
-        for data in content:
-            fields |= data.keys()
-        fields = list(fields)
-        
-    # INSERT
-    elif op["type"] in [constants.OP_TYPE_INSERT, constants.OP_TYPE_ISERT]:
-        fields = content.keys()
-    
-    return fields
-## DEF
-
 
 # TODO: This is just for testing that our Sessions object
 # validates correctly. The parser/santizer should be fixed

@@ -29,6 +29,12 @@ class Session(Document):
             # The type of the query ($delete, $insert, $update, $query)
             # See OPT_TYPE_* in util/constants.py
             'type':             basestring, # IS(constants.OP_TYPE_ALL),
+            
+            # The approximate document identifier that this operation will touch.
+            # If the value of this field is FULL_SCAN_DOCUMENT_ID, then the operation
+            # needs to scan the entire collection
+            # See FULL_SCAN_DOCUMENT_ID in util/constants.py
+            # 'document_id':      int,
 
             ## ----------------------------------------------
             ## QUERY ATTRIBUTES
@@ -38,6 +44,8 @@ class Session(Document):
             'query_time':       float,
             # Query payload (BSON)
             'query_content':    list,
+            # Query projection fields (can be none)
+            'query_fields':     dict,
             # Query payload size [bytes]
             'query_size':       int,
             # Unique identifier of this query invocation

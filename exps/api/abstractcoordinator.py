@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------
 # Copyright (C) 2012
 # Yang Lu - http://www.cs.brown.edu/~yanglu/
@@ -59,8 +59,17 @@ class AbstractCoordinator:
         raise NotImplementedError("%s does not implement benchmarkConfigImpl" % (self.benchmark))
     ## DEF
     
+    def initImpl(self, config):
+        """
+            Benchmark Coordinator Initi Implementation
+            This needs to return a dict that maps from channel
+            to the message to send to the remote worker
+        """
+        raise NotImplementedError("%s does not implement initImpl" % (self.name))
+    
     def init(self, config, channels):
         '''initialize method. It is recommanded that you send the a CMD_INIT message with the config object to the client side in the method'''
+
         self.config = config
         self.name = config['default']['name']
         config['default']['debug'] = LOG.isEnabledFor(logging.DEBUG)
@@ -73,6 +82,15 @@ class AbstractCoordinator:
                 val = benchmarkConfig[key]
                 self.config[self.name][key] = val[1]
                 LOG.debug("Setting %s Default Config Parameter: %s" % (self.name.upper(), self.config[self.name][key]))
+            # Cast to the proper type
+            else:
+                val_type = type(benchmarkConfig[key][-1])
+                # HACK for booleans
+                if val_type == bool:
+                    self.config[self.name][key] = (self.config[self.name][key].lower().strip() == 'true')
+                else:
+                    self.config[self.name][key] = val_type(self.config[self.name][key])
+                LOG.debug("Cast %s.%s to %s [%s]", self.name, key, val_type, self.config[self.name][key]) 
         ## FOR
         
         ## ----------------------------------------------
@@ -94,7 +112,8 @@ class AbstractCoordinator:
         ## ----------------------------------------------
         
         # First initialize our local coordinator
-        self.initImpl(self.config, channels)
+        messages = self.initImpl(self.config, channels)
+        assert isinstance(messages, dict), "Invalid initialization message dictionary"
         
         # Invoke the workers for this benchmark invocation
         LOG.debug("Sending MSG_CMD_INIT to %d workers" % len(channels))
@@ -105,8 +124,10 @@ class AbstractCoordinator:
             workerConfig["default"] = dict(self.config["default"].items())
             assert not 'id' in workerConfig['default'], "Dupe workerId #%d" % workerConfig['default']['id']
             workerConfig['default']['id'] = workerId
+            
+            msg = messages.get(ch, None)
             #LOG.debug("Sending MSG_CMD_INIT to worker #%d" % (workerId-1))
-            queue.append((MSG_CMD_INIT, workerConfig, ch))
+            queue.append((MSG_CMD_INIT, (workerConfig, msg), ch))
             workerId += 1
             # sendMessage(MSG_CMD_INIT, workerConfig, ch)
             # time.sleep(10)
@@ -131,10 +152,15 @@ class AbstractCoordinator:
         ### FOR
         
         LOG.info("%s Initialization Completed!" % self.name.upper())
+        
     ## DEF
         
     def loadImpl(self, config, channels):
-        '''Benchmark coordinator initialization method'''
+        '''
+            Benchmark coordinator initialization method
+            This needs to return a dict that maps from channel
+            to the message to send to the remote worker
+        '''
         raise NotImplementedError("%s does not implement initImpl" % (self.name.upper()))
         
     def load(self, config, channels):
@@ -143,7 +169,13 @@ class AbstractCoordinator:
         LOG.info("Loading %s Database" % self.name.upper())
         
         load_start = time.time()
-        self.loadImpl(config, channels)
+        messages = self.loadImpl(config, channels)
+        assert isinstance(messages, dict), "Invalid load message dictionary"
+        for ch in channels:
+            #sendMessage(MSG_CMD_LOAD, messages[ch], ch)
+	     sendMessage(MSG_CMD_LOAD, None, ch)
+	
+        # Now block until we get a response from all of the channels
         waiting = channels[:]
         completed = 0.0
         statusIncrease = 0.1

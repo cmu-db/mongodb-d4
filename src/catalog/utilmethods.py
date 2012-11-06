@@ -30,6 +30,9 @@ def getEstimatedSize(typeName, value):
     # STR
     elif typeName in [types.StringType.__name__, types.UnicodeType.__name__]:
         return getStringSize(value)
+    # OBJECT ID
+    elif typeName == "ObjectId":
+        return getStringSize(str(value))
     # NONE
     elif not typeName or typeName == types.NoneType.__name__:
         return (0)
@@ -158,13 +161,19 @@ def getFieldValue(fieldName, fields):
     # This will happen when there are things like range predicates (Example {"#gt": 123})
     # Or if it is a special field type for MongoDB (Example {"#date": 123456})
     value = fields[fieldName]
-    if isinstance(value, dict) and len(value.keys()) == 1:
-        key = value.keys()[0]
-        if key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
-            # TODO: Need to handle nested values better
-            value = value[key]
-            if isinstance(value, list):
-                value = tuple(value)
+    if isinstance(value, dict):
+        if len(value.keys()) == 1:
+            key = value.keys()[0]
+            if key.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                # TODO: Need to handle nested values better
+                value = value[key]
+                if isinstance(value, list):
+                    value = tuple(value)
+        elif len(value.keys()) == 2: # This will happen when there are things like range predicates (Example {"#gt": 123})
+            keys = value.keys()
+            if keys[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX) and keys[1].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
+                values = value.values()
+                value = tuple(values)
     ## IF
 
     return value
@@ -178,7 +187,10 @@ def hasField(fieldName, fields):
     # If the sharding key has a dot in it, then we will want
     # to fix the prefix and then traverse further into the fields
     splits = fieldName.split(".")
-    if not splits[0] in fields:
+    keys_in_fields = []
+    for field in fields:
+        keys_in_fields.extend(field.keys())
+    if not splits[0] in keys_in_fields:
         return False
     elif len(splits) > 1:
         return getFieldValue(fieldName[len(splits[0])+1:], fields[splits[0]])

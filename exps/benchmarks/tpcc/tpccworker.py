@@ -32,19 +32,23 @@ import logging
 import traceback
 from pprint import pprint, pformat
 
-import drivers
+import constants
 from util import *
-from runtime import *
 from api.abstractworker import AbstractWorker
+from api.message import *
+
+import drivers
+from runtime import *
+from runtime import scaleparameters
 
 LOG = logging.getLogger(__name__)
 
 class TpccWorker(AbstractWorker):
     
     def initImpl(self, config):
-        # Collapse config into a single dict
+        # HACK: Collapse config into a single dict
         new_config = { }
-        for s in config.keys()
+        for s in config.keys():
             if not s in ['default', self.name]: continue
             for k in config[s].keys():
                 new_config[k] = config[s][k]
@@ -62,16 +66,17 @@ class TpccWorker(AbstractWorker):
         config['ddl'] = os.path.join(basedir, "tpcc.sql")
         
         ## Create our ScaleParameter stuff that we're going to need
-        self._scaleParameters = scaleparameters.makeWithScaleFactor(int(config['warehouses']), float(config['scalefactor']))
+        num_warehouses = int(config['warehouses'])
+        self.scaleParameters = scaleparameters.makeWithScaleFactor(num_warehouses, config["scalefactor"])
         
         driverClass = self.createDriverClass(config['system'])
         assert driverClass != None, "Failed to find '%s' class" % config['system']
         driver = driverClass(self.conn, config['ddl'])
         assert driver != None, "Failed to create '%s' driver" % config['system']
         driver.loadConfig(config)
-        self._driver = driver
+        self.driver = driver
         
-        self._executor = executor.Executor(self._driver, self._scaleParameters, stop_on_error = self.stop_on_error)
+        self.executor = executor.Executor(self.scaleParameters, stop_on_error=self.stop_on_error)
     ## DEF
     
     def createDriverClass(self, name):
@@ -82,15 +87,15 @@ class TpccWorker(AbstractWorker):
     ## DEF
     
     def loadImpl(self, config, channel, msg):
-        assert self._driver != None
+        assert self.driver != None
         w_ids = msg.data
         loadItems = (1 in w_ids)
         
         try:
-            l = loader.Loader(self._driver, self._scaleParameters, w_ids, loadItems)
-            self._driver.loadStart()
+            l = loader.Loader(self.driver, self.scaleParameters, w_ids, loadItems)
+            self.driver.loadStart()
             l.execute()
-            self._driver.loadFinish()   
+            self.driver.loadFinish()   
         except KeyboardInterrupt:
             return -1
         except (Exception, AssertionError), ex:      
@@ -107,12 +112,12 @@ class TpccWorker(AbstractWorker):
     ## DEF
     
     def next(self, config):
-        assert self._executor != None
-        return self._executor.doOne()
+        assert self.executor != None
+        return self.executor.doOne()
         
     def executeImpl(self, config, txn, params):
-        assert self._driver != None
-        assert self._executor != None
-        val = self._driver.executeTransaction(txn, params)
+        assert self.driver != None
+        assert self.executor != None
+        val = self.driver.executeTransaction(txn, params)
     ## DEF    
 ## CLASS

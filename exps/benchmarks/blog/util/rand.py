@@ -31,10 +31,12 @@ def randomString(size, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for x in range(size))
 ## DEF
 
+#Discrete Date Generator
 def randomDate(start, end):
-    """This returns a random datetime between two datetime objects."""
+    """This returns a random datetime between two datetime objects but the time is the same."""
     delta = end - start
-    int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
-    random_second = random.randrange(int_delta)
-    return (start + timedelta(seconds=random_second))
+    #int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
+    #random_second = random.randrange(int_delta)
+    random_days = random.randrange(delta.days)
+    return (start + timedelta(days=random_days))
 ## DEF

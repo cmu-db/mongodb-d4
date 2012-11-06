@@ -38,7 +38,7 @@ LOG = logging.getLogger(__name__)
 # status codes that are prefixed with "MSG_"
 # The values of these codes will all be unique
 MSG_STATUS_CODES = [
-    "EMPTY",
+    "NOOP",
     "CMD_INIT",
     "CMD_LOAD",
     "CMD_STATUS",
@@ -62,7 +62,10 @@ for code in xrange(0, len(MSG_STATUS_CODES)):
 def getChannelsByHost(channels):
     ret = { }
     for ch in channels:
-        remoteaddress = ch.gateway.remoteaddress
+        if ch.gateway is None:
+            remoteaddress = 'direct'
+        else:
+            remoteaddress = ch.gateway.remoteaddress
         if not remoteaddress in ret:
             ret[remoteaddress] = [ ]
         ret[remoteaddress].append(ch)
@@ -74,20 +77,24 @@ def sendMessagesLimited(queue, limit):
     start = time.time()
     responses = [ ]
     threads = [ ]
-    
-    # Split the queue by channel host
+
+    # Send directly
     hostChannels = getChannelsByHost([x[-1] for x in queue])
-    for key in hostChannels.keys():
-        hostQueue = [ ]
-        for i in xrange(0, len(queue)):
-            if queue[i][-1] in hostChannels[key]:
-                hostQueue.append(queue[i])
+    if 'direct' in hostChannels and len(hostChannels) == 1:
+        sendMessagesLimitedThread(queue, limit, responses)
+    # Split the queue by channel host
+    else:
+        for key in hostChannels.keys():
+            hostQueue = [ ]
+            for i in xrange(0, len(queue)):
+                if queue[i][-1] in hostChannels[key]:
+                    hostQueue.append(queue[i])
+            ## FOR
+            t = threading.Thread(target=sendMessagesLimitedThread, args=(hostQueue, limit, responses))
+            t.start()
+            threads.append(t)
         ## FOR
-        t = threading.Thread(target=sendMessagesLimitedThread, args=(hostQueue, limit, responses))
-        t.start()
-        threads.append(t)
-    ## FOR
-    for t in threads: t.join()
+        for t in threads: t.join()
 
     duration = time.time() - start
     LOG.debug("Sent and recieved %d messages in %.2f seconds" % (len(responses), duration))
@@ -100,7 +107,7 @@ def sendMessagesLimitedThread(queue, limit, responses):
     while len(queue) > 0 or len(outstanding) > 0:
         while len(queue) > 0 and len(outstanding) < limit:
             msg, data, channel = queue.pop(0)
-            if debug: LOG.info("Sending %s to %s" % (str(data), str(channel)))
+            if debug: LOG.debug("Sending %s to %s" % (str(data), str(channel)))
             sendMessage(msg, data, channel)
             outstanding.append(channel)
         # WHILE
@@ -132,7 +139,7 @@ def getMessageName(msg):
 
     
 class Message:
-    def __init__(self, header=MSG_EMPTY, data=None):
+    def __init__(self, header=MSG_NOOP, data=None):
         self.header = header
         self.data = data
 ## CLASS

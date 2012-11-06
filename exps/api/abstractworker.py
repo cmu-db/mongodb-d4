@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: iso-8859-1 -*-
 # -----------------------------------------------------------------------
 # Copyright (C) 2012
 # Yang Lu - http://www.cs.brown.edu/~yanglu/
@@ -69,7 +69,7 @@ class AbstractWorker:
     ## WORKER INIT
     ## ---------------------------------------------------------------------------
     
-    def init(self, config, channel):
+    def init(self, config, channel, msg):    
         '''Worker Initialization. You always must send a INIT_COMPLETED message back'''
         self.lastChannel = channel
         self.config = config
@@ -109,7 +109,7 @@ class AbstractWorker:
             raise
         assert self.conn
         
-        self.initImpl(config)
+        self.initImpl(config, msg)
         sendMessage(MSG_INIT_COMPLETED, self.id, channel)
         LOG.info("Finished initializing %s worker #%d" % (self.name.upper(), self.id))
     ## DEF
@@ -174,21 +174,28 @@ class AbstractWorker:
         self.lastChannel = channel
         config['default']['execute'] = True
         config['default']['reset'] = False
-        
         r = Results()
         assert r
         LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
-        start = r.startBenchmark()
         debug = LOG.isEnabledFor(logging.DEBUG)
 
-        while (time.time() - start) <= config['default']['duration']:
+        start = time.time()
+        LOG.info("Starting warm-up period")
+        while (time.time()-start) <= int(config['default']['warmup']):
+            #LOG.info(time.time()-start)
+            txn, params = self.next(config)
+            self.executeImpl(config, txn, params)
+            
+            
+        LOG.info("Turning off warm-up period. Starting to collect benchmark data")    
+        start = r.startBenchmark()
+        while (time.time() - start) <= int(config['default']['duration']):
             txn, params = self.next(config)
             txn_id = r.startTransaction(txn)
-            
             if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:
-                val = self.executeImpl(config, txn, params)
-                r.stopTransaction(txn_id)
+                opCount = self.executeImpl(config, txn, params)
+                r.stopTransaction(txn_id, opCount)
             except KeyboardInterrupt:
                 return -1
             except (Exception, AssertionError), ex:
@@ -197,8 +204,6 @@ class AbstractWorker:
                 if self.stop_on_error: raise
                 r.abortTransaction(txn_id)
                 pass
-        ## WHILE
-            
         r.stopBenchmark()
         sendMessage(MSG_EXECUTE_COMPLETED, r, channel)
     ## DEF

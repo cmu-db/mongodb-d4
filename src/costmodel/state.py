@@ -23,6 +23,7 @@
 # -----------------------------------------------------------------------
 import logging
 from pprint import pformat
+import copy
 
 # mongodb-d4
 import workload
@@ -44,16 +45,16 @@ class State():
             Note that this is different than the LRUBuffer cache stuff. These are
             cached look-ups that the CostModel uses for figuring out what operations do.
         """
-        def __init__(self, col_info, num_nodes):
+        def __init__(self, col_name, num_nodes):
 
             # The number of pages needed to do a full scan of this collection
             # The worst case for all other operations is if we have to do
             # a full scan that requires us to evict the entire buffer
             # Hence, we multiple the max pages by two
             # self.fullscan_pages = (col_info['max_pages'] * 2)
-            self.fullscan_pages = (col_info['doc_count'] * 2)
+            self.fullscan_pages = 10 # FIXME(yang) (col_info['doc_count'] * 2)
             assert self.fullscan_pages > 0,\
-                "Zero max_pages for collection '%s'" % col_info['name']
+                "Zero max_pages for collection '%s'" % col_name
 
             # Cache of Best Index Tuples
             # QueryHash -> BestIndex
@@ -71,7 +72,8 @@ class State():
             # QueryId -> Index/Collection DocumentIds
             self.collection_docIds = { }
             self.index_docIds = { }
-            ## DEF
+
+        ## DEF
 
         def reset(self):
             self.best_index.clear()
@@ -79,7 +81,10 @@ class State():
             self.op_nodeIds.clear()
             self.collection_docIds.clear()
             self.index_docIds.clear()
-            ## DEF
+            self.op_count = 0
+            self.msg_count = 0
+            self.network_reset = True
+        ## DEF
 
         def __str__(self):
             ret = ""
@@ -114,6 +119,23 @@ class State():
         self.address_size = config['address_size'] / 4
 
         self.estimator = NodeEstimator(self.collections, self.num_nodes)
+        
+        self.window_size = config['window_size']
+
+        # Build indexes from collections to sessions/operations
+        # Note that this won't change dynamically based on denormalization schemes
+        # It's up to the cost components to figure things out based on that
+        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
+        self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
+        
+        self.__buildCrossReference__();
+        
+        # We need to know the number of operations in the original workload
+        # so that all of our calculations are based on that
+        self.orig_op_count = 0
+        for sess in self.workload:
+            self.orig_op_count += len(sess["operations"])
+        ## FOR
 
         ## ----------------------------------------------
         ## CACHING
@@ -124,20 +146,59 @@ class State():
 
         # ColName -> CacheHandle
         self.cache_handles = { }
+
+        self.originalWorload = None
+        self.originalWorload = copy.deepcopy(self.workload)
+        self.originalCollections = copy.deepcopy(self.collections)
+        
     ## DEF
 
+    def updateWorkload(self, workload):
+        self.workload = workload
+        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
+        self.col_op_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
+        self.__buildCrossReference__()
+
+    def restoreOriginalWorkload(self):
+        self.workload = self.originalWorload
+        self.collections = self.originalCollections
+        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
+        self.col_op_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
+        self.__buildCrossReference__()
+
+    def __buildCrossReference__(self):
+        for sess in self.workload:
+            cols = set()
+            for op in sess["operations"]:
+                col_name = op["collection"]
+                if col_name in self.col_sess_xref:
+                    self.col_op_xref[col_name].append(op)
+                    cols.add(col_name)
+            ## FOR (op)
+            for col_name in cols:
+                self.col_sess_xref[col_name].append(sess)
+        ## FOR (sess)
+        
     def invalidateCache(self, col_name):
         if col_name in self.cache_handles:
             if self.debug: LOG.debug("Invalidating cache for collection '%s'", col_name)
             self.cache_handles[col_name].reset()
     ## DEF
 
-    def getCacheHandle(self, col_info):
-        cache = self.cache_handles.get(col_info['name'], None)
+    def getCacheHandleByName(self, col_name):
+        """
+            Return a cache handle for the given collection name.
+            This is the preferrred method because it requires fewer hashes
+        """
+        cache = self.cache_handles.get(col_name, None)
         if cache is None:
-            cache = State.Cache(col_info, self.num_nodes)
-            self.cache_handles[col_info['name']] = cache
+            cache = State.Cache(col_name, self.num_nodes)
+            self.cache_handles[col_name] = cache
         return cache
+    ## DEF
+    
+    def getCacheHandle(self, col_info):
+        return self.getCacheHandleByName(col_info['name'])
     ## DEF
 
     def reset(self):

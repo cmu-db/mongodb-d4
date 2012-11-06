@@ -10,7 +10,7 @@ from util import *
 class Collection(Document):
     __collection__ = constants.COLLECTION_SCHEMA
     structure = {
-        'name':             unicode,   # The name of the collection
+        'name':             basestring,# The name of the collection
         'shard_keys':       dict,      # The original sharding keys assigned for this collection (if available)
         'indexes':          [dict],    # The original index keys assigned for this collection (if available)
         'data_size':        long,      # The estimated total size of this collection
@@ -25,12 +25,12 @@ class Collection(Document):
         ## FIELDS
         ## ----------------------------------------------
         'fields': {
-            unicode: {
+            basestring: {
                 'type':             basestring, # catalog.fieldTypeToString(col_type),
                 'fields':           dict,       # nested fields
                 'query_use_count':  int,        # The number of times this field is referenced in queries
                 'cardinality':      int,        # Number of distinct values
-                'selectivity':      int,        # Cardinalty / Tuple Count
+                'selectivity':      float,      # Cardinality / Number of all values
                 'avg_size':         int,        # The average size of the values for this field (bytes)
                 'parent_col':       basestring, # TODO(ckeith)
                 'parent_key':       basestring, # TODO(ckeith)
@@ -38,6 +38,7 @@ class Collection(Document):
             }
         }
     }
+    
     required_fields = [
         'name', 'doc_count'
     ]
@@ -61,7 +62,7 @@ class Collection(Document):
             'fields':           { },
             'query_use_count':  0,
             'cardinality':      0,
-            'selectivity':      0,
+            'selectivity':      0.0,
             'avg_size':         0,
             'parent_col':       None,
             'parent_key':       None,

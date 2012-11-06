@@ -1,7 +1,9 @@
 *.pyc
-.#kate-*
+*.pyo
+.#*
 *.kate-swp
 *.config
 .idea
 nosetests.xml
 src/*.png
+*~

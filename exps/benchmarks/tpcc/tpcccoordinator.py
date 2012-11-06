@@ -35,17 +35,17 @@ import execnet
 import logging
 from pprint import pprint, pformat
 
-import drivers
-from util import *
-from runtime import *
 from api.abstractcoordinator import AbstractCoordinator
 from api.message import *
+
+import drivers
+from runtime import scaleparameters
 
 LOG = logging.getLogger(__name__)
 
 class TpccCoordinator(AbstractCoordinator) :
     DEFAULT_CONFIG = [
-        ("name", "Collection name", "tpcc"),
+        ("warehouses", "The number of warehouses to use in the benchmark run", 4), 
         ("denormalize", "If set to true, then the CUSTOMER data will be denormalized into a single document", True),
     ]
     
@@ -55,7 +55,9 @@ class TpccCoordinator(AbstractCoordinator) :
     
     def initImpl(self, config, channels):
         ## Create our ScaleParameter stuff that we're going to need
-        self._scaleParameters = scaleparameters.makeWithScaleFactor(int(config['warehouses']), float(config['scalefactor']))
+        num_warehouses = int(config[self.name]['warehouses'])
+        self._scaleParameters = scaleparameters.makeWithScaleFactor(num_warehouses, config['default']["scalefactor"])
+        return dict([(channels[i], None) for i in xrange(len(channels))])
     ## DEF
     
     def loadImpl(self, config, channels) :
@@ -65,9 +67,7 @@ class TpccCoordinator(AbstractCoordinator) :
         for w_id in range(self._scaleParameters.starting_warehouse, self._scaleParameters.ending_warehouse+1):
             idx = w_id % procs
             w_ids[idx].append(w_id)
-            
-        for i in range(len(channels)):
-            sendMessage(MSG_CMD_LOAD, w_ids[i], channels[i])
+        return dict([(channels[i], w_ids[i]) for i in xrange(len(channels))])
     ## DEF
 
 ## CLASS

@@ -122,7 +122,7 @@ class Sanitizer:
                 self.f.write("\n")
             line = sys.stdin.readline()
     
-        self.f.close()
+        # self.f.close()
 
 
         

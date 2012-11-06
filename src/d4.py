@@ -31,26 +31,27 @@ import sys
 import argparse
 import logging
 import time
-from ConfigParser import SafeConfigParser
+from ConfigParser import RawConfigParser
 
 # Third-Party Dependencies
-basedir = os.path.realpath(os.path.dirname(__file__))
+# Third-Party Dependencies
+if __name__ == '__channelexec__':
+    # Remote execnet invocations won't have a __file__
+    basedir = os.getcwd()
+else:
+    basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../libs"))
 import mongokit
 
 # mongodb-d4
 import catalog
 import workload
-from designer import Designer
-from search import bbsearch
-from util import config
+from search import Designer
+from util import configutil
 from util import constants
 from util import termcolor
-
-logging.basicConfig(level = logging.INFO,
-                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-                    datefmt="%m-%d-%Y %H:%M:%S",
-                    stream = sys.stdout)
+from multithreaded.multi_search import MultiClientDesigner
+from multithreaded.messageprocessor import MessageProcessor
 
 LOG = logging.getLogger(__name__)
 
@@ -58,6 +59,11 @@ LOG = logging.getLogger(__name__)
 ## main
 ## ==============================================
 if __name__ == '__main__':
+    logging.basicConfig(level = logging.INFO,
+                        format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+                        datefmt="%m-%d-%Y %H:%M:%S",
+                        stream = sys.stdout)
+
     aparser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
                                       description="%s - Distributed Document Database Designer" % constants.PROJECT_NAME)
                                       
@@ -115,12 +121,15 @@ if __name__ == '__main__':
                              'the internal catalog database.')
     agroup.add_argument('--stop-on-error', action='store_true',
                         help='Stop processing when an invalid record is encountered.')
-                         
+
+    aparser.add_argument('--output-design', type=str,
+                         help='Path to final design file.')
+    
     args = vars(aparser.parse_args())
 
     if args['debug']: LOG.setLevel(logging.DEBUG)
     if args['print_config']:
-        print config.makeDefaultConfig()
+        print configutil.formatDefaultConfig()
         sys.exit(0)
     
     if not args['config']:
@@ -129,15 +138,15 @@ if __name__ == '__main__':
         aparser.print_usage()
         sys.exit(1)
     LOG.debug("Loading configuration file '%s'" % args['config'])
-    cparser = SafeConfigParser()
-    cparser.read(os.path.realpath(args['config'].name))
-    config.setDefaultValues(cparser)
+    config = RawConfigParser()
+    configutil.setDefaultValues(config)
+    config.read(os.path.realpath(args['config'].name))
     
     ## ----------------------------------------------
     ## Connect to MongoDB
     ## ----------------------------------------------
-    hostname = cparser.get(config.SECT_MONGODB, 'host')
-    port = cparser.getint(config.SECT_MONGODB, 'port')
+    hostname = config.get(configutil.SECT_MONGODB, 'host')
+    port = config.getint(configutil.SECT_MONGODB, 'port')
     assert hostname
     assert port
     try:
@@ -151,17 +160,17 @@ if __name__ == '__main__':
     ## Make sure that the databases that we need are there
     db_names = conn.database_names()
     for key in [ 'dataset_db', ]: # FIXME 'workload_db' ]:
-        if not cparser.has_option(config.SECT_MONGODB, key):
-            raise Exception("Missing the configuration option '%s.%s'" % (config.SECT_MONGODB, key))
-        elif not cparser.get(config.SECT_MONGODB, key):
-            raise Exception("Empty configuration option '%s.%s'" % (config.SECT_MONGODB, key))
+        if not config.has_option(configutil.SECT_MONGODB, key):
+            raise Exception("Missing the configuration option '%s.%s'" % (configutil.SECT_MONGODB, key))
+        elif not config.get(configutil.SECT_MONGODB, key):
+            raise Exception("Empty configuration option '%s.%s'" % (configutil.SECT_MONGODB, key))
     ## FOR
 
     ## ----------------------------------------------
     ## MONGODB DATABASE RESET
     ## ----------------------------------------------
-    metadata_db = conn[cparser.get(config.SECT_MONGODB, 'metadata_db')]
-    dataset_db = conn[cparser.get(config.SECT_MONGODB, 'dataset_db')]
+    metadata_db = conn[config.get(configutil.SECT_MONGODB, 'metadata_db')]
+    dataset_db = conn[config.get(configutil.SECT_MONGODB, 'dataset_db')]
 
     if args['reset']:
         LOG.warn("Dropping collections from %s and %s databases" % (metadata_db.name, dataset_db.name))
@@ -178,10 +187,11 @@ if __name__ == '__main__':
             dataset_db.drop_collection(col_name)
         ## FOR
     ## IF
-
-    designer = Designer(cparser, metadata_db, dataset_db)
+    
+    # This designer is only used for input processing
+    designer = Designer(config, metadata_db, dataset_db)
     designer.setOptionsFromArguments(args)
-
+    
     start = time.time()
     try:
         ## ----------------------------------------------
@@ -218,18 +228,41 @@ if __name__ == '__main__':
         ## ----------------------------------------------
         ## STEP 2: Execute the LNS/BB Search design algorithm
         ## ----------------------------------------------
-        # import pycallgraph
-        # pycallgraph.start_trace()
-        try:
-            finalSolution = designer.search()
-        finally:
-            # pycallgraph.make_dot_graph('d4.png')
-            pass
-        LOG.info("Final Solution:\n%s", finalSolution)
+        #import pycallgraph
+        #pycallgraph.start_trace()
+        # Bombs away!!! Quote from the previous contributors 
+        mcd = MultiClientDesigner(config, args)
+        mcd.runSearch()
+        #try:
+            #finalSolution = designer.search()
+        #finally:
+            ##pycallgraph.make_dot_graph('d4.png')
+            #pass
+        #LOG.info("Final Solution:\n%s", finalSolution)
     finally:
         stop = time.time()
         LOG.info("Total Time: %.1f sec", (stop - start))
 
-    # solutions['final'] = solution.toDICT()
-    # print json.dumps(solutions, sort_keys=False, indent=4)
 ## MAIN
+
+## ==============================================
+## EXECNET PROCESSOR
+## ==============================================
+if __name__ == '__channelexec__':
+    logFormat = "%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s"
+    logging.basicConfig(level=logging.INFO,
+                        format=logFormat,
+                        datefmt="%m-%d-%Y %H:%M:%S",
+                        filename="d4.log")
+    
+#import pycallgraph
+#import os
+#pycallgraph.start_trace()
+#pid=os.getpid()
+#try:
+    mp = MessageProcessor(channel)
+    mp.processMessage()
+    #finally:
+    #    pycallgraph.make_dot_graph("d4-"+str(pid)+".png")
+    #    pass
+    ## EXEC

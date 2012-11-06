@@ -32,10 +32,11 @@ LOG = logging.getLogger(__name__)
 class DirectChannel:
     
     def __init__(self):
+        self.gateway = None # Needed by message.py
         self.queue = [ ]
         self.processor = MessageProcessor(self)
         
-        m = Message(MSG_EMPTY, True)
+        m = Message(MSG_NOOP, True)
         self.defaultResponse = pickle.dumps(m, -1)
         self.response = None
         

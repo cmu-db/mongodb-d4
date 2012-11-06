@@ -41,67 +41,77 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class NetworkCostComponent(AbstractCostComponent):
 
-    def __init__(self, costModel):
-        AbstractCostComponent.__init__(self, costModel)
+    def __init__(self, state):
+        AbstractCostComponent.__init__(self, state)
+        
+        # COL_NAME -> [OP_COUNT, MSG_COUNT]
+        self.cache = { }
+        self.lastDesign = None
+        
+        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
+    
+    def invalidateCache(self, newDesign, col_name):
+        # Check whether the denormalization scheme or sharding keys have changed
+        if newDesign.hasDenormalizationChanged(self.lastDesign, col_name) or \
+           newDesign.hasShardingKeysChanged(self.lastDesign, col_name):
+            if col_name in self.cache: del self.cache[col_name]
+    ## DEF
+
+    def reset(self):
+        self.cache = { }
 
     def getCostImpl(self, design):
-        if self.debug: LOG.debug("Computing network cost for %d sessions", len(self.state.workload))
-        result = 0
-        query_count = 0
-        for sess in self.state.workload:
-            previous_op = None
-            for op in sess['operations']:
-                # Collection is not in design.. don't count query
-                if not design.hasCollection(op['collection']):
-                    if self.debug: LOG.debug("SKIP - %s Op #%d on %s",\
-                                             op['type'], op['query_id'], op['collection'])
-                    continue
-                col_info = self.state.collections[op['collection']]
-                cache = self.state.getCacheHandle(col_info)
+        if self.debug:
+            LOG.debug("Computing network cost for %d sessions [origOpCount=%d / numNodes=%d]", len(self.state.workload), self.state.orig_op_count, self.state.num_nodes)
+        self.lastDesign = design
+        
+        # Build a cache for the network cost per collection
+        # That way if the design doesn't change for a collection, we
+        # can reuse the message & op counts from the last calculation
+        cost = 0
+        total_op_count = 0
+        total_msg_count = 0
+        for col_name in self.state.collections.iterkeys():
+            # Collection is not in design.. don't include the op
+            if not design.hasCollection(col_name):
+                if self.debug: LOG.debug("NOT in design: SKIP - All operations on %s", col_name)
+                continue
+            if design.isRelaxed(col_name):
+                if self.debug: LOG.debug("Relaxed: SKIP - All operations on %s", col_name)
+                continue
+            
+            if col_name in self.cache:
+                total_op_count += self.cache[col_name][0]
+                total_msg_count += self.cache[col_name][1]
+            else:
+                # TODO: The operations should come from the state handle, which
+                #       will have already combined things for us based on the design
+                op_count = 0
+                msg_count = 0
+                for op in self.state.col_op_xref[col_name]:
+                    # Process this op!
+                    cache = self.state.getCacheHandleByName(col_name)
+                    op_count += 1
+                    msgs = self.state.__getNodeIds__(cache, design, op)
+                    assert len(msgs) <= self.state.num_nodes, \
+                        "%s -- NumMsgs[%d] <= NumNodes[%d]" % (msgs, len(msgs), self.state.num_nodes)
+                    msg_count += len(msgs)
+                    # if self.debug: LOG.debug("%s -> Messages %s", op, msgs)
+                
+                # Store it in our cache so that we can reuse it
+                self.cache[col_name] = (op_count, msg_count)
 
-                # Check whether this collection is embedded inside of another
-                # TODO: Need to get ancestor
-                parent_col = design.getDenormalizationParent(op['collection'])
-                if self.debug and parent_col:
-                    LOG.debug("Op #%d on '%s' Parent Collection -> '%s'",\
-                              op["query_id"], op["collection"], parent_col)
+                total_op_count += op_count
+                total_msg_count += msg_count
 
-                process = False
-                # This is the first op we've seen in this session
-                if not previous_op:
-                    process = True
-                # Or this operation's target collection is not embedded
-                elif not parent_col:
-                    process = True
-                # Or if either the previous op or this op was not a query
-                elif previous_op['type'] <> constants.OP_TYPE_QUERY or op['type'] <> constants.OP_TYPE_QUERY:
-                    process = True
-                # Or if the previous op was
-                elif previous_op['collection'] <> parent_col:
-                    process = True
-                    # TODO: What if the previous op should be merged with a later op?
-                #       We would lose it because we're going to overwrite previous op
+        if total_op_count > 0:
+            cost = total_msg_count / float(self.state.orig_op_count * self.state.num_nodes)
 
-                # Process this op!
-                if process:
-                    query_count += 1
-                    result += len(self.state.__getNodeIds__(cache, design, op))
-                elif self.debug:
-                    LOG.debug("SKIP - %s Op #%d on %s [parent=%s / previous=%s]",\
-                        op['type'], op['query_id'], op['collection'],\
-                        parent_col, (previous_op != None))
-                ## IF
-                previous_op = op
-        if not query_count:
-            cost = 0
-        else:
-            cost = result / float(query_count * self.state.num_nodes)
-
-        LOG.debug("Computed Network Cost: %f [result=%d / queryCount=%d]",\
-            cost, result, query_count)
-
+        if self.debug:
+            LOG.debug("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
+                      cost, total_msg_count, total_op_count)
         return cost
     ## DEF
 ## CLASS

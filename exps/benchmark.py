@@ -24,6 +24,7 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
+from __future__ import with_statement
 
 import sys
 import os
@@ -34,6 +35,7 @@ import subprocess
 import execnet
 import logging
 import time
+from datetime import datetime
 from ConfigParser import SafeConfigParser
 from pprint import pprint, pformat
 
@@ -46,30 +48,51 @@ if __name__ == '__channelexec__':
     BASEDIR = os.getcwd()
 else:
     BASEDIR = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(BASEDIR, "../libs"))
+for d in ["src", "libs"]:
+    dir = os.path.realpath(os.path.join(BASEDIR, "..", d))
+    if not dir in sys.path:
+        sys.path.append(dir)
+## FOR
 import argparse
 import mongokit
 
-# mongodb-d4
-sys.path.append(os.path.join(BASEDIR, "../src"))
+# We need to load up the stuff that our execnet threads will need
+from util.histogram import Histogram
+
+# LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 
 ## ==============================================
 ## Benchmark Invocation
 ## ==============================================
 class Benchmark:
     DEFAULT_CONFIG = [
+        ("dbname", "The name of the MongoDB database to use for this benchmark invocation.", None), 
         ("host", "The host name of the MongoDB instance to use in this benchmark", "localhost"),
         ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
         ("scalefactor", "Benchmark database scale factor", 1.0),
         ("duration", "Benchmark execution time in seconds", 60),
+        ("warmup", "Benchmark warm-up period", 60),
         ("clients", "Comma-separated list of machines to use for benchmark clients", "localhost"),
         ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
         ("design", "Path to database design file (must be supported by benchmark).", ""),
+        ("logfile", "Path to debug log file for remote execnet processes", None),
     ]
     
     '''main class'''
     def __init__(self, benchmark, args):
         self._benchmark = benchmark
+        
+        # Fix database name + logfile
+        for i in xrange(len(self.DEFAULT_CONFIG)):
+            c = self.DEFAULT_CONFIG[i]
+            if c[0] == 'dbname':
+                self.DEFAULT_CONFIG[i] = (c[0], c[1], self._benchmark.lower())
+            elif c[0] == 'logfile':
+                logfile = os.path.join("/tmp", "%s.log" % self._benchmark.lower())
+                self.DEFAULT_CONFIG[i] = (c[0], c[1], logfile)
+        ## FOR
+        
         self._args = args
         self._coordinator = self.createCoordinator()
         self._config = None
@@ -79,8 +102,6 @@ class Benchmark:
     
     def makeDefaultConfig(self):
         """Return a string containing the default configuration file for the target benchmark"""
-
-        from datetime import datetime
         ret =  "# %s Benchmark Configuration File\n" % (self._benchmark.upper())
         ret += "# Created %s\n" % (datetime.now())
         
@@ -97,7 +118,8 @@ class Benchmark:
         '''Load configuration file'''
         assert 'config' in self._args
         assert self._args['config'] != None
-        
+        print("~~~")
+	print(self._args['config'].name)
         cparser = SafeConfigParser()
         cparser.read(os.path.realpath(self._args['config'].name))
         config = dict()
@@ -110,7 +132,7 @@ class Benchmark:
         # Extra stuff from the arguments that we want to stash
         # in the 'default' section of the config
         for key,val in args.items():
-            if key != 'config' and not key in config['default']:
+            if key != 'config' and not val is None: # not key in config['default']:
                 config['default'][key] = val
                 
         # Default config
@@ -127,7 +149,7 @@ class Benchmark:
             if os.path.exists(os.path.join(cwd, basename)):
                 basedir = cwd
         #config['path'] = os.path.join(basedir, "api")
-        config['default']['path'] = os.path.realpath(basedir)
+        config['default']['path'] = basedir
         
         # Fix common problems
         for s in config.keys():
@@ -135,6 +157,8 @@ class Benchmark:
                 if key in config[s]: config[s][key] = int(config[s][key])
             for key in ["scalefactor"]:
                 if key in config[s]: config[s][key] = float(config[s][key])
+            for key in ["path", "logfile"]:
+                if key in config[s]: config[s][key] = os.path.realpath(config[s][key])
         ## FOR
         
         # Read in the serialized design file and ship that over the wire
@@ -147,13 +171,13 @@ class Benchmark:
         ## IF
         
         self._config = config
-        logging.info("Configuration File:\n%s" % pformat(self._config))
+        LOG.debug("Configuration File:\n%s" % pformat(self._config))
     ## DEF
             
     def runBenchmark(self):
         '''Execute the target benchmark!'''
         self._channels = self.createChannels()
-        
+
         # Step 0: Flush the cache on the MongoDB host
         if self._args['flush']:
             flushBuffer(self._config["default"]["host"])
@@ -179,7 +203,7 @@ class Benchmark:
         assert 'clients' in self._config['default']
         clients = re.split(r"[\s,]+", str(self._config['default']['clients']))
         assert len(clients) > 0
-        logging.info("Invoking benchmark framework on %d clients" % len(clients))
+        LOG.info("Invoking benchmark framework on %d clients" % len(clients))
 
         import benchmark
         remoteCall = benchmark
@@ -194,26 +218,39 @@ class Benchmark:
             
         # Otherwise create SSH channels to client nodes
         else:
+            # Print a header message in the logfile to indicate that we're starting 
+            # a new benchmark run
+            LOG.info("Executor Log File: %s" %  self._config['default']['logfile'])
+            with open(self._config['default']['logfile'], "a") as fd:
+                header = "%s BENCHMARK - %s\n\n" % (self._benchmark.upper(), datetime.now())
+                header += "%s" % (pformat(self._config))
+                
+                fd.write('*'*100 + '\n')
+                for line in header.split('\n'):
+                    fd.write('* ' + line + '\n')
+                fd.write('*'*100 + '\n')
+            ## WITH
+            
             totalClients = len(clients) * self._config['default']['clientprocs']
             start = time.time()
             for node in clients:
                 cmd = 'ssh='+ node
                 cmd += r"//chdir=" + self._config['default']['path']
-                logging.debug(cmd)
-                logging.debug("# of Client Processes: %s" % self._config['default']['clientprocs'])
+                LOG.debug(cmd)
+                LOG.debug("# of Client Processes: %s" % self._config['default']['clientprocs'])
                 for i in range(int(self._config['default']['clientprocs'])):
-                    logging.debug("Invoking %s on %s" % (remoteCall, node))
+                    LOG.debug("Invoking %s on %s" % (remoteCall, node))
                     gw = execnet.makegateway(cmd)
                     ch = gw.remote_exec(remoteCall)
                     channels.append(ch)
                     now = time.time()
                     if (now - start) > 10 and int((len(channels) / float(totalClients))*100) % 25 == 0:
-                        logging.info("Started Client Threads %d / %d" % (len(channels), totalClients))
-                    
-                    
+                        LOG.debug("Started Client Threads %d / %d" % (len(channels), totalClients))
+                ## FOR (processes)
+            ## FOR (hosts)
         # IF
-        logging.info("Created %d client processes on %d hosts" % (len(channels), len(clients)))
-        logging.debug(channels)
+        LOG.info("Created %d client processes on %d hosts" % (len(channels), len(clients)))
+        LOG.debug(channels)
         return channels
     ## DEF
         
@@ -248,20 +285,27 @@ def getBenchmarks():
 ## setupBenchmarkPath
 ## ==============================================
 def setupBenchmarkPath(benchmark):
-    benchmarkDir = os.path.join(BASEDIR, "benchmarks", benchmark)
-    sys.path.append(os.path.realpath(benchmarkDir))
+    benchmarkDir = os.path.realpath(os.path.join(BASEDIR, "benchmarks", benchmark))
+    if not benchmarkDir in sys.path:
+        sys.path.insert(0, benchmarkDir)
 ## DEF
 
 ## ==============================================
 ## flushBuffer
 ## ==============================================
 def flushBuffer(host):
-    remoteCmd = "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'"
+    remoteCmds = [
+        "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
+        "sudo service mongodb restart",
+    ]
     sshOpts = "-o \"UserKnownHostsFile /dev/null\" " + \
               "-o \"StrictHostKeyChecking no\""
-    
-    LOG.info("Flushing OS cache on host '%s'" % host)
-    subprocess.check_call("ssh %s %s \"%s\"" % (host, sshOpts, remoteCmd), shell=True)
+
+    LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
+    for cmd in remoteCmds:
+        subprocess.check_call("ssh %s %s \"%s\"" % (host, sshOpts, cmd), shell=True)
+    time.sleep(30)
+    ## FOR
 ## DEF
 
 ## ==============================================
@@ -286,6 +330,7 @@ def formatConfig(name, config):
 ## MAIN
 ## ==============================================
 if __name__=='__main__':
+    from util import termcolor
     logging.basicConfig(level = logging.INFO,
                     format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
                     datefmt="%m-%d-%Y %H:%M:%S",
@@ -296,11 +341,14 @@ if __name__=='__main__':
     # Simplified args
     aparser = argparse.ArgumentParser(description='MongoDB Benchmark Framework')
     aparser.add_argument('benchmark', choices=allBenchmarks,
-                         help='The name of the benchmark to execute')
-    aparser.add_argument('--config', type=file,
-                         help='Path to benchmark configuration file')
-    aparser.add_argument('--print-config', action='store_true',
-                         help='Print out the default configuration file for the benchmark and exit')
+                         help='The name of the benchmark to execute.')
+                         
+    # Configuration Options
+    agroup = aparser.add_argument_group(termcolor.bold('Configuration Options'))
+    agroup.add_argument('--config', type=file,
+                         help='Path to benchmark configuration file.')
+    agroup.add_argument('--print-config', action='store_true',
+                         help='Print out the default configuration file for the benchmark and exit.')
                          
     # Config Override Parameters
     override = {
@@ -313,38 +361,40 @@ if __name__=='__main__':
         if not key in override: continue
         
         argMeta, argType = override[key]
-        aparser.add_argument('--' + key, \
-                             default=default, \
+        agroup.add_argument('--' + key, \
                              type=argType, \
                              metavar=argMeta, \
                              help=desc)
     ## FOR
                 
-    ## Execution Parameters
-    aparser.add_argument('--direct', action='store_true',
-                         help='Execute the workers directly in this process')                            
-    aparser.add_argument('--reset', action='store_true',
+    # Database Parameters
+    agroup = aparser.add_argument_group(termcolor.bold('Database Options'))
+    agroup.add_argument('--reset', action='store_true',
                          help='Instruct the driver to reset the contents of the database')
-    aparser.add_argument('--stop-on-error', action='store_true',
-                         help='Stop the transaction execution when the driver throws an exception.')
-    aparser.add_argument('--flush', action='store_true',
-                        help="Flush the OS cache on the MongoDB host before executing the benchmark.")
-    aparser.add_argument('--no-load', action='store_true',
+    agroup.add_argument('--flush', action='store_true',
+                        help="Flush the OS cache on the MongoDB host before executing the benchmark. This requires passwordless sudo access.")
+    agroup.add_argument('--no-load', action='store_true',
                          help='Disable loading the benchmark data')
-    aparser.add_argument('--no-execute', action='store_true',
+    agroup.add_argument('--no-execute', action='store_true',
                          help='Disable executing the benchmark workload')
 
-    aparser.add_argument('--debug', action='store_true',
-                         help='Enable debug log messages')                       
+    # Debugging Options
+    agroup = aparser.add_argument_group(termcolor.bold('Debugging Options'))
+    agroup.add_argument('--direct', action='store_true',
+                         help='Execute the workers directly in this process')                            
+    agroup.add_argument('--stop-on-error', action='store_true',
+                         help='Stop the transaction execution when the driver throws an exception.')
+    agroup.add_argument('--debug', action='store_true',
+                         help='Enable debug log messages')
     args = vars(aparser.parse_args())
     
-    if args['debug']: logging.getLogger().setLevel(logging.DEBUG)
+    if args['debug']: LOG.setLevel(logging.DEBUG)
     
     benchmark = args['benchmark'].lower()
     if not benchmark in allBenchmarks:
         raise Exception("Invalid benchmark handle '%s'" % benchmark)
     
-    logging.debug("Command Options:\n%s" % args)
+    LOG.debug("Command Options:\n%s" % args)
     ben = Benchmark(benchmark, args)
     
     if args['print_config']:
@@ -360,11 +410,15 @@ if __name__=='__main__':
 ## EXECNET PROCESSOR
 ## ==============================================
 if __name__ == '__channelexec__':
-    logging.basicConfig(level = logging.DEBUG,
-                    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-                    datefmt="%m-%d-%Y %H:%M:%S",
-                    filename="/tmp/benchmark.log")
-    mp = MessageProcessor(channel)
-    mp.processMessage()
+    #import pycallgraph
+    #import os
+    #pycallgraph.start_trace()
+    #pid=os.getpid()
+    #try:
+        mp = MessageProcessor(channel)
+        mp.processMessage()
+    #finally:
+    #    pycallgraph.make_dot_graph("d4-"+str(pid)+".png")
+    #    pass
 ## EXEC
  

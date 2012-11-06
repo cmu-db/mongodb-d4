@@ -17,7 +17,7 @@ except ImportError:
     from tests import MongoDBTestCase
 
 import catalog
-from costmodel import LRUBuffer
+from costmodel.disk.lrubuffer import LRUBuffer
 from search import Design
 from workload import Session
 from util import constants

@@ -33,12 +33,15 @@ from __future__ import with_statement
 
 import os
 import sys
+import time
 import logging
 import pymongo
 from pprint import pprint,pformat
 
 import constants
 from abstractdriver import *
+
+LOG = logging.getLogger(__name__)
 
 TABLE_COLUMNS = {
     constants.TABLENAME_ITEM: [
@@ -154,39 +157,29 @@ TABLE_COLUMNS = {
 }
 TABLE_INDEXES = {
     constants.TABLENAME_ITEM: [
-        "I_ID",
+        ["I_ID"],
     ],
     constants.TABLENAME_WAREHOUSE: [
-        "W_ID",
+        ["W_ID"],
     ],    
     constants.TABLENAME_DISTRICT: [
-        "D_ID",
-        "D_W_ID",
+        ["D_W_ID", "D_ID"],
     ],
-    constants.TABLENAME_CUSTOMER:   [
-        "C_ID",
-        "C_D_ID",
-        "C_W_ID",
+    constants.TABLENAME_CUSTOMER: [
+        ["C_W_ID", "C_D_ID","C_ID"],
     ],
-    constants.TABLENAME_STOCK:      [
-        "S_I_ID",
-        "S_W_ID",
+    constants.TABLENAME_STOCK: [
+        ["S_W_ID", "S_I_ID"],
     ],
-    constants.TABLENAME_ORDERS:     [
-        "O_ID",
-        "O_D_ID",
-        "O_W_ID",
-        "O_C_ID",
+    constants.TABLENAME_ORDERS: [
+        ["O_W_ID", "O_D_ID", "O_C_ID"],
+        ["O_W_ID", "O_D_ID", "O_ID"],
     ],
-    constants.TABLENAME_NEW_ORDER:  [
-        "NO_O_ID",
-        "NO_D_ID",
-        "NO_W_ID",
+    constants.TABLENAME_NEW_ORDER: [
+        ["NO_W_ID", "NO_D_ID", "NO_O_ID"],
     ],
     constants.TABLENAME_ORDER_LINE: [
-        "OL_O_ID",
-        "OL_D_ID",
-        "OL_W_ID",
+        ["OL_W_ID", "OL_D_ID", "OL_O_ID"],
     ],
 }
 
@@ -216,33 +209,25 @@ class MongodbDriver(AbstractDriver):
             self.__dict__[name.lower()] = None
     
     ## ----------------------------------------------
-    ## makeDefaultConfig
-    ## ----------------------------------------------
-    def makeDefaultConfig(self):
-        return MongodbDriver.DEFAULT_CONFIG
-    
-    ## ----------------------------------------------
     ## loadConfig
     ## ----------------------------------------------
     def loadConfig(self, config):
-        for key in MongodbDriver.DEFAULT_CONFIG.keys():
-            assert key in config, "Missing parameter '%s' in %s configuration" % (key, self.name)
-        
         self.database = self.conn[str(config['name'])]
         self.denormalize = config['denormalize']
-        if self.denormalize: logging.debug("Using denormalized data model")
+        if self.denormalize: LOG.debug("Using denormalized data model")
         
         if config["reset"]:
-            logging.debug("Deleting database '%s'" % self.database.name)
+            LOG.debug("Deleting database '%s'" % self.database.name)
             for name in constants.ALL_TABLES:
                 if name in self.database.collection_names():
                     self.database.drop_collection(name)
-                    logging.debug("Dropped collection %s" % name)
+                    LOG.debug("Dropped collection %s" % name)
         ## IF
         
         ## Setup!
-        load_indexes = ('execute' in config and not config['execute']) and \
-                       ('load' in config and not config['load'])
+        load_indexes = True
+        #load_indexes = ('execute' in config and not config['execute']) and \
+                       #('load' in config and not config['load'])
         for name in constants.ALL_TABLES:
             if self.denormalize and name in MongodbDriver.DENORMALIZED_TABLES[1:]: continue
             
@@ -250,10 +235,11 @@ class MongodbDriver(AbstractDriver):
             self.__dict__[name.lower()] = self.database[name]
             
             ## Create Indexes
-            if load_indexes and name in TABLE_INDEXES and \
-            (self.denormalize or (self.denormalize == False and not name in MongodbDriver.DENORMALIZED_TABLES[1:])):
-                logging.debug("Creating index for %s" % name)
+            if load_indexes and name in TABLE_INDEXES: # and \
+                #(self.denormalize or (self.denormalize == False and not name in MongodbDriver.DENORMALIZED_TABLES[1:])):
+                LOG.debug("Creating index for %s" % name)
                 for index in TABLE_INDEXES[name]:
+                    index = [ (key, pymongo.ASCENDING) for key in index ]
                     self.database[name].create_index(index)
         ## FOR
     
@@ -262,7 +248,7 @@ class MongodbDriver(AbstractDriver):
     ## ----------------------------------------------
     def loadTuples(self, tableName, tuples):
         if len(tuples) == 0: return
-        logging.debug("Loading %d tuples for tableName %s" % (len(tuples), tableName))
+        LOG.debug("Loading %d tuples for tableName %s" % (len(tuples), tableName))
         
         assert tableName in TABLE_COLUMNS, "Unexpected table %s" % tableName
         columns = TABLE_COLUMNS[tableName]
@@ -335,7 +321,7 @@ class MongodbDriver(AbstractDriver):
     ## ----------------------------------------------
     def loadFinishDistrict(self, w_id, d_id):
         if self.denormalize:
-            logging.debug("Pushing %d denormalized CUSTOMER records for WAREHOUSE %d DISTRICT %d into MongoDB" % (len(self.w_customers), w_id, d_id))
+            LOG.debug("Pushing %d denormalized CUSTOMER records for WAREHOUSE %d DISTRICT %d into MongoDB" % (len(self.w_customers), w_id, d_id))
             self.database[constants.TABLENAME_CUSTOMER].insert(self.w_customers.values())
             self.w_customers.clear()
             self.w_orders.clear()
@@ -345,25 +331,52 @@ class MongodbDriver(AbstractDriver):
     ## loadFinish
     ## ----------------------------------------------
     def loadFinish(self):
-        logging.info("Finished loading tables")
-        if logging.getLogger().isEnabledFor(logging.DEBUG):
+        LOG.info("Finished loading tables")
+        if LOG.isEnabledFor(logging.DEBUG):
             for name in constants.ALL_TABLES:
                 if self.denormalize and name in MongodbDriver.DENORMALIZED_TABLES[1:]: continue
-                logging.debug("%-12s%d records" % (name+":", self.database[name].count()))
+                LOG.debug("%-12s%d records" % (name+":", self.database[name].count()))
         ## IF
 
+    ## ----------------------------------------------
+    ## executeTransaction
+    ## ----------------------------------------------
+    def executeTransaction(self, txn, params):
+        """Execute a transaction based on the given name"""
+        
+        if constants.TransactionTypes.DELIVERY == txn:
+            result = self.doDelivery(params)
+        elif constants.TransactionTypes.NEW_ORDER == txn:
+            result = self.doNewOrder(params)
+        elif constants.TransactionTypes.ORDER_STATUS == txn:
+            result = self.doOrderStatus(params)
+        elif constants.TransactionTypes.PAYMENT == txn:
+            result = self.doPayment(params)
+        elif constants.TransactionTypes.STOCK_LEVEL == txn:
+            result = self.doStockLevel(params)
+        else:
+            assert False, "Unexpected TransactionType: " + txn
+        return result
+        
     ## ----------------------------------------------
     ## doDelivery
     ## ----------------------------------------------
     def doDelivery(self, params):
+        """Execute DELIVERY Transaction
+        Parameters Dict:
+            w_id
+            o_carrier_id
+            ol_delivery_d
+        """
         w_id = params["w_id"]
         o_carrier_id = params["o_carrier_id"]
         ol_delivery_d = params["ol_delivery_d"]
         
         result = [ ]
-        for d_id in range(1, constants.DISTRICTS_PER_WAREHOUSE+1):
+        for d_id in xrange(1, constants.DISTRICTS_PER_WAREHOUSE+1):
             ## getNewOrder
             no = self.new_order.find_one({"NO_D_ID": d_id, "NO_W_ID": w_id}, {"NO_O_ID": 1})
+            
             if no == None:
                 ## No orders for this district: skip it. Note: This must be reported if > 1%
                 continue
@@ -436,6 +449,16 @@ class MongodbDriver(AbstractDriver):
     ## doNewOrder
     ## ----------------------------------------------
     def doNewOrder(self, params):
+        """Execute NEW_ORDER Transaction
+        Parameters Dict:
+            w_id
+            d_id
+            c_id
+            o_entry_d
+            i_ids
+            i_w_ids
+            i_qtys
+        """
         w_id = params["w_id"]
         d_id = params["d_id"]
         c_id = params["c_id"]
@@ -571,7 +594,16 @@ class MongodbDriver(AbstractDriver):
             ol_amount = ol_quantity * i_price
             total += ol_amount
 
-            ol = {"OL_O_ID": d_next_o_id, "OL_NUMBER": ol_number, "OL_I_ID": ol_i_id, "OL_SUPPLY_W_ID": ol_supply_w_id, "OL_DELIVERY_D": o_entry_d, "OL_QUANTITY": ol_quantity, "OL_AMOUNT": ol_amount, "OL_DIST_INFO": s_dist_xx}
+            ol = {
+                "OL_O_ID": d_next_o_id,
+                "OL_NUMBER": ol_number,
+                "OL_I_ID": ol_i_id,
+                "OL_SUPPLY_W_ID": ol_supply_w_id,
+                "OL_DELIVERY_D": o_entry_d,
+                "OL_QUANTITY": ol_quantity,
+                "OL_AMOUNT": ol_amount,
+                "OL_DIST_INFO": s_dist_xx
+            }
 
             if self.denormalize:
                 # createOrderLine
@@ -606,6 +638,13 @@ class MongodbDriver(AbstractDriver):
     ## doOrderStatus
     ## ----------------------------------------------
     def doOrderStatus(self, params):
+        """Execute ORDER_STATUS Transaction
+        Parameters Dict:
+            w_id
+            d_id
+            c_id
+            c_last
+        """
         w_id = params["w_id"]
         d_id = params["d_id"]
         c_id = params["c_id"]
@@ -669,6 +708,17 @@ class MongodbDriver(AbstractDriver):
     ## doPayment
     ## ----------------------------------------------    
     def doPayment(self, params):
+        """Execute PAYMENT Transaction
+        Parameters Dict:
+            w_id
+            d_id
+            h_amount
+            c_w_id
+            c_d_id
+            c_id
+            c_last
+            h_date
+        """
         w_id = params["w_id"]
         d_id = params["d_id"]
         h_amount = params["h_amount"]
@@ -699,21 +749,6 @@ class MongodbDriver(AbstractDriver):
             c_id = c["C_ID"]
         assert len(c) > 0
         assert c_id != None
-        
-        if c_id != None:
-            # getCustomerByCustomerId
-            c = self.customer.find_one({"C_W_ID": w_id, "C_D_ID": d_id, "C_ID": c_id})
-        else:
-            # getCustomersByLastName
-            # Get the midpoint customer's id
-            all_customers = self.customer.find({"C_W_ID": w_id, "C_D_ID": d_id, "C_LAST": c_last})
-            namecnt = all_customers.count()
-            assert namecnt > 0
-            index = (namecnt-1)/2
-            c = all_customers[index]
-            c_id = c["C_ID"]
-        assert len(c) > 0
-        assert c_id != None
         c_data = c["C_DATA"]
 
         # getWarehouse
@@ -721,7 +756,7 @@ class MongodbDriver(AbstractDriver):
         assert w
         
         # updateWarehouseBalance
-        self.warehouse.update({"_id": w["_id"]}, {"$inc": {"H_AMOUNT": h_amount}})
+        self.warehouse.update({"_id": w["_id"]}, {"$inc": {"W_YTD": h_amount}})
 
         # getDistrict
         d = self.district.find_one({"D_W_ID": w_id, "D_ID": d_id}, {"D_NAME": 1, "D_STREET_1": 1, "D_STREET_2": 1, "D_CITY": 1, "D_STATE": 1, "D_ZIP": 1})
@@ -769,6 +804,12 @@ class MongodbDriver(AbstractDriver):
     ## doStockLevel
     ## ----------------------------------------------    
     def doStockLevel(self, params):
+        """Execute STOCK_LEVEL Transaction
+        Parameters Dict:
+            w_id
+            d_id
+            threshold
+        """
         w_id = params["w_id"]
         d_id = params["d_id"]
         threshold = params["threshold"]

@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+import os
+import sys
+
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, ".."))
 
 import logging
 import json
@@ -18,9 +23,23 @@ class Design(object):
     def reset(self, collectionName):
         self.data[collectionName] = None
 
-    def isRelaxed(self, collectionName):
-        return self.data[collectionName] is None
-
+    def isRelaxed(self, col_name):
+        return self.data[col_name] is None
+    
+    def recover(self, col_name):
+        self.data[col_name] = {
+            'indexes' : [],
+            'shardKeys' : [],
+            'denorm' : None
+        }
+    def hasDenorm(self):
+        for col_name in self.data.iterkeys():
+            if self.data[col_name] and self.data[col_name]['denorm']:
+                return True
+            ## ENDIF
+        ## FOR
+        return False
+        
     def isComplete(self):
         """returns True when all collections are assigned designs"""
         for value in self.data.values():
@@ -45,15 +64,37 @@ class Design(object):
     ## DEF
 
 #    @DeprecationWarning
-    def addCollections(self, collections) :
+    def addCollections(self, collections):
         for collection in collections :
             self.addCollection(collection)
     ## DEF
 
-    def hasCollection(self, col_name) :
+    def hasCollection(self, col_name):
         return col_name in self.data
     ## DEF
+    
+        '''
+    @todo: re-implement
+    '''
+    def copy(self):
+        d = Design()
+        for k,v in self.data.iteritems():
+            d.addCollection(k)
+            if v is None:
+                d.reset(k)
+            else:
+                d.addShardKey(k, self.getShardKeys(k))
+                d.setDenormalizationParent(k, self.getDenormalizationParent(k))
+                indexes = self.getIndexes(k)
+                if indexes:
+                    for i in indexes :
+                        d.addIndex(k, i)
+        return d
 
+    ## ----------------------------------------------
+    ## COMPARISON METHODS
+    ## ----------------------------------------------
+        
     def getDelta(self, other):
         """
             Return the list of collection names that have a different design
@@ -61,35 +102,57 @@ class Design(object):
             If a collection that is in this design is missing in other, then
             that will count as a difference
         """
+        if other is None:
+            return self.data.keys()
+        
         result = [ ]
         for col_name in self.data.iterkeys():
             match = True
             if not other or not col_name in other.data:
                 match = False
             else:
-                for k, v in self.data[col_name].iteritems():
-                    if v <> other.data[col_name].get(k, None):
-                        match = False
-                        break
+                if self.data[col_name] and other.data[col_name]:
+                    for k, v in self.data[col_name].iteritems():
+                        if v <> other.data[col_name].get(k, None):
+                            match = False
+                            break
+                else:
+                    match = False
+                    
             if not match: result.append(col_name)
         ## FOR
         return result
     ## DEF
 
-    '''
-    @todo: re-implement
-    '''
-    def copy(self):
-        d = Design()
-        for k,v in self.data.iteritems() :
-            d.addCollection(k)
-            d.addShardKey(k, self.getShardKeys(k))
-            d.setDenormalizationParent(k, self.getDenormalizationParent(k))
-            indexes = self.getIndexes(k)
-            if indexes:
-                for i in indexes :
-                    d.addIndex(k, i)
-        return d
+    def hasDenormalizationChanged(self, other, col_name):
+        """
+            Returns true if the denormalization scheme has changed in
+            the other design for the given collection name
+        """
+        if other is None: return False
+        if not col_name in self.data:
+            return (col_name in other)
+        
+        if not self.data[col_name] or not other.data[col_name]:
+            return False
+        
+        return self.data[col_name]['denorm'] != other.data[col_name]['denorm']
+    ## DEF
+    
+    def hasShardingKeysChanged(self, other, col_name):
+        """
+            Returns true if the sharding keys have changed in the other design
+            for the given collection name
+        """
+        if other is None: return False
+        if not col_name in self.data:
+            return (col_name in other)
+        
+        if not self.data[col_name] or not other.data[col_name]:
+            return False
+        
+        return self.data[col_name]['shardKeys'] != other.data[col_name]['shardKeys']
+    ## DEF
 
     ## ----------------------------------------------
     ## DENORMALIZATION
@@ -121,7 +184,7 @@ class Design(object):
         return ret
     ## DEF
             
-    def getParentCollection(self, col_name) :
+    def getParentCollection(self, col_name):
         if col_name in self.data:
             if not self.data[col_name]['denorm'] :
                 return None
@@ -135,30 +198,30 @@ class Design(object):
     ## SHARD KEYS
     ## ----------------------------------------------
         
-    def addShardKey(self, col_name, key) :
+    def addShardKey(self, col_name, key):
         if key:
             self.data[col_name]['shardKeys'] = key
     ## DEF
 
-    def getShardKeys(self, col_name) :
+    def getShardKeys(self, col_name):
         if self.data[col_name]:
             return self.data[col_name]['shardKeys']
     ## DEF
     
-    def getAllShardKeys(self) :
+    def getAllShardKeys(self):
         keys = {}
-        for k, v in self.data.iteritems() :
+        for k, v in self.data.iteritems():
             keys[k] = v['shardKeys']
         return keys
     ## DEF
     
-    def addShardKeys(self, keys) :
+    def addShardKeys(self, keys):
         if keys:
-            for k, v in keys.iteritems() :
+            for k, v in keys.iteritems():
                 self.data[k]['shardKeys'] = v
     ## DEF
 
-    def inShardKeyPattern(self, col_name, attr) :
+    def inShardKeyPattern(self, col_name, attr):
         return attr in self.data[col_name]['shardKeys']
     ## DEF
 
@@ -166,12 +229,12 @@ class Design(object):
     ## INDEXES
     ## ----------------------------------------------
         
-    def getIndexes(self, col_name) :
+    def getIndexes(self, col_name):
         if self.data[col_name]:
             return self.data[col_name]['indexes']
     ## DEF
 
-    def getAllIndexes(self) :
+    def getAllIndexes(self):
         return dict(self.data.iteritems())
     ## DEF
 
@@ -190,7 +253,7 @@ class Design(object):
                 self.data[col_name]['indexes'].append(indexKeys)
     ## DEF
     
-    def hasIndex(self, col_name, list) :
+    def hasIndex(self, col_name, list):
         if self.data[col_name]:
             return False
 
@@ -219,10 +282,10 @@ class Design(object):
         return ret
     ## DEF
 
-    def toJSON(self) :
+    def toJSON(self):
         return json.dumps(self.toDICT(), sort_keys=False, indent=4)
 
-    def toDICT(self) :
+    def toDICT(self):
         return self.data
     ## DEF
 

@@ -89,12 +89,16 @@ CONTENT_ERROR_MASK = "\s*[A-Z]\w{2} [\w]+ [\d]{1,2} [\d]{2}:[\d]{2}:[\d]{2} Asse
 FLAGS_MASK = ".*flags:(?P<flags>\d).*" #vals: 0,1,2,3
 NTORETURN_MASK = ".*ntoreturn: (?P<ntoreturn>-?\d+).*" # int 
 NTOSKIP_MASK = ".*ntoskip: (?P<ntoskip>\d+).*" #int
+HASFIELDS_MASK = ".*hasfields: (?P<hasfields>\{.*?\}).*" #dict
 
 # Original Code: Emanuel Buzek
 class Parser:
     """Mongosniff Trace Parser"""
     
     def __init__(self, metadata_db, fd):
+        assert metadata_db
+        assert fd
+        
         self.metadata_db = metadata_db
         self.fd = fd
         self.line_ctr = 0
@@ -106,15 +110,12 @@ class Parser:
         self.sess_limit = None
         self.op_limit = None
         self.recreated_db = None
+        self.error_ctr = 0
         self.stop_on_error = False
 
         # If set to true, then we will periodically save the Sessions out to the
         # metatdata_db in case we crash and want to inspect what happened
         self.save_checkpoints = True
-        
-        # This is used to generate deterministic identifiers
-        # for similar operations
-        self.opHasher = OpHasher()
         
         # If this flag is true, then mongosniff got an invalid message packet
         # So we'll skip until we find the next matching header
@@ -158,12 +159,9 @@ class Parser:
         self.flagsRegex = re.compile(FLAGS_MASK)
         self.ntoreturnRegex = re.compile(NTORETURN_MASK)
         self.ntoskipRegex = re.compile(NTOSKIP_MASK)
+        self.hasfieldsRegex = re.compile(HASFIELDS_MASK)
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
-
-        assert self.metadata_db
-        assert self.fd
-        pass
     ## DEF
 
     def getSessionCount(self):
@@ -210,11 +208,13 @@ class Parser:
                 elif not self.skip_to_next:
                     self.process_content_line(line)
             except:
+                self.error_ctr += 1
                 LOG.error("Unexpected error when processing line %d" % self.line_ctr)
                 raise
             finally:
                 # Checkpoint!
                 if self.save_checkpoints and self.line_ctr % 10000 == 0:
+                    LOG.info("Saving checkpoint at line %d [sessions=%d / ops=%d / errors=%d]", self.line_ctr, self.sess_ctr, self.op_ctr, self.error_ctr)
                     self.saveSessions(self.session_map.itervalues())
 
             if not self.sess_limit is None and self.sess_ctr >= self.sess_limit:
@@ -232,6 +232,8 @@ class Parser:
         self.postProcess()
         
         self.saveSessions(self.session_map.itervalues())
+        
+        LOG.info("Completed processing %d lines from workload trace [errors=%d]", self.line_ctr, self.error_ctr)
     ## DEF
     
     def saveSessions(self, sessions, noSplit=False):
@@ -331,6 +333,8 @@ class Parser:
                 # SKIP, LIMIT
                 op['query_limit'] = self.currentOp['ntoreturn']
                 op['query_offset'] = self.currentOp['ntoskip']
+                if self.currentOp['hasfields']:
+                    op['query_fields'] = self.currentOp['hasfields']
             
                 # check for aggregate
                 # update collection name, set aggregate type
@@ -342,15 +346,6 @@ class Parser:
             # Keep track of operations by their ids so that we can add
             # the response to it later on
             self.query_response_map[self.currentOp['query_id']] = op
-            
-            # Always add the query_hash
-            try:
-                op['query_hash'] = self.opHasher.hash(op)
-            except Exception:
-                msg = "Failed to compute hash on operation\n%s" % pformat(op)
-                if self.debug: LOG.warn(msg)
-                if self.stop_on_error: raise Exception(msg)
-                return
             
             # Append it to the current session
             # TODO: Large traces will cause the sessions to get too big.
@@ -523,45 +518,60 @@ class Parser:
             self.currentOp['type'] = constants.OP_TYPE_KILLCURSORS
             return
 
+        # Convert YAML to JSON
+        obj = self.yaml2json(yaml_line)
+        
+        # If this is the first time we see this session, add it
+        # TODO: Do we still need this?
+        if not obj is None:
+            if 'whatismyuri' in obj:
+                self.getOrCreateSession(self.currentOp['ip_client'], this.currentOp['ip_server'])
+            
+            # Store the line in the curentContent buffer
+            self.currentContent.append(obj)
+        ## IF
+        return
+    ## DEF
+    
+    def yaml2json(self, yaml_line):
         # this is not a content line... it can't be yaml
-        elif not yaml_line.startswith("{"):
+        if not yaml_line.startswith("{"):
+            self.error_ctr += 1
             msg = "Invalid Content on Line %d: JSON does not start with '{'" % self.line_ctr
-            LOG.debug("Offending Line: %s" % yaml_line)
+            if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
             return
         elif not yaml_line.endswith("}"):
+            self.error_ctr += 1
             msg = "Invalid Content on Line %d: JSON does not end with '}'" % self.line_ctr
-            LOG.debug(yaml_line)
+            if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
-            return    
+            return
         
-        #yaml parser might fail :D
         try:
             obj = yaml.load(yaml_line)
         except (yaml.scanner.ScannerError, yaml.parser.ParserError, yaml.reader.ReaderError) as err:
-            msg = "Invalid Content on Line %d: Failed to convert YAML to JSON:\n%s" % (self.line_ctr, yaml_line)
+            self.error_ctr += 1
+            msg = "Failed to parse YAML on Line %d - %s" % (self.line_ctr, err)
+            if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
             return
         
-        valid_json = json.dumps(obj)
-        obj = yaml.load(valid_json)
-        if not obj:
-            msg = "Invalid Content on Line %d: Content parsed to YAML, not to JSON\n%s" % (self.line_ctr, yaml_line)
-            if self.stop_on_error: raise Exception(msg)
-            LOG.warn(msg)
-            return
-        
-        # If this is the first time we see this session, add it
-        # TODO: Do we still need this?
-        if 'whatismyuri' in obj:
-            self.getOrCreateSession(self.currentOp['ip_client'], this.currentOp['ip_server'])
-        
-        # Store the line in the curentContent buffer
-        self.currentContent.append(obj)
-        return
+        try:
+            valid_json = json.dumps(obj)
+            obj = yaml.load(valid_json)
+        finally:
+            if not obj:
+                self.error_ctr += 1
+                msg = "Failed to Convert YAML to JSON on Line %d" % (self.line_ctr)
+                if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
+                if self.stop_on_error: raise Exception(msg)
+                LOG.warn(msg)
+                return
+        return obj
     ## DEF
 
     def process_content_line(self, line):
@@ -591,6 +601,14 @@ class Parser:
             # extract OFFSET and LIMIT
             self.currentOp['ntoskip'] = int(self.ntoskipRegex.match(line).group(1))
             self.currentOp['ntoreturn'] = int(self.ntoreturnRegex.match(line).group(1))
+            
+            self.currentOp['hasfields'] = None
+            m = self.hasfieldsRegex.match(line)
+            if m:
+                yaml_line = m.group(1)
+                self.currentOp['hasfields'] = self.yaml2json(yaml_line)
+                if self.debug: LOG.debug("HAS FIELDS: %s" % self.currentOp['hasfields'])
+                line = line.replace(yaml_line, "")
             
             line = line[line.find('{'):line.rfind('}')+1]
             self.add_yaml_to_content(line)
@@ -715,21 +733,25 @@ class Parser:
     def infer_salt(self, candidate_hashes, known_collections):
         """this is a ridiculous hack. Let's hope the salt is 0. But even if not..."""
         max_salt = 100000
-        LOG.debug("Trying to brute-force the salt 0-%d..." % max_salt)
+        if self.debug: LOG.debug("Trying to brute-force the salt 0-%d" % max_salt)
         salt = 0
         while True:
-            if salt % (max_salt / 100) == 0:
-                print ".",
+            if self.debug and salt % (max_salt / 100) == 0:
+                sys.stdout.write(".")
             for known_col in known_collections:
                 hashed_string = self.get_hash_string(known_col) # the col names are hashed with quotes around them 
                 hash = anonymize.hash_string(hashed_string, salt) # imported from anonymize.py
                 if hash in candidate_hashes:
-                    LOG.debug("SUCCESS! %s hashes to a known value. SALT: %d", hashed_string, salt)
+                    if self.debug: 
+                        print
+                        LOG.debug("SUCCESS! %s hashes to a known value. SALT: %d", hashed_string, salt)
                     return salt
             salt += 1
             if salt > max_salt:
                 break
-        LOG.warn("FAIL. The salt value is unknown")
+        if self.debug:
+            print
+            LOG.warn("FAIL. The salt value is unknown")
         return None
     ## DEF
 

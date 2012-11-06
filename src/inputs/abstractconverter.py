@@ -40,16 +40,13 @@ LOG = logging.getLogger(__name__)
 ## Abstract Convertor
 ## ==============================================
 class AbstractConverter():
-    
     def __init__(self, metadata_db, dataset_db):
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
-
         self.stop_on_error = False
         self.limit = None
         self.skip = None
         self.clean = None
-        
         self.no_load = False
         self.no_reconstruct = False
         self.no_sessionizer = False
@@ -59,7 +56,7 @@ class AbstractConverter():
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
-        
+
     def reset(self):
         # FIXME: This should be done with a single update query
         for col_info in self.metadata_db.Collection.fetch():
@@ -73,7 +70,7 @@ class AbstractConverter():
                 v['query_use_count'] = 0
                 v['query_hash']  = 0
                 v['cardinality'] = 0
-                v['selectivity'] = 0
+                v['selectivity'] = 0.0
                 v['avg_size']    = 0
             col_info.save()
         ## FOR
@@ -82,10 +79,22 @@ class AbstractConverter():
     def process(self, no_load=False, no_post_process=False, page_size=constants.DEFAULT_PAGE_SIZE):
         if not no_load: self.loadImpl()
         if not no_post_process: self.postProcess(page_size)
+        # self.printAllCollectionInfo()
     ## DEF
 
     def loadImpl(self):
         raise NotImplementedError("Unimplemented %s.loadImpl()" % self.__init__.im_class)
+    ## DEF
+
+    def printAllCollectionInfo(self):
+        for colName in self.dataset_db.collection_names():
+            # Skip ignored collections
+            if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
+                continue
+            col_info = self.metadata_db.Collection.one({'name': colName})
+            print "col_name: ", col_info['name']
+            print "col_info\n", pformat(col_info)
+        ## FOR
     ## DEF
 
     def postProcess(self, page_size=constants.DEFAULT_PAGE_SIZE):
@@ -95,7 +104,6 @@ class AbstractConverter():
             the catalog information came from MongoSniff or MySQL.
             This should only be invoked once after do the initial loading.
         """
-
         # STEP 1: Add query hashes
         self.addQueryHashes()
 
@@ -116,28 +124,42 @@ class AbstractConverter():
             col_info['max_pages'] = min(1, col_info['doc_count'] * col_info['avg_doc_size'] / page_size)
             col_info.save()
         ## FOR
-        assert percent_total > 0.0 and percent_total <= 1.0,\
+        assert round(percent_total, 1) > 0.0 and round(percent_total, 1) <= 1.0,\
             "Invalid workload percent total %f [totalOps=%d]" % (percent_total, self.total_ops)
     ## DEF
 
     def addQueryHashes(self):
         total = self.metadata_db.Session.find().count()
         LOG.info("Adding query hashes to %d sessions" % total)
+        invalid_sess = [ ]
         for sess in self.metadata_db.Session.fetch():
-            for op in sess['operations']:
+            # It is possible that the query content of some operations, which will
+            # cause sess.save() to fail. To work this around, we just delete the incomplete op
+            # from the session
+            for i in xrange(len(sess['operations']) - 1, - 1, -1):
+                op = sess['operations'][i]
                 # For some reason even though the hash is an int, it
                 # gets converted into a long when it shows up in MongoDB
                 # I don't know why and frankly, I don't really care
                 # So we'll just cast everything to a long and make sure that
                 # the Session schema expects it to be a long
-                op["query_hash"] = long(self.hasher.hash(op))
-                if self.debug:
-                    LOG.debug("  %d.%d -> Hash:%d", sess["session_id"], op["query_id"], op["query_hash"])
-            sess.save()
+                try:
+                    op["query_hash"] = long(self.hasher.hash(op))
+                    if self.debug:
+                        LOG.debug("  %d.%d -> Hash:%d", sess["session_id"], op["query_id"], op["query_hash"])
+                except Exception:
+                    sess['operations'].remove(op)
+                ## TRY
+            try:
+                sess.save()
+            except Exception:
+                LOG.info("session can not be saved due to operations error. Dump:\n%s", sess['operations'])
+                sess.delete()
             if self.debug: LOG.debug("Updated Session #%d", sess["session_id"])
         ## FOR
         if self.debug:
             LOG.debug("Query Class Histogram:\n%s" % self.hasher.histogram)
+        ## IF
     ## DEF
 
     def computeWorkloadStats(self):
@@ -257,13 +279,12 @@ class AbstractConverter():
             post-processing stuff in the AbstractConverter will populate
             the statistics information for each collection
         """
-
-        cols = self.dataset_db.collection_names()
-        LOG.info("Extracting schema catalog from %d collections.", len(cols))
-        for colName in cols:
+        LOG.info("Extracting database schema catalog from workload trace")
+        for colName in self.dataset_db.collection_names():
             # Skip ignored collections
             if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
                 continue
+            LOG.info("Extracting schema catalog information from collection '%s'", colName)
 
             # Get the collection information object
             # We will use this to store the number times each key is referenced in a query
@@ -299,8 +320,11 @@ class AbstractConverter():
 
             if self.debug:
                 LOG.debug("Saved new catalog entry for collection '%s'" % colName)
-            col_info.save()
-
+            try:
+                col_info.save()
+            except Exception:
+                print "abnormal col_info\n", pformat(col_info)
+                raise
         ## FOR
     ## DEF
 
@@ -310,10 +334,13 @@ class AbstractConverter():
         """
         if self.debug: LOG.debug("Extracting fields for document:\n%s" % pformat(doc))
 
+        # Check if the current doc has parent_col, but this will only apply to its fields
+        parent_col = doc.get('parent_col', None)
+
         for k,v in doc.iteritems():
             # Skip if this is the _id field
             if constants.SKIP_MONGODB_ID_FIELD and k == '_id': continue
-
+            if k == constants.FUNCTIONAL_FIELD: continue
             f_type = type(v)
             f_type_str = catalog.fieldTypeToString(f_type)
 
@@ -335,11 +362,12 @@ class AbstractConverter():
             # we call computeFieldStats()
             if not 'distinct_values' in fields[k]:
                 fields[k]['distinct_values'] = set()
+            if not "num_values" in fields[k]:
+                fields[k]['num_values'] = 0
             # Likewise, we will also store a histogram for the different sizes
             # of each field. We will use this later on to compute the weighted average
             if not 'size_histogram' in fields[k]:
                 fields[k]['size_histogram'] = Histogram()
-
             if fields[k]['query_use_count'] > 0 and not k in col_info['interesting']:
                 col_info['interesting'].append(k)
 
@@ -360,6 +388,9 @@ class AbstractConverter():
                     col_info['data_size'] += size
                     fields[k]['size_histogram'].put(size)
                     fields[k]['distinct_values'].add(v)
+                    fields[k]['num_values'] += 1
+                    if parent_col:
+                        fields[k]['parent_col'] = parent_col
                 else:
                     if self.debug: LOG.debug("Extracting keys in nested field for '%s'" % k)
                     if not 'fields' in fields[k]: fields[k]['fields'] = { }
@@ -397,7 +428,9 @@ class AbstractConverter():
                         fields[k]['fields'][constants.LIST_INNER_FIELD] = inner
                         fields[k]['size_histogram'].put(inner_size)
                         fields[k]['distinct_values'].add(doc[k][i])
-
+                        fields[k]['num_values'] += 1
+                        if parent_col:
+                            fields[k]['parent_col'] = parent_col
                 ## FOR (list)
             ## ----------------------------------------------
             ## SCALAR VALUES
@@ -412,9 +445,11 @@ class AbstractConverter():
                 col_info['data_size'] += size
                 fields[k]['size_histogram'].put(size)
                 fields[k]['distinct_values'].add(v)
+                fields[k]['num_values'] += 1
+                if parent_col:
+                    fields[k]['parent_col'] = parent_col
         ## FOR
     ## DEF
-
 
     def computeFieldStats(self, col_info, fields):
         """
@@ -434,15 +469,19 @@ class AbstractConverter():
                 else:
                     field['avg_size'] = 0
                 del field['size_histogram']
-
             # Use the distinct values set to determine cardinality + selectivity
             if 'distinct_values' in field:
+#                print "*" * 20
+#                print "col_name: ", col_info['name']
+#                print "field: ", k
+#                print "distinct values: ", pformat(field['distinct_values'])
                 field['cardinality'] = len(field['distinct_values'])
-                if not col_info['doc_count']:
-                    field['selectivity'] = 0
+                if field['num_values'] == 0:
+                    field['selectivity'] = 0.0
                 else :
-                    field['selectivity'] = field['cardinality'] / col_info['doc_count']
+                    field['selectivity'] = float(field['cardinality']) / field['num_values']
                 del field['distinct_values']
+                del field['num_values']
             if 'fields' in field and field['fields']:
                 self.computeFieldStats(col_info, field['fields'])
         ## FOR

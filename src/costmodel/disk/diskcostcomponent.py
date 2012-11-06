@@ -31,11 +31,12 @@ from pprint import pformat
 import workload
 
 basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, ".."))
+sys.path.append(os.path.join(basedir, "../"))
 
 import catalog
 from costmodel import AbstractCostComponent
-from costmodel.lrubuffer import LRUBuffer
+from fastlrubuffer import FastLRUBuffer
+from fastlrubufferusingwindow import FastLRUBufferWithWindow
 from workload import Session
 from util import Histogram, constants
 
@@ -44,17 +45,23 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 ## Disk Cost
 ## ==============================================
+
 class DiskCostComponent(AbstractCostComponent):
 
     def __init__(self, state):
         AbstractCostComponent.__init__(self, state)
-        self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.debug = False
 
         self.buffers = [ ]
         for i in xrange(self.state.num_nodes):
-            lru = LRUBuffer(self.state.collections, self.state.max_memory, preload=True) # constants.DEFAULT_LRU_PRELOAD)
+            lru = FastLRUBufferWithWindow(self.state.window_size)
             self.buffers.append(lru)
     ## DEF
+
+
+    def reset(self):
+        for buf in self.buffers:
+            buf.reset()
 
     def getCostImpl(self, design):
         """
@@ -63,17 +70,16 @@ class DiskCostComponent(AbstractCostComponent):
             should be calculated before skewCost() because we will reused the same
             histogram of how often nodes are touched in the workload
         """
-
-        num_sessions = len(self.state.workload)
-        complete_marker = num_sessions / 10
-        #        if self.debug:
-        LOG.info("Calculating diskCost for %d sessions", num_sessions)
+        # delta = self.__getDelta__(design)
 
         # Initialize all of the LRU buffers
-        for lru in self.buffers:
-            lru.initialize(design)
-            LOG.info(lru)
-            lru.validate()
+        # since every lru has the same configuration, we can cache the first initialization then deepcopy it to other
+        #    lrus
+        cache = None
+        # for lru in self.buffers:
+        #     cache = lru.initialize(design, delta, cache)
+        #     LOG.info(lru)
+        #     lru.validate()
 
         # Ok strap on your helmet, this is the magical part of the whole thing!
         #
@@ -119,10 +125,15 @@ class DiskCostComponent(AbstractCostComponent):
         totalWorst = 0
         totalCost = 0
         sess_ctr = 0
+
         for sess in self.state.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
                 if not design.hasCollection(op['collection']):
+                    if self.debug: LOG.debug("NOT in design: SKIP - All operations on %s", col_name)
+                    continue
+                if design.isRelaxed(op['collection']):
+                    if self.debug: LOG.debug("NOT in design: SKIP - All operations on %s", col_name)
                     continue
                 col_info = self.state.collections[op['collection']]
 
@@ -142,11 +153,13 @@ class DiskCostComponent(AbstractCostComponent):
                 pageHits = 0
                 maxHits = 0
                 isRegex = self.state.__getIsOpRegex__(cache, op)
-
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
-
-                    for node_id in self.state.__getNodeIds__(cache, design, op):
+                    try:
+                        opNodes = self.state.__getNodeIds__(cache, design, op)
+                    except:
+                        raise Exception("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                    for node_id in opNodes:
                         lru = self.buffers[node_id]
 
                         # TODO: Need to handle whether it's a scan or an equality predicate
@@ -171,7 +184,8 @@ class DiskCostComponent(AbstractCostComponent):
                             elif self.debug:
                                 self.state.cache_hit_ctr.put("index_docIds")
                                 ## IF
-                            hits = lru.getDocumentFromIndex(op['collection'], indexKeys, documentId)
+                            hits = lru.getDocumentFromIndex(indexKeys, documentId)
+                            # print "hits: ", hits
                             pageHits += hits
                             maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:
@@ -211,8 +225,17 @@ class DiskCostComponent(AbstractCostComponent):
                             if self.debug:
                                 LOG.debug("Node #%02d: Estimated %d collection scan pageHits for op #%d on %s",\
                                     node_id, hits, op["query_id"], op["collection"])
-                                ## FOR (node)
-                    ## FOR (content)
+
+                        # We have a covering index, which means that we don't have
+                        # to do a look-up on the document in the collection.
+                        # But we still need to increase maxHits so that the final
+                        # ratio is counted correctly
+                        # Yang seems happy with this...
+                        else:
+                            assert op['type'] != constants.OP_TYPE_INSERT
+                            maxHits += cache.fullscan_pages
+                    ## FOR (node)
+                ## FOR (content)
 
                 totalCost += pageHits
                 totalWorst += maxHits
@@ -224,8 +247,7 @@ class DiskCostComponent(AbstractCostComponent):
                     (pageHits, maxHits, op["query_id"], pformat(op))
                 ## FOR (op)
             sess_ctr += 1
-            if sess_ctr % complete_marker == 0:
-                LOG.info("Session %5d / %d [%3d%%]", sess_ctr, num_sessions, (sess_ctr / num_sessions)*100)
+
             ## FOR (sess)
 
         # The final disk cost is the ratio of our estimated disk access cost divided
@@ -233,21 +255,20 @@ class DiskCostComponent(AbstractCostComponent):
         # then the cost is simply zero
         assert totalCost <= totalWorst,\
             "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
-        final_cost = totalCost / totalWorst if totalWorst else 0
+        final_cost = float(totalCost) / float(totalWorst) if totalWorst else 0
         evicted = sum([ lru.evicted for lru in self.buffers ])
-        LOG.info("Computed Disk Cost: %.03f [pageHits=%d / worstCase=%d / evicted=%d]",\
+        LOG.info("Computed Disk Cost: %s [pageHits=%d / worstCase=%d / evicted=%d]",\
                  final_cost, totalCost, totalWorst, evicted)
+
         return final_cost
     ## DEF
 
     def finish(self):
-        buffer_total = sum([ lru.buffer_size for lru in self.buffers ])
-        buffer_remaining = sum([ lru.remaining for lru in self.buffers ])
+        buffer_total = sum([ lru.window_size for lru in self.buffers ])
+        buffer_remaining = sum([ lru.free_slots for lru in self.buffers ])
         buffer_ratio = (buffer_total - buffer_remaining) / float(buffer_total)
-        LOG.info("Buffer Usage %.2f%% [total=%d / used=%d]",\
-            buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
 
-        map(LRUBuffer.validate, self.buffers)
+        map(FastLRUBufferWithWindow.validate, self.buffers)
 
         if self.debug:
             cache_success = sum([ x for x in self.state.cache_hit_ctr.itervalues() ])
@@ -257,6 +278,7 @@ class DiskCostComponent(AbstractCostComponent):
             LOG.debug("Cache Hits [%d]:\n%s", cache_success, self.state.cache_hit_ctr)
             LOG.debug("Cache Misses [%d]:\n%s", cache_miss, self.state.cache_miss_ctr)
             LOG.debug("-"*100)
+            LOG.debug("Buffer Usage %.2f%% [total=%d / used=%d]",buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
     ## DEF
 
     def reset(self):
@@ -269,19 +291,37 @@ class DiskCostComponent(AbstractCostComponent):
             Return a tuple containing the best index to use for this operation and a boolean
             flag that is true if that index covers the entire operation's query
         """
-
         # Simply choose the index that has most of the fields
         # referenced in the operation.
         indexes = design.getIndexes(op['collection'])
         op_contents = workload.getOpContents(op)
+        # extract the keys from op_contents
+        op_index_list = []
+        for query in op_contents:
+            for key in query.iterkeys():
+                op_index_list.append(key)
+        # add the projection keys into op_index_set
+        # The op["query_fileds"] is the projection
+        hasProjectionField = False
+        projectionFields = op.get('query_fields', None)
+
+        if projectionFields:
+            hasProjectionField = True
+            for key in projectionFields.iterkeys():
+                op_index_list.append(key)
+
         best_index = None
         best_ratio = None
         for i in xrange(len(indexes)):
             field_cnt = 0
             for indexKey in indexes[i]:
+                indexMatch = (indexKey in op_index_list)
                 # We can't use a field if it's being used in a regex operation
-                if catalog.hasField(indexKey, op_contents) and not workload.isOpRegex(op, field=indexKey):
+                if indexMatch and not workload.isOpRegex(op, field=indexKey):
                     field_cnt += 1
+
+                if not indexMatch or field_cnt >= len(op_index_list):
+                    break
             field_ratio = field_cnt / float(len(indexes[i]))
             if not best_index or field_ratio >= best_ratio:
                 # If the ratios are the same, then choose the
@@ -289,8 +329,10 @@ class DiskCostComponent(AbstractCostComponent):
                 if field_ratio == best_ratio:
                     if len(indexes[i]) < len(best_index):
                         continue
-                best_index = indexes[i]
-                best_ratio = field_ratio
+
+                if field_ratio != 0:
+                    best_index = indexes[i]
+                    best_ratio = field_ratio
             ## FOR
         if self.debug:
             LOG.debug("Op #%d - BestIndex:%s / BestRatio:%s",\
@@ -298,68 +340,27 @@ class DiskCostComponent(AbstractCostComponent):
 
         # Check whether this is a covering index
         covering = False
-        if best_index and op['type'] == constants.OP_TYPE_QUERY:
-            # The second element in the query_content is the projection
-            if len(op['query_content']) > 1:
-                projectionFields = op['query_content'][1]
-            # Otherwise just check whether the index encompasses all fields
-            else:
-                col_info = self.state.collections[op['collection']]
-                projectionFields = col_info['fields']
+        if hasProjectionField:
+            if best_index and op['type'] == constants.OP_TYPE_QUERY:
+                # Extract the indexes from best_index
+                best_index_list = []
+                for index in best_index:
+                    best_index_list.append(index)
 
-            if projectionFields and len(best_index) == len(projectionFields):
-                # FIXME
-                covering = True
+                if len(op_index_list) <= len(best_index_list):
+                    counter = 0
+                    while counter < len(op_index_list):
+                        if op_index_list[counter] != best_index_list[counter]:
+                            break
+                        counter += 1
+
+                    if counter == len(op_index_list):
+                        covering = True
+                ## IF
             ## IF
+        ## IF
 
         return best_index, covering
     ## DEF
 
-    def estimateWorkingSets(self, design, capacity):
-        '''
-            Estimate the percentage of a collection that will fit in working set space
-        '''
-        working_set_counts = {}
-        leftovers = {}
-        buffer = 0
-        needs_memory = []
-
-        if self.debug:
-            LOG.debug("Estimating collection working sets [capacity=%d]", capacity)
-
-        # iterate over sorted tuples to process in descending order of usage
-        _collections = sorted(self.state.collections.keys(), key=lambda k: self.state.collections[k]['workload_percent'], reverse=True)
-        for col_name in _collections:
-            col_info = self.state.collections[col_name]
-            memory_available = capacity * col_info['workload_percent']
-            memory_needed = col_info['avg_doc_size'] * col_info['doc_count']
-
-            if self.debug:
-                LOG.debug("%s Memory Needed: %d", col_name, memory_needed)
-
-            # is there leftover memory that can be put in a buffer for other collections?
-            if memory_needed <= memory_available :
-                working_set_counts[col_name] = 100
-                buffer += memory_available - memory_needed
-            else:
-                col_percent = memory_available / memory_needed
-                still_needs = 1.0 - col_percent
-                working_set_counts[col_name] = math.ceil(col_percent * 100)
-                needs_memory.append((still_needs, col_name))
-
-        # This is where the problem is... Need to rethink how I am doing this.
-        for still_needs, col_info in needs_memory:
-            memory_available = buffer
-            memory_needed = (1 - (working_set_counts[col_name] / 100)) *\
-                            self.state.collections[col_name]['avg_doc_size'] *\
-                            self.state.collections[col_name]['doc_count']
-
-            if memory_needed <= memory_available :
-                working_set_counts[col_name] = 100
-                buffer = memory_available - memory_needed
-            elif memory_available > 0 :
-                col_percent = memory_available / memory_needed
-                working_set_counts[col_name] += col_percent * 100
-        return working_set_counts
-    ## DEF
 ## CLASS

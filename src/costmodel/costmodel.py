@@ -39,6 +39,7 @@ import skew
 import network
 from state import State
 from abstractcostcomponent import AbstractCostComponent
+from workload.workloadcombiner import WorkloadCombiner
 
 LOG = logging.getLogger(__name__)
 
@@ -68,63 +69,89 @@ class CostModel(object):
     def __init__(self, collections, workload, config):
         self.last_design = None
         self.last_cost = None
+        self.new_design = None
         self.state = State(collections, workload, config)
 
-        self.weights_sum = 0
+        self.weights_sum = 0.0
         for k, v in self.state.__dict__.iteritems():
-            if k.startswith("weight_"): self.weights_sum += v
+            if k.startswith("weight_"): self.weights_sum += float(v)
 
         ## ----------------------------------------------
         ## COST COMPONENTS
         ## ----------------------------------------------
-        self.diskComponent = disk.FastDiskCostComponent(self.state)
+        self.diskComponent = disk.DiskCostComponent(self.state)
         self.skewComponent = skew.SkewCostComponent(self.state)
         self.networkComponent = network.NetworkCostComponent(self.state)
         self.allComponents = (self.diskComponent, self.skewComponent, self.networkComponent)
+        self.combiner = WorkloadCombiner(collections, workload)
         
-        self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.debug = False
+        
+        self.design_set = set()
     ## DEF
 
     def overallCost(self, design):
-
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
-        map(self.invalidateCache, design.getDelta(self.last_design))
+        self.new_design = design
+            
+        combinedWorkload = self.combiner.process(design)
+        if combinedWorkload:
+            self.state.updateWorkload(combinedWorkload)
 
+        # This is meant to apply to all components
+        # but it only works with network component
+        # for disk component, we have to use reset now
+        # TODO yang: make this beautiful
+        map(self.invalidateCache, design.getDelta(self.last_design))
+        self.diskComponent.reset()
+        
         if self.debug:
             LOG.debug("New Design:\n%s", design)
             self.state.cache_hit_ctr.clear()
             self.state.cache_miss_ctr.clear()
-        start = time.time()
-
+        
         cost = 0.0
-        cost += self.state.weight_disk * self.diskComponent.getCost(design)
-        cost += self.state.weight_network * self.networkComponent.getCost(design)
-        cost += self.state.weight_skew * self.skewComponent.getCost(design)
-
-        self.last_cost = cost / float(self.weights_sum)
+        start = time.time()
+        if self.state.weight_disk > 0:
+            cost += self.state.weight_disk * self.diskComponent.getCost(design)
+        if self.state.weight_network > 0:
+            cost += self.state.weight_network * self.networkComponent.getCost(design)
+        if self.state.weight_skew > 0:
+            cost += self.state.weight_skew * self.skewComponent.getCost(design)
+        stop = time.time()
+            
+        self.last_cost = cost / self.weights_sum
         self.last_design = design
 
-#        if self.debug:
-        stop = time.time()
-
         # Calculate cache hit/miss ratio
-        LOG.debug("Overall Cost %.3f / Computed in %.2f seconds", \
+        LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
                  self.last_cost, (stop - start))
 
-        map(AbstractCostComponent.finish, self.allComponents)
+        self.finish()
+        if combinedWorkload:
+            self.state.restoreOriginalWorkload()
+
         return self.last_cost
     ## DEF
 
     def invalidateCache(self, col_name):
         self.state.invalidateCache(col_name)
         for c in self.allComponents:
-            c.invalidateCache(col_name)
+            c.invalidateCache(self.new_design, col_name)
     ## DEF
 
+    def finish(self):
+        for component in self.allComponents:
+            component.finish()
+        ## for
+    ## for
+    
     def reset(self):
         """Reset all of the internal state and cache information"""
         self.state.reset()
-        map(AbstractCostComponent.reset, self.allComponents)
+        for component in self.allComponents:
+            component.reset()
+        ## for
     ## DEF
 ## CLASS

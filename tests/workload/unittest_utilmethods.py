@@ -12,9 +12,39 @@ from util import constants
 
 class TestUtilMethods(unittest.TestCase):
     
+    def testGetReferencedFields(self):
+        op = {
+            'collection': 'blah',
+            'predicates': { },
+            'query_aggregate': True,
+            'query_content': [ ],
+            'resp_content': [{'n': 16, 'ok': 1}],
+            'type': constants.OP_TYPE_QUERY,
+        }
+        expected = set()
+        for i in xrange(4):
+            keyName = 'key%02d' % i
+            for ii in xrange(10):
+                op['query_content'].append({"#query": {keyName: {"#gt": i*ii}}})
+            expected.add(keyName)                
+            op['predicates'][keyName] = constants.PRED_TYPE_RANGE
+        expected = sorted(expected)
+        #print "EXPECTED:", expected
+        
+        fields = workload.getReferencedFields(op)
+        #print "FIELDS:", fields
+        self.assertIsNotNone(fields)
+        self.assertIsInstance(fields, tuple)
+        self.assertEquals(len(expected), len(fields))
+        
+        for i in xrange(len(expected)):
+            self.assertEquals(expected[i], fields[i])
+        ## FOR
+    ## DEF
+    
     def testIsOpRegex(self):
         op = {
-            'collection': 'exfm.site.songs',
+            'collection': 'blah',
             'predicates': {'_id': constants.PRED_TYPE_REGEX},
             'query_aggregate': True,
             'query_content': [

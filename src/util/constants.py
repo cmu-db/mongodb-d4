@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sys
 
 PROJECT_NAME = "mongodb-d4"
 PROJECT_URL = "https://github.com/apavlo/mongodb-d4"
@@ -52,6 +53,10 @@ REPLACE_KEY_DOLLAR_PREFIX = '#'
 # Replace any '.' in a key with this string
 REPLACE_KEY_PERIOD = '__'
 
+# This identifies that an operation has to perform a full scan
+# on an entire collection rather than retrieving a single document
+FULL_SCAN_DOCUMENT_ID = sys.maxint
+
 ## ==============================================
 ## MONGO OPERATION TYPES
 ## ==============================================
@@ -82,7 +87,34 @@ DEFAULT_ADDRESS_SIZE = 8 # bytes
 DEFAULT_TIME_INTERVALS = 10
 
 # Whether to preload documents in the LRUBuffers
-DEFAULT_LRU_PRELOAD = False
+DEFAULT_LRU_PRELOAD = True
 
 # The size of pages on disk for each MongoDB database node
 DEFAULT_PAGE_SIZE = 4096 # bytes
+
+# Window size in lru buffer: how many collection are preloaded into the buffer
+WINDOW_SIZE = 1024
+
+## ==============================================
+## CANDIDATES GENERATOR CONSTRAINTS
+## ==============================================
+MIN_SELECTIVITY = 0.25
+
+MAX_INDEX_SIZE = 3
+
+EXAUSTED_SEARCH_BAR = 4
+
+NUMBER_OF_BACKUP_KEYS = 2
+
+## ==============================================
+## MONGO DATASET RECONSTRUCTION CONSTRAINTS
+## ==============================================
+
+# The minimum size of nested fields, with which we will extract them from its parent collection
+MIN_SIZE_OF_NESTED_FIELDS = 3
+
+# Split documents with more than K fields
+MIN_SPLIT_SIZE = 3
+
+# We want to SKIP these two fields since we are functional fields not data fields
+FUNCTIONAL_FIELD = 'parent_col'

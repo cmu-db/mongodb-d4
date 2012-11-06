@@ -46,7 +46,8 @@ class Sessionizer:
         
         # Mapping from SessionId -> Operations
         self.sessOps = { }
-        pass
+        
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
     def process(self, sessId, operations):
@@ -54,18 +55,24 @@ class Sessionizer:
         self.sessOps[sessId] = [ ]
         lastOp = None
         ctr = 0
-        for op in operations:
+        for op in sorted(operations, key=lambda op: op["query_time"]):
             if not "resp_time" in op: continue
             assert "query_hash" in op, \
                 "Missing hash in operation %d" % op["query_id"]
             if op["resp_time"] is None: op["resp_time"] = op["query_time"] # HACK
 
-            assert op["query_time"] is not None
-            assert op["resp_time"] is not None
+            assert not op["query_time"] is None
+            assert not op["resp_time"] is None
 
             if lastOp:
-                assert int(op["query_time"]) >= int(lastOp["resp_time"]), \
-                    "Op #%(query_id)d query time (%(query_time)d) comes after response time (%(resp_time)d)" % op
+                # HACK
+                if op["query_time"] < lastOp["resp_time"]:
+                    if self.debug: 
+                        LOG.warn("Op #%d query time (%d) comes before last op #%d response time (%d) in session #%d",
+                                 op["query_id"], op["query_time"], lastOp["query_id"], lastOp["resp_time"], sessId)
+                    temp = op["query_time"]
+                    op["query_time"] = lastOp["resp_time"]
+                    lastOp["resp_time"] = temp
                 # Seconds -> Milliseconds
                 if lastOp["resp_time"]:
                     diff = (op["query_time"]*1000) - (lastOp["resp_time"]*1000)
@@ -81,7 +88,8 @@ class Sessionizer:
     def calculateSessions(self):
         # Calculate outliers using the quartile method
         # http://en.wikipedia.org/wiki/Quartile#Computing_methods
-        LOG.debug("Calculating time difference for operations in %d sessions" % len(self.sessOps))
+        if self.debug:
+            LOG.debug("Calculating time difference for operations in %d sessions" % len(self.sessOps))
         
         # Get the full list of all the time differences
         allDiffs = [ ]
@@ -98,7 +106,7 @@ class Sessionizer:
         # Interquartile Range
         iqr = (upperQuartile - lowerQuartile) * 1.5
         
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("Calculating stats for %d op pairs" % len(allDiffs))
             LOG.debug("  Lower Quartile: %s" % lowerQuartile)
             LOG.debug("  Upper Quartile: %s" % upperQuartile)
@@ -118,7 +126,7 @@ class Sessionizer:
                     opHist.put((op0["query_hash"], op1["query_hash"]))
             ## FOR
         ## FOR
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("Outlier Op Hashes:\n%s" % opHist)
         
         # I guess at this point we can just compute the outliers
@@ -128,7 +136,7 @@ class Sessionizer:
         outlierCounts = sorted(opHist.getCounts())
         lowerQuartile, upperQuartile = mathutil.quartiles(outlierCounts)
         
-        if LOG.isEnabledFor(logging.DEBUG):
+        if self.debug:
             LOG.debug("Calculating stats for %d count outliers" % len(outlierCounts))
             LOG.debug("  Lower Quartile: %s" % lowerQuartile)
             LOG.debug("  Upper Quartile: %s" % upperQuartile)

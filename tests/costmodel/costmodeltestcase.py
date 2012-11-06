@@ -1,9 +1,9 @@
-
 import os, sys
 import random
 import time
 
 basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, ".."))
 sys.path.append(os.path.join(basedir, "../../"))
 
 # mongodb-d4
@@ -34,7 +34,6 @@ class CostModelTestCase(MongoDBTestCase):
         MongoDBTestCase.setUp(self)
 
         # WORKLOAD
-        self.workload = [ ]
         timestamp = time.time()
         for i in xrange(CostModelTestCase.NUM_SESSIONS):
             sess = self.metadata_db.Session()
@@ -75,10 +74,10 @@ class CostModelTestCase(MongoDBTestCase):
                 op['resp_time']    = timestamp
                 sess['operations'].append(op)
                 ## FOR (ops)
+                
             sess['end_time'] = timestamp
             timestamp += 2
             sess.save()
-            self.workload.append(sess)
             ## FOR (sess)
 
         # Use the MongoSniffConverter to populate our metadata
@@ -91,6 +90,8 @@ class CostModelTestCase(MongoDBTestCase):
         self.collections = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
         self.assertEqual(len(CostModelTestCase.COLLECTION_NAMES), len(self.collections))
 
+        populated_workload = list(c for c in self.metadata_db.Session.fetch())
+        self.workload = populated_workload
         # Increase the database size beyond what the converter derived from the workload
         for col_name, col_info in self.collections.iteritems():
             col_info['doc_count'] = CostModelTestCase.NUM_DOCUMENTS
@@ -104,8 +105,9 @@ class CostModelTestCase(MongoDBTestCase):
             'skew_intervals': CostModelTestCase.NUM_INTERVALS,
             'address_size':   64,
             'nodes':          CostModelTestCase.NUM_NODES,
+            'window_size':    1024
         }
 
-        self.state = State(self.collections, self.workload, self.costModelConfig)
+        self.state = State(self.collections, populated_workload, self.costModelConfig)
     ## DEF
 ## CLASS

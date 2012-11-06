@@ -66,17 +66,15 @@ class Reconstructor:
         # HACK: Skip any operations with invalid collection names
         #       We will go back later and fix these up
         toIgnore = [constants.INVALID_COLLECTION_MARKER] + constants.IGNORED_COLLECTIONS
-
         LOG.info("Reconstructing dataset from %d Sessions" % self.metadata_db.Session.fetch().count())
         for session in self.metadata_db.Session.fetch():
             self.sess_ctr += 1
             for op in session["operations"]:
                 self.op_ctr += 1
-
                 if op["collection"] in toIgnore:
                     self.skip_ctr += 1
                     continue
-
+                
                 if op["type"] == constants.OP_TYPE_QUERY:
                     ret = self.processQuery(op)
                 elif op["type"] == constants.OP_TYPE_DELETE:
@@ -138,7 +136,8 @@ class Reconstructor:
         payload = op["query_content"]
         col = op["collection"]
         if self.debug: LOG.debug("Deleting documents from collection %s..", col)
-        self.dataset_db[col].remove(payload)
+        for doc in payload:
+            self.dataset_db[col].remove(doc)
         return True
     ## DEF
 
@@ -155,7 +154,7 @@ class Reconstructor:
 
     def processQuery(self, op):
         col = op["collection"]
-        
+
         # We have to skip aggregates since the response contains computed values
         if op["query_aggregate"]:
             if self.debug: 
