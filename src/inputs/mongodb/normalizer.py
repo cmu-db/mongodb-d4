@@ -181,7 +181,7 @@ class Normalizer:
                             if type(value) == dict:
                                 for k in value.iterkeys():
                                     if k in fields:
-                                        LOG.info("counter: %d, key: %s, value: %s", counter, key, k)
+                                        LOG.debug("counter: %d, key: %s, value: %s", counter, key, k)
                                         changed_query.append((counter, key, k))
                                     ## IF
                                 ## FOR
@@ -213,7 +213,7 @@ class Normalizer:
                             ## IF
                             new_op = Session.operationFactory()
                             new_col = fieldscol2col[(col_name, tup[2])]
-                            LOG.info("Creating a new operation to collection: %s", new_col)
+                            LOG.debug("Creating a new operation to collection: %s", new_col)
                             new_op['collection'] = new_col
                             new_op['type']  = op['type']
                             new_op['query_id']      = long(hash(time.time()))
