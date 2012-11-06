@@ -22,6 +22,8 @@ class Coordinator:
         self.config = config
         self.args = args
         
+        start = time.time()
+        
         mch = execnet.MultiChannel(self.channels)
         self.queue = mch.make_receive_queue()
     
@@ -40,11 +42,12 @@ class Coordinator:
                 if num_clients == 0:
                     break
             except Exception:
-                LOG.info("WAITING, clients left: %s", num_clients)
+                LOG.info("WAITING, clients left: %s, elapsed time: %s", num_clients, time.time() - start)
                 pass
         ## WHILE
         
         LOG.info("All clients are initialized")
+        LOG.info("Loading time: %s", time.time() - start)
     ## DEF
     
     def sendLoadDBCommand(self):

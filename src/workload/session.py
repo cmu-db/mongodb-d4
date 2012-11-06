@@ -39,7 +39,9 @@ class Session(Document):
             ## ----------------------------------------------
             ## QUERY ATTRIBUTES
             ## ----------------------------------------------
-
+            
+            # Original query content from trace
+            'orig_query':       basestring,
             # The relative timestamp of when the query was sent to the server (in seconds)
             'query_time':       float,
             # Query payload (BSON)

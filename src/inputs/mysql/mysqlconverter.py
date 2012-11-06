@@ -277,6 +277,7 @@ class MySQLConverter(AbstractConverter):
                             LOG.warn("SKIP: %s", row[5])
                             continue
                         for op in operations:
+                            op["orig_query" ] = sql
                             op['query_type'] = mongo.get_op_type(mongo.query_type)
                             op['query_id'] = self.next_query_id
                             session['operations'].append(op)
