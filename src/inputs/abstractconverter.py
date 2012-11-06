@@ -499,10 +499,11 @@ class AbstractConverter():
             # Compute list information
             if 'list_len' in field:
                 if len(field['list_len']) > 0:
-                    field['list_len_min'] = min(field['list_len'].keys())
-                    field['list_len_max'] = max(field['list_len'].keys())
-                    field['list_len_max'] = numpy.average(field['list_len'].keys())
-                    field['list_len_stdev'] = numpy.average(field['list_len'].keys())
+                    all_values = field['list_len'].getAllValues()
+                    field['list_len_min'] = min(all_values)
+                    field['list_len_max'] = max(all_values)
+                    field['list_len_max'] = numpy.average(all_values)
+                    field['list_len_stdev'] = numpy.average(all_values)
                 del field['list_len']
             
             # Compute a weighted average for each field
