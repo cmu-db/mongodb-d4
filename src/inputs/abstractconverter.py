@@ -501,8 +501,8 @@ class AbstractConverter():
                 if len(field['list_len']) > 0:
                     field['list_len_min'] = min(field['list_len'].keys())
                     field['list_len_max'] = max(field['list_len'].keys())
-                    field['list_len_max'] = numpy.average((field['list_len'].keys())
-                    field['list_len_stdev'] = numpy.average((field['list_len'].keys())
+                    field['list_len_max'] = numpy.average(field['list_len'].keys())
+                    field['list_len_stdev'] = numpy.average(field['list_len'].keys())
                 del field['list_len']
             
             # Compute a weighted average for each field
