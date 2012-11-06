@@ -205,7 +205,10 @@ class Sql2Mongo (object) :
                         offset = 1;
                         if where.tokens[i + 1].ttype == sqlparse.tokens.Whitespace :
                             offset = 2;
-                        parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
+                        if where.tokens[i+offset].to_unicode() == 'IN':
+                            parts = self.process_where_in(where.tokens[i], where.tokens[i+offset+offset])
+                        else:
+                            parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
                         self.add_where_comparison(parts[0], parts[1])
                         i += 4
                     elif cls == 'Comparison' :
@@ -583,7 +586,10 @@ class Sql2Mongo (object) :
                         offset = 1;
                         if where.tokens[i + 1].ttype == sqlparse.tokens.Whitespace :
                             offset = 2;
-                        parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
+                        if where.tokens[i+offset].to_unicode() == 'IN':
+                            parts = self.process_where_in(where.tokens[i], where.tokens[i+offset+offset])
+                        else:
+                            parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
                         self.add_where_comparison(parts[0], parts[1])
                         i += 4
                     elif cls == 'Comparison' :
