@@ -112,9 +112,8 @@ class LNSDesigner(AbstractDesigner):
         ## IF
         
         while True:
-            LOG.info("Started one bbsearch, current bbsearch_time_out is: %s, relax ratio is: %s", bbsearch_time_out, self.relaxRatio)
-            
             relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, self.relaxRatio)
+            sendMessage(MSG_SEARCH_INFO, (relaxedCollectionsNames, bbsearch_time_out), self.channel)
             
             LOG.info("Relaxed collections\n %s", relaxedCollectionsNames)
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)

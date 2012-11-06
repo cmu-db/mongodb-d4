@@ -139,6 +139,11 @@ class Coordinator:
                         self.send2All(MSG_CMD_UPDATE_BEST_COST, (bestCost, bestDesign))
                     ## IF
                 ## ELIF
+                elif msg.header == MSG_SEARCH_INFO:
+                    LOG.info("One client starts a new BBsearch")
+                    LOG.info("Relaxed collections: %s", msg.data[0])
+                    LOG.info("Time limit for this round: %s", msg.data[1])
+                ## ELIF
                 elif msg.header == MSG_START_SEARCHING:
                     LOG.info("One process started searching, we are good :)")
                     started_searching_process += 1
