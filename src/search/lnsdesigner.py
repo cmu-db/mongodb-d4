@@ -122,7 +122,7 @@ class LNSDesigner(AbstractDesigner):
             self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, bbsearch_time_out, self.channel, self.bestLock)
             bbDesign, bbCost = self.bbsearch_method.solve()
 
-            if self.bbsearch_method.status == "solved":
+            if self.bbsearch_method.status != "updated_design":
                 if bbCost < bestCost:
                     bestCost = bbCost
                     bestDesign = bbDesign.copy()
@@ -166,6 +166,7 @@ class LNSDesigner(AbstractDesigner):
                 if bbCost < bestCost:
                     bestCost = bbCost
                     bestDesign = bbDesign.copy()
+                ## IF
             ## ELSE
         ## WHILE
 
