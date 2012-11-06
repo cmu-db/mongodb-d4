@@ -87,6 +87,8 @@ class BBSearch ():
         if bestCost < self.bestCost:
             self.bestCost = bestCost
             self.bestDesign = bestDesign.copy()
+            # If we update the current best design, we want to restart the search process
+            self.terminate()
         ## IF
         self.bestLock.release()
     ## DEF
@@ -116,7 +118,7 @@ class BBSearch ():
 
         self.usedTime = time.time() - self.startTime
         
-        return self.bestDesign
+        return self.bestDesign, self.bestCost
 
     def listAllNodes(self):
         """
