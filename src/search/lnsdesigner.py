@@ -163,8 +163,9 @@ class LNSDesigner(AbstractDesigner):
                 # OH, also the bbsearch_time
                 relaxRatio = self.init_relaxRatio
                 bbsearch_time_out = self.init_bbsearch_time
-                bestCost = bbCost
-                bestDesign = bbDesign.copy()
+                if bbCost < bestCost:
+                    bestCost = bbCost
+                    bestDesign = bbDesign.copy()
             ## ELSE
         ## WHILE
 
