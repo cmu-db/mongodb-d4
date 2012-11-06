@@ -77,6 +77,7 @@ class Coordinator:
                     ## IF
                 else:
                     LOG.info("INVALID command %s", msg.header)
+                    LOG.info("invalid data\n%s", msg.data)
                     exit("CUPCAKE")
             except Queue.Empty:
                 LOG.info("WAITING, Got %d responses", num_of_response)
@@ -151,6 +152,7 @@ class Coordinator:
                         LOG.info("Perfect! All the processes have finished update")
                 else:
                     LOG.info("Got invalid command: %s", msg.header)
+                    LOG.info("invalid data:\n%s", msg.data)
                     exit("CUPCAKE")
                     
             except Queue.Empty:
