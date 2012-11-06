@@ -78,7 +78,7 @@ class AbstractConverter():
 
     def process(self, no_load=False, no_post_process=False, page_size=constants.DEFAULT_PAGE_SIZE):
         if not no_load: self.loadImpl()
-        self.printAllOperations()
+        #self.printAllOperations()
         if not no_post_process: self.postProcess(page_size)
         # self.printAllCollectionInfo()
     ## DEF
@@ -182,7 +182,8 @@ class AbstractConverter():
             try:
                 sess.save()
             except Exception:
-                LOG.info("session can not be saved due to operations error. Dump:\n%s", sess['operations'])
+                if self.debug:
+                    LOG.info("session can not be saved due to operations error. Dump:\n%s", sess['operations'])
                 sess.delete()
             if self.debug: LOG.debug("Updated Session #%d", sess["session_id"])
         ## FOR
@@ -352,8 +353,10 @@ class AbstractConverter():
             try:
                 col_info.save()
             except Exception:
-                print "abnormal col_info\n", pformat(col_info)
-                raise
+                if self.debug:
+                    LOG.debug("abnormal col_info\n", pformat(col_info))
+                col_info.delete()
+                
         ## FOR
     ## DEF
 
@@ -411,9 +414,12 @@ class AbstractConverter():
                 # Check for a special data field
                 if len(v) == 1 and v.keys()[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
                     v = v[v.keys()[0]]
-                    # HACK to handle lists from nested IN clauses...
+                    # HACK to handle lists (hopefully dict as well)from nested IN clauses...
                     all_values = v if isinstance(v, list) else [ v ]
                     for v in all_values:
+                        if isinstance(v, dict):
+                            v = v.values()[0]
+                        
                         fields[k]['type'] = catalog.fieldTypeToString(type(v))
                         try:
                             size = catalog.getEstimatedSize(fields[k]['type'], v)
@@ -449,7 +455,7 @@ class AbstractConverter():
                 for i in xrange(list_len):
                     inner_type = type(doc[k][i])
                     # More nested documents...
-                    if isinstance(inner_type, dict):
+                    if inner_type == dict:
                         if self.debug: LOG.debug("Extracting keys in nested field in list position %d for '%s'" % (i, k))
                         self.processDataFields(col_info, fields[k]['fields'], doc[k][i])
                     else:
