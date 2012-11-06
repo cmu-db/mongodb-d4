@@ -116,7 +116,7 @@ class LNSDesigner(AbstractDesigner):
         
         while True:
             relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, relaxRatio)
-            sendMessage(MSG_SEARCH_INFO, (relaxedCollectionsNames, bbsearch_time_out), self.channel)
+            sendMessage(MSG_SEARCH_INFO, (relaxedCollectionsNames, bbsearch_time_out, relaxedDesign), self.channel)
             
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
             self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, bbsearch_time_out, self.channel, self.bestLock)
