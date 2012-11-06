@@ -158,6 +158,9 @@ class Normalizer:
         Since we have re-constructed the database
         """
         LOG.info("Reconstructing metadata!")
+        if len(changed_fields) == 0:
+            return
+        
         op_counter = 0
         col2fields = self.generateDict(changed_fields)
         for sess in self.metadata_db.Session.fetch():

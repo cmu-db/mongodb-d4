@@ -61,9 +61,9 @@ class LNSDesigner(AbstractDesigner):
             self.length = len(self.collections)
         ## DEF
         
-        def getRandomCollection(self):
-            r = self.rng.randint(0, self.length - 1)
-            return self.collections[r]
+        def getRandomCollections(self, num):
+            r = self.rng.sample(self.collections, num)
+            return r
         ## DEF
     ## CLASS
     
@@ -189,16 +189,10 @@ class LNSDesigner(AbstractDesigner):
             ## FOR
         ## IF
         else:
-            collectionNameSet = set()
-            relaxedCollectionsNames = []
-            while numberOfRelaxedCollections > 0:
-                collectionName = generator.getRandomCollection()
-                if collectionName not in collectionNameSet:
-                    relaxedCollectionsNames.append(collectionName)
-                    collectionNameSet.add(collectionName)
-                    relaxedDesign.reset(collectionName)
-                    numberOfRelaxedCollections -= 1
-                ## IF
-            ## WHILE
+            relaxedCollectionsNames = generator.getRandomCollections(numberOfRelaxedCollections)
+            for col_name in relaxedCollectionsNames:
+                relaxedDesign.reset(col_name)
+            ## FOR
+            
         return relaxedCollectionsNames, relaxedDesign
     ## DEF
