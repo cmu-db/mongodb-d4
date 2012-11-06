@@ -63,6 +63,10 @@ SCHEMA_COLUMNS = [
     "cardinality",
     "selectivity",
     "query_use_count",
+    "list_len_min",
+    "list_len_max",
+    "list_len_avg",
+    "list_len_stdev",
 ]
 STRIP_FIELDS = [
     "predicates",
@@ -86,6 +90,7 @@ def dumpSchema(collection, fields, writer, spacer=""):
                 val = cur_spacer + f_name
             else:
                 val = f.get(key, "")
+                if val is None: val = ""
             row.append(val)
         writer.writerow(row)
         
