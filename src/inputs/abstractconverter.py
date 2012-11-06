@@ -24,15 +24,15 @@
 
 import random
 import logging
-from pprint import pformat
+import numpy
 import math
+from pprint import pformat
 
 import catalog
-from workload import OpHasher
 from util import constants
 from util.histogram import Histogram
+from workload import OpHasher
 import workload
-
 
 LOG = logging.getLogger(__name__)
 
@@ -397,29 +397,37 @@ class AbstractConverter():
             # of each field. We will use this later on to compute the weighted average
             if not 'size_histogram' in fields[k]:
                 fields[k]['size_histogram'] = Histogram()
+            # Maintain a histogram of list lengths
+            if not 'list_len' in fields[k]:
+                fields[k]['list_len'] = Histogram();
+                
             if fields[k]['query_use_count'] > 0 and not k in col_info['interesting']:
                 col_info['interesting'].append(k)
 
             ## ----------------------------------------------
             ## NESTED FIELDS
             ## ----------------------------------------------
-            if f_type == dict:
+            if isinstance(v, dict):
                 # Check for a special data field
                 if len(v) == 1 and v.keys()[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
                     v = v[v.keys()[0]]
-                    fields[k]['type'] = catalog.fieldTypeToString(type(v))
-                    try:
-                        size = catalog.getEstimatedSize(fields[k]['type'], v)
-                    except:
-                        LOG.error("Failed to estimate size for field '%s' in collection '%s'\n%s", \
-                                  k, col_info['name'], pformat(fields[k]))
-                        raise
-                    col_info['data_size'] += size
-                    fields[k]['size_histogram'].put(size)
-                    fields[k]['distinct_values'].add(v)
-                    fields[k]['num_values'] += 1
-                    if parent_col:
-                        fields[k]['parent_col'] = parent_col
+                    # HACK to handle lists from nested IN clauses...
+                    all_values = v if isinstance(v, list) else [ v ]
+                    for v in all_values:
+                        fields[k]['type'] = catalog.fieldTypeToString(type(v))
+                        try:
+                            size = catalog.getEstimatedSize(fields[k]['type'], v)
+                        except:
+                            LOG.error("Failed to estimate size for field '%s' in collection '%s'\n%s", \
+                                    k, col_info['name'], pformat(fields[k]))
+                            raise
+                        col_info['data_size'] += size
+                        fields[k]['size_histogram'].put(size)
+                        fields[k]['distinct_values'].add(v)
+                        fields[k]['num_values'] += 1
+                        if parent_col:
+                            fields[k]['parent_col'] = parent_col
+                    ## FOR
                 else:
                     if self.debug: LOG.debug("Extracting keys in nested field for '%s'" % k)
                     if not 'fields' in fields[k]: fields[k]['fields'] = { }
@@ -432,14 +440,16 @@ class AbstractConverter():
             ## If it's a list, then we'll use a special marker 'LIST_INNER_FIELD' to
             ## store the field information for the inner values.
             ## ----------------------------------------------
-            elif f_type == list:
+            elif isinstance(v, list):
                 if self.debug: LOG.debug("Extracting keys in nested list for '%s'" % k)
                 if not 'fields' in fields[k]: fields[k]['fields'] = { }
 
-                for i in xrange(len(doc[k])):
+                list_len = len(doc[k])
+                fields[k]['list_len'].put(list_len)
+                for i in xrange(list_len):
                     inner_type = type(doc[k][i])
                     # More nested documents...
-                    if inner_type == dict:
+                    if isinstance(inner_type, dict):
                         if self.debug: LOG.debug("Extracting keys in nested field in list position %d for '%s'" % (i, k))
                         self.processDataFields(col_info, fields[k]['fields'], doc[k][i])
                     else:
@@ -486,6 +496,15 @@ class AbstractConverter():
             This should only be invoked after processDataFields() has been called
         """
         for k,field in fields.iteritems():
+            # Compute list information
+            if 'list_len' in field:
+                if len(field['list_len']) > 0:
+                    field['list_len_min'] = min(field['list_len'].keys())
+                    field['list_len_max'] = max(field['list_len'].keys())
+                    field['list_len_max'] = numpy.average(field['list_len'].keys())
+                    field['list_len_stdev'] = numpy.average(field['list_len'].keys())
+                del field['list_len']
+            
             # Compute a weighted average for each field
             if 'size_histogram' in field:
                 h = field['size_histogram']

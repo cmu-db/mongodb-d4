@@ -65,6 +65,12 @@ class Histogram(dict):
         return sum(self.itervalues())
     ## DEF
     
+    def getAllValues(self):
+        keys = [ ]
+        for key, cnt in self.iteritems():
+            keys.extend([key] * cnt)
+        return keys
+    
     def getValuesForCount(self, count):
         """Return all the keys that have the same count as the given parameter"""
         keys = [ ]
