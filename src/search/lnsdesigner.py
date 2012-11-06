@@ -71,14 +71,22 @@ class LNSDesigner(AbstractDesigner):
         AbstractDesigner.__init__(self, collections, workload, config)
         self.costModel = costModel
         
-        self.bestDesign = initialDesign.copy()
-        self.bestCost = bestCost
+        self.init_bestDesign = initialDesign.copy()
+        self.init_bestCost = bestCost
         
         self.timeout = self.config.getint(configutil.SECT_MULTI_SEARCH, 'time_for_lnssearch')
         self.patient_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'patient_time')
-        self.init_bbsearch_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'init_bbsearch_time')
         
-        self.relaxRatio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'init_relax_ratio')
+        # If we have 4 or less collections, we run bbsearch till it finishes
+        if len(self.collections) <= constants.EXAUSTED_SEARCH_BAR:
+            self.init_bbsearch_time = INIFITY
+            self.init_relaxRatio = 1.0
+            self.isExhaustedSearch = True
+        else:
+            self.init_bbsearch_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'init_bbsearch_time')
+            self.init_relaxRatio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'init_relax_ratio')
+            self.isExhaustedSearch = False
+            
         self.ratio_step = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'relax_ratio_step')
         self.max_ratio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'max_relax_ratio')
         
@@ -99,35 +107,30 @@ class LNSDesigner(AbstractDesigner):
             main public method. Simply call to get the optimal solution
         """
         col_generator = LNSDesigner.RandomCollectionGenerator(self.collections)
+        
         elapsedTime = 0
-        isExhaustedSearch = False
-        # If we have 4 or less collections, we run bbsearch till it finishes
-        if len(self.collections) <= constants.EXAUSTED_SEARCH_BAR:
-            LOG.info("Infinity Mode is ON!!!")
-            bbsearch_time_out = INIFITY # as long as possible
-            isExhaustedSearch = True
-            self.relaxRatio = 1.0
-        else:
-            bbsearch_time_out = self.init_bbsearch_time
-        ## IF
+        relaxRatio = self.init_relaxRatio
+        bbsearch_time_out = self.init_bbsearch_time
+        bestCost = self.init_bestCost
+        bestDesign = self.init_bestDesign.copy()
         
         while True:
-            relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, self.bestDesign, self.relaxRatio)
+            relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, relaxRatio)
             sendMessage(MSG_SEARCH_INFO, (relaxedCollectionsNames, bbsearch_time_out), self.channel)
             
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
-            self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, self.bestCost, bbsearch_time_out, self.channel, self.bestLock)
+            self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, bbsearch_time_out, self.channel, self.bestLock)
             bbDesign, bbCost = self.bbsearch_method.solve()
 
             if self.bbsearch_method.status == "solved":
-                if bbCost < self.bestCost:
-                    self.bestCost = bbCost
-                    self.bestDesign = bbDesign.copy()
+                if bbCost < bestCost:
+                    bestCost = bbCost
+                    bestDesign = bbDesign.copy()
                     elapsedTime = 0
                 else:
                     elapsedTime += self.bbsearch_method.usedTime
                 
-                if isExhaustedSearch:
+                if self.isExhaustedSearch:
                     elapsedTime = INIFITY
                     
                 if elapsedTime >= self.patient_time:
@@ -140,12 +143,12 @@ class LNSDesigner(AbstractDesigner):
                     LOG.info("\n====Design Candidates====\n%s", dc)
                     LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
                     LOG.info("\n=====BBSearch Score======\n%s", bbCost)
-                    LOG.info("\n========Best Score=======\n%s", self.bestCost)
-                    LOG.info("\n========Best Design======\n%s", self.bestDesign)
+                    LOG.info("\n========Best Score=======\n%s", bestCost)
+                    LOG.info("\n========Best Design======\n%s", bestDesign)
 
-                self.relaxRatio += self.ratio_step
-                if self.relaxRatio > self.max_ratio:
-                    self.relaxRatio = self.max_ratio
+                relaxRatio += self.ratio_step
+                if relaxRatio > self.max_ratio:
+                    relaxRatio = self.max_ratio
                     
                 self.timeout -= self.bbsearch_method.usedTime
                 bbsearch_time_out += self.ratio_step / 0.1 * 30
@@ -155,18 +158,24 @@ class LNSDesigner(AbstractDesigner):
             ## IF
             else:
                 # If we terminate bbsearch on purpose, we use the current best design of bbsearch as the bestDesign for next round
-                self.bestCost = bbCost
-                self.bestDesign = bbDesign.copy()
+                # Also, since we have the current best design, we want to reset the relax ratio to the initial ratio because the
+                # current design is good
+                # OH, also the bbsearch_time
+                relaxRatio = self.init_relaxRatio
+                bbsearch_time_out = self.init_bbsearch_time
+                bestCost = bbCost
+                bestDesign = bbDesign.copy()
+            ## ELSE
         ## WHILE
 
         sendMessage(MSG_EXECUTE_COMPLETED, None, self.channel)
         LOG.info("Current thread is terminated")
         if self.outputfile:
             f = open(self.outputfile, 'w')
-            f.write(self.bestDesign.toJSON())
+            f.write(bestDesign.toJSON())
             f.close()
         else:
-            print self.bestDesign.toJSON()
+            print bestDesign.toJSON()
     # DEF
 
     def __relax__(self, generator, design, ratio):
