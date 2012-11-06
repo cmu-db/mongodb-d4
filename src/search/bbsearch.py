@@ -278,7 +278,7 @@ class CompoundKeyIterator:
                             marker = True
                             if keys1 != keys0:
                                 counter = 0
-                                while counter < len(keys0):
+                                while counter < min(len(keys0), len(keys1)):
                                     if keys0[counter] != keys1[counter]:
                                         marker = False
                                         break

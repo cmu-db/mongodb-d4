@@ -71,6 +71,8 @@ class Coordinator:
                     ## IF
                     if num_of_response == len(self.channels):
                         LOG.info("Got all responses and found the best initial design. Distribute it to all clients...")
+                        LOG.info("Initial cost: %s", bestInitCost)
+                        LOG.info("Initial design: \n%s", bestInitDesign)
                         break
                     ## IF
                 else:

@@ -922,7 +922,10 @@ class Sql2Mongo (object) :
         elif val[0] == '(':
             val = val[1:-1] # Remove the parentheses
             val = val.split(',')
-            val = [float(x) for x in val]
+            try: 
+                val = [float(x) for x in val]
+            except:
+                pass
         else :
             try:
                 val = float(val)
