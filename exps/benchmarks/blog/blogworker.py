@@ -108,7 +108,7 @@ class BlogWorker(AbstractWorker):
         for i in xrange(0, constants.NUM_AUTHORS):
             #authorSize = constants.AUTHOR_NAME_SIZE
             if config[self.name]["experiment"] == constants.EXP_INDEXING:
-                self.authors.append("authorname0000000000000000000000000000000000000000000000000000000000000000000"+str(i))
+                self.authors.append("authorname%0128d" % i)
             else:
                 self.authors.append("authorname"+str(i))
         self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,float(config[self.name]["skew"]))
@@ -118,7 +118,7 @@ class BlogWorker(AbstractWorker):
         for i in xrange(0, constants.NUM_TAGS):
             #authorSize = constants.AUTHOR_NAME_SIZE
             if config[self.name]["experiment"] == constants.EXP_INDEXING:
-                self.tags.append("tag00000000000000000000000000000000000000000000000000000000000000000000000000000"+str(i))
+                self.tags.append("tag%0128d" % i)
             else:    
                 self.tags.append("tag"+str(i))
         self.tagZipf = ZipfGenerator(constants.NUM_TAGS,float(config[self.name]["skew"]))
