@@ -104,10 +104,10 @@ if __name__ == '__main__':
                                       
     # Configuration File Options
     aparser.add_argument('project', help='Project Name')
-    aparser.add_argument('--config', type=file,
-                         help='Path to %s configuration file' % constants.PROJECT_NAME)
-    aparser.add_argument('--debug', action='store_true',
-                         help='Enable debug log messages.')
+    aparser.add_argument('--config', type=file, help='Path to %s configuration file' % constants.PROJECT_NAME)
+    aparser.add_argument('--no-schema', action='store_true', help='Disable generating schema file.')
+    aparser.add_argument('--no-workload', action='store_true', help='Disable generating sample query file.')
+    aparser.add_argument('--debug', action='store_true', help='Enable debug log messages.')
     args = vars(aparser.parse_args())
 
     if args['debug']: LOG.setLevel(logging.DEBUG)
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     ## ----------------------------------------------
 
     collections = dict()
-    for col_info in metadata_db.Collection.fetch():
+    for col_info in metadata_db.Collection.fetch({"workload_queries": {"$gt": 0}}):
         # Skip any collection that doesn't have any documents in it
         if not col_info['doc_count'] or not col_info['avg_doc_size']:
             continue
@@ -165,69 +165,74 @@ if __name__ == '__main__':
     if not collections:
         raise Exception("No collections were found in metadata catalog")
         
-        
-    LOG.info("Dumping schema catalog")
-    schemaFile = "%s-schema.csv" % args["project"]
-    with open(schemaFile, "w") as fd:
-        writer = csv.writer(fd)
-        writer.writerow(map(string.upper, SCHEMA_COLUMNS))
-        for col_name, col_info in collections.iteritems():
-            dumpSchema(col_name, col_info["fields"], writer)
-            writer.writerow([""]*len(SCHEMA_COLUMNS))
-        ## FOR
-    ## WITH
-    LOG.info("Created Schema File: %s", schemaFile)
+    if not args["no_schema"]:
+        LOG.info("Dumping schema catalog")
+        schemaFile = "%s-schema.csv" % args["project"]
+        with open(schemaFile, "w") as fd:
+            writer = csv.writer(fd)
+            writer.writerow(map(string.upper, SCHEMA_COLUMNS))
+            for col_name, col_info in collections.iteritems():
+                dumpSchema(col_name, col_info["fields"], writer)
+                writer.writerow([""]*len(SCHEMA_COLUMNS))
+            ## FOR
+        ## WITH
+        LOG.info("Created Schema File: %s", schemaFile)
+    else:
+        LOG.info("Skipping Schema File")
 
     ## ----------------------------------------------
     ## DUMP WORKLOAD
     ## ----------------------------------------------
 
-    LOG.info("Dumping sample queries")
-    h = Histogram()
-    query_hash_xref = { }
-    for sess in metadata_db.Session.fetch():
-        for op in sess["operations"]:
-            h.put(op["query_hash"])
-            if not op["query_hash"] in query_hash_xref:
-                query_hash_xref[op["query_hash"]] = [ ]
-            query_hash_xref[op["query_hash"]].append(op)
-        ## FOR
-    ## FOR
-    #print h
-    #print "-"*100
-    
-    limit = 10
-    total_queries = h.getSampleCount()
-    toStrip = [ re.compile(r) for r in STRIP_FIELDS ]
-    
-    queryFile = "%s-queries.txt" % args["project"]
-    with open(queryFile, "w") as fd:
-        first = True
-        for hash in sorted(h.keys(), key=lambda x: h[x], reverse=True):
-            percentage = (h[hash] / float(total_queries)) * 100
-            op = random.choice(query_hash_xref[hash])
-            # Remove all of the resp_* fields
-            for k in op.keys():
-                for regex in toStrip:
-                    if regex.match(k):
-                        del op[k]
-                        break
-                if op["type"] != constants.OP_TYPE_UPDATE:
-                    for k in ["update_multi", "update_upsert"]:
-                        if k in op: del op[k]
-                ## IF
-                if "query_aggregate" in op and op["query_aggregate"] == False:
-                    del op["query_aggregate"]
-                    
+    if not args["no_workload"]:
+        LOG.info("Dumping sample queries")
+        h = Histogram()
+        query_hash_xref = { }
+        for sess in metadata_db.Session.fetch():
+            for op in sess["operations"]:
+                h.put(op["query_hash"])
+                if not op["query_hash"] in query_hash_xref:
+                    query_hash_xref[op["query_hash"]] = [ ]
+                query_hash_xref[op["query_hash"]].append(op)
             ## FOR
-            if not first: fd.write("\n%s\n\n" % ("-"*100))
-            fd.write("Query Count: %.1f%%\n" % percentage)
-            fd.write(pformat(op) + "\n")
-            if limit == 0: break
-            limit -= 1
-            first = False
         ## FOR
-    ## WITH
-    LOG.info("Created Sample Workload: %s", queryFile)
+        #print h
+        #print "-"*100
+        
+        limit = 10
+        total_queries = h.getSampleCount()
+        toStrip = [ re.compile(r) for r in STRIP_FIELDS ]
+        
+        queryFile = "%s-queries.txt" % args["project"]
+        with open(queryFile, "w") as fd:
+            first = True
+            for hash in sorted(h.keys(), key=lambda x: h[x], reverse=True):
+                percentage = (h[hash] / float(total_queries)) * 100
+                op = random.choice(query_hash_xref[hash])
+                # Remove all of the resp_* fields
+                for k in op.keys():
+                    for regex in toStrip:
+                        if regex.match(k):
+                            del op[k]
+                            break
+                    if op["type"] != constants.OP_TYPE_UPDATE:
+                        for k in ["update_multi", "update_upsert"]:
+                            if k in op: del op[k]
+                    ## IF
+                    if "query_aggregate" in op and op["query_aggregate"] == False:
+                        del op["query_aggregate"]
+                        
+                ## FOR
+                if not first: fd.write("\n%s\n\n" % ("-"*100))
+                fd.write("Query Count: %.1f%%\n" % percentage)
+                fd.write(pformat(op) + "\n")
+                if limit == 0: break
+                limit -= 1
+                first = False
+            ## FOR
+        ## WITH
+        LOG.info("Created Query Sample File: %s", queryFile)
+    else:
+        LOG.info("Skipping Query Sample File")
 
 ## MAIN
