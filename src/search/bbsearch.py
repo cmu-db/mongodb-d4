@@ -47,7 +47,7 @@ That's it.
 class BBSearch ():
     """
         bbsearch object has self.status field, which can have following values:
-        initialized, solving, solved, timed_out, user_terminated
+        initialized, solving, solved, timed_out, user_terminated, updated_design
     """
 
     def __init__(self, designCandidate, costModel, relaxedDesingn, bestCost, timeout, channel=None, lock=None):
@@ -88,7 +88,8 @@ class BBSearch ():
             self.bestCost = bestCost
             self.bestDesign = bestDesign.copy()
             # If we update the current best design, we want to restart the search process
-            self.terminate()
+            self.status = "updated_design"
+            self.terminated = True
         ## IF
         self.bestLock.release()
     ## DEF
