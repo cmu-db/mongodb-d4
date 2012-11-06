@@ -146,8 +146,10 @@ class Reconstructor:
         col = op["collection"]
 
         if self.debug: LOG.debug("Updating Collection '%s' [upsert=%s, multi=%s]" % (col, op["update_upsert"], op["update_multi"]))
-        assert len(payload) == 2, \
-            "Update operation payload is expected to have exactly 2 entries."
+        if len(payload) != 2:
+            LOG.warn("Update operation payload is expected to have exactly 2 entries. payload: %s" % payload)
+            return False
+            
         self.dataset_db[col].update(payload[0], payload[1], op["update_upsert"], op["update_multi"])
         return True
     ## DEF
