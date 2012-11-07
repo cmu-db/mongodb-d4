@@ -52,6 +52,7 @@ class DiskCostComponent(AbstractCostComponent):
         AbstractCostComponent.__init__(self, state)
         self.debug = False
 
+        self.hasher = catalog.OpHasher()
         self.buffers = [ ]
         for i in xrange(self.state.num_nodes):
             lru = FastLRUBufferWithWindow(self.state.window_size)
@@ -173,7 +174,7 @@ class DiskCostComponent(AbstractCostComponent):
                             if documentId is None:
                                 values = catalog.getFieldValues(indexKeys, content)
                                 try:
-                                    documentId = hash(values)
+                                    documentId = self.hasher(values)
                                 except:
                                     LOG.error("Failed to compute index documentIds for op #%d - %s\n%s",\
                                         op['query_id'], values, pformat(op))
@@ -208,7 +209,7 @@ class DiskCostComponent(AbstractCostComponent):
                             if documentId is None:
                                 values = catalog.getAllValues(content)
                                 try:
-                                    documentId = hash(values)
+                                    documentId = self.hasher(values)
                                 except:
                                     LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s",\
                                         op['query_id'], values, pformat(op))
