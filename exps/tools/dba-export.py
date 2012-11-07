@@ -32,6 +32,8 @@ import random
 import csv
 import re
 import string
+import collections
+import numpy
 from pprint import pformat
 from ConfigParser import RawConfigParser
 
@@ -74,6 +76,7 @@ STRIP_FIELDS = [
     "query_time",
     "query_size",
     "query_id",
+    "orig_query",
     "resp_.*",
 ]
 
@@ -99,6 +102,31 @@ def dumpSchema(collection, fields, writer, spacer=""):
     ## FOR
 ## DEF
 
+# http://stackoverflow.com/a/1254499/42171
+CMD_FIX_REGEX = re.compile("^\#([\w]+)")
+def convert(data):
+    if isinstance(data, unicode):
+        return CMD_FIX_REGEX.sub("$\\1", str(data).replace("__", "_")) # HACK
+    elif isinstance(data, collections.Mapping):
+        return dict(map(convert, data.iteritems()))
+    elif isinstance(data, collections.Iterable):
+        return type(data)(map(convert, data))
+    else:
+        return data
+        
+def computeInStats(query, h=None):
+    for k,v in query.iteritems():
+        print k, "->", v
+        if k == "$in":
+            if h is None: h = Histogram()
+            h.put(len(v))
+        elif isinstance(v, list):
+            for inner in v:
+                if isinstance(inner, dict):
+                    h = computeInStats(inner, h)
+        elif isinstance(v, dict):
+            h = computeInStats(v, h)
+    return h
 
 ## ==============================================
 ## main
@@ -161,13 +189,13 @@ if __name__ == '__main__':
     ## DUMP DATABASE SCHEMA
     ## ----------------------------------------------
 
-    collections = dict()
+    colls = dict()
     for col_info in metadata_db.Collection.fetch({"workload_queries": {"$gt": 0}}):
         # Skip any collection that doesn't have any documents in it
         if not col_info['doc_count'] or not col_info['avg_doc_size']:
             continue
-        collections[col_info['name']] = col_info
-    if not collections:
+        colls[col_info['name']] = col_info
+    if not colls:
         raise Exception("No collections were found in metadata catalog")
         
     if not args["no_schema"]:
@@ -176,7 +204,7 @@ if __name__ == '__main__':
         with open(schemaFile, "w") as fd:
             writer = csv.writer(fd)
             writer.writerow(map(string.upper, SCHEMA_COLUMNS))
-            for col_name, col_info in collections.iteritems():
+            for col_name, col_info in colls.iteritems():
                 dumpSchema(col_name, col_info["fields"], writer)
                 writer.writerow([""]*len(SCHEMA_COLUMNS))
             ## FOR
@@ -214,6 +242,11 @@ if __name__ == '__main__':
             for hash in sorted(h.keys(), key=lambda x: h[x], reverse=True):
                 percentage = (h[hash] / float(total_queries)) * 100
                 op = random.choice(query_hash_xref[hash])
+                
+                # Skip any queries on a non-data table
+                if op["collection"] in constants.IGNORED_COLLECTIONS or op["collection"].endswith("$cmd"):
+                    continue
+                
                 # Remove all of the resp_* fields
                 for k in op.keys():
                     for regex in toStrip:
@@ -228,9 +261,21 @@ if __name__ == '__main__':
                         del op["query_aggregate"]
                         
                 ## FOR
+                op = convert(op)
+                contents = pformat(op)
+                
+                # Get $in stats if we have them
+                for op_contents in workload.getOpContents(op):
+                    print op_contents
+                    inHistogram = computeInStats(op_contents)
+                    if not inHistogram is None:
+                        contents += "\nIN DUMP: %s" % str(inHistogram)
+                        break
+                ## FOR
+                
                 if not first: fd.write("\n%s\n\n" % ("-"*100))
                 fd.write("Query Count: %.1f%%\n" % percentage)
-                fd.write(pformat(op) + "\n")
+                fd.write(contents + "\n")
                 if limit == 0: break
                 limit -= 1
                 first = False
