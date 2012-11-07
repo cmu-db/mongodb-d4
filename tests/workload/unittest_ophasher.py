@@ -40,6 +40,46 @@ class TestOpHasher (unittest.TestCase):
         self.assertNotEqual(h0, h2)
     ## DEF
     
+    def testComplexQuery(self):
+        content =  {u'_id': u'7df2cdb0268fe84ad602e228d75f4812/108',
+                     u'cid': {u'#oid': u'310794ef49b9b02c7f29b1ff64c6f7b3/26'},
+                     u'd': u'b34918b94d030d5b288053f08258f1c9/10',
+                     u'g': u'5e3f1e67d663a535fe0ceeab07dd0e12/12',
+                     u'hid': u'd259f04f68e37fdebff7c55b67a04fb7/34',
+                     u'hy': {u'0': {u'n': 0, u't': 0},
+                             u'1': {u'n': 0, u't': 0},
+                             u'10': {u'n': 0, u't': 0},
+                             u'11': {u'n': 0, u't': 0},
+                             u'12': {u'n': 0, u't': 0},
+                             u'13': {u'n': 0, u't': 0},
+                             u'14': {u'n': 0, u't': 0},
+                             u'15': {u'n': 0, u't': 0},
+                             u'16': {u'n': 0, u't': 0},
+                             u'17': {u'n': 0, u't': 0},
+                             u'18': {u'n': 0, u't': 0},
+                             u'19': {u'n': 0, u't': 0},
+                             u'2': {u'n': 0, u't': 0},
+                             u'20': {u'n': 0, u't': 0},
+                             u'21': {u'n': 0, u't': 0},
+                             u'22': {u'n': 0, u't': 0},
+                             u'23': {u'n': 0, u't': 0},
+                             u'3': {u'n': 0, u't': 0},
+                             u'4': {u'n': 0, u't': 0},
+                             u'5': {u'n': 0, u't': 0},
+                             u'6': {u'n': 0, u't': 0},
+                             u'7': {u'n': 0, u't': 0},
+                             u'8': {u'n': 0, u't': 0},
+                             u'9': {u'n': 0, u't': 0}},
+                     u'i': u'22922d9f495e1502e3af3dac1a8a4a8b/22'}
+        op = {
+            "collection":       u'ABC',
+            "query_content":    self.genQuery(content),
+            "type":             "$query",
+        }
+        h0 = self.hasher.hash(op)
+        self.assertNotEqual(h0, None)
+    ## DEF
+    
     def testHashUpdate(self):
         whereClause = {"u_id": 123, "i_id": 456}
         updateClause = {"rating": 999}

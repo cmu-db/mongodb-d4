@@ -134,13 +134,14 @@ class SkewCostComponent(AbstractCostComponent):
         start_time = None
         end_time = None
         for i in xrange(len(self.state.workload)):
-            if start_time is None or start_time < self.state.workload[i]['start_time']:
+            if start_time is None or start_time > self.state.workload[i]['start_time']:
                 start_time = self.state.workload[i]['start_time']
-            if end_time is None or end_time > self.state.workload[i]['end_time']:
+            if end_time is None or end_time < self.state.workload[i]['end_time']:
                 end_time = self.state.workload[i]['end_time']
-        assert start_time,\
+                
+        assert not start_time is None,\
             "Failed to find start time in %d sessions" % len(self.state.workload)
-        assert end_time,\
+        assert not end_time is None,\
             "Failed to find end time in %d sessions" % len(self.state.workload)
 
         if self.debug:

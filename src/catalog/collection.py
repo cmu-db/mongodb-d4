@@ -35,6 +35,12 @@ class Collection(Document):
                 'parent_col':       basestring, # TODO(ckeith)
                 'parent_key':       basestring, # TODO(ckeith)
                 'parent_conf':      float,      # TODO(ckeith)
+                
+                # List Field Attributes
+                'list_len_min':     int,
+                'list_len_max':     int,
+                'list_len_avg':     float,
+                'list_len_stdev':   float,
             }
         }
     }
@@ -66,7 +72,11 @@ class Collection(Document):
             'avg_size':         0,
             'parent_col':       None,
             'parent_key':       None,
-            'parent_conf':      None
+            'parent_conf':      None,
+            'list_len_min':     None,
+            'list_len_max':     None,
+            'list_len_avg':     None,
+            'list_len_stdev':   None,
         }
         return (field)
     ## DEF

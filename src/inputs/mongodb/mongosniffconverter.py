@@ -88,32 +88,7 @@ class MongoSniffConverter(AbstractConverter):
 #        self.countDocs()
 #        exit("CUPCAKE")
     ## DEF
-
-    def printAllOperations(self):
-        for sess in self.metadata_db.Session.fetch():
-            for op in sess['operations']:
-                print "col_name: ", op['collection']
-                print "op_content: ", op['query_content']
-            ## FOR
-        ## FOR
-    ## DEF
-    def printAllDocs(self):
-        for col_name in self.dataset_db.collection_names():
-            for doc in self.dataset_db[col_name].find():
-                print "col_name: ", col_name
-                print "doc\n", pformat(doc)
-            ## FOR
-        ## FOR
-    ## FOR
-
-    def countDocs(self):
-        counter = 0
-        for colName in self.dataset_db.collection_names():
-            for doc in self.dataset_db[colName].find():
-                counter += 1
-            ## FOR
-        ## FOR
-        print "doc count: ", counter
+    
     ## ----------------------------------------------
     ## NORMALIZE DATASET AND RE-CONSTRUCT OPERATIONS
     ## ----------------------------------------------

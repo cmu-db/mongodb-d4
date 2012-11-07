@@ -8,6 +8,8 @@ import itertools
 import signal
 from util import constants
 import logging
+import random
+
 logging.basicConfig(level = logging.INFO,
 format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
 datefmt="%m-%d-%Y %H:%M:%S",
@@ -47,7 +49,7 @@ That's it.
 class BBSearch ():
     """
         bbsearch object has self.status field, which can have following values:
-        initialized, solving, solved, timed_out, user_terminated
+        initialized, solving, solved, timed_out, user_terminated, updated_design
     """
 
     def __init__(self, designCandidate, costModel, relaxedDesingn, bestCost, timeout, channel=None, lock=None):
@@ -65,8 +67,8 @@ class BBSearch ():
         # in order to access bounding function, optimial solution and current bound
         self.terminated = False
         # store keys list... used only to translate integer iterators back to real key values...
-        self.rootNode = BBNode(relaxedDesingn, self, True, 0) #rootNode: True
         self.designCandidate = designCandidate
+        self.rootNode = BBNode(relaxedDesingn, self, True, 0) #rootNode: True
         self.costModel = costModel
         self.bestDesign = relaxedDesingn
         self.bestCost = bestCost
@@ -87,6 +89,9 @@ class BBSearch ():
         if bestCost < self.bestCost:
             self.bestCost = bestCost
             self.bestDesign = bestDesign.copy()
+            # If we update the current best design, we want to restart the search process
+            self.status = "updated_design"
+            self.terminated = True
         ## IF
         self.bestLock.release()
     ## DEF
@@ -116,7 +121,7 @@ class BBSearch ():
 
         self.usedTime = time.time() - self.startTime
         
-        return self.bestDesign
+        return self.bestDesign, self.bestCost
 
     def listAllNodes(self):
         """
@@ -278,7 +283,7 @@ class CompoundKeyIterator:
                             marker = True
                             if keys1 != keys0:
                                 counter = 0
-                                while counter < len(keys0):
+                                while counter < min(len(keys0), len(keys1)):
                                     if keys0[counter] != keys1[counter]:
                                         marker = False
                                         break
@@ -480,7 +485,8 @@ class BBNode():
     def prepareChildren(self):
         # initialize iterators 
         # --> determine which collection is yet to be assigned
-        for col_name in self.bbsearch.designCandidate.collections:
+        self.random_instance.shuffle(self.candidate_collections)
+        for col_name in self.candidate_collections:
             if self.design.isRelaxed(col_name):
                 self.currentCol = col_name
                 break
@@ -563,6 +569,8 @@ class BBNode():
         self.bbsearch = bb
         self.children = [] # list of BBNode
         self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.candidate_collections = [col_name for col_name in self.bbsearch.designCandidate.collections]
+        self.random_instance = random.Random()
         return
         
 

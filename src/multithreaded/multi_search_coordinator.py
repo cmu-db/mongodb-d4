@@ -22,6 +22,8 @@ class Coordinator:
         self.config = config
         self.args = args
         
+        start = time.time()
+        
         mch = execnet.MultiChannel(self.channels)
         self.queue = mch.make_receive_queue()
     
@@ -40,11 +42,12 @@ class Coordinator:
                 if num_clients == 0:
                     break
             except Exception:
-                LOG.info("WAITING, clients left: %s", num_clients)
+                LOG.info("WAITING, clients left: %s, elapsed time: %s", num_clients, time.time() - start)
                 pass
         ## WHILE
         
         LOG.info("All clients are initialized")
+        LOG.info("Loading time: %s", time.time() - start)
     ## DEF
     
     def sendLoadDBCommand(self):
@@ -68,10 +71,13 @@ class Coordinator:
                     ## IF
                     if num_of_response == len(self.channels):
                         LOG.info("Got all responses and found the best initial design. Distribute it to all clients...")
+                        LOG.info("Initial cost: %s", bestInitCost)
+                        LOG.info("Initial design: \n%s", bestInitDesign)
                         break
                     ## IF
                 else:
                     LOG.info("INVALID command %s", msg.header)
+                    LOG.info("invalid data\n%s", msg.data)
                     exit("CUPCAKE")
             except Queue.Empty:
                 LOG.info("WAITING, Got %d responses", num_of_response)
@@ -94,6 +100,7 @@ class Coordinator:
         evaluated_design = 0
         finished_update = 0
         num_bestDesign = 0
+        start = time.time()
         
         while True:
             try:
@@ -113,7 +120,7 @@ class Coordinator:
                         LOG.info("Evaluated cost: %s", msg.data[1])
                         
                     # Output current status every 1000 evaluation
-                    if evaluated_design % 1000 == 0:
+                    if evaluated_design % 500 == 0:
                         raise Queue.Empty
                     
                 ## ELIF
@@ -124,7 +131,8 @@ class Coordinator:
                     if bestCost < self.bestCost:
                         LOG.info("Got new best design. Distribute it!")
                         LOG.info("Best cost is updated from %s to %s", self.bestCost, bestCost)
-                        LOG.info("New best design\n%s", bestDesign)
+                        LOG.info("Time eplased: %s",time.time() - start)
+                        #LOG.info("New best design\n%s", bestDesign)
                         num_bestDesign += 1
                         
                         self.bestCost = bestCost
@@ -132,6 +140,14 @@ class Coordinator:
                         finished_update = 0
                         self.send2All(MSG_CMD_UPDATE_BEST_COST, (bestCost, bestDesign))
                     ## IF
+                ## ELIF
+                elif msg.header == MSG_SEARCH_INFO:
+                    #LOG.info("%s","*"*40)
+                    LOG.info("One client starts a new BBsearch")
+                    #LOG.info("Time limit for this round: %s", msg.data[1])
+                    #LOG.info("Relaxed collections: %s", msg.data[0])
+                    #LOG.info("Relaxed Design:\n%s", msg.data[2])
+                    #LOG.info("Current best design:\n%s", msg.data[3])
                 ## ELIF
                 elif msg.header == MSG_START_SEARCHING:
                     LOG.info("One process started searching, we are good :)")
@@ -146,6 +162,7 @@ class Coordinator:
                         LOG.info("Perfect! All the processes have finished update")
                 else:
                     LOG.info("Got invalid command: %s", msg.header)
+                    LOG.info("invalid data:\n%s", msg.data)
                     exit("CUPCAKE")
                     
             except Queue.Empty:

@@ -228,7 +228,7 @@ class MySQLConverter(AbstractConverter):
         mongo = sql2mongo.Sql2Mongo(tbl_cols)
         query_ctr = 0
         for row in c4:
-            timestamp = start_timestamp - float(row[0].strftime("%s"))
+            timestamp = float(row[0].strftime("%s")) - start_timestamp
             
             if row[2] <> thread_id :
                 thread_id = row[2]
@@ -277,7 +277,8 @@ class MySQLConverter(AbstractConverter):
                             LOG.warn("SKIP: %s", row[5])
                             continue
                         for op in operations:
-                            op['query_type'] = mongo.get_op_type(mongo.query_type)
+                            op['orig_query'] = sql
+                            op['type'] = mongo.get_op_type(mongo.query_type)
                             op['query_id'] = self.next_query_id
                             session['operations'].append(op)
                             if session['start_time'] is None and op['query_time']:

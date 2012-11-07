@@ -205,7 +205,10 @@ class Sql2Mongo (object) :
                         offset = 1;
                         if where.tokens[i + 1].ttype == sqlparse.tokens.Whitespace :
                             offset = 2;
-                        parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
+                        if where.tokens[i+offset].to_unicode() == 'IN':
+                            parts = self.process_where_in(where.tokens[i], where.tokens[i+offset+offset])
+                        else:
+                            parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
                         self.add_where_comparison(parts[0], parts[1])
                         i += 4
                     elif cls == 'Comparison' :
@@ -291,6 +294,13 @@ class Sql2Mongo (object) :
             i += 1
     ## End process_query_insert()
 
+    def process_where_in(self, ident, value):
+        parts = self.process_identifier(ident)
+        operator = constants.REPLACE_KEY_DOLLAR_PREFIX + 'in' # $in
+        str = self.process_where_clause(parts[1], operator, self.process_where_comparison_value(value))
+        return (parts[0], str)
+    ## End process_where_in
+    
     def process_query_select(self) :
         ''' Find the location of various clauses'''
         select_loc, from_loc, where_loc, sort_loc, limit_loc, skip_loc,  = None, None, None, None, None, None
@@ -439,7 +449,12 @@ class Sql2Mongo (object) :
                     if cls == 'Token' :
                         pass
                     elif cls == 'Identifier' :
-                        parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+2], where.tokens[i+4])
+                        # check if the operator is IN
+                        if where.tokens[i+2].to_unicode() == 'IN':
+                            parts = self.process_where_in(where.tokens[i], where.tokens[i+4])
+                        else:
+                            parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+2], where.tokens[i+4])
+                        
                         self.add_where_comparison(parts[0], parts[1])
                         i += 4
                     elif cls == 'Comparison' :
@@ -571,7 +586,10 @@ class Sql2Mongo (object) :
                         offset = 1;
                         if where.tokens[i + 1].ttype == sqlparse.tokens.Whitespace :
                             offset = 2;
-                        parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
+                        if where.tokens[i+offset].to_unicode() == 'IN':
+                            parts = self.process_where_in(where.tokens[i], where.tokens[i+offset+offset])
+                        else:
+                            parts = self.process_where_comparison_separate(where.tokens[i], where.tokens[i+offset], where.tokens[i+offset+offset])
                         self.add_where_comparison(parts[0], parts[1])
                         i += 4
                     elif cls == 'Comparison' :
@@ -642,7 +660,7 @@ class Sql2Mongo (object) :
     def process_where_comparison_operator(self, op) :
         cls = op.__class__.__name__
         if cls == 'Token' :
-            if op.to_unicode() == '=' :
+            if op.to_unicode() == '=' or op.to_unicode() == 'IS':
                 return ':'
             elif op.to_unicode() == '>' :
                 #return "$gt"
@@ -897,10 +915,17 @@ class Sql2Mongo (object) :
     ## End render_trace_update()
     
     def render_trace_value(self, val) :
-        if val == 'null' :
+        if val.lower() == 'null' :
             val = 'null'
         elif val[0] in ['"', "'"] :
             val = val.strip('"\'')
+        elif val[0] == '(':
+            val = val[1:-1] # Remove the parentheses
+            val = val.split(',')
+            try: 
+                val = [float(x) for x in val]
+            except:
+                pass
         else :
             try:
                 val = float(val)

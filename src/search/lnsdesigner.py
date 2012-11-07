@@ -61,23 +61,32 @@ class LNSDesigner(AbstractDesigner):
             self.length = len(self.collections)
         ## DEF
         
-        def getRandomCollection(self):
-            r = self.rng.randint(0, self.length - 1)
-            return self.collections[r]
+        def getRandomCollections(self, num):
+            r = self.rng.sample(self.collections, num)
+            return r
         ## DEF
     ## CLASS
     
     def __init__(self, collections, designCandidates, workload, config, costModel, initialDesign, bestCost, channel=None, lock=None, outputfile=None):
         AbstractDesigner.__init__(self, collections, workload, config)
         self.costModel = costModel
-        self.initialDesign = initialDesign
-        self.bestCost = bestCost
+        
+        self.init_bestDesign = initialDesign.copy()
+        self.init_bestCost = bestCost
         
         self.timeout = self.config.getint(configutil.SECT_MULTI_SEARCH, 'time_for_lnssearch')
         self.patient_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'patient_time')
-        self.init_bbsearch_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'init_bbsearch_time')
         
-        self.relaxRatio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'init_relax_ratio')
+        # If we have 4 or less collections, we run bbsearch till it finishes
+        if len(self.collections) <= constants.EXAUSTED_SEARCH_BAR:
+            self.init_bbsearch_time = INIFITY
+            self.init_relaxRatio = 1.0
+            self.isExhaustedSearch = True
+        else:
+            self.init_bbsearch_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'init_bbsearch_time')
+            self.init_relaxRatio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'init_relax_ratio')
+            self.isExhaustedSearch = False
+            
         self.ratio_step = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'relax_ratio_step')
         self.max_ratio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'max_relax_ratio')
         
@@ -97,63 +106,68 @@ class LNSDesigner(AbstractDesigner):
         """
             main public method. Simply call to get the optimal solution
         """
-        bestDesign = self.initialDesign.copy()
         col_generator = LNSDesigner.RandomCollectionGenerator(self.collections)
+        
         elapsedTime = 0
-        isExhaustedSearch = False
-        # If we have 4 or less collections, we run bbsearch till it finishes
-        if len(self.collections) <= constants.EXAUSTED_SEARCH_BAR:
-            LOG.info("Infinity Mode is ON!!!")
-            bbsearch_time_out = INIFITY # as long as possible
-            isExhaustedSearch = True
-            self.relaxRatio = 1.0
-        else:
-            bbsearch_time_out = self.init_bbsearch_time
-        ## IF
+        relaxRatio = self.init_relaxRatio
+        bbsearch_time_out = self.init_bbsearch_time
+        bestCost = self.init_bestCost
+        bestDesign = self.init_bestDesign.copy()
         
         while True:
-            LOG.info("Started one bbsearch, current bbsearch_time_out is: %s, relax ratio is: %s", bbsearch_time_out, self.relaxRatio)
+            relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, relaxRatio)
+            sendMessage(MSG_SEARCH_INFO, (relaxedCollectionsNames, bbsearch_time_out, relaxedDesign, bestDesign), self.channel)
             
-            relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, self.relaxRatio)
-            
-            LOG.info("Relaxed collections\n %s", relaxedCollectionsNames)
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
-            self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, self.bestCost, bbsearch_time_out, self.channel, self.bestLock)
-            bbDesign = self.bbsearch_method.solve()
+            self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, bbsearch_time_out, self.channel, self.bestLock)
+            bbDesign, bbCost = self.bbsearch_method.solve()
 
-            if self.bbsearch_method.bestCost < self.bestCost:
-                LOG.info("LNSearch: Best score is updated from %s to %s", self.bestCost, self.bbsearch_method.bestCost)
-                self.bestCost = self.bbsearch_method.bestCost
-                bestDesign = bbDesign.copy()
-                elapsedTime = 0
+            if self.bbsearch_method.status != "updated_design":
+                if bbCost < bestCost:
+                    bestCost = bbCost
+                    bestDesign = bbDesign.copy()
+                    elapsedTime = 0
+                else:
+                    elapsedTime += self.bbsearch_method.usedTime
+                
+                if self.isExhaustedSearch:
+                    elapsedTime = INIFITY
+                    
+                if elapsedTime >= self.patient_time:
+                    # if it haven't found a better design for one hour, give up
+                    LOG.info("Haven't found a better design for %s minutes. QUIT", elapsedTime)
+                    break
+
+                if self.debug:
+                    LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
+                    LOG.info("\n====Design Candidates====\n%s", dc)
+                    LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
+                    LOG.info("\n=====BBSearch Score======\n%s", bbCost)
+                    LOG.info("\n========Best Score=======\n%s", bestCost)
+                    LOG.info("\n========Best Design======\n%s", bestDesign)
+
+                relaxRatio += self.ratio_step
+                if relaxRatio > self.max_ratio:
+                    relaxRatio = self.max_ratio
+                    
+                self.timeout -= self.bbsearch_method.usedTime
+                bbsearch_time_out += self.ratio_step / 0.1 * 30
+
+                if self.timeout <= 0:
+                    break
+            ## IF
             else:
-                elapsedTime += self.bbsearch_method.usedTime
-            
-            if isExhaustedSearch:
-                elapsedTime = INIFITY
-                
-            if elapsedTime >= self.patient_time:
-                # if it haven't found a better design for one hour, give up
-                LOG.info("Haven't found a better design for %s minutes. QUIT", elapsedTime)
-                break
-
-            if self.debug:
-                LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
-                LOG.info("\n====Design Candidates====\n%s", dc)
-                LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
-                LOG.info("\n=====BBSearch Score======\n%s", self.bbsearch_method.bestCost)
-                LOG.info("\n========Best Score=======\n%s", self.bestCost)
-                LOG.info("\n========Best Design======\n%s", bestDesign)
-
-            self.relaxRatio += self.ratio_step
-            if self.relaxRatio > self.max_ratio:
-                self.relaxRatio = self.max_ratio
-                
-            self.timeout -= self.bbsearch_method.usedTime
-            bbsearch_time_out += self.ratio_step / 0.1 * 30
-
-            if self.timeout <= 0:
-                break
+                # If we terminate bbsearch on purpose, we use the current best design of bbsearch as the bestDesign for next round
+                # Also, since we have the current best design, we want to reset the relax ratio to the initial ratio because the
+                # current design is good
+                # OH, also the bbsearch_time
+                relaxRatio = self.init_relaxRatio
+                bbsearch_time_out = self.init_bbsearch_time
+                if bbCost < bestCost:
+                    bestCost = bbCost
+                    bestDesign = bbDesign.copy()
+                ## IF
+            ## ELSE
         ## WHILE
 
         sendMessage(MSG_EXECUTE_COMPLETED, None, self.channel)
@@ -177,16 +191,10 @@ class LNSDesigner(AbstractDesigner):
             ## FOR
         ## IF
         else:
-            collectionNameSet = set()
-            relaxedCollectionsNames = []
-            while numberOfRelaxedCollections > 0:
-                collectionName = generator.getRandomCollection()
-                if collectionName not in collectionNameSet:
-                    relaxedCollectionsNames.append(collectionName)
-                    collectionNameSet.add(collectionName)
-                    relaxedDesign.reset(collectionName)
-                    numberOfRelaxedCollections -= 1
-                ## IF
-            ## WHILE
+            relaxedCollectionsNames = generator.getRandomCollections(numberOfRelaxedCollections)
+            for col_name in relaxedCollectionsNames:
+                relaxedDesign.reset(col_name)
+            ## FOR
+            
         return relaxedCollectionsNames, relaxedDesign
     ## DEF

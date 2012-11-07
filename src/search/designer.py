@@ -167,7 +167,7 @@ class Designer():
     def generateDesignCandidates(self, collections, isShardingEnabled=True, isIndexesEnabled=True, isDenormalizationEnabled=True):
 
         dc = DesignCandidates()
-
+        valid_collection = set()
         for col_info in collections.itervalues():
 
             shardKeys = []
@@ -175,6 +175,8 @@ class Designer():
             denorm = []
 
             interesting = col_info['interesting']
+            valid_collection.add(col_info['name'])
+            
             interesting = self.__remove_heuristicaly_bad_key__(col_info, interesting)
             # Make sure that none of our interesting fields start with
             # the character that we used to convert $ commands
@@ -206,7 +208,7 @@ class Designer():
             if isDenormalizationEnabled:
                 LOG.debug("Denormalization is enabled")
                 for k,v in col_info['fields'].iteritems() :
-                    if v['parent_col'] <> None and v['parent_col'] not in denorm :
+                    if v['parent_col'] <> None and v['parent_col'] not in denorm and v['parent_col'] in valid_collection:
                         denorm.append(v['parent_col'])
             
             dc.addCollection(col_info['name'], indexKeys, shardKeys, denorm)
@@ -238,7 +240,7 @@ class Designer():
             # Skip any collection that doesn't have any documents in it
             # This is because we won't be able to make any estimates about how
             # big the collection actually is
-            if not col_info['doc_count'] or not col_info['avg_doc_size']:
+            if col_info['workload_queries'] == 0:
                 continue
             collections[col_info['name']] = col_info
         ## FOR
@@ -246,27 +248,6 @@ class Designer():
             raise Exception("No collections were found in metadata catalog")
         LOG.info("Loaded %d collections from metadata catalog" % len(collections))
 
-        # Remove the new collections that there are no operations accessing
-        valid_extra_collections = set()
-        invalid_key = [ ]
-        for sess in self.metadata_db.Session.fetch():
-            for op in sess["operations"]:
-                if op['collection'].count('__') > 0:
-                    valid_extra_collections.add(op['collection'])
-            ## FOR
-        ## FOR
-
-        for k in collections.iterkeys():
-            if k.count('__') > 0 and not k in valid_extra_collections:
-                invalid_key.append(k)
-            ## IF
-        ## FOR
-        # Remove
-        for key in invalid_key:
-            # But we still want to key
-            key.index("__")
-            collections.pop(key)
-        ## FOR
         return collections
     ## DEF
 

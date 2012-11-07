@@ -158,6 +158,9 @@ class Normalizer:
         Since we have re-constructed the database
         """
         LOG.info("Reconstructing metadata!")
+        if len(changed_fields) == 0:
+            return
+        
         op_counter = 0
         col2fields = self.generateDict(changed_fields)
         for sess in self.metadata_db.Session.fetch():
@@ -178,7 +181,7 @@ class Normalizer:
                             if type(value) == dict:
                                 for k in value.iterkeys():
                                     if k in fields:
-                                        LOG.info("counter: %d, key: %s, value: %s", counter, key, k)
+                                        LOG.debug("counter: %d, key: %s, value: %s", counter, key, k)
                                         changed_query.append((counter, key, k))
                                     ## IF
                                 ## FOR
@@ -210,7 +213,7 @@ class Normalizer:
                             ## IF
                             new_op = Session.operationFactory()
                             new_col = fieldscol2col[(col_name, tup[2])]
-                            LOG.info("Creating a new operation to collection: %s", new_col)
+                            LOG.debug("Creating a new operation to collection: %s", new_col)
                             new_op['collection'] = new_col
                             new_op['type']  = op['type']
                             new_op['query_id']      = long(hash(time.time()))
@@ -235,7 +238,7 @@ class Normalizer:
         """
         Generate a map from collection -> fields, which simplifies the metadata reconstruction process
         """
-        LOG.info("Generating dictionaries for metadata reconstruction")
+        if self.debug: LOG.debug("Generating dictionaries for metadata reconstruction")
         col2fields = { }
         for field in changed_fields:
             col_name = field[0]
@@ -245,7 +248,8 @@ class Normalizer:
             ## IF
             col2fields[col_name].add(field_name)
         ## FOR
-        LOG.info("Dictionary done!")
-        print "dict: \n", col2fields
+        if self.debug:
+            LOG.debug("Dictionary done!")
+            LOG.debug("dict: \n%s", pformat(col2fields))
         return col2fields
     ## DEF
