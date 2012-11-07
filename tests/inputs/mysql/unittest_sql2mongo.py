@@ -20,6 +20,13 @@ class TestConversions (unittest.TestCase) :
         #self.mongo.process_sql(sql)
         #result = self.mongo.render_mongo_command()
         #self.assertEqual(u"db.users.find({'a':{#gt:10,#lt:20}})", result[0])
+     
+    def testSelectQueryIsClauseTrace(self):
+        sql = 'SELECT name FROM users WHERE a IS NULL'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {u'#query' : { u'a' : 'null'}}
+        self.assertEqual(output, result[0])
         
     def testSelectQueryInClauseTrace(self):
         sql = 'SELECT name FROM users WHERE a IN (3)'

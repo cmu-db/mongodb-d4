@@ -660,7 +660,7 @@ class Sql2Mongo (object) :
     def process_where_comparison_operator(self, op) :
         cls = op.__class__.__name__
         if cls == 'Token' :
-            if op.to_unicode() == '=' :
+            if op.to_unicode() == '=' or op.to_unicode() == 'IS':
                 return ':'
             elif op.to_unicode() == '>' :
                 #return "$gt"
@@ -915,7 +915,7 @@ class Sql2Mongo (object) :
     ## End render_trace_update()
     
     def render_trace_value(self, val) :
-        if val == 'null' :
+        if val.lower() == 'null' :
             val = 'null'
         elif val[0] in ['"', "'"] :
             val = val.strip('"\'')
