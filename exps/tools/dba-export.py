@@ -84,6 +84,7 @@ STRIP_FIELDS = [
     "query_hash",
     "query_time",
     "query_size",
+    "query_type",
     "query_id",
     "orig_query",
     "resp_.*",
@@ -309,7 +310,11 @@ if __name__ == '__main__':
     for col_name, col_info in colls.iteritems():
         col_info["workload_queries"] = QUERY_COLLECTION_COUNTS.get(col_name)
         col_info["workload_percent"] = QUERY_COLLECTION_COUNTS.get(col_name) / float(TOTAL_QUERY_COUNT)
-        col_info.save()
+        try:
+            col_info.save()
+        except Exception as ex:
+            LOG.warn(ex)
+            pass
     ## FOR
     
     ## ----------------------------------------------
