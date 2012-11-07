@@ -8,6 +8,8 @@ import itertools
 import signal
 from util import constants
 import logging
+import random
+
 logging.basicConfig(level = logging.INFO,
 format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
 datefmt="%m-%d-%Y %H:%M:%S",
@@ -65,8 +67,8 @@ class BBSearch ():
         # in order to access bounding function, optimial solution and current bound
         self.terminated = False
         # store keys list... used only to translate integer iterators back to real key values...
-        self.rootNode = BBNode(relaxedDesingn, self, True, 0) #rootNode: True
         self.designCandidate = designCandidate
+        self.rootNode = BBNode(relaxedDesingn, self, True, 0) #rootNode: True
         self.costModel = costModel
         self.bestDesign = relaxedDesingn
         self.bestCost = bestCost
@@ -483,7 +485,8 @@ class BBNode():
     def prepareChildren(self):
         # initialize iterators 
         # --> determine which collection is yet to be assigned
-        for col_name in self.bbsearch.designCandidate.collections:
+        self.random_instance.shuffle(self.candidate_collections)
+        for col_name in self.candidate_collections:
             if self.design.isRelaxed(col_name):
                 self.currentCol = col_name
                 break
@@ -566,6 +569,8 @@ class BBNode():
         self.bbsearch = bb
         self.children = [] # list of BBNode
         self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.candidate_collections = [col_name for col_name in self.bbsearch.designCandidate.collections]
+        self.random_instance = random.Random()
         return
         
 

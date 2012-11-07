@@ -228,7 +228,7 @@ class MySQLConverter(AbstractConverter):
         mongo = sql2mongo.Sql2Mongo(tbl_cols)
         query_ctr = 0
         for row in c4:
-            timestamp = start_timestamp - float(row[0].strftime("%s"))
+            timestamp = float(row[0].strftime("%s")) - start_timestamp
             
             if row[2] <> thread_id :
                 thread_id = row[2]

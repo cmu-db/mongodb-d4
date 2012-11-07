@@ -78,7 +78,7 @@ class AbstractConverter():
 
     def process(self, no_load=False, no_post_process=False, page_size=constants.DEFAULT_PAGE_SIZE):
         if not no_load: self.loadImpl()
-        #self.printAllOperations()
+        #self.printAllSessionsTime()
         if not no_post_process: self.postProcess(page_size)
         # self.printAllCollectionInfo()
     ## DEF
@@ -87,13 +87,21 @@ class AbstractConverter():
         raise NotImplementedError("Unimplemented %s.loadImpl()" % self.__init__.im_class)
     ## DEF
 
+    def printAllSessionsTime(self):
+        for sess in self.metadata_db.Session.fetch():
+            print "start_time: %s", pformat(sess['start_time'])
+            print "end_time: %s", pformat(sess['end_time'])
+        ## FOR
+        exit("CUPCAKE")
+    ## DEF
+    
     def printAllOperations(self):
         for sess in self.metadata_db.Session.fetch():
             for op in sess['operations']:
-                print "col_name: ", op['collection']
-                print "op_content: ", op['query_content']
+                print "ops\n%s", pformat(op)
             ## FOR
         ## FOR
+        exit("CUPCAKE")
     ## DEF
     
     def printAllDocs(self):
@@ -103,6 +111,7 @@ class AbstractConverter():
                 print "doc\n", pformat(doc)
             ## FOR
         ## FOR
+        exit("CUPCAKE")
     ## DEF
 
     def countDocs(self):
@@ -124,6 +133,7 @@ class AbstractConverter():
             print "col_name: ", col_info['name']
             print "col_info\n", pformat(col_info)
         ## FOR
+        exit("CUPCAKE")
     ## DEF
 
     def postProcess(self, page_size=constants.DEFAULT_PAGE_SIZE):
