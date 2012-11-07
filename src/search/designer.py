@@ -240,7 +240,7 @@ class Designer():
             # Skip any collection that doesn't have any documents in it
             # This is because we won't be able to make any estimates about how
             # big the collection actually is
-            if not col_info['doc_count'] or not col_info['avg_doc_size'] or len(col_info['interesting']) == 0:
+            if col_info['workload_queries'] == 0:
                 continue
             collections[col_info['name']] = col_info
         ## FOR
