@@ -299,10 +299,9 @@ def flushBuffer(host):
         #"sudo service mongodb restart",
         #"ssh -t ubuntu@"+host+" -o \"UserKnownHostsFile /dev/null\" " + "-o \"StrictHostKeyChecking no\""+"  \"sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'\"",
         #"ssh -t ubuntu@"+host+" -o \"UserKnownHostsFile /dev/null\" " + "-o \"StrictHostKeyChecking no\""+"  \"sudo service mongod restart\"",
-        "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
         "sudo service mongod stop",
         "sudo service mongod start",
-
+        "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
     ]
     sshOpts = "-o \"UserKnownHostsFile /dev/null\" " + \
               "-o \"StrictHostKeyChecking no\""
