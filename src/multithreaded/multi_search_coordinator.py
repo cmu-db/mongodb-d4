@@ -100,6 +100,7 @@ class Coordinator:
         evaluated_design = 0
         finished_update = 0
         num_bestDesign = 0
+        start = time.time()
         
         while True:
             try:
@@ -119,7 +120,7 @@ class Coordinator:
                         LOG.info("Evaluated cost: %s", msg.data[1])
                         
                     # Output current status every 1000 evaluation
-                    if evaluated_design % 1000 == 0:
+                    if evaluated_design % 500 == 0:
                         raise Queue.Empty
                     
                 ## ELIF
@@ -130,6 +131,7 @@ class Coordinator:
                     if bestCost < self.bestCost:
                         LOG.info("Got new best design. Distribute it!")
                         LOG.info("Best cost is updated from %s to %s", self.bestCost, bestCost)
+                        LOG.info("Time eplased: %s",time.time() - start)
                         #LOG.info("New best design\n%s", bestDesign)
                         num_bestDesign += 1
                         
