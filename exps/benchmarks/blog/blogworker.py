@@ -228,8 +228,9 @@ class BlogWorker(AbstractWorker):
                 self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING)])
                 
                 trial = int(config[self.name]["indexes"])
+                
                 if trial == 1:
-                    LOG.info("Creating index on (author) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                    LOG.info("Creating index (author,tags) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
                     self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING), \
                                                                   ("tags",pymongo.ASCENDING)])
                 

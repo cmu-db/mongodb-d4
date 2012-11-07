@@ -46,13 +46,6 @@ from api.directchannel import *
 if __name__ == '__channelexec__':
     # Remote execnet invocations won't have a __file__
     BASEDIR = os.getcwd()
-    sshOpts = "-o \"UserKnownHostsFile /dev/null\" " + \
-              "-o \"StrictHostKeyChecking no\""
-
-    LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
-    for cmd in remoteCmds:
-        subprocess.check_call("ssh %s %s \"%s\"" % (host, sshOpts, cmd), shell=True)
-    time.sleep(30)
 else:
     BASEDIR = os.path.realpath(os.path.dirname(__file__))
 for d in ["src", "libs"]:
@@ -306,10 +299,9 @@ def flushBuffer(host):
         #"sudo service mongodb restart",
         #"ssh -t ubuntu@"+host+" -o \"UserKnownHostsFile /dev/null\" " + "-o \"StrictHostKeyChecking no\""+"  \"sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'\"",
         #"ssh -t ubuntu@"+host+" -o \"UserKnownHostsFile /dev/null\" " + "-o \"StrictHostKeyChecking no\""+"  \"sudo service mongod restart\"",
-        "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
         "sudo service mongod stop",
         "sudo service mongod start",
-
+        "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
     ]
     sshOpts = "-o \"UserKnownHostsFile /dev/null\" " + \
               "-o \"StrictHostKeyChecking no\""
