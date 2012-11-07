@@ -364,9 +364,8 @@ class AbstractConverter():
                 col_info.save()
             except Exception:
                 if self.debug:
-                    LOG.debug("abnormal col_info\n", pformat(col_info))
-                col_info.delete()
-                
+                    LOG.info("abnormal col_info\n%s", pformat(col_info))
+                raise
         ## FOR
     ## DEF
 
@@ -516,9 +515,9 @@ class AbstractConverter():
             if 'list_len' in field:
                 if len(field['list_len']) > 0:
                     all_values = field['list_len'].getAllValues()
-                    field['list_len_min'] = min(all_values)
-                    field['list_len_max'] = max(all_values)
-                    field['list_len_max'] = numpy.average(all_values)
+                    field['list_len_min'] = int(min(all_values))
+                    field['list_len_max'] = int(max(all_values))
+                    field['list_len_max'] = int(numpy.average(all_values))
                     field['list_len_stdev'] = numpy.average(all_values)
                 del field['list_len']
             
