@@ -70,6 +70,15 @@ SCHEMA_COLUMNS = [
     "list_len_avg",
     "list_len_stdev",
 ]
+STATS_COLUMNS = [
+    "collection",
+    "doc_count",
+    "avg_doc_size",
+    "data_size",
+    "workload_queries",
+    "workload_percent",
+]
+    
 STRIP_FIELDS = [
     "predicates",
     "query_hash",
@@ -82,9 +91,13 @@ STRIP_FIELDS = [
 STRIP_REGEXES = [ re.compile(r) for r in STRIP_FIELDS ]
 
 QUERY_COUNTS = Histogram()
+QUERY_COLLECTION_COUNTS = Histogram()
 QUERY_HASH_XREF = { }
 QUERY_TOP_LIMIT = 10
 
+## ==============================================
+## DUMP SCHEMA
+## ==============================================
 def dumpSchema(writer, collection, fields, spacer=""):
     cur_spacer = spacer
     if len(spacer) > 0: cur_spacer += " - "
@@ -107,6 +120,34 @@ def dumpSchema(writer, collection, fields, spacer=""):
     ## FOR
 ## DEF
 
+## ==============================================
+## DUMP COLLECTION STATS
+## ==============================================
+def dumpStats(writer, col_info, TOTAL_DB_SIZE):
+    row = [ ]
+    #print pformat(col_info)
+    for key in STATS_COLUMNS:
+        if key == STATS_COLUMNS[0]:
+            val = col_info["name"].replace("__", "_")
+        elif key == "data_size":
+            val = col_info[key] / float(TOTAL_DB_SIZE)
+        elif key == "workload_percent":
+            if "workload_percent" in col_info:
+                val = "%.1f%%" % (col_info[key]*100)
+            else:
+                val = "-"
+        else:
+            assert key in col_info, key
+            val = col_info[key]
+        row.append(val)
+    ## FOR
+    writer.writerow(row)
+    return
+## DEF
+
+## ==============================================
+## DUMP OP
+## ==============================================
 def dumpOp(fd, op):
     # Remove all of the resp_* fields
     for k in op.keys():
@@ -151,7 +192,9 @@ def dumpOp(fd, op):
 ## DEF
     
 
-# http://stackoverflow.com/a/1254499/42171
+## ==============================================
+## http://stackoverflow.com/a/1254499/42171
+## ==============================================
 CMD_FIX_REGEX = re.compile("^\#([\w]+)")
 def convert(data):
     if isinstance(data, unicode):
@@ -189,6 +232,7 @@ if __name__ == '__main__':
     aparser.add_argument('--op-limit', type=int, metavar='N', help='The number of operations to include in the sample workload', default=QUERY_TOP_LIMIT)
     aparser.add_argument('--op-per-collection', action='store_true', help='Output the most frequently executed operation per workload in the sample query file.')
     aparser.add_argument('--no-schema', action='store_true', help='Disable generating schema file.')
+    aparser.add_argument('--no-stats', action='store_true', help='Disable generating collection stats file.')
     aparser.add_argument('--no-workload', action='store_true', help='Disable generating sample query file.')
     aparser.add_argument('--debug', action='store_true', help='Enable debug log messages.')
     args = vars(aparser.parse_args())
@@ -204,6 +248,9 @@ if __name__ == '__main__':
     config = RawConfigParser()
     configutil.setDefaultValues(config)
     config.read(os.path.realpath(args['config'].name))
+    
+    if not os.path.exists(args['project']):
+        os.mkdir(args['project'])
     
     ## ----------------------------------------------
     ## Connect to MongoDB
@@ -235,10 +282,6 @@ if __name__ == '__main__':
     metadata_db = conn[config.get(configutil.SECT_MONGODB, 'metadata_db')]
     dataset_db = conn[config.get(configutil.SECT_MONGODB, 'dataset_db')]
 
-    ## ----------------------------------------------
-    ## DUMP DATABASE SCHEMA
-    ## ----------------------------------------------
-
     colls = dict()
     for col_info in metadata_db.Collection.fetch({"workload_queries": {"$gt": 0}}):
         # Skip any collection that doesn't have any documents in it
@@ -247,11 +290,36 @@ if __name__ == '__main__':
         colls[col_info['name']] = col_info
     if not colls:
         raise Exception("No collections were found in metadata catalog")
-        
+    
+    for sess in metadata_db.Session.fetch():
+        for op in sess["operations"]:
+            QUERY_COUNTS.put(op["query_hash"])
+            if not op["query_hash"] in QUERY_HASH_XREF:
+                QUERY_HASH_XREF[op["query_hash"]] = [ ]
+            QUERY_HASH_XREF[op["query_hash"]].append(op)
+            QUERY_COLLECTION_COUNTS.put(op["collection"])
+        ## FOR
+    ## FOR
+
+    TOTAL_DB_SIZE = sum([col_info["data_size"] for col_info in colls.itervalues()])
+    LOG.debug("Estimated Total Database Size: %d" % TOTAL_DB_SIZE)
+    TOTAL_QUERY_COUNT = QUERY_COLLECTION_COUNTS.getSampleCount()
+    LOG.debug("Total # of Queries: %d" % TOTAL_QUERY_COUNT)
+    
+    # HACK: Fix collections
+    for col_name, col_info in colls.iteritems():
+        col_info["workload_queries"] = QUERY_COLLECTION_COUNTS.get(col_name)
+        col_info["workload_percent"] = QUERY_COLLECTION_COUNTS.get(col_name) / float(TOTAL_QUERY_COUNT)
+        col_info.save()
+    ## FOR
+    
+    ## ----------------------------------------------
+    ## DUMP DATABASE SCHEMA
+    ## ----------------------------------------------
     if not args["no_schema"]:
         LOG.info("Dumping schema catalog")
-        schemaFile = "%s-schema.csv" % args["project"]
-        with open(schemaFile, "w") as fd:
+        outputFile = os.path.join(args["project"], "%s-schema.csv" % args["project"])
+        with open(outputFile, "w") as fd:
             writer = csv.writer(fd)
             writer.writerow(map(string.upper, SCHEMA_COLUMNS))
             for col_name, col_info in colls.iteritems():
@@ -259,29 +327,36 @@ if __name__ == '__main__':
                 writer.writerow([""]*len(SCHEMA_COLUMNS))
             ## FOR
         ## WITH
-        LOG.info("Created Schema File: %s", schemaFile)
+        LOG.info("Created Schema File: %s", outputFile)
     else:
         LOG.info("Skipping Schema File")
+        
+    ## ----------------------------------------------
+    ## DUMP COLLECTION STATS
+    ## ----------------------------------------------
+    if not args["no_stats"]:
+        LOG.info("Dumping collection stats")
+        outputFile = os.path.join(args["project"], "%s-stats.csv" % args["project"])
+        with open(outputFile, "w") as fd:
+            writer = csv.writer(fd)
+            writer.writerow(map(string.upper, STATS_COLUMNS))
+            for col_info in colls.itervalues():
+                dumpStats(writer, col_info, TOTAL_DB_SIZE)
+            ## FOR
+        ## WITH
+        LOG.info("Created Collection Statistics File: %s", outputFile)
+    else:
+        LOG.info("Skipping Collection Statistics File")
 
     ## ----------------------------------------------
     ## DUMP WORKLOAD
     ## ----------------------------------------------
-
     if not args["no_workload"]:
         LOG.info("Dumping sample queries")
-        for sess in metadata_db.Session.fetch():
-            for op in sess["operations"]:
-                QUERY_COUNTS.put(op["query_hash"])
-                if not op["query_hash"] in QUERY_HASH_XREF:
-                    QUERY_HASH_XREF[op["query_hash"]] = [ ]
-                QUERY_HASH_XREF[op["query_hash"]].append(op)
-            ## FOR
-        ## FOR
-        
         limit = len(colls) if args["op_per_collection"] else args['op_limit']
         assert limit >= 0
-        queryFile = "%s-queries.txt" % args["project"]
-        with open(queryFile, "w") as fd:
+        outputFile = os.path.join(args["project"], "%s-queries.txt" % args["project"])
+        with open(outputFile, "w") as fd:
             first = True
             total_queries = QUERY_COUNTS.getSampleCount()
             op_collections = set()
@@ -315,7 +390,7 @@ if __name__ == '__main__':
             if len(missing) > 0:
                 LOG.warn("Missing Ops for Collections:\n%s" % "".join(map(lambda x: "  - %s\n" % x, missing)))
         ## WITH
-        LOG.info("Created Query Sample File: %s", queryFile)
+        LOG.info("Created Query Sample File: %s", outputFile)
     else:
         LOG.info("Skipping Query Sample File")
 
