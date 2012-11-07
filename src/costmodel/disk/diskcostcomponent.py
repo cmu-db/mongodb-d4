@@ -52,7 +52,7 @@ class DiskCostComponent(AbstractCostComponent):
         AbstractCostComponent.__init__(self, state)
         self.debug = False
 
-        self.hasher = catalog.OpHasher()
+        self.hasher = workload.OpHasher()
         self.buffers = [ ]
         for i in xrange(self.state.num_nodes):
             lru = FastLRUBufferWithWindow(self.state.window_size)
