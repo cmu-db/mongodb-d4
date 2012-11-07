@@ -238,7 +238,7 @@ class Normalizer:
         """
         Generate a map from collection -> fields, which simplifies the metadata reconstruction process
         """
-        LOG.info("Generating dictionaries for metadata reconstruction")
+        if self.debug: LOG.debug("Generating dictionaries for metadata reconstruction")
         col2fields = { }
         for field in changed_fields:
             col_name = field[0]
@@ -248,7 +248,8 @@ class Normalizer:
             ## IF
             col2fields[col_name].add(field_name)
         ## FOR
-        LOG.info("Dictionary done!")
-        print "dict: \n", col2fields
+        if self.debug:
+            LOG.debug("Dictionary done!")
+            LOG.debug("dict: \n%s", pformat(col2fields))
         return col2fields
     ## DEF
