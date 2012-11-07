@@ -365,14 +365,14 @@ class BlogWorker(AbstractWorker):
     def next(self, config):
         assert "experiment" in config[self.name]
         
-        if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
-            skewfactor = 0.8
-            skewrandom = random.random()
-            if skewrandom > skewfactor:
-                articleId = random.randint(0, self.num_articles)
-            else:
+        if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION: 
+            readorwrite = random.random()
+            if readorwrite < 0.8: #read
 	        articleId = self.articleZipf.next()
-            opName = "readArticleTopTenComments"
+                opName = "readArticleTopComments"
+            elif readorwrite >= 0.8: #write 
+                articleId = self.articleZipf.next()
+                opName = "incViewsArticle"
             return (opName, (articleId,))
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
@@ -390,7 +390,7 @@ class BlogWorker(AbstractWorker):
                 return (opName, (articleId,articleSlug))
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:
-            trial = int(config[self.name]["indexes"])
+            #trial = int(config[self.name]["indexes"])
             #randreadop = random.randint(1,2)
             #readwriterandom = random.random()
             #readpercent = 0.8
@@ -574,12 +574,12 @@ class BlogWorker(AbstractWorker):
             pass    
         #LOG.debug(str(articles.count()))
     
-    def readArticleTopTenComments(self,denormalize,articleId):
+    def readArticleTopComments(self,denormalize,articleId):
         # We are searching for the comments that had been written for the article with articleId 
         # and we sort them in descending order of user rating
         if not denormalize: 
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).sort("rating",-1).limit(10)
+            comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).limit(100)
             for comment in comments:
 	        pass
             #for comment in comments:
@@ -588,15 +588,15 @@ class BlogWorker(AbstractWorker):
             #print("~~~~~~~~~~~~~~");
         else:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-            if not article is None:
-                assert 'comments' in article, pformat(article)
-                comments = article[u'comments']
-                #sort by rating descending and take top 10..
-                comments = sorted(comments, key=lambda k: -k[u'rating'])
-                comments = comments[0:10]
+            #if not article is None:
+            #    assert 'comments' in article, pformat(article)
+            #    comments = article[u'comments']
+            #    #sort by rating descending and take top 10..
+            #    comments = sorted(comments, key=lambda k: -k[u'rating'])
+            #    comments = comments[0:10]
                 #pprint(comments)
                 #print("\n");
-            elif article is None:
+            if article is None:
                 LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
                 return
             assert article["id"] == articleId, \
