@@ -67,8 +67,8 @@ class BBSearch ():
         # in order to access bounding function, optimial solution and current bound
         self.terminated = False
         # store keys list... used only to translate integer iterators back to real key values...
-        self.rootNode = BBNode(relaxedDesingn, self, True, 0) #rootNode: True
         self.designCandidate = designCandidate
+        self.rootNode = BBNode(relaxedDesingn, self, True, 0) #rootNode: True
         self.costModel = costModel
         self.bestDesign = relaxedDesingn
         self.bestCost = bestCost
