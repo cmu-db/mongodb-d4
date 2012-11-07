@@ -39,7 +39,7 @@ class Collection(Document):
                 # List Field Attributes
                 'list_len_min':     int,
                 'list_len_max':     int,
-                'list_len_avg':     int,
+                'list_len_avg':     float,
                 'list_len_stdev':   float,
             }
         }

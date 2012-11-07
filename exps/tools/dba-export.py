@@ -130,7 +130,7 @@ def dumpStats(writer, col_info, TOTAL_DB_SIZE):
         if key == STATS_COLUMNS[0]:
             val = col_info["name"].replace("__", "_")
         elif key == "data_size":
-            val = col_info[key] / float(TOTAL_DB_SIZE)
+            val = "%.1f%%" % ((col_info[key] / float(TOTAL_DB_SIZE))*100)
         elif key == "workload_percent":
             if "workload_percent" in col_info:
                 val = "%.1f%%" % (col_info[key]*100)
@@ -230,7 +230,6 @@ if __name__ == '__main__':
     aparser.add_argument('project', help='Project Name')
     aparser.add_argument('--config', type=file, help='Path to %s configuration file' % constants.PROJECT_NAME)
     aparser.add_argument('--op-limit', type=int, metavar='N', help='The number of operations to include in the sample workload', default=QUERY_TOP_LIMIT)
-    aparser.add_argument('--op-per-collection', action='store_true', help='Output the most frequently executed operation per workload in the sample query file.')
     aparser.add_argument('--no-schema', action='store_true', help='Disable generating schema file.')
     aparser.add_argument('--no-stats', action='store_true', help='Disable generating collection stats file.')
     aparser.add_argument('--no-workload', action='store_true', help='Disable generating sample query file.')
@@ -317,7 +316,7 @@ if __name__ == '__main__':
     ## DUMP DATABASE SCHEMA
     ## ----------------------------------------------
     if not args["no_schema"]:
-        LOG.info("Dumping schema catalog")
+        LOG.debug("Dumping schema catalog")
         outputFile = os.path.join(args["project"], "%s-schema.csv" % args["project"])
         with open(outputFile, "w") as fd:
             writer = csv.writer(fd)
@@ -335,7 +334,7 @@ if __name__ == '__main__':
     ## DUMP COLLECTION STATS
     ## ----------------------------------------------
     if not args["no_stats"]:
-        LOG.info("Dumping collection stats")
+        LOG.debug("Dumping collection stats")
         outputFile = os.path.join(args["project"], "%s-stats.csv" % args["project"])
         with open(outputFile, "w") as fd:
             writer = csv.writer(fd)
@@ -352,45 +351,50 @@ if __name__ == '__main__':
     ## DUMP WORKLOAD
     ## ----------------------------------------------
     if not args["no_workload"]:
-        LOG.info("Dumping sample queries")
-        limit = len(colls) if args["op_per_collection"] else args['op_limit']
-        assert limit >= 0
-        outputFile = os.path.join(args["project"], "%s-queries.txt" % args["project"])
-        with open(outputFile, "w") as fd:
-            first = True
-            total_queries = QUERY_COUNTS.getSampleCount()
-            op_collections = set()
-            for hash in sorted(QUERY_COUNTS.keys(), key=lambda x: QUERY_COUNTS[x], reverse=True):
-                percentage = (QUERY_COUNTS[hash] / float(total_queries)) * 100
-                op = random.choice(QUERY_HASH_XREF[hash])
-                
-                # Skip any queries on a non-data table
-                if op["collection"] in constants.IGNORED_COLLECTIONS or op["collection"].endswith("$cmd"):
-                    continue
-                
-                if args["op_per_collection"] and op["collection"] in op_collections:
-                    continue
-                op_collections.add(op["collection"])
-                
-                if not first: fd.write("\n%s\n\n" % ("-"*100))
-                
-                # HACK
-                op["collection"] = op["collection"].replace("__", "_")
-                
-                # Dump out the op
-                dumpOp(fd, op)
-                
-                if limit == 0: break
-                limit -= 1
-                first = False
-            ## FOR
-            
-            # Print a warning if we don't have any ops for some collections
-            missing = op_collections | set(colls.keys())
-            if len(missing) > 0:
-                LOG.warn("Missing Ops for Collections:\n%s" % "".join(map(lambda x: "  - %s\n" % x, missing)))
-        ## WITH
-        LOG.info("Created Query Sample File: %s", outputFile)
+        LOG.debug("Dumping sample queries")
+        for op_per_collection in [True, False]:
+            limit = len(colls) if op_per_collection else args['op_limit']
+            assert limit >= 0
+            prefix = "-top%d"%limit if not op_per_collection else ""
+            outputFile = os.path.join(args["project"], "%s%s-queries.txt" % (args["project"], prefix))
+            with open(outputFile, "w") as fd:
+                first = True
+                total_queries = QUERY_COUNTS.getSampleCount()
+                op_collections = set()
+                for hash in sorted(QUERY_COUNTS.keys(), key=lambda x: QUERY_COUNTS[x], reverse=True):
+                    percentage = (QUERY_COUNTS[hash] / float(total_queries)) * 100
+                    op = random.choice(QUERY_HASH_XREF[hash])
+                    
+                    # Skip any queries on a non-data table
+                    if op["collection"] in constants.IGNORED_COLLECTIONS or op["collection"].endswith("$cmd"):
+                        continue
+                    
+                    if op_per_collection and op["collection"] in op_collections:
+                        continue
+                    op_collections.add(op["collection"])
+                    
+                    if not first: fd.write("\n%s\n\n" % ("-"*100))
+                    
+                    # HACK
+                    op["collection"] = op["collection"].replace("__", "_")
+                    
+                    # Dump out the op
+                    dumpOp(fd, op)
+                    
+                    if limit == 0: break
+                    limit -= 1
+                    first = False
+                ## FOR
+            ## WITH
+            if op_per_collection:
+                # Print a warning if we don't have any ops for some collections
+                missing = set(colls.keys()) - op_collections
+                if len(missing) > 0:
+                    LOG.warn("Missing Ops for Collections:\n%s" % "".join(map(lambda x: "  - %s\n" % x, missing)))
+                LOG.info("Created Collection Query Sample File: %s", outputFile)
+            else:
+                LOG.info("Created Top %d Query Sample File: %s", args['op_limit'], outputFile)
+        ## FOR
     else:
         LOG.info("Skipping Query Sample File")
 

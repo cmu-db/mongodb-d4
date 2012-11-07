@@ -517,7 +517,7 @@ class AbstractConverter():
                     all_values = field['list_len'].getAllValues()
                     field['list_len_min'] = int(min(all_values))
                     field['list_len_max'] = int(max(all_values))
-                    field['list_len_max'] = int(numpy.average(all_values))
+                    field['list_len_avg'] = numpy.average(all_values)
                     field['list_len_stdev'] = numpy.average(all_values)
                 del field['list_len']
             
