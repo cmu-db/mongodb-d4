@@ -509,7 +509,7 @@ class AbstractConverter():
                     field['list_len_min'] = min(all_values)
                     field['list_len_max'] = max(all_values)
                     field['list_len_max'] = numpy.average(all_values)
-                    field['list_len_stdev'] = numpy.average(all_values)
+                    field['list_len_stdev'] = numpy.std(all_values)
                 del field['list_len']
             
             # Compute a weighted average for each field
