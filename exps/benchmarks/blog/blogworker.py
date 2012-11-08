@@ -565,9 +565,9 @@ class BlogWorker(AbstractWorker):
     
     def getArticleCounterQuery(self):
         if self.articleCounterDocumentId is None:
-            articleCounterQuery = {id: -999999}
-            articleCounter = self.db[constants.ARTICLE_COLL].find_one({id: -999999})
-            self.articleCounterDocumentId = article[u'_id']
+            articleCounterQuery = {{"nextArticleId": {'$exists': true}}
+            articleCounter = self.db[constants.ARTICLE_COLL].find_one(articleCounterQuery)
+            self.articleCounterDocumentId = articleCounter[u'_id']
             LOG.debug("firsttime"+str(self.articleCounterDocumentId))
         articleCounterQuery = {'_id':self.articleCounterDocumentId}
         return articleCounterQuery
@@ -577,6 +577,6 @@ class BlogWorker(AbstractWorker):
         query = self.getArticleCounterQuery()
         update = {'$inc': {"nextArticleId": 1}}
         counter = self.db[constants.ARTICLE_COLL].find_and_modify(query,update,True)
-        return int(counter[u'nextArticleId'])
+        return long(counter[u'nextArticleId'])
     
 ## CLASS
