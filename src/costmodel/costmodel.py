@@ -83,7 +83,9 @@ class CostModel(object):
         self.skewComponent = skew.SkewCostComponent(self.state)
         self.networkComponent = network.NetworkCostComponent(self.state)
         self.allComponents = (self.diskComponent, self.skewComponent, self.networkComponent)
-        self.combiner = WorkloadCombiner(collections, workload)
+        
+        col_names = [x for x in collections.iterkeys()]
+        self.combiner = WorkloadCombiner(col_names, workload)
         
         self.debug = False
         

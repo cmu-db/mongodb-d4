@@ -17,6 +17,7 @@ class TestWorkloadCombiner(CostModelTestCase):
         CostModelTestCase.setUp(self)
         self.cm = DiskCostComponent(self.state)
         self.cmn = NetworkCostComponent(self.state)
+        self.col_names = [ x for x in self.collections.iterkeys()]
     ## DEF
 
     def testQueriesCombination(self):
@@ -29,7 +30,7 @@ class TestWorkloadCombiner(CostModelTestCase):
         print "orignal number of queries: " + str(original_number_of_queries)
 
         # Initialize a combiner
-        combiner = WorkloadCombiner(self.collections, self.workload)
+        combiner = WorkloadCombiner(self.col_names, self.workload)
 
         # initialize a design with denormalization
         d = Design()
@@ -68,7 +69,7 @@ class TestWorkloadCombiner(CostModelTestCase):
         print "cost0 " + str(cost0)
 
         # Initialize a combiner
-        combiner = WorkloadCombiner(self.collections, self.workload)
+        combiner = WorkloadCombiner(self.col_names, self.workload)
 
         # initialize a design with denormalization
         d1 = Design()
@@ -115,7 +116,7 @@ class TestWorkloadCombiner(CostModelTestCase):
         print "cost0 " + str(cost0)
 
         # Initialize a combiner
-        combiner = WorkloadCombiner(self.collections, self.workload)
+        combiner = WorkloadCombiner(self.col_names, self.workload)
 
         # initialize a design with denormalization
         d1 = Design()
@@ -160,7 +161,7 @@ class TestWorkloadCombiner(CostModelTestCase):
             d0.addIndex(col_info['name'], ['field00', 'field02'])
 
         # Initialize a combiner
-        combiner = WorkloadCombiner(self.collections, self.workload)
+        combiner = WorkloadCombiner(self.col_names, self.workload)
 
         combinedWorkload = combiner.process(d0)
         self.assertEqual(None, combinedWorkload)

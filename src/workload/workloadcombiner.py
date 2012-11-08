@@ -35,9 +35,9 @@ LOG = logging.getLogger(__name__)
 
 class WorkloadCombiner:
     
-    def __init__(self, collections, workload):
+    def __init__(self, col_names, workload):
         self.lastDesign = None
-        self.collections = collections
+        self.col_names = col_names
         self.workload = workload
         
         # We need to make a deepcopy so that we can always get back
@@ -46,7 +46,7 @@ class WorkloadCombiner:
         
         # Build indexes from collections to sessions
         self.col_sess_xref = {}
-        for col_name in self.collections.iterkeys():
+        for col_name in self.col_names:
             self.col_sess_xref[col_name] = []
 
         for sess in self.workload:
@@ -68,9 +68,17 @@ class WorkloadCombiner:
             are combined with each other based on the denormalization scheme.
         """
         ## If the design doesn't have any collection embedding, return None
-        if not design.hasDenorm():
-            return None
+        hasDenormCol = False
+        for col_name in design.getCollections():
+            if design.isDenormalized(col_name):
+                hasDenormCol = True
+                break
+            ## IF
+        ## FOR
             
+        if not hasDenormCol:
+            return None
+        
         collectionsInProperOrder = self.__GetCollectionsInProperOder__(design)
 
         for col_name in collectionsInProperOrder:

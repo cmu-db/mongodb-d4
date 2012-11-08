@@ -39,7 +39,6 @@ import catalog
 import workload
 from catalog import Collection
 from workload import Session
-from util import Histogram
 from util import constants
 
 LOG = logging.getLogger(__name__)

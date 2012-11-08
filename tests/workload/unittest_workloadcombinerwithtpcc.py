@@ -17,6 +17,7 @@ class TestWorkloadCombiner(CostModelTestCase):
     def setUp(self):
         CostModelTestCase.setUp(self)
         self.cm = DiskCostComponent(self.state)
+        self.col_names = [ x for x in self.collections.iterkeys()]
         ## DEF
 
     def testQueriesCombination(self):
@@ -29,7 +30,7 @@ class TestWorkloadCombiner(CostModelTestCase):
         print "orignal number of queries: " + str(original_number_of_queries)
 
         # Initialize a combiner
-        combiner = WorkloadCombiner(self.collections, self.workload)
+        combiner = WorkloadCombiner(self.col_names, self.workload)
 
         # initialize a design with denormalization
         d = Design()
@@ -60,7 +61,7 @@ class TestWorkloadCombiner(CostModelTestCase):
         print "cost0 " + str(cost0)
 
         # Initialize a combiner
-        combiner = WorkloadCombiner(self.collections, self.workload)
+        combiner = WorkloadCombiner(self.col_names, self.workload)
 
         # initialize a design with denormalization
         d = Design()
