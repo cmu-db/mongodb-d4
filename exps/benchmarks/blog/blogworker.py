@@ -64,14 +64,6 @@ LOG = logging.getLogger(__name__)
 # top 10 comments for that article sorted by a user rating. In the first experiment,
 # we will store the articles and comments in separate collections.
 # In the second experiment, we'll embedded the comments inside of the articles.
-./benchmark.py --config=blog.config.norm.16 --no-load --flush blog
-./benchmark.py --config=blog.config.denorm.16 --no-load --flush blog
-./benchmark.py --config=blog.config.norm.32 --no-load --flush blog
-./benchmark.py --config=blog.config.denorm.32 --no-load --flush blog
-./benchmark.py --config=blog.config.norm.64 --no-load --flush blog
-./benchmark.py --config=blog.config.denorm.64 --no-load --flush blog
-./benchmark.py --config=blog.config.norm.128 --no-load --flush blog
-./benchmark.py --config=blog.config.denorm.128 --no-load --flush blog
 # 
 # Experiment #3: INDEXES
 # In our final benchmark, we compared the performance difference between a query on 
