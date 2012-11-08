@@ -19,14 +19,14 @@ LOG = logging.getLogger(__name__)
 def hash_string(s, salt, test=False):
     #print s
     hash = hashlib.md5(str(salt) + s).hexdigest()
-    if test:    ## FIXME!!! This should not be here!
-        hash = "XXX_HASH_XXX"
+    if test: hash = "XXX_HASH_XXX"
     output = "%s/%d" % (hash, len(s))
     return output
 
 class Sanitizer:
     
     def __init__(self, options, args, test):
+        self.salt = None
         self.f = None 
         self.new_command = re.compile("^(.*?) (\-\->>|<<\-\-) (.*?)")
         if options:

@@ -4,8 +4,12 @@
 
 import os
 import unittest
-from sanitizer import anonymize
 
+import os, sys
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../../src"))
+
+from sanitizer import anonymize
 
 def get_long_string(strings, iters):
     str = ""
