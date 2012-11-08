@@ -138,7 +138,6 @@ class BlogWorker(AbstractWorker):
         
         
         if self.getWorkerId() == 0:
-            self.initArticleCounter()
             if config['default']["reset"]:
                 LOG.info("Resetting database '%s'" % config['default']["dbname"])
                 self.conn.drop_database(config['default']["dbname"])
@@ -323,18 +322,6 @@ class BlogWorker(AbstractWorker):
                     "rating": int(self.ratingZipf.next()),
                     "votes": 0,
                 } # Check whether we have a next op that we need to execute
- 	 368	
-+        if len(self.nextOp) > 0:
- 	 369	
-+            return self.nextOp.pop(0)
- 	 370	
-+            
- 	 371	
-+        # Otherwise just figure out what the next random thing
- 	 372	
-+        # it is that we need to do...
- 	 373	
-+        
                 commentCtr += 1
                 commentsBatch.append(comment) 
                 #if config[self.name]["denormalize"]:
@@ -405,7 +392,7 @@ class BlogWorker(AbstractWorker):
                 articleId = self.articleZipf.next()
                 opName = "readArticleById"
             elif trial ==1:
-	        articleId = self.articleZipf.next()
+                articleId = self.articleZipf.next()
                 articleHashId = hash(str(articleId))
                 opName = "readArticleByHashId"
             return (opName, (articleIdHash))
@@ -459,7 +446,7 @@ class BlogWorker(AbstractWorker):
         article = self.db[constants.ARTICLE_COLL].find({"date": date})
         for article in articles:
             pass
-	return 1
+        return 1
     #DEF
     
     def readArticleByHashId(self,config,hashid):
@@ -545,7 +532,8 @@ class BlogWorker(AbstractWorker):
         return opCount    
     
     
-    def insertNewArticle(self,config,articleId):
+    def insertNewArticle(self,config):
+        articleId = self.findAndIncreaseArticleCounter()
         titleSize = constants.ARTICLE_TITLE_SIZE
         title = randomString(titleSize)
         contentSize = constants.ARTICLE_CONTENT_SIZE
@@ -572,14 +560,24 @@ class BlogWorker(AbstractWorker):
         self.db[constants.ARTICLE_COLL].insert(article)
         return 1
     #DEF
+
     
-    def initArticleCounter(self):
-        articleId=-999999
-        article = { 
-           "id": long(articleId),
-           "nextArticleId": 0,
-        }
-        self.db[constants.ARTICLE_COLL].insert(article)
-    #DEF  
+    
+    
+    def getArticleCounterQuery(self):
+        if self.articleCounterDocumentId is None:
+            articleCounterQuery = {id: -999999}
+            articleCounter = self.db[constant.ARTICLE_COLL].find_one({id: -999999})
+            self.articleCounterDocumentId = article[u'_id']
+            LOG.debug("firsttime"+str(self.articleCounterDocumentId))
+        articleCounterQuery = {'_id':self.articleCounterDocumentId}
+        return articleCounterQuery
+    #DEF      
+    
+    def findAndIncreaseArticleCounter(self):    
+        query = self.getArticleCounterQuery()
+        update = {'$inc': {"nextArticleId": 1}}
+        counter = self.db[constants.ARTICLE_COLL].find_and_modify(query,update,True)
+        return int(counter[u'nextArticleId'])
     
 ## CLASS
