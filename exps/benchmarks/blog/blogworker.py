@@ -566,7 +566,7 @@ class BlogWorker(AbstractWorker):
     def getArticleCounterQuery(self):
         if self.articleCounterDocumentId is None:
             articleCounterQuery = {id: -999999}
-            articleCounter = self.db[constant.ARTICLE_COLL].find_one({id: -999999})
+            articleCounter = self.db[constants.ARTICLE_COLL].find_one({id: -999999})
             self.articleCounterDocumentId = article[u'_id']
             LOG.debug("firsttime"+str(self.articleCounterDocumentId))
         articleCounterQuery = {'_id':self.articleCounterDocumentId}
