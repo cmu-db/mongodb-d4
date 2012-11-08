@@ -169,8 +169,10 @@ class Coordinator:
                 LOG.info("WAITING, clients left: %s", running_clients)
                 LOG.info("Number of evaluated design: %d", evaluated_design)
                 LOG.info("Found %s better designs so far", num_bestDesign)
+                LOG.info("Time elapsed: %s", time.time() - start)
                 LOG.info("Best cost: %s", self.bestCost)
                 LOG.info("Best Design:\n%s", self.bestDesign)
+                
         ## WHILE
     def execute(self):
         """
