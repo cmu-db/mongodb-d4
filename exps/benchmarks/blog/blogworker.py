@@ -170,7 +170,7 @@ class BlogWorker(AbstractWorker):
             shardingPattern = {articles : { id : 1}}
         
         elif config[self.name]["sharding"] == constants.SHARDEXP_COMPOUND:
-            shardingPattern = {articles : {id : 1, slug : 1}}
+            shardingPattern = {articles : {id : 1, hashid : 1}}
         
         else:
             raise Exception("Unexpected sharding configuration type '%d'" % config["sharding"])
@@ -250,15 +250,16 @@ class BlogWorker(AbstractWorker):
                 self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
                 if not config[self.name]["denormalize"]:
-                    LOG.info("Creating indexes (articleId,rating) %s" % self.db[constants.COMMENT_COLL].full_name)
-                    self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING), \
-                                                                  ("rating", pymongo.DESCENDING)])
+                    LOG.info("Creating indexes on Comment (articleId) %s" % self.db[constants.COMMENT_COLL].full_name)
+                    self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING)])
+                    LOG.info("Creating primary indexes on Comment (id) %s" % self.db[constants.COMMENT_COLL].full_name)
+                    self.db[constants.COMMENT_COLL].ensure_index([("id", pymongo.ASCENDING)])
                     
             elif config[self.name]["experiment"] == constants.EXPS_SHARDING:
-                #NOTE: we don't need an index on articleId only as we have this composite index -> (articleId,articleSlug)
-                LOG.info("Creating indexes (id,slug) %s" % self.db[constants.ARTICLE_COLL].full_name)
+                #NOTE: we don't need an index on articleId only as we have this composite index -> (articleId,articleHashId)
+                LOG.info("Creating indexes (id,hashid) %s" % self.db[constants.ARTICLE_COLL].full_name)
                 self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING), \
-                                                              ("slug", pymongo.ASCENDING)])
+                                                              ("hashid", pymongo.ASCENDING)])
                 
             
             else:
@@ -279,25 +280,18 @@ class BlogWorker(AbstractWorker):
             title = randomString(titleSize)
             contentSize = constants.ARTICLE_CONTENT_SIZE
             content = randomString(contentSize)
-            #slug = list(title.replace(" ", ""))
-            #if len(slug) > 64: slug = slug[:64]
-            #for idx in xrange(0, len(slug)):
-            #    if random.randint(0, 10) == 0:
-            #       slug[idx] = "-"
-            ## FOR
-            #slug = "".join(slug)
             articleTags = []
             for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
                  articleTags.append(random.choice(self.tags))
             
             articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
-            articleSlug = '%064d' % hash(str(articleId))
+            articleIdHash = hash(str(articleId))
             article = {
-                "id": articleId,
+                "id": long(articleId),
                 "title": title,
                 "date": articleDate,
                 "author": random.choice(self.authors),
-                "slug" : articleSlug,
+                "hashid" : articleIdHash,
                 "content": content,
                 "numComments": numComments,
                 "tags": articleTags,
@@ -321,11 +315,12 @@ class BlogWorker(AbstractWorker):
                 
                 comment = {
                     "id": str(articleId)+"|"+str(ii),
-                    "article": articleId,
+                    "article": long(articleId),
                     "date": randomDate(articleDate, constants.STOP_DATE), 
                     "author": commentAuthor,
                     "comment": commentContent,
-                    "rating": int(self.ratingZipf.next())
+                    "rating": int(self.ratingZipf.next()),
+                    "votes": 0,
                 }
                 commentCtr += 1
                 commentsBatch.append(comment) 
@@ -336,7 +331,7 @@ class BlogWorker(AbstractWorker):
                     self.db[constants.COMMENT_COLL].insert(comment) 
             ## FOR (comments)
             if config[self.name]["denormalize"]:
-	        self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})  
+                self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})  
         ## FOR (articles)
         
         if config[self.name]["denormalize"]:
@@ -366,13 +361,8 @@ class BlogWorker(AbstractWorker):
         assert "experiment" in config[self.name]
         
         if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION: 
-            readorwrite = random.random()
-            if readorwrite < 0.8: #read
-	        articleId = self.articleZipf.next()
-                opName = "readArticleTopComments"
-            elif readorwrite >= 0.8: #write 
-                articleId = self.articleZipf.next()
-                opName = "incViewsArticle"
+            articleId = self.articleZipf.next()
+            opName = "readArticleTopCommentsIncCommentVotes"
             return (opName, (articleId,))
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
@@ -385,123 +375,15 @@ class BlogWorker(AbstractWorker):
             elif trial == 1:
                 #composite sharding key
                 articleId = self.articleZipf.next()
-                articleSlug = '%064d' % hash(str(articleId))
-                opName = "readArticleByIdAndSlug"
-                return (opName, (articleId,articleSlug))
+                articleIdHash = hash(str(articleId))
+                opName = "readArticleByIdAndHashId"
+                return (opName, (articleId,articleIdHash))
                
-        elif config[self.name]["experiment"] == constants.EXP_INDEXING:
-            #trial = int(config[self.name]["indexes"])
-            #randreadop = random.randint(1,2)
-            #readwriterandom = random.random()
-            #readpercent = 0.8
-            #skewfactor = float(config[self.name]["skew"])
-            #skewrandom = random.random()
-            #if skewrandom > skewfactor:
-            #     #LOG.debug("random~~~")
-            #     author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
-            #     tag = self.tags[int(random.randint(0,constants.NUM_TAGS-1))]
-            #else:
-                 #LOG.debug("zipfian~~~")
-                 #author = self.authors[0]
-                 #tag = self.tags[0]
-                
+        elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
             author = self.authors[self.authorZipf.next()]
             tag = self.tags[self.tagZipf.next()] 
-                 #author = self.authors[0]
-                 #tag = self.tags[0]
             opName = "readArticlesByAuthorAndTag"
             return (opName, (author,tag))
-            
-            #read = False
-            
-            #if readwriterandom < readpercent:
-                #read = True
-            #if read:
-                #if randreadop == 1:
-                    #if skewrandom > skewfactor:
-                        #author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] 
-                    #else:
-                        #author = self.authors[self.authorZipf.next()] 
-                    #opName = "readArticlesByAuthor"
-                    #return (opName, (author)) 
-                #elif randreadop == 2:
-                    #if skewrandom > skewfactor:
-                        #tag = self.tags[int(random.randint(0,constants.NUM_AUTHORS-1))]
-                    #else:
-                        #tag = self.tags[self.authorZipf.next()] 
-                    #opName = "readArticlesByTag"
-                    #return (opName, (tag))
-            #else:
-                #if skewrandom > skewfactor:
-                    #articleId = random.randint(0, self.num_articles)
-                #else:
-                    #articleId = self.articleZipf.next()
-                ##LOG.info("incViews"+str(articleId))    
-                #opName="incViewsArticle" # TODO Fix the warning - it doesn't work
-                #return (opName, (articleId)) 
-            ##The skew percentage determines which operations we will grab 
-            ##an articleId/articleDate using a Zipfian random number generator versus 
-            ##a uniform distribution random number generator.
-            #skewfactor = float(config[self.name]["skew"])
-            #trial = int(config[self.name]["indexes"])
-            ##The first trial (0) will consist of 90% reads and 10% writes. 
-            ##The second trial (1) will be 80% reads and 20% writes.
-            #readwriterandom = random.random()
-            #read = False
-            #if trial == 0: 
-                ##read
-                #if readwriterandom < 0.8:
-                    #read = True
-            #elif trial == 1:
-                ##read
-                #if readwriterandom < 0.9:
-                   #read = True   
-            ##if read
-            #if read == True:
-                ##random 1..3 to see which read we will make
-                #randreadop = random.randint(1,3)
-                #skewrandom = random.random()
-                #if randreadop == 1:
-                    #if skewrandom < skewfactor:
-                        #articleId = random.randint(0, self.num_articles)
-                    #else:
-                        #articleId = self.articleZipf.next()
-                    #opName = "readArticleById"
-                    #return (opName, (articleId))
-                #elif randreadop == 2:
-                    #if skewrandom < skewfactor: 
-                        #date = randomDate(constants.START_DATE, constants.STOP_DATE)
-                    #else:
-                        #date = self.dates[self.dateZipf.next()] #TODO to fix how to get the right position
-                    #opName = "readArticlesByDate"
-                    #return (opName, (date))
-                #elif randreadop == 3:
-                    #if skewrandom < skewfactor:
-                        #author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
-                    #else:
-                        #author = self.authors[self.authorZipf.next()] #TODO to fix how to get the right position
-                    #opName = "readArticlesByAuthor"
-                    #return (opName, (author)) 
-                #elif randreadop == 4:
-                    #if skewrandom < skewfactor:
-                        #date = random.randint(0,constants.NUMBER_OF_DATE_SUBRANGES-1) 
-                        #author = self.authors[int(random.randint(0,constants.NUM_AUTHORS-1))] #TODO to fix
-                    #else:
-                        #date = self.dateZipf.next() #TODO use the DateZipf and make range date queries 
-                        #author = self.authors[self.authorZipf.next()] #TODO to fix how to get the right position
-                    #opName = "readArticleByAuthorAndDate"
-                    #return (opName, (author,date)) 
-                
-            #if write
-            #elif read == False: 
-                #skewrandom = random.random()
-                #if skewrandom < skewfactor:
-                    #articleId = random.randint(0, self.num_articles)
-                #else:
-                    #articleId = self.articleZipf.next()
-                #opName="incViewsArticle"
-                #return (opName, (articleId)) 
-            #do the increase of views
    ## DEF
         
     def executeImpl(self, config, op, params):
@@ -515,7 +397,7 @@ class BlogWorker(AbstractWorker):
         m = getattr(self, op)
         assert m != None, "Invalid operation name '%s'" % op
         try:
-            result = m(config[self.name]["denormalize"], *params)
+            result = m(config, *params)
             #result = m(*params)
         except:
             LOG.warn("Unexpected error when executing %s" % op)
@@ -524,7 +406,7 @@ class BlogWorker(AbstractWorker):
         return 1 # number of operations
     ## DEF
     
-    def readArticleById(self,denormalize, articleId):
+    def readArticleById(self,config, articleId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
@@ -533,61 +415,65 @@ class BlogWorker(AbstractWorker):
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
             
     
-    def readArticlesByTag(self,denormalize, tag):
+    def readArticlesByTag(self,config, tag):
         articles = self.db[constants.ARTICLE_COLL].find({"tags": tag})
         for article in articles:
             pass 
     
-    def readArticlesByAuthor(self,denormalize,author):
+    def readArticlesByAuthor(self,config,author):
         articles = self.db[constants.ARTICLE_COLL].find({"author": author})
         for article in articles:
             pass     
     
-    def readArticlesByDate(self,denormalize,date):
+    def readArticlesByDate(self,config,date):
         article = self.db[constants.ARTICLE_COLL].find({"date": date})
         for article in articles:
             pass 
     
-    def readArticleByIdAndSlug(self,denormalize,id,slug):
-        article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"slug": slug})
+    def readArticleByIdAndHashId(self,config,id,hashid):
+        article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"hashid": hashid})
         articleId = article["id"]
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
-        assert article["slug"] == slug, \
+        assert article["hashid"] == hashid, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         assert article["id"] == id, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
     
     
     
-    def readArticlesByAuthorAndDate(self,denormalize,author,date):
+    def readArticlesByAuthorAndDate(self,config,author,date):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
         for article in articles:
             pass  
 
-    def readArticlesByAuthorAndTag(self,denormalize,author,tag):
-        #LOG.debug("author~"+str(author))
-        #LOG.debug("tag~"+str(tag))
+    def readArticlesByAuthorAndTag(self,config,author,tag):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"tags": tag})
         for article in articles:
             pass    
-        #LOG.debug(str(articles.count()))
     
-    def readArticleTopComments(self,denormalize,articleId):
+    def readArticleTopCommentsIncCommentVotes(self,config,articleId):
+        #with probability 20% we update a field in a random comment of this articleid
+        readorwrite = random.random()
+
         # We are searching for the comments that had been written for the article with articleId 
-        # and we sort them in descending order of user rating
-        if not denormalize: 
+
+        if not config[self.name]["denormalize"]:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
             comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).limit(100)
             for comment in comments:
-	        pass
+                pass
+            if readorwrite >= 0.8: #write
+                self.db[constants.COMMENT_COLL].update({"id": str(articleId)+"|"+str(int(config[self.name]["commentsperarticle"])-1) },{"$inc" : {"votes":1}},False)
             #for comment in comments:
             #    pprint(comment)
             #    print("\n");
             #print("~~~~~~~~~~~~~~");
         else:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
+            if readorwrite >= 0.8: #write
+                self.db[constants.ARTICLE_COLL].update({"id": articleId},{ '$inc' : {"comments."+str(random.randint(0,int(config[self.name]["commentsperarticle"])-1))+".votes":1}},False)
             #if not article is None:
             #    assert 'comments' in article, pformat(article)
             #    comments = article[u'comments']
@@ -601,10 +487,17 @@ class BlogWorker(AbstractWorker):
                 return
             assert article["id"] == articleId, \
                 "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
-        
+
         
     ## DEF
-    
+    #def incVotesComment(self,config,articleId)
+    #    #increase the votes of a random comment in the article with this articleId
+    #    if not config[self.name]["denormalize"]:
+    #        self.db[constants.COMMENT_COLL].update({"id": str(articleId)+"|"+str(int(config[self.name]["commentsperarticle"])-1) },{"$inc" : {"votes":1}},False)
+    #    else
+    #        self.db[constants.ARTICLE_COLL].update({"id": articleId},{ '$inc' : {"comments."+str(random.randint(0,int(config[self.name]["commentsperarticle"])-1))+".votes":1}})
+        
+        
     def incViewsArticle(self,denormalize,articleId):
         #Increase the views of an article by one
         self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},False)
