@@ -157,12 +157,6 @@ class LNSDesigner(AbstractDesigner):
                     break
             ## IF
             else:
-                # If we terminate bbsearch on purpose, we use the current best design of bbsearch as the bestDesign for next round
-                # Also, since we have the current best design, we want to reset the relax ratio to the initial ratio because the
-                # current design is good
-                # OH, also the bbsearch_time
-                relaxRatio = self.init_relaxRatio
-                bbsearch_time_out = self.init_bbsearch_time
                 if bbCost < bestCost:
                     bestCost = bbCost
                     bestDesign = bbDesign.copy()
