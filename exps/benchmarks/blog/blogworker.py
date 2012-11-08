@@ -390,7 +390,7 @@ class BlogWorker(AbstractWorker):
         #global opCount;
         assert self.conn != None
         assert "experiment" in config[self.name]
-        
+        result = 0
         if self.debug:
             LOG.debug("Executing %s / %s" % (op, str(params)))
         
@@ -403,7 +403,7 @@ class BlogWorker(AbstractWorker):
             LOG.warn("Unexpected error when executing %s" % op)
             raise
         
-        return 1 # number of operations
+        return result # number of operations
     ## DEF
     
     def readArticleById(self,config, articleId):
@@ -413,22 +413,25 @@ class BlogWorker(AbstractWorker):
             return
         assert article["id"] == articleId, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-            
+       return 1
     
     def readArticlesByTag(self,config, tag):
         articles = self.db[constants.ARTICLE_COLL].find({"tags": tag})
         for article in articles:
-            pass 
+            pass
+        return 1
     
     def readArticlesByAuthor(self,config,author):
         articles = self.db[constants.ARTICLE_COLL].find({"author": author})
         for article in articles:
-            pass     
+            pass 
+        return 1
     
     def readArticlesByDate(self,config,date):
         article = self.db[constants.ARTICLE_COLL].find({"date": date})
         for article in articles:
-            pass 
+            pass
+	return 1
     
     def readArticleByIdAndHashId(self,config,id,hashid):
         article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"hashid": hashid})
@@ -440,67 +443,52 @@ class BlogWorker(AbstractWorker):
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         assert article["id"] == id, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
-    
+        return 1
     
     
     def readArticlesByAuthorAndDate(self,config,author,date):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
         for article in articles:
-            pass  
+            pass 
+        return 1
 
     def readArticlesByAuthorAndTag(self,config,author,tag):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"tags": tag})
         for article in articles:
-            pass    
+            pass
+        return 1
     
     def readArticleTopCommentsIncCommentVotes(self,config,articleId):
         #with probability 20% we update a field in a random comment of this articleid
         readorwrite = random.random()
-
+        opCount = 0
         # We are searching for the comments that had been written for the article with articleId 
 
         if not config[self.name]["denormalize"]:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
             comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).limit(100)
+            opCount = 2
             for comment in comments:
                 pass
             if readorwrite >= 0.8: #write
                 self.db[constants.COMMENT_COLL].update({"id": str(articleId)+"|"+str(int(config[self.name]["commentsperarticle"])-1) },{"$inc" : {"votes":1}},False)
-            #for comment in comments:
-            #    pprint(comment)
-            #    print("\n");
-            #print("~~~~~~~~~~~~~~");
+                opCount = 3
         else:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
+            opCount = 1
             if readorwrite >= 0.8: #write
                 self.db[constants.ARTICLE_COLL].update({"id": articleId},{ '$inc' : {"comments."+str(random.randint(0,int(config[self.name]["commentsperarticle"])-1))+".votes":1}},False)
-            #if not article is None:
-            #    assert 'comments' in article, pformat(article)
-            #    comments = article[u'comments']
-            #    #sort by rating descending and take top 10..
-            #    comments = sorted(comments, key=lambda k: -k[u'rating'])
-            #    comments = comments[0:10]
-                #pprint(comments)
-                #print("\n");
+                opCount = 2
             if article is None:
                 LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
                 return
             assert article["id"] == articleId, \
                 "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
-
-        
-    ## DEF
-    #def incVotesComment(self,config,articleId)
-    #    #increase the votes of a random comment in the article with this articleId
-    #    if not config[self.name]["denormalize"]:
-    #        self.db[constants.COMMENT_COLL].update({"id": str(articleId)+"|"+str(int(config[self.name]["commentsperarticle"])-1) },{"$inc" : {"votes":1}},False)
-    #    else
-    #        self.db[constants.ARTICLE_COLL].update({"id": articleId},{ '$inc' : {"comments."+str(random.randint(0,int(config[self.name]["commentsperarticle"])-1))+".votes":1}})
-        
+        return opCount    
         
     def incViewsArticle(self,denormalize,articleId):
         #Increase the views of an article by one
         self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},False)
-        return
+        return 1
 
 ## CLASS
