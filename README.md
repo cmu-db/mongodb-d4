@@ -23,6 +23,7 @@ For More Information: <http://database.cs.brown.edu/projects/mongodb/>
 ## Authors
 + [Andy Pavlo](http://www.cs.brown.edu/~pavlo)
 + [Yang Zou](http://www.cs.brown.edu/~yang)
++ [Michail Michailidis](http://www.cs.brown.edu/~mmichail)
 + [Stan Zdonik](http://www.cs.brown.edu/~sbz)
 
 ## Past Contributors

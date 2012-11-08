@@ -5,7 +5,16 @@ import fileinput
 import hashlib
 import time
 import re
+import logging
 import optparse
+
+logging.basicConfig(
+    level = logging.INFO,
+    format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+    datefmt="%m-%d-%Y %H:%M:%S",
+    stream = sys.stdout
+)
+LOG = logging.getLogger(__name__)
 
 def hash_string(s, salt, test=False):
     #print s
@@ -24,10 +33,12 @@ class Sanitizer:
             self.salt = options.salt        
             if options.out: 
                 self.f = open(options.out, 'w')
-        else:
-            self.salt = 0
+        if not self.salt:
+            import random 
+            self.salt = int(random.random()*100000000)
         self.test = test
-    
+        LOG.debug("Anonymizer Salt Value: %d", self.salt)
+    ## DEF
 
     def find_quote(self, line, startIndex):
         index = startIndex
