@@ -537,6 +537,7 @@ class BlogWorker(AbstractWorker):
         title = randomString(titleSize)
         contentSize = constants.ARTICLE_CONTENT_SIZE
         content = randomString(contentSize)
+        numComments = int(config[self.name]["commentsperarticle"])
         articleTags = []
         for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
             articleTags.append(random.choice(self.tags))
