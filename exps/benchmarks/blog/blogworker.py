@@ -227,18 +227,18 @@ class BlogWorker(AbstractWorker):
             
             if config[self.name]["experiment"] == constants.EXP_INDEXING:
                 #article(id)
-                LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
-                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                #LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
+                #self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 #article(author)       
-                LOG.info("Creating index %s(author)" % self.db[constants.ARTICLE_COLL].full_name) 
-                self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING)])
+                #LOG.info("Creating index %s(author)" % self.db[constants.ARTICLE_COLL].full_name) 
+                #self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING)])
                 
                 trial = int(config[self.name]["indexes"])
                 
                 if trial == 0:
                     #article(id)
-                    LOG.info("Creating index %s(author,tags)" % self.db[constants.ARTICLE_COLL].full_name) 
-                    self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING)])
+                    LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name) 
+                    self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                     
                 elif trial == 1:
                     #article(hashid)
@@ -257,9 +257,8 @@ class BlogWorker(AbstractWorker):
                     
             elif config[self.name]["experiment"] == constants.EXPS_SHARDING:
                 #NOTE: we don't need an index on articleId only as we have this composite index -> (articleId,articleHashId)
-                LOG.info("Creating indexes (id,hashid) %s" % self.db[constants.ARTICLE_COLL].full_name)
-                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING), \
-                                                              ("hashid", pymongo.ASCENDING)])
+                LOG.info("Creating indexes (hashid) %s" % self.db[constants.ARTICLE_COLL].full_name)
+                self.db[constants.ARTICLE_COLL].ensure_index([("hashid", pymongo.ASCENDING)])
                 
             
             else:
@@ -301,7 +300,7 @@ class BlogWorker(AbstractWorker):
             #if config[self.name]["denormalize"]:
             #    article["comments"] = [ ]
             #self.db[constants.ARTICLE_COLL].insert(article)
-            self.insertNewArticle(config,articleId)
+            self.insertNewArticle(config)
             
             ## ----------------------------------------------
             ## LOAD COMMENTS
