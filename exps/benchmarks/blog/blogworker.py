@@ -301,7 +301,7 @@ class BlogWorker(AbstractWorker):
             #    article["comments"] = [ ]
             #self.db[constants.ARTICLE_COLL].insert(article)
             self.insertNewArticle(config)
-            
+            articleCtr+=1
             ## ----------------------------------------------
             ## LOAD COMMENTS
             ## ----------------------------------------------
@@ -554,7 +554,6 @@ class BlogWorker(AbstractWorker):
             "tags": articleTags,
             "views": 0,
         }
-        articleCtr+=1;
         if config[self.name]["denormalize"]:
             article["comments"] = [ ]
         self.db[constants.ARTICLE_COLL].insert(article)
