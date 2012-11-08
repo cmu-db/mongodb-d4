@@ -138,6 +138,7 @@ class BlogWorker(AbstractWorker):
         
         
         if self.getWorkerId() == 0:
+            self.initArticleCounter()
             if config['default']["reset"]:
                 LOG.info("Resetting database '%s'" % config['default']["dbname"])
                 self.conn.drop_database(config['default']["dbname"])
@@ -147,9 +148,11 @@ class BlogWorker(AbstractWorker):
                 self.enableSharding(config)
         ## IF
         
-        ## The next operation that we need to execute
+        ## The next operation that we need to execute	
         ## If it's empty, then just execute whatever it is that we're suppose to
         self.nextOp = [ ]
+        
+        
         
         #self.initNextCommentId(config[self.name]["maxCommentId"])
     ## DEF
@@ -224,30 +227,24 @@ class BlogWorker(AbstractWorker):
             
             
             if config[self.name]["experiment"] == constants.EXP_INDEXING:
-                
-                LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name)
+                #article(id)
+                LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
                 self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
-                       
-                LOG.info("Creating index on (author) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
+                #article(author)       
+                LOG.info("Creating index %s(author)" % self.db[constants.ARTICLE_COLL].full_name) 
                 self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING)])
                 
                 trial = int(config[self.name]["indexes"])
                 
-                if trial == 1:
-                    LOG.info("Creating index (author,tags) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-                    self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING), \
-                                                                  ("tags",pymongo.ASCENDING)])
-                
-                
-                #LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-                #self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
-                
-                #LOG.info("Creating indexes (author,date) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-                #self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING), \
-                 #                                             ("date", pymongo.ASCENDING)])
-                
-                #LOG.info("Creating indexes (date) for %s" % self.db[constants.ARTICLE_COLL].full_name) 
-                #self.db[constants.ARTICLE_COLL].ensure_index([("date", pymongo.ASCENDING)])
+                if trial == 0:
+                    #article(id)
+                    LOG.info("Creating index %s(author,tags)" % self.db[constants.ARTICLE_COLL].full_name) 
+                    self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING)])
+                    
+                elif trial == 1:
+                    #article(hashid)
+                    LOG.info("Creating index %s(hashid)" % self.db[constants.ARTICLE_COLL].full_name) 
+                    self.db[constants.ARTICLE_COLL].ensure_index([("hashid", pymongo.ASCENDING)])
             
             elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
                 LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
@@ -280,32 +277,32 @@ class BlogWorker(AbstractWorker):
         commentTotal= 0
         numComments = int(config[self.name]["commentsperarticle"])
         for articleId in xrange(self.firstArticle, self.lastArticle+1):
-            titleSize = constants.ARTICLE_TITLE_SIZE
-            title = randomString(titleSize)
-            contentSize = constants.ARTICLE_CONTENT_SIZE
-            content = randomString(contentSize)
-            articleTags = []
-            for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
-                 articleTags.append(random.choice(self.tags))
-            
-            articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
-            articleIdHash = hash(str(articleId))
-            article = {
-                "id": long(articleId),
-                "title": title,
-                "date": articleDate,
-                "author": random.choice(self.authors),
-                "hashid" : articleIdHash,
-                "content": content,
-                "numComments": numComments,
-                "tags": articleTags,
-                "views": 0,
-            }
-            articleCtr+=1;
-            if config[self.name]["denormalize"]:
-                article["comments"] = [ ]
-            self.db[constants.ARTICLE_COLL].insert(article)
-            
+            #titleSize = constants.ARTICLE_TITLE_SIZE
+            #title = randomString(titleSize)
+            #contentSize = constants.ARTICLE_CONTENT_SIZE
+            #content = randomString(contentSize)
+            #articleTags = []
+            #for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
+            #     articleTags.append(random.choice(self.tags))
+            # 
+            #articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
+            #articleIdHash = hash(str(articleId))
+            #article = {
+            #    "id": long(articleId),
+            #    "title": title,
+            #    "date": articleDate,
+            #    "author": random.choice(self.authors),
+            #    "hashid" : articleHashId,
+            #    "content": content,
+            #    "numComments": numComments,
+            #    "tags": articleTags,
+            #    "views": 0,
+            #}
+            #articleCtr+=1;
+            #if config[self.name]["denormalize"]:
+            #    article["comments"] = [ ]
+            #self.db[constants.ARTICLE_COLL].insert(article)
+            self.insertNewArticle(config,articleId)
             
             ## ----------------------------------------------
             ## LOAD COMMENTS
@@ -325,7 +322,19 @@ class BlogWorker(AbstractWorker):
                     "comment": commentContent,
                     "rating": int(self.ratingZipf.next()),
                     "votes": 0,
-                }
+                } # Check whether we have a next op that we need to execute
+ 	 368	
++        if len(self.nextOp) > 0:
+ 	 369	
++            return self.nextOp.pop(0)
+ 	 370	
++            
+ 	 371	
++        # Otherwise just figure out what the next random thing
+ 	 372	
++        # it is that we need to do...
+ 	 373	
++        
                 commentCtr += 1
                 commentsBatch.append(comment) 
                 #if config[self.name]["denormalize"]:
@@ -370,7 +379,7 @@ class BlogWorker(AbstractWorker):
             
         # Otherwise just figure out what the next random thing
         # it is that we need to do...
-        
+ 
         if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION: 
             articleId = self.articleZipf.next()
             opName = "readArticleTopCommentsIncCommentVotes"
@@ -386,15 +395,20 @@ class BlogWorker(AbstractWorker):
             elif trial == 1:
                 #composite sharding key
                 articleId = self.articleZipf.next()
-                articleIdHash = hash(str(articleId))
-                opName = "readArticleByIdAndHashId"
+                articleHashId = hash(str(articleId))
+                opName = "readArticleAndHashId"
                 return (opName, (articleId,articleIdHash))
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
-            author = self.authors[self.authorZipf.next()]
-            tag = self.tags[self.tagZipf.next()] 
-            opName = "readArticlesByAuthorAndTag"
-            return (opName, (author,tag))
+            trial = int(config[self.name]["sharding"])
+            if trial == 0:
+                articleId = self.articleZipf.next()
+                opName = "readArticleById"
+            elif trial ==1:
+	        articleId = self.articleZipf.next()
+                articleHashId = hash(str(articleId))
+                opName = "readArticleByHashId"
+            return (opName, (articleIdHash))
    ## DEF
         
     def executeImpl(self, config, op, params):
@@ -425,53 +439,69 @@ class BlogWorker(AbstractWorker):
         assert article["id"] == articleId, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         return 1
+    #DEF
     
     def readArticlesByTag(self,config, tag):
         articles = self.db[constants.ARTICLE_COLL].find({"tags": tag})
         for article in articles:
             pass
         return 1
+    #DEF
     
     def readArticlesByAuthor(self,config,author):
         articles = self.db[constants.ARTICLE_COLL].find({"author": author})
         for article in articles:
             pass 
         return 1
+    #DEF
     
     def readArticlesByDate(self,config,date):
         article = self.db[constants.ARTICLE_COLL].find({"date": date})
         for article in articles:
             pass
 	return 1
+    #DEF
     
-    def readArticleByIdAndHashId(self,config,id,hashid):
-        article = self.db[constants.ARTICLE_COLL].find_one({"id":id,"hashid": hashid})
-        articleId = article["id"]
+    def readArticleByHashId(self,config,hashid):
+        article = self.db[constants.ARTICLE_COLL].find_one({"hashid": hashid})
         if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
             return
         assert article["hashid"] == hashid, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-        assert article["id"] == id, \
+        return 1
+    #DEF
+    
+    def readArticleByIdAndHashId(self,config,articleId,hashid):
+        article = self.db[constants.ARTICLE_COLL].find_one({"id":articleId,"hashid": hashid})
+        if not article:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return
+        assert article["hashid"] == hashid, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+        assert article["id"] == articleId, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
         return 1
-    
+    #DEF
     
     def readArticlesByAuthorAndDate(self,config,author,date):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"date": date})
         for article in articles:
             pass 
         return 1
-
+    #DEF
+    
     def readArticlesByAuthorAndTag(self,config,author,tag):
         articles = self.db[constants.ARTICLE_COLL].find({"author":author,"tags": tag})
         for article in articles:
             pass
         return 1
-        
+    #DEF
+    
     ## ---------------------------------------------------------------------------
     ## DENORMALIZATION
     ## ---------------------------------------------------------------------------
+    
     
     def updateArticleComments(self, config, articleId):
         commentsPerArticle = int(config[self.name]["commentsperarticle"])-1
@@ -513,10 +543,43 @@ class BlogWorker(AbstractWorker):
             self.nextOp.append(("updateArticleComments", (articleId,)))
                 
         return opCount    
-        
-    def incViewsArticle(self,denormalize,articleId):
-        #Increase the views of an article by one
-        self.db[constants.ARTICLE_COLL].update({'id':articleId},{"$inc" : {"views":1}},False)
+    
+    
+    def insertNewArticle(self,config,articleId):
+        titleSize = constants.ARTICLE_TITLE_SIZE
+        title = randomString(titleSize)
+        contentSize = constants.ARTICLE_CONTENT_SIZE
+        content = randomString(contentSize)
+        articleTags = []
+        for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
+            articleTags.append(random.choice(self.tags))
+        articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
+        articleIdHash = hash(str(articleId))
+        article = {
+            "id": long(articleId),
+            "title": title,
+            "date": articleDate,
+            "author": random.choice(self.authors),
+            "hashid" : articleHashId,
+            "content": content,
+            "numComments": numComments,
+            "tags": articleTags,
+            "views": 0,
+        }
+        articleCtr+=1;
+        if config[self.name]["denormalize"]:
+            article["comments"] = [ ]
+        self.db[constants.ARTICLE_COLL].insert(article)
         return 1
-
+    #DEF
+    
+    def initArticleCounter(self):
+        articleId=-999999
+        article = { 
+           "id": long(articleId),
+           "nextArticleId": 0,
+        }
+        self.db[constants.ARTICLE_COLL].insert(article)
+    #DEF  
+    
 ## CLASS
