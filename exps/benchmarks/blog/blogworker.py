@@ -541,7 +541,7 @@ class BlogWorker(AbstractWorker):
         for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
             articleTags.append(random.choice(self.tags))
         articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
-        articleIdHash = hash(str(articleId))
+        articleHashId = hash(str(articleId))
         article = {
             "id": long(articleId),
             "title": title,
