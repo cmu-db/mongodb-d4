@@ -44,8 +44,9 @@ class BlogCoordinator(AbstractCoordinator):
         ("sharding", "Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_SINGLE),
         ("indexes", "Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_ALL, constants.INDEXEXP_9010),
         ("denormalize", "If set to true, then the COMMENTS are denormalized into ARTICLES", False),
-        ("skew","Determine the percentage of the articles to be retreived with Zipfian distribution. The rest will be retreived with Uniform distribution",0.3)
-,    ]
+        ("skew","if the value is e.g 0.9 then 90 percent of the time the 10 percent of articles will be accessed and the rest 10 percent of times the 90 percent of articles will be accessed",0.9),
+        ("range","Determines the range of the most recent articles that will be read in indexing and sharding experiment",10),
+     ]
     
     def benchmarkConfigImpl(self):
         return self.DEFAULT_CONFIG
