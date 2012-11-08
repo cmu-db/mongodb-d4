@@ -147,6 +147,10 @@ class BlogWorker(AbstractWorker):
                 self.enableSharding(config)
         ## IF
         
+        ## The next operation that we need to execute
+        ## If it's empty, then just execute whatever it is that we're suppose to
+        self.nextOp = [ ]
+        
         #self.initNextCommentId(config[self.name]["maxCommentId"])
     ## DEF
     
@@ -360,6 +364,13 @@ class BlogWorker(AbstractWorker):
     def next(self, config):
         assert "experiment" in config[self.name]
         
+        # Check whether we have a next op that we need to execute
+        if len(self.nextOp) > 0:
+            return self.nextOp.pop(0)
+            
+        # Otherwise just figure out what the next random thing
+        # it is that we need to do...
+        
         if config[self.name]["experiment"] == constants.EXP_DENORMALIZATION: 
             articleId = self.articleZipf.next()
             opName = "readArticleTopCommentsIncCommentVotes"
@@ -457,33 +468,50 @@ class BlogWorker(AbstractWorker):
         for article in articles:
             pass
         return 1
+        
+    ## ---------------------------------------------------------------------------
+    ## DENORMALIZATION
+    ## ---------------------------------------------------------------------------
+    
+    def updateArticleComments(self, config, articleId):
+        commentsPerArticle = int(config[self.name]["commentsperarticle"])-1
+        
+        if not config[self.name]["denormalize"]:
+            commentId = "%s|%d" % (articleId, commentsPerArticle)
+            self.db[constants.COMMENT_COLL].update({"id": commentId}, {"$inc" : {"votes":1}}, False)
+        else:
+            commentId = "comments.%d.votes" % random.randint(0, commentsPerArticle)
+            self.db[constants.ARTICLE_COLL].update({"id": articleId}, {'$inc': {commentId: 1}}, False)
+            
+        return 1
+    ## DEF
     
     def readArticleTopCommentsIncCommentVotes(self,config,articleId):
-        #with probability 20% we update a field in a random comment of this articleid
-        readorwrite = random.random()
+        """We are searching for the comments that had been written for the article with articleId"""
+        
         opCount = 0
-        # We are searching for the comments that had been written for the article with articleId 
-
         if not config[self.name]["denormalize"]:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
             comments = self.db[constants.COMMENT_COLL].find({"article": articleId}).limit(100)
             opCount = 2
             for comment in comments:
                 pass
-            if readorwrite >= 0.8: #write
-                self.db[constants.COMMENT_COLL].update({"id": str(articleId)+"|"+str(int(config[self.name]["commentsperarticle"])-1) },{"$inc" : {"votes":1}},False)
-                opCount = 3
+
         else:
             article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
             opCount = 1
-            if readorwrite >= 0.8: #write
-                self.db[constants.ARTICLE_COLL].update({"id": articleId},{ '$inc' : {"comments."+str(random.randint(0,int(config[self.name]["commentsperarticle"])-1))+".votes":1}},False)
-                opCount = 2
-            if article is None:
-                LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-                return
-            assert article["id"] == articleId, \
-                "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
+
+        if article is None:
+            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+            return opCount
+        assert article["id"] == articleId, \
+            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId) 
+            
+        # With probability 20% we update a field in a random comment of this articleid
+        if random.random() >= 0.8:
+            # Queue up the write!
+            self.nextOp.append(("updateArticleComments", (articleId,)))
+                
         return opCount    
         
     def incViewsArticle(self,denormalize,articleId):
