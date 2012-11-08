@@ -35,12 +35,14 @@ import subprocess
 import execnet
 import logging
 import time
+import threading
 from datetime import datetime
 from ConfigParser import SafeConfigParser
 from pprint import pprint, pformat
 
 from api.messageprocessor import *
 from api.directchannel import *
+from api.mongostat import *
 
 # Third-Party Dependencies
 if __name__ == '__channelexec__':
@@ -62,6 +64,13 @@ from util.histogram import Histogram
 # LOG = logging.getLogger(__name__)
 LOG = logging.getLogger()
 
+SSH_USER = "ubuntu"
+SSH_OPTIONS = {
+    "UserKnownHostsFile": "/dev/null",
+    "StrictHostKeyChecking": "no",
+    "RequestTTY": "force",
+}
+
 ## ==============================================
 ## Benchmark Invocation
 ## ==============================================
@@ -77,6 +86,7 @@ class Benchmark:
         ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
         ("design", "Path to database design file (must be supported by benchmark).", ""),
         ("logfile", "Path to debug log file for remote execnet processes", None),
+        ("mongostat_sleep", "The number of seconds to sleep before collecting new info using mongostat", 10),
     ]
     
     '''main class'''
@@ -191,8 +201,19 @@ class Benchmark:
             
         # Step 3: Execute the benchmark workload
         if not self._args['no_execute']:
-            self._coordinator.execute(self._config, self._channels)
-            self._coordinator.showResult(self._config, self._channels)
+            mongostat = None
+            try:
+                # Start mongostat
+                if self._args["mongostat"]:
+                    dbHost = self._config["default"]["host"]
+                    mongostat = MongoStatCollector(dbHost, SSH_USER, SSH_OPTIONS)
+                    mongostat.start()
+                self._coordinator.execute(self._config, self._channels)
+                self._coordinator.showResult(self._config, self._channels)
+            finally:
+                if not mongostat is None:
+                    mongostat.stop()
+        ## IF
             
         # Step 4: Clean things up (?)
         # self._coordinator.moreProcessing(self._config, self._channels)
@@ -268,6 +289,11 @@ class Benchmark:
         return klass()
     ## DEF
     
+    def collectMongoStat(self):
+        """Spawn a thread that logs into the server and retrives mongostat output"""
+        sshOpts = " ".join(map(lambda k: "-o \"%s %s\"" % (k, SSH_OPTIONS[k]), SSH_OPTIONS.iterkeys()))
+        cmd = "ssh %s@%s %s \"%s\"" % (SSH_USER, host, sshOpts, "mongostat")
+        
 ## CLASS
         
 ## ==============================================
@@ -303,12 +329,12 @@ def flushBuffer(host):
         "sudo service mongod start",
         "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
     ]
-    sshOpts = "-o \"UserKnownHostsFile /dev/null\" " + \
-              "-o \"StrictHostKeyChecking no\""
-
     LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
+    
+    sshOpts = " ".join(map(lambda k: "-o \"%s %s\"" % (k, SSH_OPTIONS[k]), SSH_OPTIONS.iterkeys()))
+    baseCmd = "ssh %s@%s %s" % (SSH_USER, host, sshOpts)
     for cmd in remoteCmds:
-        subprocess.check_call("ssh -t ubuntu@%s %s \"%s\"" % (host,sshOpts,cmd), shell=True)
+        subprocess.check_call("%s \"%s\"" % (baseCmd, cmd), shell=True)
     time.sleep(30)
     ## FOR
 ## DEF
@@ -378,6 +404,8 @@ if __name__=='__main__':
                          help='Instruct the driver to reset the contents of the database')
     agroup.add_argument('--flush', action='store_true',
                         help="Flush the OS cache on the MongoDB host before executing the benchmark. This requires passwordless sudo access.")
+    agroup.add_argument('--mongostat', action='store_true',
+                        help="Execute mongostat on database host and retrieve the results.")
     agroup.add_argument('--no-load', action='store_true',
                          help='Disable loading the benchmark data')
     agroup.add_argument('--no-execute', action='store_true',
