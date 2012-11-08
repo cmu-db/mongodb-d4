@@ -76,7 +76,7 @@ class BlogWorker(AbstractWorker):
     
     
     def initImpl(self, config, msg):
-        #self.opCount=0;
+        self.articleCounterDocumentId = None
         # A list of booleans that we will randomly select
         # from to tell us whether our op should be a read or write
         self.workloadWrite = [ ]
