@@ -214,8 +214,12 @@ class BlogWorker(AbstractWorker):
     def loadImpl(self, config, channel, msg):
         assert self.conn != None
         
-        # Create the nextArticleId counter here
+        # HACK: Setup the indexes if we're the first client
         if self.getWorkerId() == 0:
+            self.db[constants.ARTICLE_COLL].drop_indexes()
+            self.db[constants.COMMENT_COLL].drop_indexes()
+            
+            # Create the nextArticleId counter here
             articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
                               "id": constants.NEXT_ARTICLE_CTR_ID}
             record = self.db[constants.ARTICLE_COLL].find_one({"id": constants.NEXT_ARTICLE_CTR_ID})
@@ -224,16 +228,10 @@ class BlogWorker(AbstractWorker):
             else:
                 self.db[constants.ARTICLE_COLL].save(record, articleCounter, safe=True)
             LOG.info("Initialized nextArticleId counter")
-        
-        # HACK: Setup the indexes if we're the first client
-        if self.getWorkerId() == 0:
-            self.db[constants.ARTICLE_COLL].drop_indexes()
-            self.db[constants.COMMENT_COLL].drop_indexes()
-            
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.debug("\n"+pformat(self.db[constants.ARTICLE_COLL].find_one({"id": constants.NEXT_ARTICLE_CTR_ID})))
             
             ## INDEXES CONFIGURATION
-            
-            
             if config[self.name]["experiment"] == constants.EXP_INDEXING:
                 #article(id)
                 #LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
