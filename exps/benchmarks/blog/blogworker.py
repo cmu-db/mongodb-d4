@@ -567,12 +567,10 @@ class BlogWorker(AbstractWorker):
         if self.articleCounterDocumentId is None: 
             articleCounter = self.db[constants.ARTICLE_COLL].find_one({"id": -9999999})
             if articleCounter is None:
-                articleCounter = { "id" : -9999999, "nextArticleId": 0}
-                self.db[constants.ARTICLE_COLL].insert(articleCounter)
-                articleCounter = self.db[constants.ARTICLE_COLL].find_one({"id": -9999999})
+                articleCounter self.db[constants.ARTICLE_COLL].insert({ "id" : -9999999, "nextArticleId": 0})
                 self.articleCounterDocumentId = articleCounter[u'_id']
                 LOG.debug("firsttime"+str(self.articleCounterDocumentId))
-                articleCounterQuery = {'_id':self.articleCounterDocumentId}
+	    articleCounterQuery = {'_id':articleCounter[u'_id']}
         else: 
             articleCounterQuery = {'_id':self.articleCounterDocumentId}  
         return articleCounterQuery
