@@ -420,7 +420,7 @@ class BlogWorker(AbstractWorker):
                 articleId = self.articleZipf.next()
                 articleHashId = hash(str(articleId))
                 opName = "readArticleByIdAndHashId"
-                return (opName, (articleId,articleIdHash))
+                return (opName, (articleId,articleHashId))
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
             trial = int(config[self.name]["indexes"])
@@ -492,20 +492,20 @@ class BlogWorker(AbstractWorker):
         return 1
     #DEF
     
-    def readArticleByHashId(self,config,hashid):
-        article = self.db[constants.ARTICLE_COLL].find_one({"hashid": hashid})
+    def readArticleByHashId(self,config,articleHashId):
+        article = self.db[constants.ARTICLE_COLL].find_one({"hashid": articleHashId})
         #if not article:
-        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleHashId))
         #return
         #assert article["hashid"] == hashid, \
         #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         return 1
     #DEF
     
-    def readArticleByIdAndHashId(self,config,articleId,hashid):
-        article = self.db[constants.ARTICLE_COLL].find_one({"id":articleId,"hashid": hashid})
+    def readArticleByIdAndHashId(self,config,articleId,articleHashId):
+        article = self.db[constants.ARTICLE_COLL].find_one({"id":articleId,"hashid": articleHashId})
         #if not article:
-        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleHashId))
         #    return
         #assert article["hashid"] == hashid, \
         #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
