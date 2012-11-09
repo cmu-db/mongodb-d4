@@ -83,7 +83,10 @@ class Results:
         self.txn_times[txn_name] = total_time + duration
         
         # OpCount
-        self.opCount += opCount
+        if opCount is not None:
+            self.opCount += opCount
+            LOG.debug("ithappens")
+            
         
         # Txn Counter Histogram
         self.txn_counters.put(txn_name)
