@@ -537,14 +537,14 @@ class Parser:
         # this is not a content line... it can't be yaml
         if not yaml_line.startswith("{"):
             self.error_ctr += 1
-            msg = "Invalid Content on Line %d: JSON does not start with '{'" % self.line_ctr
+            msg = "Invalid Content on Line %d: JSON does not start with '{' [errors=%d]" % (self.line_ctr, self.error_ctr)
             if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
             return
         elif not yaml_line.endswith("}"):
             self.error_ctr += 1
-            msg = "Invalid Content on Line %d: JSON does not end with '}'" % self.line_ctr
+            msg = "Invalid Content on Line %d: JSON does not end with '}' [errors=%d]" % (self.line_ctr, self.error_ctr)
             if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
             if self.stop_on_error: raise Exception(msg)
             LOG.warn(msg)
@@ -566,7 +566,7 @@ class Parser:
         finally:
             if not obj:
                 self.error_ctr += 1
-                msg = "Failed to Convert YAML to JSON on Line %d" % (self.line_ctr)
+                msg = "Failed to Convert YAML to JSON on Line %d [errors=%d]" % (self.line_ctr, self.error_ctr)
                 if self.debug: LOG.debug("Offending Line: %s" % yaml_line)
                 if self.stop_on_error: raise Exception(msg)
                 LOG.warn(msg)
