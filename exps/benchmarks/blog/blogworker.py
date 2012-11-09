@@ -351,7 +351,7 @@ class BlogWorker(AbstractWorker):
         LOG.info("TOTAL COMMENTS: %6d / %d" % (self.clientprocs*commentCtr,self.clientprocs*commentCtr))   
     ## DEF
     
-    def __insertNewArticle__(self, config):
+    def __insertNewArticle__(self, config, articleId):
         titleSize = constants.ARTICLE_TITLE_SIZE
         title = randomString(titleSize)
         contentSize = constants.ARTICLE_CONTENT_SIZE
@@ -423,15 +423,16 @@ class BlogWorker(AbstractWorker):
                 return (opName, (articleId,articleIdHash))
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
-            trial = int(config[self.name]["indexing"])
+            trial = int(config[self.name]["indexes"])
             readwriteop = random.randint(1,100)
+            range = int(config[self.name]["range"])
+            articleId = random.randint(int(self.num_articles-range),self.num_articles)
             if readwriteop != 1: # read
                 if trial == 0:
-                    articleId = self.articleZipf.next()
                     opName = "readArticleById"
                     return (opName, (articleId,))
-                elif trial ==1:
-                    articleId = self.articleZipf.next()
+                elif trial == 1: # write
+                
                     articleHashId = hash(str(articleId))
                     opName = "readArticleByHashId"
                     return (opName, (articleHashId,))
@@ -583,8 +584,8 @@ class BlogWorker(AbstractWorker):
     
     def findAndIncreaseArticleCounter(self):    
         query = {"_id": constants.NEXT_ARTICLE_CTR_ID}
-        update = {"$inc": {contants.NEXT_ARTICLE_CTR_KEY: 1}}
+        update = {"$inc": {constants.NEXT_ARTICLE_CTR_KEY: 1}}
         counter = self.db[constants.ARTICLE_COLL].find_and_modify(query, update, False)
-        return long(counter[contants.NEXT_ARTICLE_CTR_KEY])
+        return long(counter[constants.NEXT_ARTICLE_CTR_KEY])
     
 ## CLASS
