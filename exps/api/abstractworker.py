@@ -195,13 +195,15 @@ class AbstractWorker:
             if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:
                 opCount = self.executeImpl(config, txn, params)
+                assert not opCount is None
                 r.stopTransaction(txn_id, opCount)
             except KeyboardInterrupt:
                 return -1
             except (Exception, AssertionError), ex:
                 logging.warn("Failed to execute Transaction '%s': %s" % (txn, ex))
                 if debug: traceback.print_exc(file=sys.stdout)
-                if self.stop_on_error: raise
+                if self.stop_on_error:
+                    raise Exception("WE FAILED --> %s(%s)" % (txn, str(params)))
                 r.abortTransaction(txn_id)
                 pass
         r.stopBenchmark()
