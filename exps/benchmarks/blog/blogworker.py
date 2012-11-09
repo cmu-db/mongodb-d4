@@ -76,9 +76,6 @@ class BlogWorker(AbstractWorker):
     
     
     def initImpl(self, config, msg):
-        
-        
-
         # A list of booleans that we will randomly select
         # from to tell us whether our op should be a read or write
         self.workloadWrite = [ ]
@@ -97,6 +94,7 @@ class BlogWorker(AbstractWorker):
         self.lastCommentId = None
         self.config[self.name]["commentsperarticle"]
         self.articleZipf = ZipfGenerator(self.num_articles, float(config[self.name]["skew"]))
+        self.articleCounterDocumentId = None
         LOG.info("Worker #%d Articles: [%d, %d]" % (self.getWorkerId(), self.firstArticle, self.lastArticle))
         numComments = int(config[self.name]["commentsperarticle"])
         
@@ -140,10 +138,7 @@ class BlogWorker(AbstractWorker):
         self.dateZipf = ZipfGenerator(self.datecount,float(config[self.name]["skew"]))
         
         
-        
         if self.getWorkerId() == 0:
-            articleCounter = { "nextArticleId" : -1, "id":-999}
-            self.db[constants.ARTICLE_COLL].insert(articleCounter)
             if config['default']["reset"]:
                 LOG.info("Resetting database '%s'" % config['default']["dbname"])
                 self.conn.drop_database(config['default']["dbname"])
@@ -152,20 +147,10 @@ class BlogWorker(AbstractWorker):
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
                 self.enableSharding(config)
         ## IF
-        
-        articleCounter = None
-        while 1==1:
-            articleCounter = self.db[constants.ARTICLE_COLL].find_one({"id":-999})
-            if articleCounter is not None:
-                break   
-        self.articleCounterDocumentId = articleCounter[u'_id']
-
+            
         ## The next operation that we need to execute	
         ## If it's empty, then just execute whatever it is that we're suppose to
         self.nextOp = [ ]
-        
-        
-        
         #self.initNextCommentId(config[self.name]["maxCommentId"])
     ## DEF
     
@@ -228,6 +213,17 @@ class BlogWorker(AbstractWorker):
     
     def loadImpl(self, config, channel, msg):
         assert self.conn != None
+        
+        # Create the nextArticleId counter here
+        if self.getWorkerId() == 0:
+            articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
+                              "id": constants.NEXT_ARTICLE_CTR_ID}
+            record = self.db[constants.ARTICLE_COLL].find_one({"id": constants.NEXT_ARTICLE_CTR_ID})
+            if record is None:
+                self.db[constants.ARTICLE_COLL].insert(articleCounter, safe=True)
+            else:
+                self.db[constants.ARTICLE_COLL].save(record, articleCounter, safe=True)
+            LOG.info("Initialized nextArticleId counter")
         
         # HACK: Setup the indexes if we're the first client
         if self.getWorkerId() == 0:
@@ -313,7 +309,7 @@ class BlogWorker(AbstractWorker):
             #if config[self.name]["denormalize"]:
             #    article["comments"] = [ ]
             #self.db[constants.ARTICLE_COLL].insert(article)
-            self.insertNewArticle(config)
+            article = self.insertNewArticle(config, articleId)
             articleCtr+=1
             ## ----------------------------------------------
             ## LOAD COMMENTS
@@ -328,7 +324,7 @@ class BlogWorker(AbstractWorker):
                 comment = {
                     "id": str(articleId)+"|"+str(ii),
                     "article": long(articleId),
-                    "date": randomDate(articleDate, constants.STOP_DATE), 
+                    "date": randomDate(article["date"], constants.STOP_DATE), 
                     "author": commentAuthor,
                     "comment": commentContent,
                     "rating": int(self.ratingZipf.next()),
@@ -362,7 +358,10 @@ class BlogWorker(AbstractWorker):
     ## ---------------------------------------------------------------------------
     
     def executeInitImpl(self, config):
-        pass
+        # I don't think that we need to do this...
+        articleCounter = self.db[constants.ARTICLE_COLL].find_one({"id":constants.NEXT_ARTICLE_CTR_ID})
+        assert articleCounter
+        self.articleCounterDocumentId = articleCounter[u'_id']
     ## DEF
     
     ## ---------------------------------------------------------------------------
@@ -544,8 +543,7 @@ class BlogWorker(AbstractWorker):
         return opCount    
     
     
-    def insertNewArticle(self,config):
-        articleId = self.findAndIncreaseArticleCounter()
+    def insertNewArticle(self, config, articleId):
         titleSize = constants.ARTICLE_TITLE_SIZE
         title = randomString(titleSize)
         contentSize = constants.ARTICLE_CONTENT_SIZE
@@ -570,13 +568,13 @@ class BlogWorker(AbstractWorker):
         if config[self.name]["denormalize"]:
             article["comments"] = [ ]
         self.db[constants.ARTICLE_COLL].insert(article)
-        return 1
+        return article
     #DEF    
     
     def findAndIncreaseArticleCounter(self):    
-        query = {"_id":int(self.articleCounterDocumentId)}
-        update = {"$inc": {"nextArticleId": 1}}
-        counter = self.db[constants.ARTICLE_COLL].find_and_modify(query,update,False)
-        return long(counter[u'nextArticleId'])
+        query = {"_id": constants.NEXT_ARTICLE_CTR_ID}
+        update = {"$inc": {contants.NEXT_ARTICLE_CTR_KEY: 1}}
+        counter = self.db[constants.ARTICLE_COLL].find_and_modify(query, update, False)
+        return long(counter[contants.NEXT_ARTICLE_CTR_KEY])
     
 ## CLASS

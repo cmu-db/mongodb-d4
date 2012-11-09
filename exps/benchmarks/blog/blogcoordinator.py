@@ -39,7 +39,7 @@ LOG = logging.getLogger(__name__)
 
 class BlogCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
-        ("commentsperarticle","Number of comments per article",100),
+        ("commentsperarticle","Number of comments per article", 100),
         ("experiment", "What type of experiment to execute. Valid values = %s" % constants.EXP_ALL, constants.EXP_DENORMALIZATION),
         ("sharding", "Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_SINGLE),
         ("indexes", "Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_ALL, constants.INDEXEXP_9010),
@@ -138,19 +138,7 @@ class BlogCoordinator(AbstractCoordinator):
     ## DEF
     
     def loadImpl(self, config, channels):
-        pass
-        #procs = len(channels)
-        #articleRange = [ ]
-        #articlesPerChannel = self.num_articles / procs
-        #first = 0
-        #messages = { }
-        #for i in range(len(channels)):
-        #    last = first + articlesPerChannel
-        #    LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
-        #    messages[channels[i]] = (first, last)
-        #    first = last + 1
-	#    LOG.info(messages[channels[i]])
-        return {}
+        return dict()
     ## DEF
 
 ## CLASS
