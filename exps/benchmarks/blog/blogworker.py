@@ -570,7 +570,9 @@ class BlogWorker(AbstractWorker):
                 articleCounterId = self.db[constants.ARTICLE_COLL].insert({ "id" : -9999999, "nextArticleId": 0})
                 self.articleCounterDocumentId = articleCounterId
                 LOG.debug("firsttime"+str(self.articleCounterDocumentId))
-	    articleCounterQuery = {'_id':articleCounterId}
+                articleCounterQuery = {'_id':articleCounterId}
+            else:
+	        articleCounterQuery = {'_id':articleCounter[u'_id']}
         else: 
             articleCounterQuery = {'_id':self.articleCounterDocumentId}  
         return articleCounterQuery
