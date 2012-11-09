@@ -505,12 +505,12 @@ class BlogWorker(AbstractWorker):
     def readArticleByIdAndHashId(self,config,articleId,hashid):
         article = self.db[constants.ARTICLE_COLL].find_one({"id":articleId,"hashid": hashid})
         #if not article:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
         #    return
         #assert article["hashid"] == hashid, \
         #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         #assert article["id"] == articleId, \
-            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
+        #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
         return 1
     #DEF
     
