@@ -579,7 +579,9 @@ class BlogWorker(AbstractWorker):
     def findAndIncreaseArticleCounter(self):    
         query = self.getArticleCounterQuery()
         update = {'$inc': {"nextArticleId": 1}}
-        counter = self.db[constants.ARTICLE_COLL].find_and_modify(query,update,True)
+        counter = None
+        while counter is None: 
+            counter = self.db[constants.ARTICLE_COLL].find_and_modify(query,update,True)
         return long(counter[u'nextArticleId'])
     
 ## CLASS
