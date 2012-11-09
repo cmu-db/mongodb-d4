@@ -76,7 +76,12 @@ class BlogWorker(AbstractWorker):
     
     
     def initImpl(self, config, msg):
+        if self.getWorkerId() == 0:
+            article = { "nextArticleId" : -1, "id":-999}
+            self.db[constants.ARTICLE_COLL].insert(article)
         self.articleCounterDocumentId = None
+        
+
         # A list of booleans that we will randomly select
         # from to tell us whether our op should be a read or write
         self.workloadWrite = [ ]
@@ -558,29 +563,11 @@ class BlogWorker(AbstractWorker):
             article["comments"] = [ ]
         self.db[constants.ARTICLE_COLL].insert(article)
         return 1
-    #DEF
-
-    
-    
-    
-    def getArticleCounterQuery(self):
-        if self.articleCounterDocumentId is None: 
-            articleCounter = self.db[constants.ARTICLE_COLL].find_one({"id": -9999999})
-            if articleCounter is None:
-                articleCounterId = self.db[constants.ARTICLE_COLL].insert({ "id" : -9999999, "nextArticleId": 0})
-                self.articleCounterDocumentId = articleCounterId
-                LOG.debug("firsttime"+str(self.articleCounterDocumentId))
-                articleCounterQuery = {'_id':articleCounterId}
-            else:
-	        articleCounterQuery = {'_id':articleCounter[u'_id']}
-        else: 
-            articleCounterQuery = {'_id':self.articleCounterDocumentId}  
-        return articleCounterQuery
-    #DEF      
+    #DEF    
     
     def findAndIncreaseArticleCounter(self):    
-        query = self.getArticleCounterQuery()
-        update = {'$inc': {"nextArticleId": 1}}
+        query = {"id":-999}
+        update = {"$inc": {"nextArticleId": 1}}
         counter = self.db[constants.ARTICLE_COLL].find_and_modify(query,update,False)
         return long(counter[u'nextArticleId'])
     
