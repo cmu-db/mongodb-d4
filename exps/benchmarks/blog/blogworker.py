@@ -221,15 +221,15 @@ class BlogWorker(AbstractWorker):
             
             # Create the nextArticleId counter here
             articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
-                              "id": constants.NEXT_ARTICLE_CTR_ID}
-            record = self.db[constants.ARTICLE_COLL].find_one({"id": constants.NEXT_ARTICLE_CTR_ID})
+                              "_id": constants.NEXT_ARTICLE_CTR_ID}
+            record = self.db[constants.ARTICLE_COLL].find_one({"_id": constants.NEXT_ARTICLE_CTR_ID})
             if record is None:
                 self.db[constants.ARTICLE_COLL].insert(articleCounter, safe=True)
             else:
                 self.db[constants.ARTICLE_COLL].save(record, articleCounter, safe=True)
             LOG.info("Initialized nextArticleId counter")
             if LOG.isEnabledFor(logging.DEBUG):
-                LOG.debug("\n"+pformat(self.db[constants.ARTICLE_COLL].find_one({"id": constants.NEXT_ARTICLE_CTR_ID})))
+                LOG.debug("\n"+pformat(self.db[constants.ARTICLE_COLL].find_one({"_id": constants.NEXT_ARTICLE_CTR_ID})))
             
             ## INDEXES CONFIGURATION
             if config[self.name]["experiment"] == constants.EXP_INDEXING:
@@ -384,7 +384,7 @@ class BlogWorker(AbstractWorker):
     
     def executeInitImpl(self, config):
         # I don't think that we need to do this...
-        articleCounter = self.db[constants.ARTICLE_COLL].find_one({"id":constants.NEXT_ARTICLE_CTR_ID})
+        articleCounter = self.db[constants.ARTICLE_COLL].find_one({"_id":constants.NEXT_ARTICLE_CTR_ID})
         assert articleCounter
         self.articleCounterDocumentId = articleCounter[u'_id']
     ## DEF
