@@ -257,14 +257,14 @@ class BlogWorker(AbstractWorker):
                 self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
                 if not config[self.name]["denormalize"]:
-                    LOG.info("Creating indexes on Comment (articleId) %s" % self.db[constants.COMMENT_COLL].full_name)
+                    LOG.info("Creating index %s(articleId)" % self.db[constants.COMMENT_COLL].full_name)
                     self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING)])
-                    LOG.info("Creating primary indexes on Comment (id) %s" % self.db[constants.COMMENT_COLL].full_name)
+                    LOG.info("Creating primary index %s(id)" % self.db[constants.COMMENT_COLL].full_name)
                     self.db[constants.COMMENT_COLL].ensure_index([("id", pymongo.ASCENDING)])
                     
             elif config[self.name]["experiment"] == constants.EXPS_SHARDING:
                 #NOTE: we don't need an index on articleId only as we have this composite index -> (articleId,articleHashId)
-                LOG.info("Creating indexes (hashid) %s" % self.db[constants.ARTICLE_COLL].full_name)
+                LOG.info("Creating index %s(hashid)" % self.db[constants.ARTICLE_COLL].full_name)
                 self.db[constants.ARTICLE_COLL].ensure_index([("hashid", pymongo.ASCENDING)])
                 
             
@@ -392,19 +392,25 @@ class BlogWorker(AbstractWorker):
                 #composite sharding key
                 articleId = self.articleZipf.next()
                 articleHashId = hash(str(articleId))
-                opName = "readArticleAndHashId"
+                opName = "readArticleByIdAndHashId"
                 return (opName, (articleId,articleIdHash))
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
-            trial = int(config[self.name]["sharding"])
-            if trial == 0:
-                articleId = self.articleZipf.next()
-                opName = "readArticleById"
-            elif trial ==1:
-                articleId = self.articleZipf.next()
-                articleHashId = hash(str(articleId))
-                opName = "readArticleByHashId"
-            return (opName, (articleIdHash))
+            trial = int(config[self.name]["indexing"])
+            readwriteop = random.randint(1,100)
+            if readwriteop != 1: # read
+                if trial == 0:
+                    articleId = self.articleZipf.next()
+                    opName = "readArticleById"
+                    return (opName, (articleId,))
+                elif trial ==1:
+                    articleId = self.articleZipf.next()
+                    articleHashId = hash(str(articleId))
+                    opName = "readArticleByHashId"
+                    return (opName, (articleHashId,))
+            else:
+	        opName = "insertNewArticle"
+            return (opName, ())
    ## DEF
         
     def executeImpl(self, config, op, params):
@@ -541,7 +547,9 @@ class BlogWorker(AbstractWorker):
         return opCount    
     
     
-    def insertNewArticle(self, config, articleId):
+    def insertNewArticle(self, config, articleId=None):
+        if articleId is None: 
+            articleId = self.findAndIncreaseArticleCounter()
         titleSize = constants.ARTICLE_TITLE_SIZE
         title = randomString(titleSize)
         contentSize = constants.ARTICLE_CONTENT_SIZE
