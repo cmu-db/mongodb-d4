@@ -111,6 +111,7 @@ class BlogWorker(AbstractWorker):
         articleCounter = None
         while articleCounter is None:
             articleCounter = self.db[constants.ARTICLE_COLL].find_one({id:-999})
+            LOG.debug("bika")
         self.articleCounterDocumentId = articleCounter[u'_id']
         
         #precalcualtiong the authors names list to use Zipfian against them
@@ -571,7 +572,7 @@ class BlogWorker(AbstractWorker):
     #DEF    
     
     def findAndIncreaseArticleCounter(self):    
-        query = {"_id":self.articleCounterDocumentId}
+        query = {"_id":int(self.articleCounterDocumentId)}
         update = {"$inc": {"nextArticleId": 1}}
         counter = self.db[constants.ARTICLE_COLL].find_and_modify(query,update,False)
         return long(counter[u'nextArticleId'])
