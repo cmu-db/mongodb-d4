@@ -76,10 +76,7 @@ class BlogWorker(AbstractWorker):
     
     
     def initImpl(self, config, msg):
-        if self.getWorkerId() == 0:
-            article = { "nextArticleId" : -1, "id":-999}
-            self.db[constants.ARTICLE_COLL].insert(article)
-        self.articleCounterDocumentId = None
+        
         
 
         # A list of booleans that we will randomly select
@@ -107,6 +104,14 @@ class BlogWorker(AbstractWorker):
         self.commentsZipf = ZipfGenerator(numComments,float(config[self.name]["skew"]))
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING+1, float(config[self.name]["skew"]))
         self.db = self.conn[config['default']["dbname"]]   
+        
+        if self.getWorkerId() == 0:
+            articleCounter = { "nextArticleId" : -1, "id":-999}
+            self.db[constants.ARTICLE_COLL].insert(articleCounter)
+        articleCounter = None
+        while articleCounter is None:
+            articleCounter = self.db[constants.ARTICLE_COLL].find_one({id:-999})
+        self.articleCounterDocumentId = articleCounter[u'_id']
         
         #precalcualtiong the authors names list to use Zipfian against them
         self.authors = [ ]
@@ -566,7 +571,7 @@ class BlogWorker(AbstractWorker):
     #DEF    
     
     def findAndIncreaseArticleCounter(self):    
-        query = {"id":-999}
+        query = {"_id":self.articleCounterDocumentId}
         update = {"$inc": {"nextArticleId": 1}}
         counter = self.db[constants.ARTICLE_COLL].find_and_modify(query,update,False)
         return long(counter[u'nextArticleId'])
