@@ -307,7 +307,7 @@ class BlogWorker(AbstractWorker):
             #if config[self.name]["denormalize"]:
             #    article["comments"] = [ ]
             #self.db[constants.ARTICLE_COLL].insert(article)
-            article = self.insertNewArticle(config, articleId)
+            article = self.__insertNewArticle__(config, articleId)
             articleCtr+=1
             ## ----------------------------------------------
             ## LOAD COMMENTS
@@ -350,6 +350,33 @@ class BlogWorker(AbstractWorker):
         LOG.info("TOTAL ARTICLES: %6d / %d" % (self.clientprocs*articleCtr, self.clientprocs*articleCtr))
         LOG.info("TOTAL COMMENTS: %6d / %d" % (self.clientprocs*commentCtr,self.clientprocs*commentCtr))   
     ## DEF
+    
+    def __insertNewArticle__(self, config):
+        titleSize = constants.ARTICLE_TITLE_SIZE
+        title = randomString(titleSize)
+        contentSize = constants.ARTICLE_CONTENT_SIZE
+        content = randomString(contentSize)
+        numComments = int(config[self.name]["commentsperarticle"])
+        articleTags = []
+        for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
+            articleTags.append(random.choice(self.tags))
+        articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
+        articleHashId = hash(str(articleId))
+        article = {
+            "id": long(articleId),
+            "title": title,
+            "date": articleDate,
+            "author": random.choice(self.authors),
+            "hashid" : articleHashId,
+            "content": content,
+            "numComments": numComments,
+            "tags": articleTags,
+            "views": 0,
+        }
+        if config[self.name]["denormalize"]:
+            article["comments"] = [ ]
+        self.db[constants.ARTICLE_COLL].insert(article)
+        return article
     
     ## ---------------------------------------------------------------------------
     ## EXECUTION INITIALIZATION
@@ -547,34 +574,11 @@ class BlogWorker(AbstractWorker):
         return opCount    
     
     
-    def insertNewArticle(self, config, articleId=None):
-        if articleId is None: 
-            articleId = self.findAndIncreaseArticleCounter()
-        titleSize = constants.ARTICLE_TITLE_SIZE
-        title = randomString(titleSize)
-        contentSize = constants.ARTICLE_CONTENT_SIZE
-        content = randomString(contentSize)
-        numComments = int(config[self.name]["commentsperarticle"])
-        articleTags = []
-        for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
-            articleTags.append(random.choice(self.tags))
-        articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
-        articleHashId = hash(str(articleId))
-        article = {
-            "id": long(articleId),
-            "title": title,
-            "date": articleDate,
-            "author": random.choice(self.authors),
-            "hashid" : articleHashId,
-            "content": content,
-            "numComments": numComments,
-            "tags": articleTags,
-            "views": 0,
-        }
-        if config[self.name]["denormalize"]:
-            article["comments"] = [ ]
-        self.db[constants.ARTICLE_COLL].insert(article)
-        return article
+    def insertNewArticle(self, config):
+        articleId = self.findAndIncreaseArticleCounter()
+        self.__insertNewArticle__(config, articleId)
+        self.num_articles = articleId
+        return 1
     #DEF    
     
     def findAndIncreaseArticleCounter(self):    
