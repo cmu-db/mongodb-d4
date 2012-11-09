@@ -301,6 +301,7 @@ if __name__ == '__main__':
         ## FOR
     ## FOR
 
+    LOG.info("Toal # of Unique Queries: %d", len(QUERY_COUNTS.values()))
     TOTAL_DB_SIZE = sum([col_info["data_size"] for col_info in colls.itervalues()])
     LOG.debug("Estimated Total Database Size: %d" % TOTAL_DB_SIZE)
     TOTAL_QUERY_COUNT = QUERY_COLLECTION_COUNTS.getSampleCount()
@@ -357,11 +358,18 @@ if __name__ == '__main__':
     ## ----------------------------------------------
     if not args["no_workload"]:
         LOG.debug("Dumping sample queries")
-        for op_per_collection in [True, False]:
-            limit = len(colls) if op_per_collection else args['op_limit']
-            assert limit >= 0
-            prefix = "-top%d"%limit if not op_per_collection else ""
-            outputFile = os.path.join(args["project"], "%s%s-queries.txt" % (args["project"], prefix))
+        for dump_type in ["all", "percollection", "topk"]:
+            if dump_type == "all":
+                limit = -1
+                prefix = "all"
+            elif dump_type == "percollection":
+                limit = len(colls) 
+                prefix = "percollection"
+            else:
+                limit = args['op_limit']
+                prefix = "top%d" % limit 
+                
+            outputFile = os.path.join(args["project"], "%s-%s-queries.txt" % (args["project"], prefix))
             with open(outputFile, "w") as fd:
                 first = True
                 total_queries = QUERY_COUNTS.getSampleCount()
@@ -374,7 +382,7 @@ if __name__ == '__main__':
                     if op["collection"] in constants.IGNORED_COLLECTIONS or op["collection"].endswith("$cmd"):
                         continue
                     
-                    if op_per_collection and op["collection"] in op_collections:
+                    if dump_type == "percollection" and op["collection"] in op_collections:
                         continue
                     op_collections.add(op["collection"])
                     
@@ -391,7 +399,9 @@ if __name__ == '__main__':
                     first = False
                 ## FOR
             ## WITH
-            if op_per_collection:
+            if dump_type == "all":
+                LOG.info("Created Full Dump Query Sample File: %s", outputFile)
+            elif dump_type == "percollection":
                 # Print a warning if we don't have any ops for some collections
                 missing = set(colls.keys()) - op_collections
                 if len(missing) > 0:
