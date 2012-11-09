@@ -424,7 +424,7 @@ class BlogWorker(AbstractWorker):
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
             trial = int(config[self.name]["indexes"])
-            readwriteop = random.randint(1,100)
+            readwriteop = random.randint(1,1000)
             range = int(config[self.name]["range"])
             articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
             if readwriteop != 1: # read
@@ -463,11 +463,11 @@ class BlogWorker(AbstractWorker):
     
     def readArticleById(self,config, articleId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
-        if not article:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            return
-        assert article["id"] == articleId, \
-            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+        #if not article:
+        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        #    return
+        #assert article["id"] == articleId, \
+        #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         return 1
     #DEF
     
@@ -494,22 +494,22 @@ class BlogWorker(AbstractWorker):
     
     def readArticleByHashId(self,config,hashid):
         article = self.db[constants.ARTICLE_COLL].find_one({"hashid": hashid})
-        if not article:
-            LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            return
-        assert article["hashid"] == hashid, \
-            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+        #if not article:
+        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        #return
+        #assert article["hashid"] == hashid, \
+        #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
         return 1
     #DEF
     
     def readArticleByIdAndHashId(self,config,articleId,hashid):
         article = self.db[constants.ARTICLE_COLL].find_one({"id":articleId,"hashid": hashid})
-        if not article:
+        #if not article:
             LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
-            return
-        assert article["hashid"] == hashid, \
-            "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-        assert article["id"] == articleId, \
+        #    return
+        #assert article["hashid"] == hashid, \
+        #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
+        #assert article["id"] == articleId, \
             "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)   
         return 1
     #DEF
