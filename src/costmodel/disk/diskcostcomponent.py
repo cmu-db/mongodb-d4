@@ -56,6 +56,9 @@ class DiskCostComponent(AbstractCostComponent):
         for i in xrange(self.state.num_nodes):
             lru = FastLRUBufferWithWindow(self.state.window_size)
             self.buffers.append(lru)
+        
+        self.err_ctr = 0
+        self.total_op_contents = 0
     ## DEF
 
 
@@ -155,6 +158,7 @@ class DiskCostComponent(AbstractCostComponent):
                 isRegex = self.state.__getIsOpRegex__(cache, op)
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
+                    self.total_op_contents += 1
                     try:
                         opNodes = self.state.__getNodeIds__(cache, design, op)
                     except:
@@ -175,9 +179,11 @@ class DiskCostComponent(AbstractCostComponent):
                                 try:
                                     documentId = hash(values)
                                 except:
-                                    LOG.error("Failed to compute index documentIds for op #%d - %s\n%s",\
+                                    if self.debug: LOG.error("Failed to compute index documentIds for op #%d - %s\n%s",\
                                         op['query_id'], values, pformat(op))
-                                    raise
+                                    self.err_ctr += 1
+                                    break
+                                
                                 if self.state.cache_enable:
                                     if self.debug: self.state.cache_miss_ctr.put("index_docIds")
                                     cache.index_docIds[op['query_id']] = documentId
@@ -210,9 +216,11 @@ class DiskCostComponent(AbstractCostComponent):
                                 try:
                                     documentId = hash(values)
                                 except:
-                                    LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s",\
+                                    if self.debug: LOG.error("Failed to compute collection documentIds for op #%d - %s\n%s",\
                                         op['query_id'], values, pformat(op))
-                                    raise
+                                    self.err_ctr += 1
+                                    break
+                                    
                                 if self.state.cache_enable:
                                     if self.debug: self.state.cache_miss_ctr.put("collection_docIds")
                                     cache.collection_docIds[op['query_id']] = documentId
@@ -253,13 +261,13 @@ class DiskCostComponent(AbstractCostComponent):
         # The final disk cost is the ratio of our estimated disk access cost divided
         # by the worst possible cost for this design. If we don't have a worst case,
         # then the cost is simply zero
+        LOG.info("Total operation contents %s, errors %s", self.total_op_contents, self.err_ctr)
         assert totalCost <= totalWorst,\
             "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
         final_cost = float(totalCost) / float(totalWorst) if totalWorst else 0
         evicted = sum([ lru.evicted for lru in self.buffers ])
         LOG.info("Computed Disk Cost: %s [pageHits=%d / worstCase=%d / evicted=%d]",\
                  final_cost, totalCost, totalWorst, evicted)
-
         return final_cost
     ## DEF
 
