@@ -85,6 +85,7 @@ class Results:
         # OpCount
         if opCount is not None:
             self.opCount += opCount
+        else: 
             LOG.debug("ithappens")
             
         
