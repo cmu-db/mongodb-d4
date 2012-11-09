@@ -105,14 +105,7 @@ class BlogWorker(AbstractWorker):
         self.ratingZipf = ZipfGenerator(constants.MAX_COMMENT_RATING+1, float(config[self.name]["skew"]))
         self.db = self.conn[config['default']["dbname"]]   
         
-        if self.getWorkerId() == 0:
-            articleCounter = { "nextArticleId" : -1, "id":-999}
-            self.db[constants.ARTICLE_COLL].insert(articleCounter)
-        articleCounter = None
-        while articleCounter is None:
-            articleCounter = self.db[constants.ARTICLE_COLL].find_one({id:-999})
-            LOG.debug("bika")
-        self.articleCounterDocumentId = articleCounter[u'_id']
+        
         
         #precalcualtiong the authors names list to use Zipfian against them
         self.authors = [ ]
@@ -149,6 +142,8 @@ class BlogWorker(AbstractWorker):
         
         
         if self.getWorkerId() == 0:
+            articleCounter = { "nextArticleId" : -1, "id":-999}
+            self.db[constants.ARTICLE_COLL].insert(articleCounter)
             if config['default']["reset"]:
                 LOG.info("Resetting database '%s'" % config['default']["dbname"])
                 self.conn.drop_database(config['default']["dbname"])
@@ -158,6 +153,13 @@ class BlogWorker(AbstractWorker):
                 self.enableSharding(config)
         ## IF
         
+        articleCounter = None
+        while 1==1:
+            articleCounter = self.db[constants.ARTICLE_COLL].find_one({"id":-999})
+            if articleCounter is not None:
+                break   
+        self.articleCounterDocumentId = articleCounter[u'_id']
+
         ## The next operation that we need to execute	
         ## If it's empty, then just execute whatever it is that we're suppose to
         self.nextOp = [ ]
