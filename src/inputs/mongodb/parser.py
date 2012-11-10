@@ -334,7 +334,9 @@ class Parser:
                 op['query_limit'] = self.currentOp['ntoreturn']
                 op['query_offset'] = self.currentOp['ntoskip']
                 if self.currentOp['hasfields']:
-                    op['query_fields'] = self.currentOp['hasfields']
+                    # HACK: Convert dot notation into '*'
+                    # FIXME: This should really be broke out into a dictionary of 'include' 'exclude'
+                    op['query_fields'] = dict([ (k.replace(".", "*"), v) for k,v in self.currentOp['hasfields'].iteritems()])
             
                 # check for aggregate
                 # update collection name, set aggregate type
