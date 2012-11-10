@@ -130,7 +130,9 @@ class ReplayWorker:
             LOG.debug("Executing '%s' operation on '%s'" % (op['type'], coll))
         
         # QUERY
-        if op['type'] == "$query":
+        if op['type'] == constants.OP_TYPE_QUERY:
+            isCount = False
+            
             # The query field has our where clause
             whereClause = op['query_content'][0]
             
@@ -139,6 +141,14 @@ class ReplayWorker:
             if 'fields' in op['query_content']:
                 fieldsClause = op['query_content']['fields']
 
+            # Check whether this is for a count
+            if 'count' in op['query_content'][0]:
+                asset "query" in op['query_content'][0]
+                # Then do a count
+                whereClause = op['query_content'][0]["query"]
+                isCount = True
+                    
+                
             # Execute!
             # TODO: Need to check the performance difference of find vs find_one
             # TODO: We need to handle counts + sorts + limits
@@ -146,9 +156,17 @@ class ReplayWorker:
                 LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, fieldsClause))
             resultCursor = self.dataset_db[coll].find(whereClause, fieldsClause)
             
-            # We have to iterate through the result so that we know that
-            # the cursor has copied all the bytes
-            result = [r for r in resultCursor]
+            if op["query_limit"] != -1:
+                resultCursor.limit(op["query_limit"])
+                
+            if isCount:
+                result = resultCursor.count()
+            else:
+                # We have to iterate through the result so that we know that
+                # the cursor has copied all the bytes
+                result = [r for r in resultCursor]
+            # IF
+            
             LOG.debug("Number of Results: %d" % len(result))
             
             # TODO: For queries that were originally joins, we need a way
@@ -156,7 +174,7 @@ class ReplayWorker:
             # subsequent queries
             
         # UPDATE
-        elif op['type'] == "$update":
+        elif op['type'] == constants.OP_TYPE_UPDATE:
             # The first element in the content field is the WHERE clause
             whereClause = op['query_content'][0]
             assert whereClause, "Missing WHERE clause for %s" % op['type']
@@ -173,13 +191,13 @@ class ReplayWorker:
             result = self.dataset_db[coll].update(whereClause, updateClause)
             
         # INSERT
-        elif op['type'] == "$insert":
+        elif op['type'] == constants.OP_TYPE_INSERT:
             # Just get the payload and fire it off
             # There's nothing else to really do here
             result = self.dataset_db[coll].insert(op['query_content'])
             
         # DELETE
-        elif op['type'] == "$delete":
+        elif op['type'] == constants.OP_TYPE_DELETE:
             # The first element in the content field is the WHERE clause
             whereClause = op['query_content'][0]
             assert whereClause, "Missing WHERE clause for %s" % op['type']
