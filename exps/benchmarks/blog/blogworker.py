@@ -109,20 +109,20 @@ class BlogWorker(AbstractWorker):
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            if config[self.name]["experiment"] == constants.EXP_INDEXING:
-                self.authors.append("authorname%0128d" % i)
-            else:
-                self.authors.append("authorname"+str(i))
+            #if config[self.name]["experiment"] == constants.EXP_INDEXING:
+            #    self.authors.append("authorname%0128d" % i)
+            #else:
+            self.authors.append("authorname"+str(i))
         self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,float(config[self.name]["skew"]))
         
         #precalculating tags
         self.tags = [ ]
         for i in xrange(0, constants.NUM_TAGS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            if config[self.name]["experiment"] == constants.EXP_INDEXING:
-                self.tags.append("tag%0128d" % i)
-            else:    
-                self.tags.append("tag"+str(i))
+            #if config[self.name]["experiment"] == constants.EXP_INDEXING:
+            #    self.tags.append("tag%0128d" % i)
+            #else:    
+            self.tags.append("tag"+str(i))
         self.tagZipf = ZipfGenerator(constants.NUM_TAGS,float(config[self.name]["skew"]))
         
         #precalcualtiong the dates list to use Zipfian against them
@@ -233,12 +233,6 @@ class BlogWorker(AbstractWorker):
             
             ## INDEXES CONFIGURATION
             if config[self.name]["experiment"] == constants.EXP_INDEXING:
-                #article(id)
-                #LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
-                #self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
-                #article(author)       
-                #LOG.info("Creating index %s(author)" % self.db[constants.ARTICLE_COLL].full_name) 
-                #self.db[constants.ARTICLE_COLL].ensure_index([("author", pymongo.ASCENDING)])
                 
                 trial = int(config[self.name]["indexes"])
                 
@@ -263,9 +257,8 @@ class BlogWorker(AbstractWorker):
                     self.db[constants.COMMENT_COLL].ensure_index([("id", pymongo.ASCENDING)])
                     
             elif config[self.name]["experiment"] == constants.EXPS_SHARDING:
-                #NOTE: we don't need an index on articleId only as we have this composite index -> (articleId,articleHashId)
-                LOG.info("Creating index %s(hashid)" % self.db[constants.ARTICLE_COLL].full_name)
-                self.db[constants.ARTICLE_COLL].ensure_index([("hashid", pymongo.ASCENDING)])
+                LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
+                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
             
             else:
@@ -282,31 +275,6 @@ class BlogWorker(AbstractWorker):
         commentTotal= 0
         numComments = int(config[self.name]["commentsperarticle"])
         for articleId in xrange(self.firstArticle, self.lastArticle+1):
-            #titleSize = constants.ARTICLE_TITLE_SIZE
-            #title = randomString(titleSize)
-            #contentSize = constants.ARTICLE_CONTENT_SIZE
-            #content = randomString(contentSize)
-            #articleTags = []
-            #for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
-            #     articleTags.append(random.choice(self.tags))
-            # 
-            #articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
-            #articleIdHash = hash(str(articleId))
-            #article = {
-            #    "id": long(articleId),
-            #    "title": title,
-            #    "date": articleDate,
-            #    "author": random.choice(self.authors),
-            #    "hashid" : articleHashId,
-            #    "content": content,
-            #    "numComments": numComments,
-            #    "tags": articleTags,
-            #    "views": 0,
-            #}
-            #articleCtr+=1;
-            #if config[self.name]["denormalize"]:
-            #    article["comments"] = [ ]
-            #self.db[constants.ARTICLE_COLL].insert(article)
             article = self.__insertNewArticle__(config, articleId)
             articleCtr+=1
             ## ----------------------------------------------
@@ -409,35 +377,33 @@ class BlogWorker(AbstractWorker):
             return (opName, (articleId,))
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
-            trial = int(config[self.name]["sharding"])
-            if trial == 0:
-                #single sharding key
-                articleId = self.articleZipf.next()
+            #trial = int(config[self.name]["sharding"])
+            readwriteop = random.randint(1,10)
+            range = int(config[self.name]["range"])
+            articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
+            if readwriteop != 1: # read
                 opName = "readArticleById"
                 return (opName, (articleId,))
-            elif trial == 1:
-                #composite sharding key
-                articleId = self.articleZipf.next()
-                articleHashId = hash(str(articleId))
-                opName = "readArticleByIdAndHashId"
-                return (opName, (articleId,articleHashId))
+            else: # write
+                opName = "insertNewArticle"
+                return (opName, ())
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
             trial = int(config[self.name]["indexes"])
-            readwriteop = random.randint(1,1000)
+            readwriteop = random.randint(1,10)
             range = int(config[self.name]["range"])
             articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
             if readwriteop != 1: # read
                 if trial == 0:
                     opName = "readArticleById"
                     return (opName, (articleId,))
-                elif trial == 1: # write
+                elif trial == 1: 
                 
                     articleHashId = hash(str(articleId))
                     opName = "readArticleByHashId"
                     return (opName, (articleHashId,))
-            else:
-	        opName = "insertNewArticle"
+            else: # write
+                opName = "insertNewArticle"
             return (opName, ())
    ## DEF
         
