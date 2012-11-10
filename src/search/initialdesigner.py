@@ -26,6 +26,8 @@ import random
 import itertools
 import logging
 
+from pprint import pformat
+
 # mongodb-d4
 from design import Design
 import workload
@@ -66,8 +68,7 @@ class InitialDesigner(AbstractDesigner):
         # STEP 3 
         # Iterate through the collections and keep adding indexes until
         # we exceed our initial design memory allocation
-        #total_memory = self.config.getint(configutil.SECT_CLUSTER, "node_memory") * INITIAL_INDEX_MEMORY_ALLOCATION
-        total_memory = 512
+        total_memory = self.config.getint(configutil.SECT_CLUSTER, "node_memory") * INITIAL_INDEX_MEMORY_ALLOCATION
         assert total_memory > 0
         self.__selectIndexKeys__(design, col_keys, total_memory)
             
