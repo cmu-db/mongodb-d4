@@ -155,11 +155,13 @@ class BlogWorker(AbstractWorker):
     ## DEF
     
     def enableSharding(self, config):
+        admindb = self.conn["admin"]
+
+        assert admindb != None
         assert self.db != None
-        
         # Enable sharding on the entire database
         try:
-            result = self.db.command({"enablesharding": self.db.name})
+            result = admindb.command({"enablesharding": self.db.name})
             assert result["ok"] == 1, "DB Result: %s" % pformat(result)
         except:
             LOG.error("Failed to enable sharding on database '%s'" % self.db.name)
@@ -171,19 +173,19 @@ class BlogWorker(AbstractWorker):
         shardingPatterns = { }
         
         if config[self.name]["sharding"] == constants.SHARDEXP_SINGLE:
-            shardingPattern = {articles : { id : 1}}
+            shardingPattern = { id : 1}
         
         elif config[self.name]["sharding"] == constants.SHARDEXP_COMPOUND:
-            shardingPattern = {articles : {id : 1, hashid : 1}}
+            shardingPattern = {id : 1, hashid : 1}
         
         else:
             raise Exception("Unexpected sharding configuration type '%d'" % config["sharding"])
         
         # Then enable sharding on each of these collections
         for col,pattern in shardingPatterns.iteritems():
-            LOG.debug("Sharding Collection %s.%s: %s" % (self.db.name, col, pattern))
+            LOG.debug("Sharding Collection %s.%s: %s" % (config['default']["dbname"], col, pattern))
             try:
-                result = self.db.command({"shardcollection": col, "key": pattern})
+                result = self.db.command({"shardcollection": self.db.name+"."+col, "key": pattern})
                 assert result["ok"] == 1, "DB Result: %s" % pformat(result)
             except:
                 LOG.error("Failed to enable sharding on collection '%s.%s'" % (self.db.name, col))
