@@ -734,7 +734,7 @@ class Parser:
 
     def infer_salt(self, candidate_hashes, known_collections):
         """this is a ridiculous hack. Let's hope the salt is 0. But even if not..."""
-        max_salt = 100000
+        max_salt = 1000000
         if self.debug: LOG.debug("Trying to brute-force the salt 0-%d" % max_salt)
         salt = 0
         while True:
