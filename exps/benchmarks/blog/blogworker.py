@@ -109,20 +109,20 @@ class BlogWorker(AbstractWorker):
         self.authors = [ ]
         for i in xrange(0, constants.NUM_AUTHORS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            if config[self.name]["experiment"] == constants.EXP_INDEXING:
-                self.authors.append("authorname%0128d" % i)
-            else:
-                self.authors.append("authorname"+str(i))
+            #if config[self.name]["experiment"] == constants.EXP_INDEXING:
+            #    self.authors.append("authorname%0128d" % i)
+            #else:
+            self.authors.append("authorname"+str(i))
         self.authorZipf = ZipfGenerator(constants.NUM_AUTHORS,float(config[self.name]["skew"]))
         
         #precalculating tags
         self.tags = [ ]
         for i in xrange(0, constants.NUM_TAGS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            if config[self.name]["experiment"] == constants.EXP_INDEXING:
-                self.tags.append("tag%0128d" % i)
-            else:    
-                self.tags.append("tag"+str(i))
+            #if config[self.name]["experiment"] == constants.EXP_INDEXING:
+            #    self.tags.append("tag%0128d" % i)
+            #else:    
+            self.tags.append("tag"+str(i))
         self.tagZipf = ZipfGenerator(constants.NUM_TAGS,float(config[self.name]["skew"]))
         
         #precalcualtiong the dates list to use Zipfian against them
@@ -424,7 +424,7 @@ class BlogWorker(AbstractWorker):
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
             trial = int(config[self.name]["indexes"])
-            readwriteop = random.randint(1,1000)
+            readwriteop = random.randint(1,10)
             range = int(config[self.name]["range"])
             articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
             if readwriteop != 1: # read
