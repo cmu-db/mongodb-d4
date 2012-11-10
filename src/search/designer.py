@@ -277,7 +277,10 @@ class Designer():
     ## DESIGNER EXECUTION
     ## -------------------------------------------------------------------------
 
-    def load(self):
+    ## HACK HACK HACK
+    # the replay flag and replay_design is used to re-evalutated the design read from a design file
+    # This is very ugly...but we don't have time now...
+    def load(self, replay=False, replay_design=None):
         """Perform the actual search for a design"""
         isShardingEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_sharding')
         isIndexesEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_indexes')
@@ -306,10 +309,14 @@ class Designer():
 
         # Compute initial solution and calculate its cost
         # This will be the upper bound from starting design
-
-        initialDesign = InitialDesigner(self.collections, self.workload, self.config).generate()
-        initialCost = self.cm.overallCost(initialDesign)
-        return initialCost, initialDesign
+        
+        if not replay:
+            initialDesign = InitialDesigner(self.collections, self.workload, self.config).generate()
+            initialCost = self.cm.overallCost(initialDesign)
+            return initialCost, initialDesign
+        else:
+            self.cm.overallCost(replay_design)
+            return None
     ## DEF
     
     def search(self, initialCost, initialDesign):

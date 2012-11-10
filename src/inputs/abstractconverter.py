@@ -52,6 +52,9 @@ class AbstractConverter():
         self.no_sessionizer = False
 
         self.total_ops = 0
+        self.err_field_ctr = 0
+        self.total_field_ctr = 0
+        
         self.hasher = OpHasher()
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
@@ -432,10 +435,14 @@ class AbstractConverter():
                         fields[k]['type'] = catalog.fieldTypeToString(type(v))
                         try:
                             size = catalog.getEstimatedSize(fields[k]['type'], v)
+                            self.total_field_ctr += 1
                         except:
-                            LOG.error("Failed to estimate size for field '%s' in collection '%s'\n%s", \
+                            if self.debug:
+                                LOG.error("Failed to estimate size for field '%s' in collection '%s'\n%s", \
                                     k, col_info['name'], pformat(fields[k]))
-                            raise
+                            self.err_field_ctr += 1
+                            LOG.info("Total fields so far [%s], error fields [%s]", self.total_field_ctr, self.err_field_ctr)
+                            continue
                         col_info['data_size'] += size
                         fields[k]['size_histogram'].put(size)
                         fields[k]['distinct_values'].add(v)
@@ -474,11 +481,15 @@ class AbstractConverter():
                         inner['type'] = catalog.fieldTypeToString(inner_type)
                         try:
                             inner_size = catalog.getEstimatedSize(inner['type'], doc[k][i])
+                            self.total_field_ctr += 1
                         except:
-                            LOG.error("Failed to estimate size for list entry #%d for field '%s' in collection '%s'\n%s",\
+                            if self.debug:
+                                LOG.error("Failed to estimate size for list entry #%d for field '%s' in collection '%s'\n%s",\
                                       i, k, col_info['name'], pformat(fields[k]))
-                            raise
-
+                            self.err_field_ctr += 1
+                            LOG.info("Total fields so far [%s], error fields [%s]", self.total_field_ctr, self.err_field_ctr)
+                            continue
+                        
                         fields[k]['fields'][constants.LIST_INNER_FIELD] = inner
                         fields[k]['size_histogram'].put(inner_size)
                         fields[k]['distinct_values'].add(doc[k][i])
@@ -492,10 +503,14 @@ class AbstractConverter():
             else:
                 try:
                     size = catalog.getEstimatedSize(fields[k]['type'], v)
+                    self.total_field_ctr += 1
                 except:
                     LOG.error("Failed to estimate size for field %s in collection %s\n%s",\
                               k, col_info['name'], pformat(fields[k]))
-                    raise
+                    self.err_field_ctr += 1
+                    LOG.info("Total fields so far [%s], error fields [%s]", self.total_field_ctr, self.err_field_ctr)
+                    continue
+                
                 col_info['data_size'] += size
                 fields[k]['size_histogram'].put(size)
                 fields[k]['distinct_values'].add(v)

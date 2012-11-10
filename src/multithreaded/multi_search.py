@@ -28,7 +28,6 @@ class MultiClientDesigner:
     ## DEF
             
     def runSearch(self):
-        '''Execute the target benchmark!'''
         self.channels = self.createChannels()
         
         # Step 1: Initialize all of the Workers on the client nodes

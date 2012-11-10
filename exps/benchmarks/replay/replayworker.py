@@ -29,167 +29,87 @@ import string
 import re
 import logging
 import traceback
+
+basedir = os.getcwd()
+sys.path.append(os.path.join(basedir, "../../../libs"))
+sys.path.append(os.path.join(basedir, "../../../src"))
+
 import pymongo
 import mongokit
 from pprint import pprint, pformat
 
 # Designer
 import workload
+import catalog
 import search
 from util import constants
+from util import configutil
 
-# Benchmark API
-from api.abstractworker import AbstractWorker
-from api.message import *
+from message import *
 
 LOG = logging.getLogger(__name__)
 
 TARGET_DB_NAME = 'replay'
 
-class ReplayWorker(AbstractWorker):
-    
-    def initImpl(self, config):
-        assert self.design, "Missing database design for workload"
-        self.ignoreCollections = config[self.name]['ignorecollections']
+class ReplayWorker:
+    def __init__(self, config, channel):
+        self.config = config
+        self.channel = channel
+        self.dataset_db = None
+        self.metadata_db = None
+        self.collections = None
         
-        ## ----------------------------------------------
-        ## WORKLOAD REPLAY CONNECTION
-        ## ----------------------------------------------
-        self.replayConn = None
-        self.replayHost = config[self.name]['host']
-        self.replayPort = config[self.name]['port']
-        try:
-            self.replayConn = mongokit.Connection(host=self.replayHost, port=self.replayPort)
-        except:
-            LOG.error("Failed to connect to replay MongoDB at %s:%s" % (self.replayHost, self.replayPort))
-            raise
-        assert self.replayConn
-        self.workloadDB = self.replayConn[config[self.name]['workloaddb']]
-        self.dataDB = self.replayConn[config[self.name]['datadb']]
-        self.collections = [c for c in self.dataDB.collection_names()]
-        self.collections.remove("system.indexes")
-        LOG.debug("Original Data Collections: %s" % self.collections)
+        sendMessage(MSG_INIT_COMPLETED, None, self.channel)
         
-        ## ----------------------------------------------
-        ## TARGET DATABASE
-        ## ----------------------------------------------
-        self.targetDB = self.conn[TARGET_DB_NAME]
-        
-        # TODO: Figure out we're going to load the database. I guess it
-        # would come from the workload database, right?
-        if config['default']["reset"]:
-            LOG.info("Resetting database '%s'" % TARGET_DB_NAME)
-            self.conn.drop_database(TARGET_DB_NAME)
-        
-        # TODO: We need to also load in the JSON design file generated
-        # by the designer tool.
-
-        # TODO: We are going to need to examine each session and figure out whether
-        # we need to combine operations together if they access collections that
-        # are denormalized into each other
-        self.replayCursor = self.workloadDB[config[self.name]['workloadcollection']].find({'operations': {'$ne': {'$size': 0}}})
-       
-        return  
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
-    def loadImpl(self, config, channel, msg):
-        assert self.conn
-        from bson.code import Code
-        
-        # Get the original database from the dataDB and copy it into
-        # the targetDB (massaging it according to the design)
-        copied = [ ]
-        loadOrder = search.utilmethods.buildLoadingList(self.design)
-        LOG.debug("Loading List: %s" % loadOrder)
-        for collName in loadOrder:
-            # TODO: Examine the design and see whether this collection
-            # is denormalized into another collection
-            
-            if self.design.isDenormalized(collName):
-                # Check whether the collection that we're suppose to copy
-                # ourselves into has already been copied over
-                parent = self.design.getDenormalizationParent(collName)
-                assert parent
-                assert parent in copied
-                
-                pass
-                
-            # Otherwise we can just copy it directly
-            else:
-                LOG.debug("Copying collection %s.%s to %s.%s" % (self.dataDB.name, collName, self.targetDB.name, collName))
-              
-                # I look into trying use server-side code for copying the 
-                # collection but I think the Javascript stuff is sandboxed
-                # into a single database
-              
-                batch = [ ]
-                ctr = 0
-                for d in self.dataDB[collName].find():
-                    batch.append(d)
-                    if len(batch) == 1000: # FIXME
-                        self.targetDB[collName].insert(batch)
-                        batch = [ ]
-                    ctr += 1
-                ## FOR
-                if len(batch) > 0:
-                    self.targetDB[collName].insert(batch)
-                copied.append(collName)
-                LOG.debug("Finished copying '%s' [numDocuments=%d]" % (collName, ctr))
+    def load(self):
+        self.connect2mongodb()
+        sendMessage(MSG_INITIAL_DESIGN, None, self.channel)
+    ## DEF
+    
+    def execute(self):
+        sendMessage(MSG_START_NOTICE, None, self.channel)
+        for sess in self.metadata_db.Session.fetch():
+            for op in sess['operations']:
+                try:
+                    self.executeOperation(op)
+                except:
+                    LOG.error("Unexpected error when executing operation in Session %s:\n%s" % (sess["_id"], pformat(op)))
+                    raise
+                ## TRY
+            ## FOR
         ## FOR
         
-        # If there are still collections that we need to copy
-                
-        # TODO: Go through the sample workload and rewrite the queries according
-        # to the design. I think that this just means that we need to identify whether
-        # we have any denormalized collections.
-
+        sendMessage(MSG_EXECUTE_COMPLETED, None, self.channel)
     ## DEF
     
-    ## ---------------------------------------------------------------------------
-    ## EXECUTION INITIALIZATION
-    ## ---------------------------------------------------------------------------
-    
-    def executeInitImpl(self, config):
-        pass
-    ## DEF
-    
-    def next(self, config):
-        assert self.replayCursor
-        
-        # I guess if we run out of Sessions we can just loop back around?
+    def connect2mongodb(self):
+        hostname = self.config.get(configutil.SECT_MONGODB, 'host')
+        port = self.config.getint(configutil.SECT_MONGODB, 'port')
+        assert hostname
+        assert port
         try:
-            sess = self.replayCursor.next()
+            conn = mongokit.Connection(host=hostname, port=port)
         except:
+            LOG.error("Failed to connect to MongoDB at %s:%s" % (hostname, port))
             raise
-            #self.replaySessionIdx = 0
-            #return self.next(config)
-        #self.replaySessionIdx += 1
-        
-        # It would be nice if had a classification for these 
-        # sessions so that we could actually know what we are doing here
-        if self.debug:
-            LOG.debug("Next Session '%s' / %d Operations" % (sess["_id"], len(sess["operations"])))
-        return ("replay", sess)
-    ## DEF
-        
-    def executeImpl(self, config, txn, sess):
-        """Execute the operations for the given session"""
-        assert self.conn
-        assert sess
-        
-        if self.debug:
-            LOG.debug("START (%s) %s" % (sess["_id"], "-"*50))
-        for op in sess['operations']:
-            try:
-                self.executeOperation(op)
-            except:
-                LOG.error("Unexpected error when executing operation in Session %s:\n%s" % (sess["_id"], pformat(op)))
-                raise
+        ## Register our objects with MongoKit
+        conn.register([ catalog.Collection, workload.Session ])
+
+        ## Make sure that the databases that we need are there
+        db_names = conn.database_names()
+        for key in [ 'dataset_db', ]: # FIXME 'workload_db' ]:
+            if not self.config.has_option(configutil.SECT_MONGODB, key):
+                raise Exception("Missing the configuration option '%s.%s'" % (configutil.SECT_MONGODB, key))
+            elif not self.config.get(configutil.SECT_MONGODB, key):
+                raise Exception("Empty configuration option '%s.%s'" % (configutil.SECT_MONGODB, key))
         ## FOR
-        if self.debug:
-            LOG.debug("FINISH (%s) %s" % (sess["_id"], "-"*50))
         
-        return
+        self.dataset_db = conn[self.config.get(configutil.SECT_MONGODB, 'dataset_db')]
+        self.metadata_db = conn[self.config.get(configutil.SECT_MONGODB, 'metadata_db')]
+        self.collections = [col_name for col_name in self.dataset_db.collection_names()]
     ## DEF
     
     def executeOperation(self, op):
@@ -201,7 +121,7 @@ class ReplayWorker(AbstractWorker):
         coll = op['collection']
         if not coll in self.collections:
             msg = "Invalid operation on unexpected collection '%s'" % coll
-            if self.ignoreCollections:
+            if coll.find("$cmd"): # MONGODB system error collection
                 LOG.warn(msg)
                 return
             else:
@@ -212,19 +132,19 @@ class ReplayWorker(AbstractWorker):
         # QUERY
         if op['type'] == "$query":
             # The query field has our where clause
-            whereClause = op['content'][0]['query']
+            whereClause = op['query_content'][0]
             
             # And the second element is the projection
             fieldsClause = None
-            if 'fields' in op['content']:
-                fieldsClause = op['content']['fields']
+            if 'fields' in op['query_content']:
+                fieldsClause = op['query_content']['fields']
 
             # Execute!
             # TODO: Need to check the performance difference of find vs find_one
             # TODO: We need to handle counts + sorts + limits
             if self.debug:
                 LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, fieldsClause))
-            resultCursor = self.targetDB[coll].find(whereClause, fieldsClause)
+            resultCursor = self.dataset_db[coll].find(whereClause, fieldsClause)
             
             # We have to iterate through the result so that we know that
             # the cursor has copied all the bytes
@@ -238,11 +158,11 @@ class ReplayWorker(AbstractWorker):
         # UPDATE
         elif op['type'] == "$update":
             # The first element in the content field is the WHERE clause
-            whereClause = op['content'][0]
+            whereClause = op['query_content'][0]
             assert whereClause, "Missing WHERE clause for %s" % op['type']
             
             # The second element has what we're trying to update
-            updateClause = op['content'][1]
+            updateClause = op['query_content'][1]
             assert updateClause, "Missing UPDATE clause for %s" % op['type']
             
             # Let 'er rip!
@@ -250,18 +170,18 @@ class ReplayWorker(AbstractWorker):
             # TODO: What about the 'manipulate' or 'safe' flags?
             if self.debug:
                 LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, updateClause))
-            result = self.targetDB[coll].update(whereClause, updateClause)
+            result = self.dataset_db[coll].update(whereClause, updateClause)
             
         # INSERT
         elif op['type'] == "$insert":
             # Just get the payload and fire it off
             # There's nothing else to really do here
-            result = self.targetDB[coll].insert(op['content'])
+            result = self.dataset_db[coll].insert(op['query_content'])
             
         # DELETE
         elif op['type'] == "$delete":
             # The first element in the content field is the WHERE clause
-            whereClause = op['content'][0]
+            whereClause = op['query_content'][0]
             assert whereClause, "Missing WHERE clause for %s" % op['type']
             
             # SAFETY CHECK: Don't let them accidently delete the entire collection
@@ -270,7 +190,7 @@ class ReplayWorker(AbstractWorker):
             # I'll see you in hell!!
             if self.debug:
                 LOG.debug("%s '%s' - WHERE:%s" % (op['type'][1:].upper(), coll, whereClause))
-            result = self.targetDB[coll].remove(whereClause)
+            result = self.dataset_db[coll].remove(whereClause)
         
         # UNKNOWN!
         else:
