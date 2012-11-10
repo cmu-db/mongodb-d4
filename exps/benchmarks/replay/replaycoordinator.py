@@ -94,6 +94,9 @@ class ReplayCoordinator:
         d = Denormalizer(self.metadata_db, self.dataset_db, design)
         d.process()
         
+        # STEP 1.5: Put indexs on the dataset_db based on the given design
+        self.setIndexes(design)
+        
         # STEP 2: Send load command to all workers
         LOG.info("Sending out load database commands")
         self.send2All(MSG_CMD_LOAD_DB, None)
@@ -133,6 +136,20 @@ class ReplayCoordinator:
         end = time.time()
         LOG.info("All the clients finished executing")
         LOG.info("Time elapsed: %s", end - start)
+    ## DEF
+    
+    def setIndexes(self, design):
+        for col_name in design.getCollections():
+            indexes = design.getIndexes(col_name)
+            # The indexes is a list of tuples
+            for tup in indexes:
+                index_list = [ ]
+                for element in tup:
+                    index_list.append((element, pymongo.ASCENDING))
+                ## FOR
+                self.dataset_db[col_name].create_index(index_list)
+            ## FOR
+        ## FOR
     ## DEF
     
     def getDesign(self):
