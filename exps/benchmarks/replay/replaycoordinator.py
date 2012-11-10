@@ -138,11 +138,9 @@ class ReplayCoordinator:
     def getDesign(self):
         design_path = self.config.get(configutil.SECT_REPLAY, 'design')
         
-        f = open(design_path, 'r')
-        content = f.read()
-        f.close()
+        deserializer = Deserializer()
+        deserializer.loadDesignFile(design_path)
         
-        deserializer = Deserializer(content)
         design = deserializer.Deserialize()
         LOG.info("current design %s" % design)
         return design
