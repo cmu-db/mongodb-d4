@@ -41,6 +41,8 @@ if __name__ == '__channelexec__':
 else:
     basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../libs"))
+sys.path.append(os.path.join(basedir, "../exps/tools"))
+
 import mongokit
 
 # mongodb-d4
@@ -52,6 +54,8 @@ from util import constants
 from util import termcolor
 from multithreaded.multi_search import MultiClientDesigner
 from multithreaded.messageprocessor import MessageProcessor
+
+from design_deserializer import Deserializer
 
 LOG = logging.getLogger(__name__)
 
@@ -125,6 +129,9 @@ if __name__ == '__main__':
     aparser.add_argument('--output-design', type=str,
                          help='Path to final design file.')
     
+    aparser.add_argument('--input-design', type=str,
+                        help="Path to a design file.")
+                        
     args = vars(aparser.parse_args())
 
     if args['debug']: LOG.setLevel(logging.DEBUG)
@@ -137,6 +144,7 @@ if __name__ == '__main__':
         print
         aparser.print_usage()
         sys.exit(1)
+        
     LOG.debug("Loading configuration file '%s'" % args['config'])
     config = RawConfigParser()
     configutil.setDefaultValues(config)
@@ -191,6 +199,16 @@ if __name__ == '__main__':
     # This designer is only used for input processing
     designer = Designer(config, metadata_db, dataset_db)
     designer.setOptionsFromArguments(args)
+    
+    if args['input_design']:
+        # evaluate the input design and then quit
+        ds = Deserializer()
+        ds.loadDesignFile(args['input_design'])
+        replay_design = ds.Deserialize()
+        LOG.info("Read in design\n%s", replay_design)
+        designer.load(True, replay_design)
+        exit("Design evaluation Done")
+    ## IF
     
     start = time.time()
     try:
