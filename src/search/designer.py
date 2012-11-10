@@ -132,6 +132,7 @@ class Designer():
         converter.no_mongo_parse = self.no_mongo_parse
         converter.no_mongo_reconstruct = self.no_mongo_reconstruct
         converter.no_mongo_sessionizer = self.no_mongo_sessionizer
+        converter.no_mongo_aggregate_fix = self.no_mongo_aggregate_fix
         converter.mongo_skip = self.mongo_skip
         converter.sess_limit = self.sess_limit
         converter.op_limit = self.op_limit

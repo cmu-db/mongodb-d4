@@ -95,7 +95,7 @@ HASFIELDS_MASK = ".*hasfields: (?P<hasfields>\{.*?\}).*" #dict
 class Parser:
     """Mongosniff Trace Parser"""
     
-    def __init__(self, metadata_db, fd):
+    def __init__(self, metadata_db, fd, skipSaltSearch=False):
         assert metadata_db
         assert fd
         
@@ -112,6 +112,7 @@ class Parser:
         self.recreated_db = None
         self.error_ctr = 0
         self.stop_on_error = False
+        self.no_salt_search = skipSaltSearch
 
         # If set to true, then we will periodically save the Sessions out to the
         # metatdata_db in case we crash and want to inspect what happened
@@ -675,6 +676,10 @@ class Parser:
             LOG.warn("No plaintext collections were found in operations. Unable to perform post-processing")
             return
         
+        if self.no_salt_search:
+            LOG.warn("Skipping post-processing")
+            return
+        
         if self.debug:
             LOG.debug("Performing post processing on %s sessions with %d operations" % (self.getSessionCount(), self.getOpCount()))
             LOG.debug("-- Aggregate Collection Names --")
@@ -735,18 +740,22 @@ class Parser:
     def infer_salt(self, candidate_hashes, known_collections):
         """this is a ridiculous hack. Let's hope the salt is 0. But even if not..."""
         max_salt = 100000000
-        if self.debug: LOG.debug("Trying to brute-force the salt 0-%d" % max_salt)
+        #if self.debug:
+        LOG.info("Trying to brute-force the salt 0-%d [numCollections=%d / numHashes=%d]", \
+                 max_salt, len(known_collections), len(candidate_hashes))
         salt = 0
+        salt=12000000
+        # the col names are hashed with quotes around them 
+        col_names = map(self.get_hash_string, known_collections)
         while True:
-            if self.debug and salt % (max_salt / 100) == 0:
-                sys.stdout.write(".")
-            for known_col in known_collections:
-                hashed_string = self.get_hash_string(known_col) # the col names are hashed with quotes around them 
-                hash = anonymize.hash_string(hashed_string, salt) # imported from anonymize.py
+            if salt % (max_salt / 100) == 0 and salt > 0:
+                LOG.info("SEARCH: salt=%d [%.1f%%]", salt, (salt / float(max_salt))*100)
+            for known_col in col_names:
+                hash = anonymize.hash_string(known_col, salt) # imported from anonymize.py
                 if hash in candidate_hashes:
-                    if self.debug: 
-                        print
-                        LOG.debug("SUCCESS! %s hashes to a known value. SALT: %d", hashed_string, salt)
+                    #if self.debug: 
+                    print
+                    LOG.info("SUCCESS! %s hashes to a known value. SALT: %d", known_col, salt)
                     return salt
             salt += 1
             if salt > max_salt:
@@ -760,9 +769,9 @@ class Parser:
     def fix_collection_names(self, hashed_collections):
         """now we go through aggregate ops again and fill in the collection name..."""
         
-        if self.debug:
-            LOG.debug("Adding plaintext collection names to hashed operations...")
-            LOG.debug("PlainText Hashes:\n%s" % pformat(hashed_collections))
+        #if self.debug:
+        LOG.info("Adding plaintext collection names to hashed operations...")
+        LOG.info("PlainText Hashes:\n%s" % pformat(hashed_collections))
         
         cnt = 0
         for session in self.session_map.itervalues():
@@ -777,7 +786,7 @@ class Parser:
                     # iterate through the keys in the query JSON
                     # one of the should point to the hashed collection name
                     for key,value in query.iteritems():
-                        if type(value) in [unicode, str] and value in hashed_collections:
+                        if isinstance(value, basestring) and value in hashed_collections:
                             # YES. We found it!
                             # Make sure that the original collection name contains $cmd
                             if op['collection'].find("$cmd") < 0:
