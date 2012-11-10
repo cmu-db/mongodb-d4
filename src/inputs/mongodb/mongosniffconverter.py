@@ -208,7 +208,11 @@ class MongoSniffConverter(AbstractConverter):
                           sess['session_id'], len(sess['operations']), len(newSessions))
             totalOps = 0
             for newSess in newSessions:
-                newSess.save()
+                try:
+                    newSess.save()
+                except:
+                    LOG.error("Unexpected error when saving new Session\n%s", pformat(newSess))
+                    raise
                 newOpCtr = len(newSess['operations'])
                 totalOps += newOpCtr
                 newHistogram.put(newOpCtr)
