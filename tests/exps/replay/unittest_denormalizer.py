@@ -11,7 +11,7 @@ from workloadgenerator import CostModelTestCase
 from search import Design
 from denormalizer import Denormalizer
 
-class TestWorkloadCombiner(CostModelTestCase):
+class TestDenormalizer(CostModelTestCase):
 
     def setUp(self):
         CostModelTestCase.setUp(self)
@@ -23,25 +23,23 @@ class TestWorkloadCombiner(CostModelTestCase):
         for col_name in self.col_names:
             d.addCollection(col_name)
         ## FOR
-        op_list = self.printOperations(self.workload)
+        op_list = self.printOperations()
         col_list = self.printAllCollections()
         d.setDenormalizationParent("koalas", "apples")
         
         dn = Denormalizer(self.metadata_db, self.dataset_db, d)
-        new_workload = dn.process()
+        dn.process()
         
-        new_op_list = self.printOperations(new_workload)
+        new_op_list = self.printOperations()
         new_col_list = self.printAllCollections()
         
         self.assertTrue("koalas" not in new_op_list)
-        ## FOR
-        
         self.assertTrue("koalas" not in new_col_list)
     ## DEF
     
-    def printOperations(self, workload):
+    def printOperations(self):
         op_list = []
-        for sess in workload:
+        for sess in self.metadata_db.Session.fetch():
             for op in sess['operations']:
                 op_list.append(op['collection'])
             ## FOR 

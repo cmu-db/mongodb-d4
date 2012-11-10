@@ -14,6 +14,7 @@ SECT_DESIGNER  = "designer"
 SECT_COSTMODEL = "costmodel"
 SECT_MYSQL     = "mysql"
 SECT_MULTI_SEARCH = "multithread"
+SECT_REPLAY = "replay"
 
 ALL_SECTIONS = set()
 _key = None
@@ -74,6 +75,12 @@ constants.METADATA_DB_NAME),
         ("init_relax_ratio", "initial relax ratio", 0.25),
         ("max_relax_ratio", "maximum relax ratio", 0.5),
         ("relax_ratio_step", "the increase step of relax ratio", 0.1)
+    ],
+    
+    # Replay configuration
+    SECT_REPLAY: [
+        ("num_workers", "number of workers that execute queries against the databse", 1),
+        ("design", "path to a JSON file which represents the current design", None),
     ],
     
 }
