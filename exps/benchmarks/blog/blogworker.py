@@ -170,30 +170,30 @@ class BlogWorker(AbstractWorker):
         # Generate sharding key patterns
         # CollectionName -> Pattern
         # http://www.mongodb.org/display/DOCS/Configuring+Sharding#ConfiguringSharding-ShardingaCollection
-        shardingPatterns = { }
-        
+        shardingPattern = { }
+        col =  self.db[constants.ARTICLE_COLL]
         if config[self.name]["sharding"] == constants.SHARDEXP_SINGLE:
-            shardingPattern = { id : 1}
+            shardingPattern = {"id" : 1}
         
         elif config[self.name]["sharding"] == constants.SHARDEXP_COMPOUND:
-            shardingPattern = {id : 1, hashid : 1}
+            shardingPattern = {"id" : 1, "hashid" : 1}
         
         else:
             raise Exception("Unexpected sharding configuration type '%d'" % config["sharding"])
         
         # Then enable sharding on each of these collections
-        for col,pattern in shardingPatterns.iteritems():
-            LOG.debug("Sharding Collection %s.%s: %s" % (config['default']["dbname"], col, pattern))
-            try:
-                result = self.db.command({"shardcollection": self.db.name+"."+col, "key": pattern})
-                assert result["ok"] == 1, "DB Result: %s" % pformat(result)
-            except:
-                LOG.error("Failed to enable sharding on collection '%s.%s'" % (self.db.name, col))
-                raise
+        #for pattern in shardingPatterns.iteritems():
+        LOG.debug("Sharding Collection %s.%s: %s" % (self.db.name, col, shardingPattern))
+        try:
+            result = admindb.command({"shardcollection": str(self.db.name)+"."+str(col), "key": shardingPattern})
+            assert result["ok"] == 1, "DB Result: %s" % pformat(result)
+        except:
+            LOG.error("Failed to enable sharding on collection '%s.%s'" % (self.db.name, col))
+            raise
         ## FOR
         
-        LOG.debug("Successfully enabled sharding on %d collections in database %s" % \
-                  (len(Patterns, self.db.name)))
+        LOG.debug("Successfully enabled sharding on collections in database %s" % \
+                  (self.db.name))
     ## DEF
  
     ## ---------------------------------------------------------------------------
@@ -218,8 +218,10 @@ class BlogWorker(AbstractWorker):
         
         # HACK: Setup the indexes if we're the first client
         if self.getWorkerId() == 0:
-            self.db[constants.ARTICLE_COLL].drop_indexes()
-            self.db[constants.COMMENT_COLL].drop_indexes()
+           
+            if not config[self.name]["experiment"] == constants.EXP_SHARDING:
+                self.db[constants.ARTICLE_COLL].drop_indexes()
+                self.db[constants.COMMENT_COLL].drop_indexes()
             
             # Create the nextArticleId counter here
             articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
@@ -258,7 +260,7 @@ class BlogWorker(AbstractWorker):
                     LOG.info("Creating primary index %s(id)" % self.db[constants.COMMENT_COLL].full_name)
                     self.db[constants.COMMENT_COLL].ensure_index([("id", pymongo.ASCENDING)])
                     
-            elif config[self.name]["experiment"] == constants.EXPS_SHARDING:
+            elif config[self.name]["experiment"] == constants.EXP_SHARDING:
                 LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
                 self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
