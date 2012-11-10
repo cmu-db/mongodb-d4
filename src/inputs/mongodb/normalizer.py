@@ -60,15 +60,18 @@ class Normalizer:
         # collections
 
         # DON'T FORGET TO UPDATE THE OPERATIONS AS WELL
-        LOG.info("Normalizing Database")
-        # In order not to affect the traversing process, we create a two batches, one is for deleted fields
-        # the other is for new collections
+        col_names = self.dataset_db.collection_names()
+        LOG.info("Analyzing %d collections for embedded collections", len(col_names))
+        
+        # In order not to affect the traversing process, we create a two batches:
+        # (1) one is for deleted fields
+        # (2) the other is for new collections
         changed_fields = [ ]
-        for col_name in self.dataset_db.collection_names():
+        for col_name in col_names:
             # Skip ignored collections
             if col_name.split(".")[0] in constants.IGNORED_COLLECTIONS:
                 continue
-            LOG.info("Trying to extract collections from collection '%s'", col_name)
+            LOG.info("Extracting embedded documents from collection '%s'", col_name)
 
             # Examine each document in the dataset for this collection
             for doc in self.dataset_db[col_name].find():

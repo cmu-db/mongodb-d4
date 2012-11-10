@@ -107,7 +107,9 @@ if __name__ == '__main__':
                         help='Skip reconstructing the MongoDB database schema after loading.')
     agroup.add_argument('--no-mongo-sessionizer', action='store_true',
                         help='Skip splitting the MongoSniff workload into separate sessions.')
-
+    agroup.add_argument('--no-mongo-aggregate-fix', action='store_true',
+                        help='Skip attempting to fix the collection names for aggregate queries'),
+                        
     # MySQL Processing Options
     agroup = aparser.add_argument_group(termcolor.bold('MySQL Workload Processing Options'))
     agroup.add_argument('--mysql', action='store_true',

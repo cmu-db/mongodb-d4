@@ -60,6 +60,7 @@ class MongoSniffConverter(AbstractConverter):
 
         self.fd = fd
         self.no_mongo_parse = False
+        self.no_mongo_aggregate_fix = False
         self.no_mongo_reconstruct = False
         self.no_mongo_sessionizer = False
         self.no_mongo_normalize = False
@@ -110,7 +111,7 @@ class MongoSniffConverter(AbstractConverter):
     ## ----------------------------------------------
     def parseWorkload(self, fd):
         # Create the Parser object that will go to town on our input file 
-        p = parser.Parser(self.metadata_db, fd)
+        p = parser.Parser(self.metadata_db, fd, skipSaltSearch=self.no_mongo_aggregate_fix)
         
         # Stop on Error
         if self.stop_on_error:
