@@ -142,7 +142,7 @@ class ReplayCoordinator:
         deserializer.loadDesignFile(design_path)
         
         design = deserializer.Deserialize()
-        LOG.info("current design %s" % design)
+        LOG.info("current design \n%s" % design)
         return design
     ## DEF
     
@@ -164,10 +164,10 @@ class ReplayCoordinator:
                 msg = getMessage(res)
                 
                 if msg.header == MSG_START_NOTICE:
-                    LOG.info("One process started searching, we are good :)")
+                    LOG.info("One process started executing, we are good :)")
                     started_process += 1
                     if started_process == len(self.channels):
-                        LOG.info("Perfect! All the processes have started searching")
+                        LOG.info("Perfect! All the processes have started executing")
                 ## IF
                 elif msg.header == MSG_EXECUTE_COMPLETED:
                     running_clients -= 1
