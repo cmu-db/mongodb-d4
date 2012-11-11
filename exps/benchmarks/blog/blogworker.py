@@ -141,13 +141,13 @@ class BlogWorker(AbstractWorker):
         
         if self.getWorkerId() == 0:
             if config['default']["reset"]:
-               # if not config[self.name]["experiment"] == constants.EXP_SHARDING:
-               LOG.info("Resetting database '%s'" % config['default']["dbname"])
-               self.conn.drop_database(config['default']["dbname"])
+               if not config[self.name]["experiment"] == constants.EXP_SHARDING:
+                   LOG.info("Resetting database '%s'" % config['default']["dbname"])
+                   self.conn.drop_database(config['default']["dbname"])
             
             ## SHARDING
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
-                self.enableSharding(config)
+                #self.enableSharding(config)
                 pass
         ## IF
             
@@ -222,13 +222,15 @@ class BlogWorker(AbstractWorker):
         # HACK: Setup the indexes if we're the first client
         if self.getWorkerId() == 0:
            
-            #if not config[self.name]["experiment"] == constants.EXP_SHARDING:
-            self.db[constants.ARTICLE_COLL].drop_indexes()
-            self.db[constants.COMMENT_COLL].drop_indexes()
+            if not config[self.name]["experiment"] == constants.EXP_SHARDING:
+                self.db[constants.COMMENT_COLL].drop_indexes()
+                self.db[constants.ARTICLE_COLL].drop_indexes()
+            
+           
             
             # Create the nextArticleId counter here
             articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
-                              "_id": constants.NEXT_ARTICLE_CTR_ID, "id": constants.NEXT_ARTICLE_CTR_ID}
+                              "_id": constants.NEXT_ARTICLE_CTR_ID, "id": constants.NEXT_ARTICLE_CTR_ID,"hashid": "afafaf"}
             record = self.db[constants.ARTICLE_COLL].find_one({"_id": constants.NEXT_ARTICLE_CTR_ID})
             if record is None:
                 self.db[constants.ARTICLE_COLL].insert(articleCounter, safe=True)
