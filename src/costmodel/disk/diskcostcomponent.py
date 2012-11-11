@@ -158,6 +158,7 @@ class DiskCostComponent(AbstractCostComponent):
                 isRegex = self.state.__getIsOpRegex__(cache, op)
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
+                    slot_size = self.guess_slot_size(col_info, content)
                     self.total_op_contents += 1
                     try:
                         opNodes = self.state.__getNodeIds__(cache, design, op)
@@ -190,7 +191,7 @@ class DiskCostComponent(AbstractCostComponent):
                             elif self.debug:
                                 self.state.cache_hit_ctr.put("index_docIds")
                                 ## IF
-                            hits = lru.getDocumentFromIndex(indexKeys, documentId)
+                            hits = lru.getDocumentFromIndex(indexKeys, documentId, slot_size)
                             # print "hits: ", hits
                             pageHits += hits
                             maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
@@ -227,7 +228,7 @@ class DiskCostComponent(AbstractCostComponent):
                             elif self.debug:
                                 self.state.cache_hit_ctr.put("collection_docIds")
                                 ## IF
-                            hits = lru.getDocumentFromCollection(op['collection'], documentId)
+                            hits = lru.getDocumentFromCollection(op['collection'], documentId, slot_size)
                             pageHits += hits
                             maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:
@@ -293,7 +294,15 @@ class DiskCostComponent(AbstractCostComponent):
         for lru in self.buffers:
             lru.reset()
     ## DEF
-
+    
+    def guess_slot_size(self, col_info, content):
+        key = content.keys()[0] # each query content just has one key
+        if 'embedding_ratio' in col_info and key in col_info['embedding_ratio']:
+            return int(math.ceil(col_info['embedding_ratio'][key])) 
+        else:
+            return 1
+    ## DEF
+    
     def guessIndex(self, design, op):
         """
             Return a tuple containing the best index to use for this operation and a boolean
