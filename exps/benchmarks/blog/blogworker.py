@@ -404,14 +404,13 @@ class BlogWorker(AbstractWorker):
             trial = int(config[self.name]["indexes"])
             readwriteop = random.randint(1,10)
             range = int(config[self.name]["range"])
-            articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
+            articleId = str(random.randint(int(self.num_articles-range-1),self.num_articles-1)).zfill(64)
             if readwriteop != 1: # read
                 if trial == 0:
                     opName = "readArticleById"
                     return (opName, (articleId,))
                 elif trial == 1: 
-                
-                    articleHashId = hash(str(articleId))
+                    articleHashId = hashlib.md5(str(articleId)).hexdigest()+hashlib.md5(str(articleId)).hexdigest() 
                     opName = "readArticleByHashId"
                     return (opName, (articleHashId,))
             else: # write
