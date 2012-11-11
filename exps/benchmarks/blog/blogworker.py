@@ -443,7 +443,7 @@ class BlogWorker(AbstractWorker):
     def readArticleById(self,config, articleId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         #if not article:
-        LOG.debug("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        LOG.debug("Failed to find %s with id #%s" % (constants.ARTICLE_COLL, str(articleId)))
         #    return
         #assert article["id"] == articleId, \
         #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
@@ -474,7 +474,7 @@ class BlogWorker(AbstractWorker):
     def readArticleByHashId(self,config,articleHashId):
         article = self.db[constants.ARTICLE_COLL].find_one({"hashid": articleHashId})
         #if not article:
-        LOG.debug("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleHashId))
+        LOG.debug("Failed to find %s with id #%s" % (constants.ARTICLE_COLL, str(articleHashId)))
         #return
         #assert article["hashid"] == hashid, \
         #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
