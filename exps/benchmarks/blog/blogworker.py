@@ -392,20 +392,26 @@ class BlogWorker(AbstractWorker):
             return (opName, (articleId,))
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
-            #trial = int(config[self.name]["sharding"])
-            readwriteop = random.randint(1,10)
+            trial = int(config[self.name]["sharding"])
+            readwriteop = random.randint(1,100)
             range = int(config[self.name]["range"])
             articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
             if readwriteop != 1: # read
-                opName = "readArticleById"
-                return (opName, (articleId,))
-            else: # write
+                if trial == 0:
+                    opName = "readArticleById"
+                    return (opName, (articleId,))
+                elif trial == 1:
+                    opName = "readArticleByIdAndHashId"
+                    digest = hashlib.md5(str(articleId)).hexdigest()
+                    articleHashId = digest + digest + digest + digest
+                    return  (opname, (articleId,articleHashId))
+           else: # write
                 opName = "insertNewArticle"
                 return (opName, ())
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
             trial = int(config[self.name]["indexes"])
-            readwriteop = random.randint(1,10)
+            readwriteop = random.randint(1,100)
             range = int(config[self.name]["range"])
             articleId = str(random.randint(int(self.num_articles-range-1),self.num_articles-1)).zfill(128)
             if readwriteop != 1: # read
@@ -565,7 +571,7 @@ class BlogWorker(AbstractWorker):
     
     def findAndIncreaseArticleCounter(self,config):    
         if config[self.name]["experiment"] == constants.EXP_SHARDING:
-            query = {"_id": constants.NEXT_ARTICLE_CTR_ID,"hashid": "afafaf"}
+            query = {"_id": constants.NEXT_ARTICLE_CTR_ID, "id": constants.NEXT_ARTICLE_CTR_ID, "hashid": "afafaf"}
         query = {"_id": constants.NEXT_ARTICLE_CTR_ID}
         update = {"$inc": {constants.NEXT_ARTICLE_CTR_KEY: 1}}
         counter = self.db[constants.ARTICLE_COLL].find_and_modify(query, update, False)
