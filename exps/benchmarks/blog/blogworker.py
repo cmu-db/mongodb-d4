@@ -228,7 +228,7 @@ class BlogWorker(AbstractWorker):
             
             # Create the nextArticleId counter here
             articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
-                              "_id": constants.NEXT_ARTICLE_CTR_ID}
+                              "_id": constants.NEXT_ARTICLE_CTR_ID, "id": constants.NEXT_ARTICLE_CTR_ID}
             record = self.db[constants.ARTICLE_COLL].find_one({"_id": constants.NEXT_ARTICLE_CTR_ID})
             if record is None:
                 self.db[constants.ARTICLE_COLL].insert(articleCounter, safe=True)
