@@ -25,6 +25,7 @@
 import sys
 import os
 import string
+import hashlib
 import re
 import logging
 import traceback
@@ -140,12 +141,14 @@ class BlogWorker(AbstractWorker):
         
         if self.getWorkerId() == 0:
             if config['default']["reset"]:
-                LOG.info("Resetting database '%s'" % config['default']["dbname"])
-                self.conn.drop_database(config['default']["dbname"])
+                if not config[self.name]["experiment"] == constants.EXP_SHARDING:
+                    LOG.info("Resetting database '%s'" % config['default']["dbname"])
+                    self.conn.drop_database(config['default']["dbname"])
             
             ## SHARDING
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
-                self.enableSharding(config)
+                #self.enableSharding(config)
+                pass
         ## IF
             
         ## The next operation that we need to execute	
@@ -225,7 +228,7 @@ class BlogWorker(AbstractWorker):
             
             # Create the nextArticleId counter here
             articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
-                              "_id": constants.NEXT_ARTICLE_CTR_ID}
+                              "_id": constants.NEXT_ARTICLE_CTR_ID, "id": constants.NEXT_ARTICLE_CTR_ID}
             record = self.db[constants.ARTICLE_COLL].find_one({"_id": constants.NEXT_ARTICLE_CTR_ID})
             if record is None:
                 self.db[constants.ARTICLE_COLL].insert(articleCounter, safe=True)
@@ -261,9 +264,9 @@ class BlogWorker(AbstractWorker):
                     self.db[constants.COMMENT_COLL].ensure_index([("id", pymongo.ASCENDING)])
                     
             elif config[self.name]["experiment"] == constants.EXP_SHARDING:
-                LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
-                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
-                
+                #LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
+                #self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                pass                
             
             else:
                 raise Exception("Unexpected experiment type %s" % config[self.name]["experiment"])
@@ -333,9 +336,15 @@ class BlogWorker(AbstractWorker):
         for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
             articleTags.append(random.choice(self.tags))
         articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
-        articleHashId = hash(str(articleId))
+        if not config[self.name]["experiment"] == constants.EXP_INDEXING:
+            articleId = long(articleId)
+            articleHashId = hash(str(articleId)) 
+        else: 
+            articleId = str(articleId).zfill(128)
+            digest = hashlib.md5(str(articleId)).hexdigest()
+            articleHashId = digest + digest + digest + digest
         article = {
-            "id": long(articleId),
+            "id": articleId,
             "title": title,
             "date": articleDate,
             "author": random.choice(self.authors),
@@ -382,7 +391,7 @@ class BlogWorker(AbstractWorker):
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
             #trial = int(config[self.name]["sharding"])
-            readwriteop = random.randint(1,10)
+            readwriteop = random.randint(1,100)
             range = int(config[self.name]["range"])
             articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
             if readwriteop != 1: # read
@@ -396,14 +405,14 @@ class BlogWorker(AbstractWorker):
             trial = int(config[self.name]["indexes"])
             readwriteop = random.randint(1,10)
             range = int(config[self.name]["range"])
-            articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
+            articleId = str(random.randint(int(self.num_articles-range-1),self.num_articles-1)).zfill(128)
             if readwriteop != 1: # read
                 if trial == 0:
                     opName = "readArticleById"
                     return (opName, (articleId,))
                 elif trial == 1: 
-                
-                    articleHashId = hash(str(articleId))
+                    digest = hashlib.md5(str(articleId)).hexdigest()
+                    articleHashId = digest + digest + digest + digest
                     opName = "readArticleByHashId"
                     return (opName, (articleHashId,))
             else: # write
@@ -434,7 +443,7 @@ class BlogWorker(AbstractWorker):
     def readArticleById(self,config, articleId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id": articleId})
         #if not article:
-        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleId))
+        LOG.debug("Failed to find %s with id #%s" % (constants.ARTICLE_COLL, str(articleId)))
         #    return
         #assert article["id"] == articleId, \
         #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
@@ -465,7 +474,7 @@ class BlogWorker(AbstractWorker):
     def readArticleByHashId(self,config,articleHashId):
         article = self.db[constants.ARTICLE_COLL].find_one({"hashid": articleHashId})
         #if not article:
-        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleHashId))
+        LOG.debug("Failed to find %s with id #%s" % (constants.ARTICLE_COLL, str(articleHashId)))
         #return
         #assert article["hashid"] == hashid, \
         #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
@@ -475,7 +484,7 @@ class BlogWorker(AbstractWorker):
     def readArticleByIdAndHashId(self,config,articleId,articleHashId):
         article = self.db[constants.ARTICLE_COLL].find_one({"id":articleId,"hashid": articleHashId})
         #if not article:
-        LOG.warn("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleHashId))
+        LOG.debug("Failed to find %s with id #%d" % (constants.ARTICLE_COLL, articleHashId))
         #    return
         #assert article["hashid"] == hashid, \
         #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
