@@ -25,6 +25,7 @@
 import sys
 import os
 import string
+import hashlib
 import re
 import logging
 import traceback
@@ -339,7 +340,7 @@ class BlogWorker(AbstractWorker):
             articleHashId = hash(str(articleId)) 
         else: 
             articleId = str(articleId).zfill(64)
-            articleHashId = hash(str(articleId))+hash(str(articleId)) 
+            articleHashId = hashlib.md5(str(articleId))+hashlib.md5(str(articleId)) 
         article = {
             "id": articleId,
             "title": title,
