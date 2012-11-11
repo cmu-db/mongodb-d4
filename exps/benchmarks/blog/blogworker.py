@@ -120,10 +120,10 @@ class BlogWorker(AbstractWorker):
         self.tags = [ ]
         for i in xrange(0, constants.NUM_TAGS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            #if config[self.name]["experiment"] == constants.EXP_INDEXING:
-            #    self.tags.append("tag%0128d" % i)
-            #else:    
-            self.tags.append("tag"+str(i))
+            if config[self.name]["experiment"] == constants.EXP_INDEXING:
+                self.tags.append("tag%0128d" % i)
+            else:    
+                self.tags.append("tag"+str(i))
         self.tagZipf = ZipfGenerator(constants.NUM_TAGS,float(config[self.name]["skew"]))
         
         #precalcualtiong the dates list to use Zipfian against them
@@ -245,13 +245,13 @@ class BlogWorker(AbstractWorker):
                 
                 if trial == 0:
                     #article(id)
-                    LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name) 
-                    self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                    LOG.info("Creating index %s(id,tags)" % self.db[constants.ARTICLE_COLL].full_name) 
+                    self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING),("tags", pymongo.ASCENDING)])
                     
                 elif trial == 1:
                     #article(hashid)
-                    LOG.info("Creating index %s(hashid)" % self.db[constants.ARTICLE_COLL].full_name) 
-                    self.db[constants.ARTICLE_COLL].ensure_index([("hashid", pymongo.ASCENDING)])
+                    LOG.info("Creating index %s(hashid,tags)" % self.db[constants.ARTICLE_COLL].full_name) 
+                    self.db[constants.ARTICLE_COLL].ensure_index([("hashid", pymongo.ASCENDING),("tags", pymongo.ASCENDING)])
             
             elif config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
                 LOG.info("Creating primary key indexes for %s" % self.db[constants.ARTICLE_COLL].full_name) 
@@ -356,7 +356,7 @@ class BlogWorker(AbstractWorker):
         }
         if config[self.name]["denormalize"]:
             article["comments"] = [ ]
-        self.db[constants.ARTICLE_COLL].insert(article)
+        self.db[constants.ARTICLE_COLL].insert(article,safe=True)
         return article
     
     ## ---------------------------------------------------------------------------
