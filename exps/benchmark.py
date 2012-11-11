@@ -87,7 +87,6 @@ class Benchmark:
         ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
         ("design", "Path to database design file (must be supported by benchmark).", ""),
         ("logfile", "Path to debug log file for remote execnet processes", None),
-        ("sharding", "Whether this experiment is using a sharded MongoDB cluster", False),
         ("mongostat_sleep", "The number of seconds to sleep before collecting new info using mongostat", 10),
     ]
     
@@ -192,24 +191,25 @@ class Benchmark:
 
         # Step 0: Flush the cache on the MongoDB host
         if self.args['flush']:
-            # If we're using sharding then we need to restart the shards
-            if self.config["default"]["sharding"]:
-                # Connect to the mongos server and get the list of shards
-                hostname = self.config["default"]["host"]
-                port = self.config["default"]["port"]
-                try:
-                    conn = Connection(host=hostname, port=port)
-                except:
-                    LOG.error("Failed to connect to MongoDB at %s:%s" % (hostname, port))
-                    raise
+            # Check whether we have sharding nodes. If so, then we'll
+            # Connect to the mongo server and get the list of shards
+            hostname = self.config["default"]["host"]
+            port = self.config["default"]["port"]
+            try:
+                conn = Connection(host=hostname, port=port)
+            except:
+                LOG.error("Failed to connect to MongoDB at %s:%s" % (hostname, port))
+                raise
+            
+            result = conn["admin"].command("listShards")
+            if "shards" in result:
                 shards = set()
-                for entry in conn["admin"].command("listShards")["shards"]:
+                for entry in result["shards"]:
                     shardHost,shardPort = entry["host"].split(":")
                     shards.add(shardHost)
                 # Restart these mofos
                 LOG.warn("Restarting MongoDB Shards: %s", list(shards))
                 map(flushBuffer, shards)
-                
             # Otherwise, just restart the front end node
             else:
                 flushBuffer(self.config["default"]["host"])
