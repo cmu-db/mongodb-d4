@@ -140,12 +140,13 @@ class BlogWorker(AbstractWorker):
         
         if self.getWorkerId() == 0:
             if config['default']["reset"]:
-                LOG.info("Resetting database '%s'" % config['default']["dbname"])
-                self.conn.drop_database(config['default']["dbname"])
+                if not config[self.name]["experiment"] == constants.EXP_SHARDING:
+                    LOG.info("Resetting database '%s'" % config['default']["dbname"])
+                    self.conn.drop_database(config['default']["dbname"])
             
             ## SHARDING
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
-                self.enableSharding(config)
+                #self.enableSharding(config)
         ## IF
             
         ## The next operation that we need to execute	
@@ -261,8 +262,8 @@ class BlogWorker(AbstractWorker):
                     self.db[constants.COMMENT_COLL].ensure_index([("id", pymongo.ASCENDING)])
                     
             elif config[self.name]["experiment"] == constants.EXP_SHARDING:
-                LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
-                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                #LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
+                #self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 
             
             else:
@@ -333,9 +334,14 @@ class BlogWorker(AbstractWorker):
         for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
             articleTags.append(random.choice(self.tags))
         articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
-        articleHashId = hash(str(articleId))
+        if not config[self.name]["experiment"] == constants.EXP_INDEXING:
+            articleId = long(articleId)
+            articleHashId = hash(str(articleId)) 
+        else: 
+            articleId = str(articleId).zfill(64)
+            articleHashId = hash(str(articleId))+hash(str(articleId)) 
         article = {
-            "id": long(articleId),
+            "id": articleId,
             "title": title,
             "date": articleDate,
             "author": random.choice(self.authors),
@@ -382,7 +388,7 @@ class BlogWorker(AbstractWorker):
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
             #trial = int(config[self.name]["sharding"])
-            readwriteop = random.randint(1,10)
+            readwriteop = random.randint(1,100)
             range = int(config[self.name]["range"])
             articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
             if readwriteop != 1: # read
