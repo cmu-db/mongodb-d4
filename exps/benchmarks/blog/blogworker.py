@@ -341,7 +341,7 @@ class BlogWorker(AbstractWorker):
             articleHashId = hash(str(articleId)) 
         else: 
             articleId = str(articleId).zfill(64)
-            articleHashId = str(hashlib.md5(str(articleId)))+str(hashlib.md5(str(articleId))) 
+            articleHashId = hashlib.md5(str(articleId)).hexdigest()+hashlib.md5(str(articleId)).hexdigest() 
         article = {
             "id": articleId,
             "title": title,
