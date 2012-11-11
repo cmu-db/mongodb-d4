@@ -5,7 +5,7 @@
 
     HEAD: <buffer-tuple>
     TAIL: <buffer-tuple>
-    BUFFER: { <buffer-tuple>: [ <prev-buffer-value>, <next-buffer-value>, <hash-key> ] }
+    BUFFER: { <buffer-tuple>: [ <prev-buffer-value>, <next-buffer-value>, <hash-key>, slot_size ] }
 
     The HEAD and TAIL are used to pop and push entries out and into the buffer based on LRU rules
     """
@@ -17,6 +17,7 @@ from pprint import pformat
 PREV_BUFFER_ENTRY = 0
 NEXT_BUFFER_ENTRY = 1
 HASH_KEY = 2
+SLOT_SIZE = 3
 
 DOC_TYPE_INDEX = 0
 DOC_TYPE_COLLECTION = 1
@@ -59,21 +60,21 @@ class FastLRUBufferWithWindow:
         self.tail = None
     ## DEF
 
-    def getDocumentFromIndex(self, indexKeys, documentId):
+    def getDocumentFromIndex(self, indexKeys, documentId, slot_size):
         """
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
         """
 #        assert size > 0,"Missing index size for %s -> '%s'\n%s" % (col_name, indexKeys, pformat(self.index_sizes))
-        return self.getDocument(DOC_TYPE_INDEX, indexKeys, documentId)
+        return self.getDocument(DOC_TYPE_INDEX, indexKeys, documentId, slot_size)
         ## DEF
 
-    def getDocumentFromCollection(self, col_name, documentId):
+    def getDocumentFromCollection(self, col_name, documentId, slot_size):
  #      assert size > 0, "Missing collection size for '%s'" % col_name
-        return self.getDocument(DOC_TYPE_COLLECTION, col_name, documentId)
+        return self.getDocument(DOC_TYPE_COLLECTION, col_name, documentId, slot_size)
     ## DEF
 
-    def getDocument(self, typeId, keys, documentId):
+    def getDocument(self, typeId, keys, documentId, slot_size):
 
         # Pre-hashing the tuple greatly improves the performance of this
         # method because we don't need to keep redoing it when we update
@@ -102,7 +103,7 @@ class FastLRUBufferWithWindow:
 #            assert size < self.buffer_size
             if self.debug:
                 self.__print_buffer__()
-            return self.__push__(buffer_tuple)
+            return self.__push__(buffer_tuple, slot_size)
         ## DEF
 
     ##  -----------------------------------------------------------------------
@@ -139,7 +140,7 @@ class FastLRUBufferWithWindow:
 
         isRemoved, value = self.__remove__(buffer_tuple)
         if isRemoved:
-            self.__push__(buffer_tuple)
+            self.__push__(buffer_tuple, value[SLOT_SIZE])
 
     ## DEF
 
@@ -152,7 +153,7 @@ class FastLRUBufferWithWindow:
             return False, None
             
         # Add back the memory to the buffer based on what we allocated for the tuple
-        self.free_slots += 1
+        self.free_slots += tuple_value[SLOT_SIZE]
 
         if tuple_value[PREV_BUFFER_ENTRY] is None and tuple_value[NEXT_BUFFER_ENTRY] is None: # if only one tuple
             self.head = None
@@ -173,17 +174,17 @@ class FastLRUBufferWithWindow:
         return True, tuple_value
     ## DEF
 
-    def __push__(self, buffer_tuple):
+    def __push__(self, buffer_tuple, slot_size):
         """
             Add the given buffer_tuple to the bottom of the buffer
         """
         page_hits = 0
         # pop out the least recent used tuples until we have enough space in buffer for this tuple
-        while self.free_slots <= 0:
+        while self.free_slots < slot_size:
             self.__pop__()
             page_hits += 1
         
-        newEntry = [self.tail, None, buffer_tuple]
+        newEntry = [self.tail, None, buffer_tuple, slot_size]
         
         if self.tail is not None:
             self.tail[NEXT_BUFFER_ENTRY] = newEntry
@@ -192,7 +193,7 @@ class FastLRUBufferWithWindow:
 
         self.tail = newEntry
         self.buffer[buffer_tuple] = newEntry
-        self.free_slots -= 1
+        self.free_slots -= slot_size
         page_hits += 1
 
         return page_hits
