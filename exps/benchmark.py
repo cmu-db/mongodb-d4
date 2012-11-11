@@ -38,6 +38,7 @@ import time
 import threading
 from datetime import datetime
 from ConfigParser import SafeConfigParser
+from pymongo import Connection
 from pprint import pprint, pformat
 
 from api.messageprocessor import *
@@ -86,6 +87,7 @@ class Benchmark:
         ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
         ("design", "Path to database design file (must be supported by benchmark).", ""),
         ("logfile", "Path to debug log file for remote execnet processes", None),
+        ("sharding", "Whether this experiment is using a sharded MongoDB cluster", False),
         ("mongostat_sleep", "The number of seconds to sleep before collecting new info using mongostat", 10),
     ]
     
@@ -103,10 +105,10 @@ class Benchmark:
                 self.DEFAULT_CONFIG[i] = (c[0], c[1], logfile)
         ## FOR
         
-        self._args = args
-        self._coordinator = self.createCoordinator()
-        self._config = None
-        self._channels = None
+        self.args = args
+        self.coordinator = self.createCoordinator()
+        self.config = None
+        self.channels = None
     ## DEF
         
     
@@ -119,19 +121,19 @@ class Benchmark:
         ret += formatConfig("default", self.DEFAULT_CONFIG)
         
         # Benchmark Configuration
-        ret += formatConfig(self._benchmark, self._coordinator.benchmarkConfigImpl())
+        ret += formatConfig(self._benchmark, self.coordinator.benchmarkConfigImpl())
 
         return (ret)
     ## DEF
     
     def loadConfig(self):
         '''Load configuration file'''
-        assert 'config' in self._args
-        assert self._args['config'] != None
+        assert 'config' in self.args
+        assert self.args['config'] != None
         #print("~~~")
-	print(self._args['config'].name)
+	print(self.args['config'].name)
         cparser = SafeConfigParser()
-        cparser.read(os.path.realpath(self._args['config'].name))
+        cparser.read(os.path.realpath(self.args['config'].name))
         config = dict()
         for s in cparser.sections():
             config[s] = dict(cparser.items(s))
@@ -180,49 +182,69 @@ class Benchmark:
             config["default"]["design"] = None
         ## IF
         
-        self._config = config
-        LOG.debug("Configuration File:\n%s" % pformat(self._config))
+        self.config = config
+        LOG.debug("Configuration File:\n%s" % pformat(self.config))
     ## DEF
             
     def runBenchmark(self):
         '''Execute the target benchmark!'''
-        self._channels = self.createChannels()
+        self.channels = self.createChannels()
 
         # Step 0: Flush the cache on the MongoDB host
-        if self._args['flush']:
-            flushBuffer(self._config["default"]["host"])
+        if self.args['flush']:
+            # If we're using sharding then we need to restart the shards
+            if self.config["default"]["sharding"]:
+                # Connect to the mongos server and get the list of shards
+                hostname = self.config["default"]["host"]
+                port = self.config["default"]["port"]
+                try:
+                    conn = Connection(host=hostname, port=port)
+                except:
+                    LOG.error("Failed to connect to MongoDB at %s:%s" % (hostname, port))
+                    raise
+                shards = set()
+                for entry in conn["admin"].command("listShards")["shards"]:
+                    shardHost,shardPort = entry["host"].split(":")
+                    shards.add(shardHost)
+                # Restart these mofos
+                LOG.warn("Restarting MongoDB Shards: %s", list(shards))
+                map(flushBuffer, shards)
+                
+            # Otherwise, just restart the front end node
+            else:
+                flushBuffer(self.config["default"]["host"])
         
         # Step 1: Initialize all of the Workers on the client nodes
-        self._coordinator.init(self._config, self._channels) 
+        self.coordinator.init(self.config, self.channels) 
         
         # Step 2: Load the benchmark database
-        if not self._args['no_load']:
-            self._coordinator.load(self._config, self._channels)            
+        if not self.args['no_load']:
+            self.coordinator.load(self.config, self.channels)            
             
         # Step 3: Execute the benchmark workload
-        if not self._args['no_execute']:
+        if not self.args['no_execute']:
             mongostat = None
             try:
                 # Start mongostat
-                if self._args["mongostat"]:
-                    dbHost = self._config["default"]["host"]
+                if self.args["mongostat"]:
+                    dbHost = self.config["default"]["host"]
                     mongostat = MongoStatCollector(dbHost, SSH_USER, SSH_OPTIONS)
                     mongostat.start()
-                self._coordinator.execute(self._config, self._channels)
-                self._coordinator.showResult(self._config, self._channels)
+                self.coordinator.execute(self.config, self.channels)
+                self.coordinator.showResult(self.config, self.channels)
             finally:
                 if not mongostat is None:
                     mongostat.stop()
         ## IF
             
         # Step 4: Clean things up (?)
-        # self._coordinator.moreProcessing(self._config, self._channels)
+        # self.coordinator.moreProcessing(self.config, self.channels)
     ## DEF
         
     def createChannels(self):
         '''Create a list of channels used for communication between coordinator and worker'''
-        assert 'clients' in self._config['default']
-        clients = re.split(r"[\s,]+", str(self._config['default']['clients']))
+        assert 'clients' in self.config['default']
+        clients = re.split(r"[\s,]+", str(self.config['default']['clients']))
         assert len(clients) > 0
         LOG.info("Invoking benchmark framework on %d clients" % len(clients))
 
@@ -232,8 +254,8 @@ class Benchmark:
         
         # Create fake channel that invokes the worker directly in
         # the same process
-        if self._config['default']['direct']:
-            self._config['default']['clientprocs'] = 1
+        if self.config['default']['direct']:
+            self.config['default']['clientprocs'] = 1
             ch = DirectChannel()
             channels.append(ch)
             
@@ -241,10 +263,10 @@ class Benchmark:
         else:
             # Print a header message in the logfile to indicate that we're starting 
             # a new benchmark run
-            LOG.info("Executor Log File: %s" %  self._config['default']['logfile'])
-            with open(self._config['default']['logfile'], "a") as fd:
+            LOG.info("Executor Log File: %s" %  self.config['default']['logfile'])
+            with open(self.config['default']['logfile'], "a") as fd:
                 header = "%s BENCHMARK - %s\n\n" % (self._benchmark.upper(), datetime.now())
-                header += "%s" % (pformat(self._config))
+                header += "%s" % (pformat(self.config))
                 
                 fd.write('*'*100 + '\n')
                 for line in header.split('\n'):
@@ -252,14 +274,14 @@ class Benchmark:
                 fd.write('*'*100 + '\n')
             ## WITH
             
-            totalClients = len(clients) * self._config['default']['clientprocs']
+            totalClients = len(clients) * self.config['default']['clientprocs']
             start = time.time()
             for node in clients:
                 cmd = 'ssh='+ node
-                cmd += r"//chdir=" + self._config['default']['path']
+                cmd += r"//chdir=" + self.config['default']['path']
                 LOG.debug(cmd)
-                LOG.debug("# of Client Processes: %s" % self._config['default']['clientprocs'])
-                for i in range(int(self._config['default']['clientprocs'])):
+                LOG.debug("# of Client Processes: %s" % self.config['default']['clientprocs'])
+                for i in range(int(self.config['default']['clientprocs'])):
                     LOG.debug("Invoking %s on %s" % (remoteCall, node))
                     gw = execnet.makegateway(cmd)
                     ch = gw.remote_exec(remoteCall)
