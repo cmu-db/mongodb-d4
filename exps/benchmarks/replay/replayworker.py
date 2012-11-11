@@ -143,7 +143,7 @@ class ReplayWorker:
 
             # Check whether this is for a count
             if 'count' in op['query_content'][0]:
-                asset "query" in op['query_content'][0]
+                assert "query" in op['query_content'][0]
                 # Then do a count
                 whereClause = op['query_content'][0]["query"]
                 isCount = True

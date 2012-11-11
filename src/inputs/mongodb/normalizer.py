@@ -173,64 +173,68 @@ class Normalizer:
                 col_name = op['collection']
                 fields = col2fields.get(col_name, None)
                 # If this op's collection has no fields in moved_fields, skip it
-                if fields:
-                    payload = op["query_content"] # payload is a list type
-                    changed_query = [ ]
-                    counter = 0
-                    while counter < len(payload):
-                        doc = payload[counter] # doc is a dict type
-                        for key, value in doc.iteritems():
-                            if type(value) == dict:
-                                for k in value.iterkeys():
-                                    if k in fields:
-                                        LOG.debug("counter: %d, key: %s, value: %s", counter, key, k)
-                                        changed_query.append((counter, key, k))
-                                    ## IF
-                                ## FOR
-                            ## IF
-                            else:
-                                if value in fields:
-                                    LOG.info("counter: %d, key: %s, value: %s", counter, key, k)
-                                    changed_query.append((counter, key, value))
+                try:
+                    if fields:
+                        payload = op["query_content"] # payload is a list type
+                        changed_query = [ ]
+                        counter = 0
+                        while counter < len(payload):
+                            doc = payload[counter] # doc is a dict type
+                            for key, value in doc.iteritems():
+                                if type(value) == dict:
+                                    for k in value.iterkeys():
+                                        if k in fields:
+                                            LOG.debug("counter: %d, key: %s, value: %s", counter, key, k)
+                                            changed_query.append((counter, key, k))
+                                        ## IF
+                                    ## FOR
                                 ## IF
-                            ## ELSE
-                        ## FOR
-                        counter += 1
-                    # WHILE
-                    # If we have queries to split
-                    if len(changed_query) > 0:
-                        # construct new queries
-                        for tup in changed_query:
-                            old_query_content = payload[tup[0]][tup[1]].pop(tup[2])
-                            # If the doc is empty after the pop, remove it from the payload
-                            if len(payload[tup[0]][tup[1]]) == 0:
-                                payload[tup[0]].pop(tup[1])
-                                if len(payload[tup[0]]) == 0:
-                                    payload.remove(payload[tup[0]])
-                                    # If the payload is empty, we remove the op from the session queue
-                                    if len(payload) == 0:
-                                        sess['operations'].remove(op)
-                                        offset -= 1
+                                else:
+                                    if value in fields:
+                                        LOG.info("counter: %d, key: %s, value: %s", counter, key, k)
+                                        changed_query.append((counter, key, value))
                                     ## IF
-                            ## IF
-                            new_op = Session.operationFactory()
-                            new_col = fieldscol2col[(col_name, tup[2])]
-                            LOG.debug("Creating a new operation to collection: %s", new_col)
-                            new_op['collection'] = new_col
-                            new_op['type']  = op['type']
-                            new_op['query_id']      = long(hash(time.time()))
-                            new_op['query_content'] = [ {tup[1] : {tup[2] : old_query_content}} ]
-                            new_op['resp_content']  = new_op['query_content']
-                            new_op['resp_id']       = new_op['query_id'] + 1
-                            new_op['predicates']    = op['predicates']
-                            new_op['query_time']    = op['query_time']
-                            new_op['resp_time']    = op['resp_time']
+                                ## ELSE
+                            ## FOR
+                            counter += 1
+                        # WHILE
+                        # If we have queries to split
+                        if len(changed_query) > 0:
+                            # construct new queries
+                            for tup in changed_query:
+                                old_query_content = payload[tup[0]][tup[1]].pop(tup[2])
+                                # If the doc is empty after the pop, remove it from the payload
+                                if len(payload[tup[0]][tup[1]]) == 0:
+                                    payload[tup[0]].pop(tup[1])
+                                    if len(payload[tup[0]]) == 0:
+                                        payload.remove(payload[tup[0]])
+                                        # If the payload is empty, we remove the op from the session queue
+                                        if len(payload) == 0:
+                                            sess['operations'].remove(op)
+                                            offset -= 1
+                                        ## IF
+                                ## IF
+                                new_op = Session.operationFactory()
+                                new_col = fieldscol2col[(col_name, tup[2])]
+                                LOG.debug("Creating a new operation to collection: %s", new_col)
+                                new_op['collection'] = new_col
+                                new_op['type']  = op['type']
+                                new_op['query_id']      = long(hash(time.time()))
+                                new_op['query_content'] = [ {tup[1] : {tup[2] : old_query_content}} ]
+                                new_op['resp_content']  = new_op['query_content']
+                                new_op['resp_id']       = new_op['query_id'] + 1
+                                new_op['predicates']    = op['predicates']
+                                new_op['query_time']    = op['query_time']
+                                new_op['resp_time']    = op['resp_time']
 
-                            # add the new query after the current one of the session queue
-                            sess['operations'].insert(i + offset, new_op)
-                        ## FOR
+                                # add the new query after the current one of the session queue
+                                sess['operations'].insert(i + offset, new_op)
+                            ## FOR
+                        ## IF
                     ## IF
-                ## IF
+                except:
+                    LOG.error("Error happened when process op: %s", pformat(op))
+                    raise
             ## FOR
             sess.save()
         ## FOR
