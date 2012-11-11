@@ -20,6 +20,7 @@ class Collection(Document):
         'workload_queries': int,       # The number operations that reference this collection
         'workload_percent': float,     # The percentage of the total workload that touch this collection
         'interesting':      [basestring], # TODO(ckeith)
+        'embedding_ratio':  dict,      # The ratio between documents for foreign key values in parent collection and that in child collection
 
         ## ----------------------------------------------
         ## FIELDS

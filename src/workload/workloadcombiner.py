@@ -103,7 +103,7 @@ class WorkloadCombiner:
             operations_in_use = operations[:]
             cursor = len(operations)  - 1
             combinedQueries = []
-            while cursor > -1: # if cursor is 0, there won't be any embedding happening
+            while cursor > -1: # if cursor is -1, there won't be any embedding happening
                 if operations_in_use[cursor]['collection'] == col:
                     combinedQueries.append(operations_in_use.pop(cursor))
                 elif operations_in_use[cursor]['collection'] == parent_col and len(combinedQueries) > 0:
@@ -112,8 +112,16 @@ class WorkloadCombiner:
                     combinedQueries = []
                     operations = operations_in_use[:]
                     sess['operations'] = operations[:]
-
                 cursor -= 1
+            ## WHILE
+            
+            # We need to redirect the queries to its new collection
+            for op in sess['operations']:
+                if op['collection'] == col:
+                    op['collection'] = parent_col
+                ## IF
+            ## FOR
+        ## FOR
     # DEF
 
     # if C -> B and B -> A, we want C to appear first in the __combine_queries__ setup

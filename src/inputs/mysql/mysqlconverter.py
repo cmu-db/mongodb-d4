@@ -35,6 +35,10 @@ from abstractconverter import AbstractConverter
 import sql2mongo
 from util import *
 import utilmethods
+import time
+
+import random
+from scipy.stats import mstats
 
 LOG = logging.getLogger(__name__)
 
@@ -56,6 +60,7 @@ class MySQLConverter(AbstractConverter):
         self.mysql_conn = mdb.connect(host=dbHost, port=dbPort, db=dbName, user=dbUser, passwd=dbPass, charset='utf8')
         self.next_query_id = 1000l
         
+        self.rng = random.Random()
         # LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
@@ -78,9 +83,9 @@ class MySQLConverter(AbstractConverter):
         ## Process MySQL query log for conversion to workload.Session objects
         ## ----------------------------------------------
         self.extractWorkload()
-
-    ## DEF
     
+    ## DEF
+
     def extractSchema(self):
         c1 = self.mysql_conn.cursor()
         c1.execute("""
@@ -96,7 +101,7 @@ class MySQLConverter(AbstractConverter):
             col_info['name'] = tbl_name
             tbl_cols[col_info['name']] = []
             if self.debug: LOG.debug("Created metadata object for collection '%s'", tbl_name)
-            
+
             c2 = self.mysql_conn.cursor()
             c2.execute("""
                 SELECT COLUMN_NAME, DATA_TYPE
@@ -111,7 +116,7 @@ class MySQLConverter(AbstractConverter):
                 col_info["fields"][col_name] = catalog.Collection.fieldFactory(col_name, col_type_str)
                 LOG.debug("Created column information for '%s.%s'", tbl_name, col_name)
             ## FOR
-            
+
             # Get the index information from MySQL for this table
             sql = "SHOW INDEXES FROM " + self.dbName + "." + tbl_name
             c3 = self.mysql_conn.cursor()
@@ -132,13 +137,13 @@ class MySQLConverter(AbstractConverter):
             ## EXTRACT DATA
             ## -----------------------------------------------------------
             self.extractData(tbl_name, tbl_cols[tbl_name])
-            
+
         ## ENDFOR
     ## DEF
-    
+
     def extractData(self, tbl_name, tbl_cols, batchSize=100):
         assert isinstance(tbl_cols, list)
-        
+
         cur = self.mysql_conn.cursor()
         cur.execute("SELECT COUNT(*) FROM %s.%s" % (self.dbName, tbl_name))
         row_total = cur.fetchone()[0]
@@ -154,7 +159,7 @@ class MySQLConverter(AbstractConverter):
             mongo_record = dict((tbl_cols[i], data_row[i]) for i in xrange(len(tbl_cols)))
             batch.append(mongo_record)
             row_ctr += 1
-            
+
             if len(batch) >= batchSize:
                 if self.debug: LOG.debug("Inserting new batch with %d records to %s [%d / %d]", len(batch), tbl_name, row_ctr, row_total)
                 try:
@@ -164,7 +169,7 @@ class MySQLConverter(AbstractConverter):
                     raise
                 batch = [ ]
         ## ENDFOR
-        if len(batch) > 0: 
+        if len(batch) > 0:
             if self.debug: LOG.debug("Inserting new batch with %d records to %s [%d / %d]", len(batch), tbl_name, row_ctr, row_total)
             try:
                 col_data.insert(batch)
@@ -174,20 +179,20 @@ class MySQLConverter(AbstractConverter):
         assert row_total == row_ctr
         LOG.info("Sucessfully copied %d rows from table '%s' into MongoDB", row_ctr, tbl_name)
     ## DEF
-    
+
     def extractForeignKeys(self):
         LOG.info("Extracting foreign keys from MySQL")
-        
+
         sql = """
-        SELECT CONCAT( table_name, '.', column_name, '.', 
-        referenced_table_name, '.', referenced_column_name ) AS list_of_fks 
-        FROM INFORMATION_SCHEMA.key_column_usage 
-        WHERE referenced_table_schema = %s 
-        AND referenced_table_name IS NOT NULL 
+        SELECT CONCAT( table_name, '.', column_name, '.',
+        referenced_table_name, '.', referenced_column_name ) AS list_of_fks
+        FROM INFORMATION_SCHEMA.key_column_usage
+        WHERE referenced_table_schema = %s
+        AND referenced_table_name IS NOT NULL
         """
         c3 = self.mysql_conn.cursor()
         c3.execute(sql, (self.dbName))
-        
+
         for row in c3 :
             rel = tuple(row[0].split('.'))
             if self.debug: LOG.debug("Foreign Key: %s", rel)
@@ -199,12 +204,78 @@ class MySQLConverter(AbstractConverter):
                 field['parent_col'] = parent_table
                 field['parent_key'] = parent_field
                 field['parent_conf'] = 1.0
+                
+                # add the ratio to the parent collection
+                parent_col_info = self.metadata_db.Collection.fetch_one({"name": parent_table})
+                parent_col_info['embedding_ratio'][child_field] = self.getEmbeddingRatio(parent_table, col_info['name'], parent_field)
+                LOG.info("embedding_ratio: %s", parent_col_info['embedding_ratio'][child_field])
+                parent_col_info.save()
+                
                 col_info.save()
     ## DEF
+
+    def getEmbeddingRatio(self, parent_col, child_col, foreign_key):
+        '''
+            count how many unique values does the parent collectio and child collection have for the
+            given foreign_key
+        '''
+        commom_values = self.getCommonKeyValues(foreign_key, parent_col, child_col)
         
+        parent_count_dict = self.getCountOfValues(parent_col, foreign_key, commom_values)
+        child_count_dict = self.getCountOfValues(child_col, foreign_key, commom_values)
+        
+        return self.getRatio(parent_count_dict, child_count_dict, commom_values)
+    ## DEF
+
+    def getRatio(self, parent_count_dict, child_count_dict, values):
+        ratio_list = [ ]
+        
+        for value in values:
+            ratio_list.append(float(child_count_dict[value]) / parent_count_dict[value])
+        ## FOR
+        
+        if len(ratio_list) == 0:
+            ratio_list.append(0)
+        ## IF
+        
+        return mstats.gmean(ratio_list)
+    ## DEF
+    
+    def getCountOfValues(self, col_name, key, values):
+        """
+            build a histogram of the number of documents found by the given value
+        """
+        start = time.time()
+        value_count_dict = {x : 0 for x in values}
+        
+        self.dataset_db[col_name].create_index(key)
+        
+        for value in values:
+            value_count_dict[value] = self.dataset_db[col_name].find({key : value}).count()
+        ## FOR
+        
+        self.dataset_db[col_name].drop_indexes()
+        
+        return value_count_dict
+    ## DEF
+    
+    def getCommonKeyValues(self, key, parent_col, child_col):
+        parent_distinct_values = set(self.dataset_db[parent_col].distinct(key))
+        child_distinct_values = set(self.dataset_db[child_col].distinct(key))
+        
+        intersect_values = parent_distinct_values.intersection(child_distinct_values)
+        
+        sample_num = len(intersect_values) if len(intersect_values) < 1000 else 1000 # FIXME use this magic number 1000 so far
+        sampled_values = self.rng.sample(intersect_values, sample_num)
+        
+        LOG.info("sampled values: %s", len(sampled_values))
+
+        return sampled_values
+## DEF
+
     def extractWorkload(self):
         LOG.info("Extracting workload from MySQL query log")
-        
+
         cur = self.mysql_conn.cursor()
         cur.execute("SELECT COUNT(*) FROM %s.%s" % (self.dbName, MYSQL_LOG_TABLE_NAME))
         row_total = cur.fetchone()[0]
@@ -216,7 +287,7 @@ class MySQLConverter(AbstractConverter):
         start_timestamp = float(cur.fetchone()[0].strftime("%s"))
         cur.close()
         if self.debug: LOG.debug("Workload Start Timestamp: %s", start_timestamp)
-        
+
         c4 = self.mysql_conn.cursor()
         c4.execute("SELECT * FROM %s ORDER BY thread_id, event_time" % MYSQL_LOG_TABLE_NAME)
 
@@ -229,7 +300,7 @@ class MySQLConverter(AbstractConverter):
         query_ctr = 0
         for row in c4:
             timestamp = float(row[0].strftime("%s")) - start_timestamp
-            
+
             if row[2] <> thread_id :
                 thread_id = row[2]
                 if not first:
@@ -252,7 +323,7 @@ class MySQLConverter(AbstractConverter):
                 session['end_time'] = None
                 session['operations'] = []
             ## ENDIF
-            
+
             if row[5] <> '' :
                 sql = re.sub("`", "", row[5])
                 success = True
@@ -269,7 +340,7 @@ class MySQLConverter(AbstractConverter):
                     query_ctr += 1
                     if query_ctr % 50000 == 0:
                         LOG.info("Processed %d / %d queries [%d%%]", query_ctr, row_total, 100*query_ctr/float(row_total))
-                        
+
                 if success:
                     if mongo.query_type <> 'UNKNOWN' :
                         operations = mongo.generate_operations(timestamp)
