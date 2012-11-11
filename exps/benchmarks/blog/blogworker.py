@@ -557,13 +557,15 @@ class BlogWorker(AbstractWorker):
     
     
     def insertNewArticle(self, config):
-        articleId = self.findAndIncreaseArticleCounter()
+        articleId = self.findAndIncreaseArticleCounter(config)
         self.__insertNewArticle__(config, articleId)
         self.num_articles = articleId
         return 1
     #DEF    
     
-    def findAndIncreaseArticleCounter(self):    
+    def findAndIncreaseArticleCounter(self,config):    
+        if config[self.name]["experiment"] == constants.EXP_SHARDING:
+            query = {"_id": constants.NEXT_ARTICLE_CTR_ID,"hashid": "afafaf"}
         query = {"_id": constants.NEXT_ARTICLE_CTR_ID}
         update = {"$inc": {constants.NEXT_ARTICLE_CTR_KEY: 1}}
         counter = self.db[constants.ARTICLE_COLL].find_and_modify(query, update, False)
