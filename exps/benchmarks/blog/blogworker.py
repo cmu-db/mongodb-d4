@@ -148,6 +148,7 @@ class BlogWorker(AbstractWorker):
             ## SHARDING
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
                 #self.enableSharding(config)
+                pass
         ## IF
             
         ## The next operation that we need to execute	
@@ -265,7 +266,7 @@ class BlogWorker(AbstractWorker):
             elif config[self.name]["experiment"] == constants.EXP_SHARDING:
                 #LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
                 #self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
-                
+                pass                
             
             else:
                 raise Exception("Unexpected experiment type %s" % config[self.name]["experiment"])
@@ -340,7 +341,7 @@ class BlogWorker(AbstractWorker):
             articleHashId = hash(str(articleId)) 
         else: 
             articleId = str(articleId).zfill(64)
-            articleHashId = hashlib.md5(str(articleId))+hashlib.md5(str(articleId)) 
+            articleHashId = str(hashlib.md5(str(articleId)))+str(hashlib.md5(str(articleId))) 
         article = {
             "id": articleId,
             "title": title,
