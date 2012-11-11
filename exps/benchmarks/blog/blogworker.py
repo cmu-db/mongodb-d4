@@ -141,13 +141,13 @@ class BlogWorker(AbstractWorker):
         
         if self.getWorkerId() == 0:
             if config['default']["reset"]:
-                if not config[self.name]["experiment"] == constants.EXP_SHARDING:
-                    LOG.info("Resetting database '%s'" % config['default']["dbname"])
-                    self.conn.drop_database(config['default']["dbname"])
+               # if not config[self.name]["experiment"] == constants.EXP_SHARDING:
+               LOG.info("Resetting database '%s'" % config['default']["dbname"])
+               self.conn.drop_database(config['default']["dbname"])
             
             ## SHARDING
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
-                #self.enableSharding(config)
+                self.enableSharding(config)
                 pass
         ## IF
             
@@ -222,9 +222,9 @@ class BlogWorker(AbstractWorker):
         # HACK: Setup the indexes if we're the first client
         if self.getWorkerId() == 0:
            
-            if not config[self.name]["experiment"] == constants.EXP_SHARDING:
-                self.db[constants.ARTICLE_COLL].drop_indexes()
-                self.db[constants.COMMENT_COLL].drop_indexes()
+            #if not config[self.name]["experiment"] == constants.EXP_SHARDING:
+            self.db[constants.ARTICLE_COLL].drop_indexes()
+            self.db[constants.COMMENT_COLL].drop_indexes()
             
             # Create the nextArticleId counter here
             articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
@@ -391,7 +391,7 @@ class BlogWorker(AbstractWorker):
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
             #trial = int(config[self.name]["sharding"])
-            readwriteop = random.randint(1,100)
+            readwriteop = random.randint(1,10)
             range = int(config[self.name]["range"])
             articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
             if readwriteop != 1: # read
