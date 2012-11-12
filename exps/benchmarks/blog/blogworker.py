@@ -230,7 +230,7 @@ class BlogWorker(AbstractWorker):
             
             # Create the nextArticleId counter here
             articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
-                              "_id": constants.NEXT_ARTICLE_CTR_ID, "id": constants.NEXT_ARTICLE_CTR_ID,"hashid": "afafaf"}
+                              "_id": constants.NEXT_ARTICLE_CTR_ID, "id": None,"hashid": None}
             record = self.db[constants.ARTICLE_COLL].find_one({"_id": constants.NEXT_ARTICLE_CTR_ID})
             if record is None:
                 self.db[constants.ARTICLE_COLL].insert(articleCounter, safe=True)
@@ -565,10 +565,12 @@ class BlogWorker(AbstractWorker):
     
     def findAndIncreaseArticleCounter(self,config):    
         if config[self.name]["experiment"] == constants.EXP_SHARDING:
-            query = {"_id": constants.NEXT_ARTICLE_CTR_ID, "id": constants.NEXT_ARTICLE_CTR_ID, "hashid": "afafaf"}
-        query = {"_id": constants.NEXT_ARTICLE_CTR_ID}
+            query = {"_id": constants.NEXT_ARTICLE_CTR_ID, "id": None, "hashid": None}
+        else: 
+            query = {"_id": constants.NEXT_ARTICLE_CTR_ID}
         update = {"$inc": {constants.NEXT_ARTICLE_CTR_KEY: 1}}
         counter = self.db[constants.ARTICLE_COLL].find_and_modify(query, update, False)
+        LOG.debug(counter)
         return long(counter[constants.NEXT_ARTICLE_CTR_KEY])
     
 ## CLASS
