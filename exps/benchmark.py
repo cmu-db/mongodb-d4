@@ -213,7 +213,7 @@ class Benchmark:
                 map(flushBuffer, shards)
             # Otherwise, just restart the front end node
             else:
-                flushBuffer(self.config["default"]["host"])
+                flushBuffer(self.config["default"]["host"],self.config["default"]["restart"])
         
         # Step 1: Initialize all of the Workers on the client nodes
         self.coordinator.init(self.config, self.channels) 
@@ -342,8 +342,7 @@ def setupBenchmarkPath(benchmark):
 ## ==============================================
 ## flushBuffer
 ## ==============================================
-def flushBuffer(self,host):
-    restart = self.config["default"]["restart"]
+def flushBuffer(host,restart=False):
     if restart:
         remoteCmds = [
             #"sudo service mongod stop",
