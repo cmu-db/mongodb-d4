@@ -397,15 +397,9 @@ class BlogWorker(AbstractWorker):
             range = int(config[self.name]["range"])
             articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
             if readwriteop != 1: # read
-                if trial == 0:
-                    opName = "readArticleById"
-                    return (opName, (articleId,))
-                elif trial == 1:
-                    opName = "readArticleByIdAndHashId"
-                    digest = hashlib.md5(str(articleId)).hexdigest()
-                    articleHashId = digest + digest + digest + digest
-                    return  (opname, (articleId,articleHashId))
-           else: # write
+                opName = "readArticleById"
+                return (opName, (articleId,))
+            else: # write
                 opName = "insertNewArticle"
                 return (opName, ())
                
