@@ -38,11 +38,7 @@ class WorkloadCombiner:
     def __init__(self, col_names, workload):
         self.lastDesign = None
         self.col_names = col_names
-        self.workload = workload
-        
-        # We need to make a deepcopy so that we can always get back
-        # the original session information
-        self.origWorkload = copy.deepcopy(self.workload)
+        self.workload = copy.deepcopy(workload)
         
         # Build indexes from collections to sessions
         self.col_sess_xref = {}
@@ -90,8 +86,6 @@ class WorkloadCombiner:
 
         return self.workload
     ## DEF
-    def restoreOriginalWorkload(self, costmodel):
-        costmodel.state.workload = self.origWorkload
         
     # If we want to embed queries accessing collection B to queries accessing collection A
     # We just remove all the queries that

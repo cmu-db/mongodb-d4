@@ -84,8 +84,8 @@ class CostModel(object):
         self.networkComponent = network.NetworkCostComponent(self.state)
         self.allComponents = (self.diskComponent, self.skewComponent, self.networkComponent)
         
-        col_names = [x for x in collections.iterkeys()]
-        self.combiner = WorkloadCombiner(col_names, workload)
+        self.col_names = [x for x in collections.iterkeys()]
+        self.workload = workload
         
         self.debug = False
         
@@ -96,8 +96,9 @@ class CostModel(object):
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
         self.new_design = design
-            
-        combinedWorkload = self.combiner.process(design)
+        
+        combiner = WorkloadCombiner(self.col_names, self.workload)
+        combinedWorkload = combiner.process(design)
         if combinedWorkload:
             self.state.updateWorkload(combinedWorkload)
 
