@@ -60,7 +60,7 @@ class DependencyFinder:
             self.processSession(sess)
             
         for col_name in self.collections.iterkeys():
-            matches = self.comparisons[col_name].getMatches())
+            matches = self.comparisons[col_name].getMatches()
             if matches:
                 # TODO: Put this somewhere!
                 print col_name
