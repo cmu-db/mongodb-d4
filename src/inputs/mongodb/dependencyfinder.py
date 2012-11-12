@@ -56,8 +56,10 @@ class DependencyFinder:
     
     def process(self):
         LOG.info("# of Sessions: %d", len(self.workload))
+        operations = [ ]
         for sess in self.workload:
-            self.processSession(sess)
+            operations.extend(sess["operations"])
+        self.processSession(operations)
             
         for col_name,col_info in self.collections.iteritems():
             # Set of <ThisCollectionKey, OtherCollectionName, OtherCollectionKey>
@@ -69,12 +71,12 @@ class DependencyFinder:
                     col_info['fields'][key0]['parent_candidates'].append(parent_col, parent_key)
     ## DEF
     
-    def processSession(self, sess):
+    def processSession(self, operations):
         #if len(sess["operations"]) > 1:
             #LOG.info(pformat(sess["operations"]))
             #LOG.info("-"*100)
             
-        for op0, op1 in itertools.combinations(sess["operations"], 2):
+        for op0, op1 in itertools.combinations(operations, 2):
             # Skip any pairs that reference the same collection
             if op0["collection"] == op1["collection"]: continue
             if op0["query_id"] == op1["query_id"]: continue
