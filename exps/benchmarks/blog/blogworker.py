@@ -230,7 +230,7 @@ class BlogWorker(AbstractWorker):
             
             # Create the nextArticleId counter here
             articleCounter = {constants.NEXT_ARTICLE_CTR_KEY: self.num_articles, \
-                              "_id": constants.NEXT_ARTICLE_CTR_ID, "id": constants.NEXT_ARTICLE_CTR_ID,"hashid": "afafaf"}
+                              "_id": constants.NEXT_ARTICLE_CTR_ID, "id": None,"hashid": None}
             record = self.db[constants.ARTICLE_COLL].find_one({"_id": constants.NEXT_ARTICLE_CTR_ID})
             if record is None:
                 self.db[constants.ARTICLE_COLL].insert(articleCounter, safe=True)
@@ -392,8 +392,8 @@ class BlogWorker(AbstractWorker):
             return (opName, (articleId,))
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
-            #trial = int(config[self.name]["sharding"])
-            readwriteop = random.randint(1,10)
+            trial = int(config[self.name]["sharding"])
+            readwriteop = random.randint(1,100)
             range = int(config[self.name]["range"])
             articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
             if readwriteop != 1: # read
@@ -405,7 +405,7 @@ class BlogWorker(AbstractWorker):
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
             trial = int(config[self.name]["indexes"])
-            readwriteop = random.randint(1,10)
+            readwriteop = random.randint(1,100)
             range = int(config[self.name]["range"])
             articleId = str(random.randint(int(self.num_articles-range-1),self.num_articles-1)).zfill(128)
             if readwriteop != 1: # read
@@ -557,16 +557,20 @@ class BlogWorker(AbstractWorker):
     
     
     def insertNewArticle(self, config):
-        articleId = self.findAndIncreaseArticleCounter()
+        articleId = self.findAndIncreaseArticleCounter(config)
         self.__insertNewArticle__(config, articleId)
         self.num_articles = articleId
         return 1
     #DEF    
     
-    def findAndIncreaseArticleCounter(self):    
-        query = {"_id": constants.NEXT_ARTICLE_CTR_ID}
+    def findAndIncreaseArticleCounter(self,config):    
+        if config[self.name]["experiment"] == constants.EXP_SHARDING:
+            query = {"_id": constants.NEXT_ARTICLE_CTR_ID, "id": None, "hashid": None}
+        else: 
+            query = {"_id": constants.NEXT_ARTICLE_CTR_ID}
         update = {"$inc": {constants.NEXT_ARTICLE_CTR_KEY: 1}}
         counter = self.db[constants.ARTICLE_COLL].find_and_modify(query, update, False)
+        LOG.debug(counter)
         return long(counter[constants.NEXT_ARTICLE_CTR_KEY])
     
 ## CLASS
