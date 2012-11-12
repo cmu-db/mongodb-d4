@@ -120,7 +120,7 @@ class BlogWorker(AbstractWorker):
         self.tags = [ ]
         for i in xrange(0, constants.NUM_TAGS):
             #authorSize = constants.AUTHOR_NAME_SIZE
-            if config[self.name]["experiment"] == constants.EXP_INDEXING:
+            if config[self.name]["experiment"] == constants.EXP_INDEXING or config[self.name]["experiment"] == constants.EXP_SHARDING:
                 self.tags.append("tag%0128d" % i)
             else:    
                 self.tags.append("tag"+str(i))
@@ -267,7 +267,7 @@ class BlogWorker(AbstractWorker):
                     
             elif config[self.name]["experiment"] == constants.EXP_SHARDING:
                 #LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
-                #self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 pass                
             
             else:
@@ -338,13 +338,13 @@ class BlogWorker(AbstractWorker):
         for ii in xrange(0,constants.NUM_TAGS_PER_ARTICLE):
             articleTags.append(random.choice(self.tags))
         articleDate = randomDate(constants.START_DATE, constants.STOP_DATE)
-        if not config[self.name]["experiment"] == constants.EXP_INDEXING:
-            articleId = long(articleId)
-            articleHashId = hash(str(articleId)) 
-        else: 
+        if not config[self.name]["experiment"] == constants.EXP_DENORMALIZATION:
             articleId = str(articleId).zfill(128)
             digest = hashlib.md5(str(articleId)).hexdigest()
             articleHashId = digest + digest + digest + digest
+        else:
+            articleId = long(articleId)
+            articleHashId = hash(str(articleId))
         article = {
             "id": articleId,
             "title": title,
@@ -393,15 +393,21 @@ class BlogWorker(AbstractWorker):
             
         elif config[self.name]["experiment"] == constants.EXP_SHARDING:
             trial = int(config[self.name]["sharding"])
-            readwriteop = random.randint(1,100)
+            #readwriteop = random.randint(1,100)
             range = int(config[self.name]["range"])
-            articleId = random.randint(int(self.num_articles-range-1),self.num_articles-1)
-            if readwriteop != 1: # read
+            articleId = str(random.randint(int(self.num_articles-range-1),self.num_articles-1)).zfill(128)
+            #if readwriteop != 1: # read
+            if trial == 0:
                 opName = "readArticleById"
                 return (opName, (articleId,))
-            else: # write
-                opName = "insertNewArticle"
-                return (opName, ())
+            elif trial == 1:
+                #digest = hashlib.md5(str(articleId)).hexdigest()
+                #articleHashId = digest + digest + digest + digest
+                opName = "readArticleById"
+                return (opName, (articleId,))
+            #else: # write
+            #    opName = "insertNewArticle"
+            #return (opName, ())
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
             trial = int(config[self.name]["indexes"])
