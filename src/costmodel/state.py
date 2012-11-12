@@ -45,16 +45,16 @@ class State():
             Note that this is different than the LRUBuffer cache stuff. These are
             cached look-ups that the CostModel uses for figuring out what operations do.
         """
-        def __init__(self, col_name, num_nodes):
+        def __init__(self, col_info, num_nodes):
 
             # The number of pages needed to do a full scan of this collection
             # The worst case for all other operations is if we have to do
             # a full scan that requires us to evict the entire buffer
             # Hence, we multiple the max pages by two
             # self.fullscan_pages = (col_info['max_pages'] * 2)
-            self.fullscan_pages = 10 # FIXME(yang) (col_info['doc_count'] * 2)
+            self.fullscan_pages = 10 #col_info['doc_count'] * 2
             assert self.fullscan_pages > 0,\
-                "Zero max_pages for collection '%s'" % col_name
+                "Zero max_pages for collection '%s'" % col_info['name']
 
             # Cache of Best Index Tuples
             # QueryHash -> BestIndex
@@ -185,20 +185,20 @@ class State():
             self.cache_handles[col_name].reset()
     ## DEF
 
-    def getCacheHandleByName(self, col_name):
+    def getCacheHandleByName(self, col_info):
         """
             Return a cache handle for the given collection name.
             This is the preferrred method because it requires fewer hashes
         """
-        cache = self.cache_handles.get(col_name, None)
+        cache = self.cache_handles.get(col_info['name'], None)
         if cache is None:
-            cache = State.Cache(col_name, self.num_nodes)
-            self.cache_handles[col_name] = cache
+            cache = State.Cache(col_info, self.num_nodes)
+            self.cache_handles[col_info['name']] = cache
         return cache
     ## DEF
     
     def getCacheHandle(self, col_info):
-        return self.getCacheHandleByName(col_info['name'])
+        return self.getCacheHandleByName(col_info)
     ## DEF
 
     def reset(self):

@@ -53,6 +53,7 @@ class DiskCostComponent(AbstractCostComponent):
         self.debug = False
 
         self.buffers = [ ]
+        LOG.info("Window size: %s", self.state.window_size)
         for i in xrange(self.state.num_nodes):
             lru = FastLRUBufferWithWindow(self.state.window_size)
             self.buffers.append(lru)
@@ -223,17 +224,28 @@ class DiskCostComponent(AbstractCostComponent):
                 isRegex = self.state.__getIsOpRegex__(cache, op)
                 
                 slot_size = self.guess_slot_size(col_info, cost_map, op, child_collections, design)
-                
+                #print "collection: ", op['collection']
+                #print "slot size: ", slot_size
                 # Grab all of the query contents
+                #print "content: ", op['query_content']
                 for content in workload.getOpContents(op):
-                    self.total_op_contents += 1
                     try:
                         opNodes = self.state.__getNodeIds__(cache, design, op)
                     except:
                         raise Exception("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                        self.err_ctr += 1
+                        
                     for node_id in opNodes:
                         lru = self.buffers[node_id]
-
+                        self.total_op_contents += 1
+                        maxHits += cache.fullscan_pages * 2
+                        
+                        # If slot size is too large, we consider it as a full page scan
+                        if slot_size >= constants.SLOT_SIZE_LIMIT:
+                            pageHits += cache.fullscan_pages
+                            continue
+                        ## FOR
+                        
                         # TODO: Need to handle whether it's a scan or an equality predicate
                         # TODO: We need to handle when we have a regex predicate. These are tricky
                         #       because they may use an index that will examine all a subset of collections
@@ -258,10 +270,10 @@ class DiskCostComponent(AbstractCostComponent):
                             elif self.debug:
                                 self.state.cache_hit_ctr.put("index_docIds")
                                 ## IF
-                            hits = lru.getDocumentFromIndex(indexKeys, documentId, slot_size)
+                            hits = lru.getDocumentFromIndex(indexKeys, documentId, 1)
                             # print "hits: ", hits
                             pageHits += hits
-                            maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
+                            # maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:
                                 LOG.debug("Node #%02d: Estimated %d index scan pageHits for op #%d on %s.%s",\
                                     node_id, hits, op["query_id"], op["collection"], indexKeys)
@@ -273,8 +285,7 @@ class DiskCostComponent(AbstractCostComponent):
                                 LOG.debug("No index available for op #%d. Will have to do full scan on '%s'",\
                                     op["query_id"], op["collection"])
                             pageHits += cache.fullscan_pages
-                            maxHits += cache.fullscan_pages
-
+                            #maxHits += cache.fullscan_pages
                         # Otherwise, if it's not a covering index, then we need to hit up
                         # the collection to retrieve the whole document
                         elif not covering:
@@ -297,7 +308,7 @@ class DiskCostComponent(AbstractCostComponent):
                                 ## IF
                             hits = lru.getDocumentFromCollection(op['collection'], documentId, slot_size)
                             pageHits += hits
-                            maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
+                            #maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
                             if self.debug:
                                 LOG.debug("Node #%02d: Estimated %d collection scan pageHits for op #%d on %s",\
                                     node_id, hits, op["query_id"], op["collection"])
@@ -309,10 +320,9 @@ class DiskCostComponent(AbstractCostComponent):
                         # Yang seems happy with this...
                         else:
                             assert op['type'] != constants.OP_TYPE_INSERT
-                            maxHits += cache.fullscan_pages
+                            #maxHits += cache.fullscan_pages
                     ## FOR (node)
                 ## FOR (content)
-
                 totalCost += pageHits
                 totalWorst += maxHits
                 if self.debug:

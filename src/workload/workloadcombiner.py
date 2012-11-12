@@ -64,6 +64,12 @@ class WorkloadCombiner:
             are combined with each other based on the denormalization scheme.
         """
         ## If the design doesn't have any collection embedding, return None
+        query_count = 0
+        for sess in self.workload:
+            for op in sess['operations']:
+                query_count += len(op['query_content'])
+        print "query count: ", query_count
+        
         hasDenormCol = False
         for col_name in design.getCollections():
             if design.isDenormalized(col_name):
@@ -84,9 +90,11 @@ class WorkloadCombiner:
 
         self.lastDesign = design.copy()
         
+        query_count = 0
         for sess in self.workload:
             for op in sess['operations']:
-                print "collection: ", op['collection']
+                query_count += len(op['query_content'])
+        print "query count: ", query_count
         return self.workload
     ## DEF
         
@@ -100,18 +108,27 @@ class WorkloadCombiner:
             operations_in_use = operations[:]
             cursor = len(operations)  - 1
             combinedQueries = []
+            remained_ops = [ ]
             while cursor > -1: # if cursor is -1, there won't be any embedding happening
                 if operations_in_use[cursor]['collection'] == col:
-                    combinedQueries.append(operations_in_use.pop(cursor))
+                    combinedQueries.append((cursor, operations_in_use.pop(cursor)))
                 elif operations_in_use[cursor]['collection'] == parent_col and len(combinedQueries) > 0:
-                    for query in combinedQueries:
-                        operations_in_use[cursor]['query_content'].extend(query['query_content'])
+                    for op_tuple in combinedQueries:
+                        if op_tuple[1]['type'] == operations_in_use[cursor]['type']:
+                            operations_in_use[cursor]['query_content'].extend(op_tuple[1]['query_content'])
+                        #print "removed query: ", query['query_content']
+                        #print "remove query type: ", query['type']
+                        #print "new query: ", operations_in_use[cursor]['query_content']
+                        else:
+                            remained_ops.append(op_tuple)
+                    ## FOR
                     combinedQueries = []
                     operations = operations_in_use[:]
                     sess['operations'] = operations[:]
                 cursor -= 1
             ## WHILE
-            
+            for op_tuple in remained_ops:
+                sess['operations'].insert(op_tuple[0], op_tuple[1])
             # We need to redirect the queries to its new collection
             for op in sess['operations']:
                 if op['collection'] == col:

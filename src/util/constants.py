@@ -95,6 +95,9 @@ DEFAULT_PAGE_SIZE = 4096 # bytes
 # Window size in lru buffer: how many collection are preloaded into the buffer
 WINDOW_SIZE = 1024
 
+# Slot size upper bound: if the slot size is larger than this value, we will consider it as a 
+# full page scan
+SLOT_SIZE_LIMIT = 10
 ## ==============================================
 ## CANDIDATES GENERATOR CONSTRAINTS
 ## ==============================================

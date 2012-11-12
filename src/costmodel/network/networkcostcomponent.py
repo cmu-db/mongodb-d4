@@ -92,7 +92,7 @@ class NetworkCostComponent(AbstractCostComponent):
                 msg_count = 0
                 for op in self.state.col_op_xref[col_name]:
                     # Process this op!
-                    cache = self.state.getCacheHandleByName(col_name)
+                    cache = self.state.getCacheHandleByName(col_info = self.state.collections[col_name])
                     op_count += 1
                     msgs = self.state.__getNodeIds__(cache, design, op)
                     assert len(msgs) <= self.state.num_nodes, \
