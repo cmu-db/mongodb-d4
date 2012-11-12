@@ -83,7 +83,10 @@ class WorkloadCombiner:
                 self.__combine_queries__(col_name, parent_col)
 
         self.lastDesign = design.copy()
-
+        
+        for sess in self.workload:
+            for op in sess['operations']:
+                print "collection: ", op['collection']
         return self.workload
     ## DEF
         
@@ -115,6 +118,9 @@ class WorkloadCombiner:
                     op['collection'] = parent_col
                 ## IF
             ## FOR
+            
+            # now this session has operations to the parent collection
+            self.col_sess_xref[parent_col].append(sess)
         ## FOR
     # DEF
 
@@ -133,7 +139,7 @@ class WorkloadCombiner:
         sorted_collection_with_Score = sorted(collection_scores.iteritems(), key=operator.itemgetter(1))
 
         sorted_collection = [x[0] for x in sorted_collection_with_Score]
-
+        print "sorted_collection: ", sorted_collection
         return sorted_collection
 
     def __update_score__(self, col, design, collection_scores):
