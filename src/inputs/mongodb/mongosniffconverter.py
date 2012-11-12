@@ -77,6 +77,8 @@ class MongoSniffConverter(AbstractConverter):
             
         if not self.no_mongo_reconstruct:
             self.reconstructDatabase()
+        if not self.no_mongo_normalize:
+            self.normalizeDatabase()
 
 #        self.printAllOperations()
 #        self.countDocs()
@@ -91,8 +93,6 @@ class MongoSniffConverter(AbstractConverter):
     def postProcessImpl(self):
         if not self.no_mongo_dependencies:
             self.findDependencies()
-        if not self.no_mongo_normalize:
-            self.normalizeDatabase()
         if not self.no_mongo_sessionizer:
             self.sessionizeWorkload()
     ## DEF
