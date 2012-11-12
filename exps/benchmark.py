@@ -213,7 +213,7 @@ class Benchmark:
                 map(flushBuffer, shards)
             # Otherwise, just restart the front end node
             else:
-                flushBuffer(self.config["default"]["host"])
+                flushBuffer(self.config)
         
         # Step 1: Initialize all of the Workers on the client nodes
         self.coordinator.init(self.config, self.channels) 
@@ -310,7 +310,7 @@ class Benchmark:
         moduleHandle = __import__(moduleName, globals(), locals(), [fullName])
         klass = getattr(moduleHandle, fullName)
         return klass()
-    ## DEF
+   ## DEF
     
     def collectMongoStat(self):
         """Spawn a thread that logs into the server and retrives mongostat output"""
@@ -342,13 +342,10 @@ def setupBenchmarkPath(benchmark):
 ## ==============================================
 ## flushBuffer
 ## ==============================================
-def flushBuffer(host):
-    if self.config['restart']:
+def flushBuffer(config):
+    host = config["default"]["host"]
+    if config["default"]['restart']:
         remoteCmds = [
-            #"sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
-            #"sudo service mongodb restart",
-            #"ssh -t ubuntu@"+host+" -o \"UserKnownHostsFile /dev/null\" " + "-o \"StrictHostKeyChecking no\""+"  \"sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'\"",
-            #"ssh -t ubuntu@"+host+" -o \"UserKnownHostsFile /dev/null\" " + "-o \"StrictHostKeyChecking no\""+"  \"sudo service mongod restart\"",
             "sudo service mongod stop",
             "sudo service mongod start",
             "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
