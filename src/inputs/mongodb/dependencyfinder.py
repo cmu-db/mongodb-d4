@@ -60,13 +60,19 @@ class DependencyFinder:
             self.processSession(sess)
             
         for col_name in self.collections.iterkeys():
-            print col_name
-            print pformat(self.comparisons[col_name].__dict__)
-            
-        sys.exit(1)
+            matches = self.comparisons[col_name].getMatches())
+            if matches:
+                # TODO: Put this somewhere!
+                print col_name
+                print "\n".join(map(str, )
+                print
     ## DEF
     
     def processSession(self, sess):
+        #if len(sess["operations"]) > 1:
+            #LOG.info(pformat(sess["operations"]))
+            #LOG.info("-"*100)
+            
         for op0, op1 in itertools.combinations(sess["operations"], 2):
             # Skip any pairs that reference the same collection
             if op0["collection"] == op1["collection"]: continue
@@ -160,6 +166,18 @@ class KeyComparisons:
                 data[col1][key1]["matches"] += 1
         ## FOR
         self.comparisons[key0] = data
+    ## DEF
+    
+    def getMatches(self):
+        matches = set()
+        for key0, data in self.comparisons.iteritems():
+            for col1, inner in data.iteritems():
+                for key1,innerMatches in inner.iteritems():
+                    if innerMatches["matches"] > 0:
+                        matches.add((key0, col1, key1))
+            ## FOR
+        ## FOR
+        return matches
     ## DEF
         
 ## CLASS
