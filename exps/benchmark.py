@@ -78,8 +78,7 @@ SSH_OPTIONS = {
 class Benchmark:
     DEFAULT_CONFIG = [
         ("dbname", "The name of the MongoDB database to use for this benchmark invocation.", None), 
-        ("host", "The host name of the MongoDB instance to use in this benchmark", "localhost"),
-        ("port", "The port number of the MongoDB instance to use in this benchmark", 27017),
+        ("hosts", "Comma-separated list of MongoDB instances to use in this benchmark. Can be hostname:port#", "localhost:27017"),
         ("scalefactor", "Benchmark database scale factor", 1.0),
         ("duration", "Benchmark execution time in seconds", 60),
         ("warmup", "Benchmark warm-up period", 60),
@@ -93,15 +92,15 @@ class Benchmark:
     
     '''main class'''
     def __init__(self, benchmark, args):
-        self._benchmark = benchmark
+        self.benchmark = benchmark
         
         # Fix database name + logfile
         for i in xrange(len(self.DEFAULT_CONFIG)):
             c = self.DEFAULT_CONFIG[i]
             if c[0] == 'dbname':
-                self.DEFAULT_CONFIG[i] = (c[0], c[1], self._benchmark.lower())
+                self.DEFAULT_CONFIG[i] = (c[0], c[1], self.benchmark.lower())
             elif c[0] == 'logfile':
-                logfile = os.path.join("/tmp", "%s.log" % self._benchmark.lower())
+                logfile = os.path.join("/tmp", "%s.log" % self.benchmark.lower())
                 self.DEFAULT_CONFIG[i] = (c[0], c[1], logfile)
         ## FOR
         
@@ -114,14 +113,14 @@ class Benchmark:
     
     def makeDefaultConfig(self):
         """Return a string containing the default configuration file for the target benchmark"""
-        ret =  "# %s Benchmark Configuration File\n" % (self._benchmark.upper())
+        ret =  "# %s Benchmark Configuration File\n" % (self.benchmark.upper())
         ret += "# Created %s\n" % (datetime.now())
         
         # Base Configuration
         ret += formatConfig("default", self.DEFAULT_CONFIG)
         
         # Benchmark Configuration
-        ret += formatConfig(self._benchmark, self.coordinator.benchmarkConfigImpl())
+        ret += formatConfig(self.benchmark, self.coordinator.benchmarkConfigImpl())
 
         return (ret)
     ## DEF
@@ -139,7 +138,7 @@ class Benchmark:
             config[s] = dict(cparser.items(s))
         ## FOR
         
-        config['default']['name'] = self._benchmark
+        config['default']['name'] = self.benchmark
         
         # Extra stuff from the arguments that we want to stash
         # in the 'default' section of the config
@@ -165,7 +164,7 @@ class Benchmark:
         
         # Fix common problems
         for s in config.keys():
-            for key in ["port", "duration", "clientprocs"]:
+            for key in ["duration", "clientprocs"]:
                 if key in config[s]: config[s][key] = int(config[s][key])
             for key in ["scalefactor"]:
                 if key in config[s]: config[s][key] = float(config[s][key])
@@ -173,6 +172,11 @@ class Benchmark:
                 if key in config[s]: config[s][key] = os.path.realpath(config[s][key])
         ## FOR
         
+        assert 'hosts' in config['default']
+        config['default']['hosts'] = re.split(r"[\s,]+", str(config['default']['hosts']))
+        assert 'clients' in config['default']
+        config['default']['clients'] = re.split(r"[\s,]+", str(config['default']['clients']))
+
         # Read in the serialized design file and ship that over the wire
         if "design" in config["default"] and config["default"]["design"]:
             LOG.debug("Reading in design file '%s'" % config["default"]["design"])
@@ -191,29 +195,29 @@ class Benchmark:
         self.channels = self.createChannels()
 
         # Step 0: Flush the cache on the MongoDB host
+        hostsToRestart = set()
         if self.args['flush']:
             # Check whether we have sharding nodes. If so, then we'll
             # Connect to the mongo server and get the list of shards
-            hostname = self.config["default"]["host"]
-            port = self.config["default"]["port"]
-            try:
-                conn = Connection(host=hostname, port=port)
-            except:
-                LOG.error("Failed to connect to MongoDB at %s:%s" % (hostname, port))
-                raise
-            
-            result = conn["admin"].command("listShards")
-            if "shards" in result:
-                shards = set()
-                for entry in result["shards"]:
-                    shardHost,shardPort = entry["host"].split(":")
-                    shards.add(shardHost)
-                # Restart these mofos
-                LOG.warn("Restarting MongoDB Shards: %s", list(shards))
-                map(flushBuffer, shards)
-            # Otherwise, just restart the front end node
-            else:
-                flushBuffer(self.config["default"]["host"],self.config["default"]["restart"])
+            for host in self.config["default"]["hosts"]:
+                try:
+                    conn = Connection(host=host)
+                except:
+                    LOG.error("Failed to connect to MongoDB at %s", host)
+                    raise
+                result = conn["admin"].command("listShards")
+                if "shards" in result:
+                    for entry in result["shards"]:
+                        shardHost,shardPort = entry["host"].split(":")
+                        hostsToRestart.add(shardHost)
+                else:
+                    hostsToRestart.add(host.split(":")[0])
+            ## FOR
+            # Restart these mofos
+            if len(hostsToRestart) > 0:
+                for host in hostsToRestart:
+                    flushBuffer(host, self.config["default"]["restart"])
+            ## IF
         
         # Step 1: Initialize all of the Workers on the client nodes
         self.coordinator.init(self.config, self.channels) 
@@ -228,7 +232,8 @@ class Benchmark:
             try:
                 # Start mongostat
                 if self.args["mongostat"]:
-                    dbHost = self.config["default"]["host"]
+                    # FIXME
+                    dbHost = self.config["default"]["hosts"][0]
                     mongostat = MongoStatCollector(dbHost, SSH_USER, SSH_OPTIONS)
                     mongostat.start()
                 self.coordinator.execute(self.config, self.channels)
@@ -244,8 +249,7 @@ class Benchmark:
         
     def createChannels(self):
         '''Create a list of channels used for communication between coordinator and worker'''
-        assert 'clients' in self.config['default']
-        clients = re.split(r"[\s,]+", str(self.config['default']['clients']))
+        clients = self.config['default']['clients']
         assert len(clients) > 0
         LOG.info("Invoking benchmark framework on %d clients" % len(clients))
 
@@ -266,7 +270,7 @@ class Benchmark:
             # a new benchmark run
             LOG.info("Executor Log File: %s" %  self.config['default']['logfile'])
             with open(self.config['default']['logfile'], "a") as fd:
-                header = "%s BENCHMARK - %s\n\n" % (self._benchmark.upper(), datetime.now())
+                header = "%s BENCHMARK - %s\n\n" % (self.benchmark.upper(), datetime.now())
                 header += "%s" % (pformat(self.config))
                 
                 fd.write('*'*100 + '\n')
@@ -291,9 +295,9 @@ class Benchmark:
                     if (now - start) > 10 and int((len(channels) / float(totalClients))*100) % 25 == 0:
                         LOG.debug("Started Client Threads %d / %d" % (len(channels), totalClients))
                 ## FOR (processes)
-            ## FOR (hosts)
+            ## FOR (node)
         # IF
-        LOG.info("Created %d client processes on %d hosts" % (len(channels), len(clients)))
+        LOG.info("Created %d client processes on %d nodes" % (len(channels), len(clients)))
         LOG.debug(channels)
         return channels
     ## DEF
@@ -302,11 +306,11 @@ class Benchmark:
         '''Coordinator factory method.'''
 
         # First make sure that the benchmark is on our sys.path
-        setupBenchmarkPath(self._benchmark)
+        setupBenchmarkPath(self.benchmark)
         
         # Then use some black magic to instantiate an instance of the benchmark's coordinator
-        fullName = self._benchmark.title() + "Coordinator"
-        moduleName = "benchmarks.%s.%s" % (self._benchmark.lower(), fullName.lower())
+        fullName = self.benchmark.title() + "Coordinator"
+        moduleName = "benchmarks.%s.%s" % (self.benchmark.lower(), fullName.lower())
         moduleHandle = __import__(moduleName, globals(), locals(), [fullName])
         klass = getattr(moduleHandle, fullName)
         return klass()

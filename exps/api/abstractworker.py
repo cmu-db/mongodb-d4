@@ -27,6 +27,7 @@ import sys
 import time
 import logging
 import traceback
+import random
 import pymongo
 from pprint import pformat
 
@@ -98,14 +99,13 @@ class AbstractWorker:
         ## TARGET CONNECTION
         ## ----------------------------------------------
         self.conn = None
-        targetHost = config['default']['host']
-        targetPort = config['default']['port']
+        targetHost = random.choice(config['default']['hosts'])
         if self.debug:
-            LOG.debug("Connecting MongoDB database at %s:%d" % (targetHost, targetPort))
+            LOG.debug("Connecting MongoDB database at %s", targetHost)
         try:
-            self.conn = pymongo.Connection(targetHost, targetPort)
+            self.conn = pymongo.Connection(targetHost)
         except:
-            LOG.error("Failed to connect to target MongoDB at %s:%s" % (targetHost, targetPort))
+            LOG.error("Failed to connect to target MongoDB at %s", targetHost)
             raise
         assert self.conn
         

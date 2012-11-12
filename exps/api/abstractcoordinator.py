@@ -25,6 +25,7 @@
 # -----------------------------------------------------------------------
 import time
 import logging
+import random
 import pymongo
 
 from .results import *
@@ -97,13 +98,12 @@ class AbstractCoordinator:
         ## TARGET CONNECTION
         ## ----------------------------------------------
         self.conn = None
-        targetHost = config['default']['host']
-        targetPort = config['default']['port']
-        LOG.debug("Connecting MongoDB database at %s:%d" % (targetHost, targetPort))
+        targetHost = random.choice(config['default']['hosts'])
+        LOG.debug("Connecting MongoDB database at %s", targetHost)
         try:
-            self.conn = pymongo.Connection(targetHost, targetPort)
+            self.conn = pymongo.Connection(targetHost)
         except:
-            LOG.error("Failed to connect to target MongoDB at %s:%s" % (targetHost, targetPort))
+            LOG.error("Failed to connect to target MongoDB at %s", targetHost)
             raise
         assert self.conn
         
