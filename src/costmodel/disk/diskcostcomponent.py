@@ -26,7 +26,7 @@ import sys
 import math
 import logging
 from pprint import pformat
-
+import operator
 # mongodb-d4
 import workload
 
@@ -67,12 +67,35 @@ class DiskCostComponent(AbstractCostComponent):
             buf.reset()
     ## DEF
     
+    def __GetCollectionsInProperOder__(self, design):
+        # initialize collection scores dictionary
+        collection_scores = {}
+        collections = design.getCollections()
+
+        for col in collections:
+            collection_scores[col] = 0
+        
+        for col in collections:
+            self.__update_score__(col, design, collection_scores)
+        
+        sorted_collection_with_Score = sorted(collection_scores.iteritems(), key=operator.itemgetter(1))
+
+        sorted_collection = [x[0] for x in sorted_collection_with_Score]
+        return sorted_collection
+
+    def __update_score__(self, col, design, collection_scores):
+        parent_col = design.getDenormalizationParent(col)
+        if parent_col:
+            collection_scores[parent_col] += 1
+            self.__update_score__(parent_col, design, collection_scores)
+            
     def buildEmbeddingCostDictionary(self, design):
         # we should build a set which contains the parent collections from the design so that we can increase the cost
         # of queries to these collections
         col_cost_map = { }
         child_collections = set()
-        for col_name in design.getCollections():
+        previous_chains = [ ]
+        for col_name in self.__GetCollectionsInProperOder__(design):
             parent_child_chain = [ ]
             parent_col = design.getDenormalizationParent(col_name)
             child_col = col_name
@@ -82,13 +105,25 @@ class DiskCostComponent(AbstractCostComponent):
                 child_col = parent_col
                 parent_col = design.getDenormalizationParent(child_col)
             ## FOR
+            isBroken = False
+            for tup in parent_child_chain:
+                if tup in previous_chains:
+                    isBroken = True
+                    break
+                ## IF
+            ## FOR
+            if isBroken:
+                continue
+            
             if len(parent_child_chain) > 0:
-                cost_ratio = 1.0
+                if not parent_child_chain[-1][0] in col_cost_map:
+                    col_cost_map[parent_child_chain[-1][0]] = 1.0
+                    
                 for tup in parent_child_chain:
                     col_info = self.state.collections[tup[0]]
-                    cost_ratio *= col_info['embedding_ratio'][tup[1]]
+                    col_cost_map[parent_child_chain[-1][0]] *= col_info['embedding_ratio'][tup[1]]
                 ## FOR
-                col_cost_map[parent_child_chain[-1]] = cost_ratio
+                previous_chains.extend(parent_child_chain)
         ## FOR
         
         return col_cost_map, child_collections
@@ -114,9 +149,8 @@ class DiskCostComponent(AbstractCostComponent):
         # Ok strap on your helmet, this is the magical part of the whole thing!
         #
         cost_map, child_collections = self.buildEmbeddingCostDictionary(design)
-        #print "Magic map: ", pformat(cost_map)
-        #print "Magic list: ", child_collections
-        #exit("CUPCAKE")
+        print "Magic map: ", pformat(cost_map)
+        print "Magic list: ", child_collections
         # Outline:
         # + For each operation, we need to figure out what document(s) it's going
         #   to need to touch. From this we want to compute a unique hash signature
