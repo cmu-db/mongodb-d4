@@ -35,7 +35,7 @@ class Collection(Document):
                 'avg_size':          int,        # The average size of the values for this field (bytes)
                 'parent_col':        basestring, # TODO(ckeith)
                 'parent_key':        basestring, # TODO(ckeith)
-                'parent_candidates': dict,      #
+                'parent_candidates': list,       # List of (parent_col, parent_key) candidates 
                 
                 # List Field Attributes
                 'list_len_min':     int,
@@ -73,7 +73,7 @@ class Collection(Document):
             'avg_size':         0,
             'parent_col':       None,
             'parent_key':       None,
-            'parent_candidates': { },
+            'parent_candidates': [ ],
             'list_len_min':     None,
             'list_len_max':     None,
             'list_len_avg':     None,

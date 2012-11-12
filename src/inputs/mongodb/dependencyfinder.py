@@ -59,13 +59,14 @@ class DependencyFinder:
         for sess in self.workload:
             self.processSession(sess)
             
-        for col_name in self.collections.iterkeys():
+        for col_name,col_info in self.collections.iteritems():
+            # Set of <ThisCollectionKey, OtherCollectionName, OtherCollectionKey>
             matches = self.comparisons[col_name].getMatches()
             if matches:
-                # TODO: Put this somewhere!
-                #print col_name
-                #print "\n".join(map(str, )
-                pass
+                for key0, parent_col, parent_key in matches:
+                    if not parent_candidates in col_info['fields'][key0]:
+                        col_info['fields'][key0]['parent_candidates'] = [ ]
+                    col_info['fields'][key0]['parent_candidates'].append(parent_col, parent_key)
     ## DEF
     
     def processSession(self, sess):
