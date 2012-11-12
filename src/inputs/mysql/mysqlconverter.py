@@ -208,7 +208,6 @@ class MySQLConverter(AbstractConverter):
                 field = col_info['fields'][child_field]
                 field['parent_col'] = parent_table
                 field['parent_key'] = parent_field
-                field['parent_conf'] = 1.0
                 
                 # add the ratio to the parent collection
                 parent_col_info = self.metadata_db.Collection.fetch_one({"name": parent_table})
