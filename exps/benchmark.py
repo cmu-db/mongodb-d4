@@ -349,18 +349,20 @@ def flushBuffer(host,restart):
             "sudo service mongod start",
             "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
         ]
+        LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
     else:
         remoteCmds = [
             "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
         ]
-    LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
+        LOG.info("Flushing OS cache on host '%s'" % host)
+
     
     sshOpts = " ".join(map(lambda k: "-o \"%s %s\"" % (k, SSH_OPTIONS[k]), SSH_OPTIONS.iterkeys()))
     baseCmd = "ssh %s@%s %s" % (SSH_USER, host, sshOpts)
     for cmd in remoteCmds:
         subprocess.check_call("%s \"%s\"" % (baseCmd, cmd), shell=True)
-    time.sleep(60)
-    ## FOR
+    if restart:
+        time.sleep(30)
 ## DEF
 
 ## ==============================================
