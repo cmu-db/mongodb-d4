@@ -88,6 +88,7 @@ class Benchmark:
         ("design", "Path to database design file (must be supported by benchmark).", ""),
         ("logfile", "Path to debug log file for remote execnet processes", None),
         ("mongostat_sleep", "The number of seconds to sleep before collecting new info using mongostat", 10),
+        ("restart","if true it will restart the mongod server(s)",True), 
     ]
     
     '''main class'''
@@ -212,7 +213,7 @@ class Benchmark:
                 map(flushBuffer, shards)
             # Otherwise, just restart the front end node
             else:
-                flushBuffer(self.config["default"]["host"])
+                flushBuffer(self.config)
         
         # Step 1: Initialize all of the Workers on the client nodes
         self.coordinator.init(self.config, self.channels) 
@@ -309,7 +310,7 @@ class Benchmark:
         moduleHandle = __import__(moduleName, globals(), locals(), [fullName])
         klass = getattr(moduleHandle, fullName)
         return klass()
-    ## DEF
+   ## DEF
     
     def collectMongoStat(self):
         """Spawn a thread that logs into the server and retrives mongostat output"""
@@ -341,23 +342,26 @@ def setupBenchmarkPath(benchmark):
 ## ==============================================
 ## flushBuffer
 ## ==============================================
-def flushBuffer(host):
-    remoteCmds = [
-        #"sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
-        #"sudo service mongodb restart",
-        #"ssh -t ubuntu@"+host+" -o \"UserKnownHostsFile /dev/null\" " + "-o \"StrictHostKeyChecking no\""+"  \"sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'\"",
-        #"ssh -t ubuntu@"+host+" -o \"UserKnownHostsFile /dev/null\" " + "-o \"StrictHostKeyChecking no\""+"  \"sudo service mongod restart\"",
-        "sudo service mongod stop",
-        "sudo service mongod start",
-        "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
-    ]
+def flushBuffer(config):
+    host = config["default"]["host"]
+    if config["default"]['restart']:
+        remoteCmds = [
+            "sudo service mongod stop",
+            "sudo service mongod start",
+            "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
+        ]
+    else:
+        remoteCmds = [
+            "sudo service mongod stop",
+            "sudo service mongod start",
+        ]
     LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
     
     sshOpts = " ".join(map(lambda k: "-o \"%s %s\"" % (k, SSH_OPTIONS[k]), SSH_OPTIONS.iterkeys()))
     baseCmd = "ssh %s@%s %s" % (SSH_USER, host, sshOpts)
     for cmd in remoteCmds:
         subprocess.check_call("%s \"%s\"" % (baseCmd, cmd), shell=True)
-    time.sleep(30)
+    time.sleep(60)
     ## FOR
 ## DEF
 
