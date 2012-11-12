@@ -83,7 +83,17 @@ class DiskCostComponent(AbstractCostComponent):
         #     cache = lru.initialize(design, delta, cache)
         #     LOG.info(lru)
         #     lru.validate()
-
+        
+        # we should build a set which contains the parent collections from the design so that we can increase the cost
+        # of queries to these collections
+        parent_collections = set()
+        for col_name in design.getCollections():
+            parent_col = design.getDenormalizationParent(col_name)
+            if parent_col:
+                parent_collections.add(parent_col)
+            ## IF
+        ## FOR
+        
         # Ok strap on your helmet, this is the magical part of the whole thing!
         #
         # Outline:
@@ -128,7 +138,7 @@ class DiskCostComponent(AbstractCostComponent):
         totalWorst = 0
         totalCost = 0
         sess_ctr = 0
-
+        
         for sess in self.state.workload:
             for op in sess['operations']:
                 # is the collection in the design - if not ignore
@@ -158,7 +168,9 @@ class DiskCostComponent(AbstractCostComponent):
                 isRegex = self.state.__getIsOpRegex__(cache, op)
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
-                    slot_size = self.guess_slot_size(col_info, content)
+                    slot_size = self.guess_slot_size(col_info, content, parent_collections, op)
+                    print "collection: ", op['collection']
+                    print "slot size: ", slot_size
                     self.total_op_contents += 1
                     try:
                         opNodes = self.state.__getNodeIds__(cache, design, op)
@@ -295,9 +307,9 @@ class DiskCostComponent(AbstractCostComponent):
             lru.reset()
     ## DEF
     
-    def guess_slot_size(self, col_info, content):
+    def guess_slot_size(self, col_info, content, parent_collections, op):
         key = content.keys()[0] # each query content just has one key
-        if 'embedding_ratio' in col_info and key in col_info['embedding_ratio']:
+        if op['collection'] in parent_collections and 'embedding_ratio' in col_info and key in col_info['embedding_ratio']:
             return int(math.ceil(col_info['embedding_ratio'][key])) 
         else:
             return 1
