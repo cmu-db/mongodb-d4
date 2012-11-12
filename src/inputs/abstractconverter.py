@@ -174,7 +174,8 @@ class AbstractConverter():
     ## DEF
     
     def postProcessImpl(self):
-        raise NotImplementedError("Unimplemented %s.postProcessImpl()" % self.__init__.im_class)
+        LOG.warn("Unimplemented %s.postProcessImpl()" % self.__init__.im_class)
+        pass
     ## DEF
 
     def addQueryHashes(self):
