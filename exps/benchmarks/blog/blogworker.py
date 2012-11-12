@@ -396,6 +396,12 @@ class BlogWorker(AbstractWorker):
             #readwriteop = random.randint(1,100)
             range = int(config[self.name]["range"])
             articleId = str(random.randint(int(self.num_articles-range-1),self.num_articles-1)).zfill(128)
+            #hardcode articleId
+            randa = random.randint(1,2)
+            if randa ==1:
+                articleId = str(1).zfill(128)
+            else:
+                articleId = str(500000).zfill(128)
             #if readwriteop != 1: # read
             if trial == 0:
                 opName = "readArticleById"
