@@ -88,7 +88,7 @@ class Benchmark:
         ("design", "Path to database design file (must be supported by benchmark).", ""),
         ("logfile", "Path to debug log file for remote execnet processes", None),
         ("mongostat_sleep", "The number of seconds to sleep before collecting new info using mongostat", 10),
-        ("restart","if true it will restart the mongod server(s)",true), 
+        ("restart","if true it will restart the mongod server(s)",True), 
     ]
     
     '''main class'''
