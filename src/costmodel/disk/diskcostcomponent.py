@@ -222,7 +222,7 @@ class DiskCostComponent(AbstractCostComponent):
                 maxHits = 0
                 isRegex = self.state.__getIsOpRegex__(cache, op)
                 
-                slot_size = self.guess_slot_size(col_info, cost_map, op, child_collections)
+                slot_size = self.guess_slot_size(col_info, cost_map, op, child_collections, design)
                 
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
@@ -362,8 +362,8 @@ class DiskCostComponent(AbstractCostComponent):
             lru.reset()
     ## DEF
     
-    def guess_slot_size(self, col_info, cost_map, op, child_collections):
-        assert not op['collection'] in child_collections, "collection %s should not be queried" % op['collection']
+    def guess_slot_size(self, col_info, cost_map, op, child_collections, design):
+        assert not op['collection'] in child_collections, "collection %s should not be queried. design \n%s" % (op['collection'], design)
         
         if op['collection'] in cost_map:
             return int(math.ceil(cost_map[op['collection']])) 
