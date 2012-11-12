@@ -27,15 +27,15 @@ class Collection(Document):
         ## ----------------------------------------------
         'fields': {
             basestring: {
-                'type':             basestring, # catalog.fieldTypeToString(col_type),
-                'fields':           dict,       # nested fields
-                'query_use_count':  int,        # The number of times this field is referenced in queries
-                'cardinality':      int,        # Number of distinct values
-                'selectivity':      float,      # Cardinality / Number of all values
-                'avg_size':         int,        # The average size of the values for this field (bytes)
-                'parent_col':       basestring, # TODO(ckeith)
-                'parent_key':       basestring, # TODO(ckeith)
-                'parent_conf':      float,      # TODO(ckeith)
+                'type':              basestring, # catalog.fieldTypeToString(col_type),
+                'fields':            dict,       # nested fields
+                'query_use_count':   int,        # The number of times this field is referenced in queries
+                'cardinality':       int,        # Number of distinct values
+                'selectivity':       float,      # Cardinality / Number of all values
+                'avg_size':          int,        # The average size of the values for this field (bytes)
+                'parent_col':        basestring, # TODO(ckeith)
+                'parent_key':        basestring, # TODO(ckeith)
+                'parent_candidates': dict,      #
                 
                 # List Field Attributes
                 'list_len_min':     int,
@@ -73,7 +73,7 @@ class Collection(Document):
             'avg_size':         0,
             'parent_col':       None,
             'parent_key':       None,
-            'parent_conf':      None,
+            'parent_candidates': { },
             'list_len_min':     None,
             'list_len_max':     None,
             'list_len_avg':     None,

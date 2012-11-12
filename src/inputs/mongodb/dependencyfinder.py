@@ -63,9 +63,9 @@ class DependencyFinder:
             matches = self.comparisons[col_name].getMatches()
             if matches:
                 # TODO: Put this somewhere!
-                print col_name
-                print "\n".join(map(str, )
-                print
+                #print col_name
+                #print "\n".join(map(str, )
+                pass
     ## DEF
     
     def processSession(self, sess):
