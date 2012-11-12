@@ -213,7 +213,7 @@ class Benchmark:
                 map(flushBuffer, shards)
             # Otherwise, just restart the front end node
             else:
-                flushBuffer(self.config)
+                flushBuffer(self.config["default"]["host"],self.config["default"]["restart"])
         
         # Step 1: Initialize all of the Workers on the client nodes
         self.coordinator.init(self.config, self.channels) 
@@ -342,27 +342,27 @@ def setupBenchmarkPath(benchmark):
 ## ==============================================
 ## flushBuffer
 ## ==============================================
-def flushBuffer(config):
-    host = config["default"]["host"]
-    if config["default"]['restart']:
+def flushBuffer(host,restart=False):
+    if restart:
         remoteCmds = [
-            "sudo service mongod stop",
-            "sudo service mongod start",
+            #"sudo service mongod stop",
+            #"sudo service mongod start",
             "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
         ]
+        LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
     else:
         remoteCmds = [
-            "sudo service mongod stop",
-            "sudo service mongod start",
+            "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
         ]
-    LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
+        LOG.info("Flushing OS cache on host '%s'" % host)
+
     
     sshOpts = " ".join(map(lambda k: "-o \"%s %s\"" % (k, SSH_OPTIONS[k]), SSH_OPTIONS.iterkeys()))
     baseCmd = "ssh %s@%s %s" % (SSH_USER, host, sshOpts)
     for cmd in remoteCmds:
         subprocess.check_call("%s \"%s\"" % (baseCmd, cmd), shell=True)
-    time.sleep(60)
-    ## FOR
+    if restart:
+        time.sleep(30)
 ## DEF
 
 ## ==============================================
