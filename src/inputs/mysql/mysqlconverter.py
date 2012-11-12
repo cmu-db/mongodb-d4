@@ -207,8 +207,10 @@ class MySQLConverter(AbstractConverter):
                 
                 # add the ratio to the parent collection
                 parent_col_info = self.metadata_db.Collection.fetch_one({"name": parent_table})
-                parent_col_info['embedding_ratio'][child_field] = self.getEmbeddingRatio(parent_table, col_info['name'], parent_field)
-                LOG.info("embedding_ratio: %s", parent_col_info['embedding_ratio'][child_field])
+                parent_col_info['embedding_ratio'][child_table] = self.getEmbeddingRatio(parent_table, col_info['name'], parent_field)
+                LOG.info("child col: %s", child_table)
+                LOG.info("parent col: %s", parent_table)
+                LOG.info("embedding_ratio: %s", parent_col_info['embedding_ratio'][child_table])
                 parent_col_info.save()
                 
                 col_info.save()
@@ -265,7 +267,7 @@ class MySQLConverter(AbstractConverter):
         
         intersect_values = parent_distinct_values.intersection(child_distinct_values)
         
-        sample_num = len(intersect_values) if len(intersect_values) < 1000 else 1000 # FIXME use this magic number 1000 so far
+        sample_num = len(intersect_values) if len(intersect_values) < 10000 else int(len(intersect_values) * 0.05) # FIXME use this magic number 1000 so far
         sampled_values = self.rng.sample(intersect_values, sample_num)
         
         LOG.info("sampled values: %s", len(sampled_values))

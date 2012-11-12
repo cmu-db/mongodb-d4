@@ -65,7 +65,35 @@ class DiskCostComponent(AbstractCostComponent):
     def reset(self):
         for buf in self.buffers:
             buf.reset()
-
+    ## DEF
+    
+    def buildEmbeddingCostDictionary(self, design):
+        # we should build a set which contains the parent collections from the design so that we can increase the cost
+        # of queries to these collections
+        col_cost_map = { }
+        child_collections = set()
+        for col_name in design.getCollections():
+            parent_child_chain = [ ]
+            parent_col = design.getDenormalizationParent(col_name)
+            child_col = col_name
+            while parent_col:
+                child_collections.add(child_col)
+                parent_child_chain.append((parent_col, child_col))
+                child_col = parent_col
+                parent_col = design.getDenormalizationParent(child_col)
+            ## FOR
+            if len(parent_child_chain) > 0:
+                cost_ratio = 1.0
+                for tup in parent_child_chain:
+                    col_info = self.state.collections[tup[0]]
+                    cost_ratio *= col_info['embedding_ratio'][tup[1]]
+                ## FOR
+                col_cost_map[parent_child_chain[-1]] = cost_ratio
+        ## FOR
+        
+        return col_cost_map, child_collections
+    ## DEF
+    
     def getCostImpl(self, design):
         """
             Estimate the Disk Cost for a design and a workload
@@ -83,19 +111,12 @@ class DiskCostComponent(AbstractCostComponent):
         #     cache = lru.initialize(design, delta, cache)
         #     LOG.info(lru)
         #     lru.validate()
-        
-        # we should build a set which contains the parent collections from the design so that we can increase the cost
-        # of queries to these collections
-        parent_collections = set()
-        for col_name in design.getCollections():
-            parent_col = design.getDenormalizationParent(col_name)
-            if parent_col:
-                parent_collections.add(parent_col)
-            ## IF
-        ## FOR
-        
         # Ok strap on your helmet, this is the magical part of the whole thing!
         #
+        cost_map, child_collections = self.buildEmbeddingCostDictionary(design)
+        #print "Magic map: ", pformat(cost_map)
+        #print "Magic list: ", child_collections
+        #exit("CUPCAKE")
         # Outline:
         # + For each operation, we need to figure out what document(s) it's going
         #   to need to touch. From this we want to compute a unique hash signature
@@ -166,11 +187,11 @@ class DiskCostComponent(AbstractCostComponent):
                 pageHits = 0
                 maxHits = 0
                 isRegex = self.state.__getIsOpRegex__(cache, op)
+                
+                slot_size = self.guess_slot_size(col_info, cost_map, op, child_collections)
+                
                 # Grab all of the query contents
                 for content in workload.getOpContents(op):
-                    slot_size = self.guess_slot_size(col_info, content, parent_collections, op)
-                    print "collection: ", op['collection']
-                    print "slot size: ", slot_size
                     self.total_op_contents += 1
                     try:
                         opNodes = self.state.__getNodeIds__(cache, design, op)
@@ -307,10 +328,11 @@ class DiskCostComponent(AbstractCostComponent):
             lru.reset()
     ## DEF
     
-    def guess_slot_size(self, col_info, content, parent_collections, op):
-        key = content.keys()[0] # each query content just has one key
-        if op['collection'] in parent_collections and 'embedding_ratio' in col_info and key in col_info['embedding_ratio']:
-            return int(math.ceil(col_info['embedding_ratio'][key])) 
+    def guess_slot_size(self, col_info, cost_map, op, child_collections):
+        assert not op['collection'] in child_collections, "collection %s should not be queried" % op['collection']
+        
+        if op['collection'] in cost_map:
+            return int(math.ceil(cost_map[op['collection']])) 
         else:
             return 1
     ## DEF
