@@ -85,6 +85,11 @@ class MySQLConverter(AbstractConverter):
         self.extractWorkload()
     
     ## DEF
+    
+    def postProcessImpl(self):
+        # Nothing!
+        pass
+    ## DEF
 
     def extractSchema(self):
         c1 = self.mysql_conn.cursor()

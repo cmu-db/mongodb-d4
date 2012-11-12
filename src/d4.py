@@ -108,7 +108,11 @@ if __name__ == '__main__':
     agroup.add_argument('--no-mongo-sessionizer', action='store_true',
                         help='Skip splitting the MongoSniff workload into separate sessions.')
     agroup.add_argument('--no-mongo-aggregate-fix', action='store_true',
-                        help='Skip attempting to fix the collection names for aggregate queries'),
+                        help='Skip attempting to fix the collection names for aggregate queries.')
+    agroup.add_argument('--no-mongo-normalize', action='store_true',
+                        help='Skip attempting to normalize collections.'),
+    agroup.add_argument('--no-mongo-dependencies', action='store_true',
+                        help='Skip attempting to find dependencies between collections.'),
                         
     # MySQL Processing Options
     agroup = aparser.add_argument_group(termcolor.bold('MySQL Workload Processing Options'))

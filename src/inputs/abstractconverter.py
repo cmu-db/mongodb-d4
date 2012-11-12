@@ -154,6 +154,9 @@ class AbstractConverter():
 
         # STEP 3: Process dataset
         self.extractSchemaCatalog()
+        
+        # Let the converter have a shot at it
+        self.postProcessImpl()
 
         # Finalize workload percentage statistics for each collection
         percent_total = 0.0
@@ -168,6 +171,10 @@ class AbstractConverter():
         ## FOR
         assert round(percent_total, 1) > 0.0 and round(percent_total, 1) <= 1.0,\
             "Invalid workload percent total %f [totalOps=%d]" % (percent_total, self.total_ops)
+    ## DEF
+    
+    def postProcessImpl(self):
+        raise NotImplementedError("Unimplemented %s.postProcessImpl()" % self.__init__.im_class)
     ## DEF
 
     def addQueryHashes(self):

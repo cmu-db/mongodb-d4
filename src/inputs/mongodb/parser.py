@@ -744,7 +744,6 @@ class Parser:
         LOG.info("Trying to brute-force the salt 0-%d [numCollections=%d / numHashes=%d]", \
                  max_salt, len(known_collections), len(candidate_hashes))
         salt = 0
-        salt=12000000
         # the col names are hashed with quotes around them 
         col_names = map(self.get_hash_string, known_collections)
         while True:

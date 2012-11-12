@@ -28,19 +28,25 @@ import itertools
 import workload
 from util import Histogram
 from util import mathutil
+from util import constants
 
 LOG = logging.getLogger(__name__)
 
 class DependencyFinder:
     """Examine the sample data set and find dependency relationships"""
     
-    def __init__(self, collections, workload, dataset_db):
-        self.collections = collections
-        self.workload = workload
+    def __init__(self, metadata_db, dataset_db):
+        self.metadata_db = metadata_db
         self.dataset_db = dataset_db
         self.comparisons = { }
-        for col_info in self.comparisons.itervalues():
+        self.workload = [ self.metadata_db.Session.fetch() ] 
+        
+        self.collections = { }
+        for col_info in self.metadata_db.Collection.fetch():
+            self.collections[col_info["name"]] = col_info
             self.comparisons[col_info["name"]] = KeyComparisons(col_info)
+            
+        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
@@ -56,6 +62,11 @@ class DependencyFinder:
             
             content0 = workload.getOpContents(op0)
             content1 = workload.getOpContents(op1)
+            
+            LOG.info(pformat(content0))
+            LOG.info("-"*100)
+            LOG.info(pformat(content0))
+            raise Exception("XXX")
             
             for key0,val0 in content0.iteritems():
                 #for key1, val1 in content1.iteritems():

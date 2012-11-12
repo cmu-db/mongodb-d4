@@ -24,9 +24,10 @@
 import itertools
 import logging
 import operator
-from pprint import pformat
+import time
 import os
 import sys
+from pprint import pformat
 
 # mongodb-d4
 import workload
@@ -39,7 +40,6 @@ from costmodel import CostModel
 from util import constants
 from util import configutil
 from designcandidates import DesignCandidates
-import time
 
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../multithreaded"))
@@ -133,6 +133,8 @@ class Designer():
         converter.no_mongo_reconstruct = self.no_mongo_reconstruct
         converter.no_mongo_sessionizer = self.no_mongo_sessionizer
         converter.no_mongo_aggregate_fix = self.no_mongo_aggregate_fix
+        converter.no_mongo_normalize = self.no_mongo_normalize
+        converter.no_mongo_dependencies = self.no_mongo_dependencies
         converter.mongo_skip = self.mongo_skip
         converter.sess_limit = self.sess_limit
         converter.op_limit = self.op_limit

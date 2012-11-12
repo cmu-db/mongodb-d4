@@ -52,7 +52,7 @@ class Normalizer:
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
 
-        ## DEF
+    ## DEF
 
     def process(self):
         """Iterates through all operations of all sessions and normalizs the dataset..."""

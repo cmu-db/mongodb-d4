@@ -39,9 +39,10 @@ sys.path.append(os.path.join(basedir, ".."))
 from abstractconverter import AbstractConverter
 
 import parser
-import reconstructor
-import sessionizer
-import normalizer
+from reconstructor import Reconstructor
+from sessionizer import Sessionizer
+from normalizer import Normalizer
+from dependencyfinder import DependencyFinder
 
 from workload import Session
 from util import Histogram
@@ -63,6 +64,7 @@ class MongoSniffConverter(AbstractConverter):
         self.no_mongo_aggregate_fix = False
         self.no_mongo_reconstruct = False
         self.no_mongo_sessionizer = False
+        self.no_mongo_dependencies = False
         self.no_mongo_normalize = False
         self.mongo_skip = None
         self.sess_limit = None
@@ -78,16 +80,22 @@ class MongoSniffConverter(AbstractConverter):
 
         if not self.no_mongo_sessionizer:
             self.sessionizeWorkload()
-
+            
 #        self.printAllOperations()
 #        self.countDocs()
 #        self.printAllDocs()
-        if not self.no_mongo_normalize:
-            self.normalizeDatabase()
+        
 #        self.printAllOperations()
 #        self.printAllDocs()
 #        self.countDocs()
 #        exit("CUPCAKE")
+    ## DEF
+    
+    def postProcessImpl(self):
+        if not self.no_mongo_dependencies:
+            self.findDependencies()
+        if not self.no_mongo_normalize:
+            self.normalizeDatabase()
     ## DEF
     
     ## ----------------------------------------------
@@ -98,12 +106,28 @@ class MongoSniffConverter(AbstractConverter):
         If a collection has a field which contains several fields,
         we extract those fields and make a new collection out of it
         """
-        n = normalizer.Normalizer(self.metadata_db, self.dataset_db)
+        n = Normalizer(self.metadata_db, self.dataset_db)
 
         # Bombs away!
         LOG.info("Processing mongodb dataset normalization")
         n.process()
         LOG.info("Finshing normalization")
+    ## DEF
+    
+    ## ----------------------------------------------
+    ## FIND US SOME DEPENDENCIES!
+    ## ----------------------------------------------
+    def findDependencies(self):
+        """
+        If a collection has a field which contains several fields,
+        we extract those fields and make a new collection out of it
+        """
+        d = DependencyFinder(self.metadata_db, self.dataset_db)
+
+        # Bombs away!
+        LOG.info("Searching for depedencies")
+        d.process()
+        LOG.info("Finshing depedency search")
     ## DEF
 
     ## ----------------------------------------------
@@ -147,7 +171,7 @@ class MongoSniffConverter(AbstractConverter):
     def reconstructDatabase(self):
         # Create a Reconstructor that will use the WORKLOAD_COL to regenerate
         # the original database and extract a schema catalog.
-        r = reconstructor.Reconstructor(self.metadata_db, self.dataset_db)
+        r = Reconstructor(self.metadata_db, self.dataset_db)
         
         # Clear our existing data
         if self.clean: r.clean()
@@ -171,7 +195,7 @@ class MongoSniffConverter(AbstractConverter):
         """
         LOG.info("Sessionizing sample workload")
         
-        s = sessionizer.Sessionizer(self.metadata_db)
+        s = Sessionizer(self.metadata_db)
         
         # We first feed in all of the operations in for each session
         nextSessId = -1
