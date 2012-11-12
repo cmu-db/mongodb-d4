@@ -210,10 +210,10 @@ class Benchmark:
                     shards.add(shardHost)
                 # Restart these mofos
                 LOG.warn("Restarting MongoDB Shards: %s", list(shards))
-                map(flushBuffer, shards,self.config["default"]["restart"])
+                map(flushBuffer, shards)
             # Otherwise, just restart the front end node
             else:
-                flushBuffer(self.config["default"]["host"],self.config["default"]["restart"])
+                flushBuffer(self.config["default"]["host"])
         
         # Step 1: Initialize all of the Workers on the client nodes
         self.coordinator.init(self.config, self.channels) 
@@ -342,11 +342,12 @@ def setupBenchmarkPath(benchmark):
 ## ==============================================
 ## flushBuffer
 ## ==============================================
-def flushBuffer(host,restart):
+def flushBuffer(self,host):
+    restart = self.config["default"]["restart"]
     if restart:
         remoteCmds = [
-            "sudo service mongod stop",
-            "sudo service mongod start",
+            #"sudo service mongod stop",
+            #"sudo service mongod start",
             "sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'",
         ]
         LOG.info("Flushing OS cache and restart MongoDB on host '%s'" % host)
