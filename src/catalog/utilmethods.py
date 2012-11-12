@@ -119,7 +119,7 @@ def getAllValues(fields):
     ## DEF
 
     values = [ ]
-    for k in sorted(fields.keys()):
+    for k in sorted(fields.iterkeys()):
         v = fields[k]
         if isinstance(v, dict):
             values.append(getAllValues(v))
@@ -127,7 +127,7 @@ def getAllValues(fields):
             values.append(_getListValues(v))
         else:
             values.append(v)
-        ## FOR
+    ## FOR
     return tuple(values)
 ## DEF
 

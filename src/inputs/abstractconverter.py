@@ -146,6 +146,9 @@ class AbstractConverter():
             the catalog information came from MongoSniff or MySQL.
             This should only be invoked once after do the initial loading.
         """
+        # Let the converter implementation have a shot at it
+        self.postProcessImpl()
+        
         # STEP 1: Add query hashes
         self.addQueryHashes()
 
@@ -154,9 +157,6 @@ class AbstractConverter():
 
         # STEP 3: Process dataset
         self.extractSchemaCatalog()
-        
-        # Let the converter have a shot at it
-        self.postProcessImpl()
 
         # Finalize workload percentage statistics for each collection
         percent_total = 0.0
