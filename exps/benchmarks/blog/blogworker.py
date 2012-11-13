@@ -532,8 +532,8 @@ class BlogWorker(AbstractWorker):
     ## DEF
     
     def updateArticle(self,config,articleId):
-          self.db[constants.COMMENT_COLL].update({"id": articleId}, {"$inc" : {"views":1}}, False)
-    
+        self.db[constants.COMMENT_COLL].update({"id": articleId}, {"$inc" : {"views":1}}, False)
+        return 1
     def readArticleTopCommentsIncCommentVotes(self,config,articleId):
         """We are searching for the comments that had been written for the article with articleId"""
         
