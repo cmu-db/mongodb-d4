@@ -300,7 +300,7 @@ class Designer():
         self.workload = self.loadWorkload(self.collections)
         # Generate all the design candidates
         self.designCandidates = self.generateDesignCandidates(self.collections, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
-        LOG.info("candidates: %s\n", self.designCandidates)
+        #LOG.info("candidates: %s\n", self.designCandidates)
         # Instantiate cost model
         cmConfig = {
             'weight_network': self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_network'),
@@ -340,7 +340,7 @@ class Designer():
             #initialDesign.addIndex("SUBSCRIBER", ["sub_nbr","s_id"])
             #initialDesign.addShardKey("SUBSCRIBER", ["s_id"])
             
-            LOG.info("design\n%s", initialDesign)
+            print initialDesign.toJSON()
             initialCost = self.cm.overallCost(initialDesign)
             return initialCost, initialDesign
         else:

@@ -299,6 +299,10 @@ class AbstractConverter():
                             parent_col_info = self.metadata_db.Collection.fetch_one({"name": parent_col})
                             LOG.info("%s might be embedded into %s", child_col, parent_col)
                             
+                            if child_col.find('.') != -1:
+                                ## HACK HACK HACK
+                                child_col = child_col.replace('.', '__')
+                            ## IF
                             if child_col in parent_col_info['embedding_ratio']:
                                 previous_ratio = parent_col_info['embedding_ratio'][child_col]
                                 if ratio > previous_ratio:

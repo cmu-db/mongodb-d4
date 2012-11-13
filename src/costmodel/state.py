@@ -231,7 +231,8 @@ class State():
             try:
                 node_ids = self.estimator.estimateNodes(design, op)
             except:
-                LOG.error("Failed to estimate touched nodes for op #%d\n%s", op['query_id'], pformat(op))
+                if self.debug:
+                    LOG.error("Failed to estimate touched nodes for op #%d\n%s", op['query_id'], pformat(op))
                 raise
             if self.cache_enable:
                 if self.debug: self.cache_miss_ctr.put("op_nodeIds")

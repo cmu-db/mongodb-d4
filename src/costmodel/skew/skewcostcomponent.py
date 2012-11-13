@@ -33,6 +33,8 @@ from costmodel import AbstractCostComponent
 
 from util import Histogram
 
+from pprint import pformat
+
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
@@ -88,6 +90,7 @@ class SkewCostComponent(AbstractCostComponent):
         # Iterate over each session and get the list of nodes
         # that we estimate that each of its operations will need to touch
         num_ops = 0
+        err_ops = 0
         for sess in segment:
             for op in sess['operations']:
                 # Skip anything that doesn't have a design configuration
@@ -103,12 +106,18 @@ class SkewCostComponent(AbstractCostComponent):
                 #  This just returns an estimate of which nodes  we expect
                 #  the op to touch. We don't know exactly which ones they will
                 #  be because auto-sharding could put shards anywhere...
-                node_ids = self.state.__getNodeIds__(cache, design, op)
-                map(self.nodeCounts.put, node_ids)
-                num_ops += 1
+                try: 
+                    node_ids = self.state.__getNodeIds__(cache, design, op)
+                    map(self.nodeCounts.put, node_ids)
+                    num_ops += 1
+                except:
+                    if self.debug:
+                        LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                    err_ops += 1
+                    continue
             ## FOR (op)
         ## FOR (sess)
-
+        LOG.info("Total ops %s, errors %s", num_ops, err_ops)
         if self.debug: LOG.debug("Node Count Histogram:\n%s", self.nodeCounts)
         total = self.nodeCounts.getSampleCount()
         if not total:

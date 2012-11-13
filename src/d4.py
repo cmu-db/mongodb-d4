@@ -213,7 +213,8 @@ if __name__ == '__main__':
     # This designer is only used for input processing
     designer = Designer(config, metadata_db, dataset_db)
     designer.setOptionsFromArguments(args)
-    
+    #designer.load()
+    #exit("CUPCAKE")
     if args['input_design']:
         # evaluate the input design and then quit
         ds = Deserializer()

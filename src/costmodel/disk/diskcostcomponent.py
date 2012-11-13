@@ -122,7 +122,10 @@ class DiskCostComponent(AbstractCostComponent):
                     
                 for tup in parent_child_chain:
                     col_info = self.state.collections[tup[0]]
-                    col_cost_map[parent_child_chain[-1][0]] *= col_info['embedding_ratio'].get(tup[1], 1.0)
+                    key = tup[1]
+                    if key.find('.') != -1:
+                        key = key.replace('.', '__')
+                    col_cost_map[parent_child_chain[-1][0]] *= col_info['embedding_ratio'].get(key, 1.0)
                 ## FOR
                 previous_chains.extend(parent_child_chain)
         ## FOR
@@ -232,9 +235,11 @@ class DiskCostComponent(AbstractCostComponent):
                     try:
                         opNodes = self.state.__getNodeIds__(cache, design, op)
                     except:
-                        raise Exception("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                        if self.debug:
+                            LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
                         self.err_ctr += 1
-                        
+                        continue
+                    
                     for node_id in opNodes:
                         lru = self.buffers[node_id]
                         self.total_op_contents += 1

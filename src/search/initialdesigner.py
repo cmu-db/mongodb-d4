@@ -81,7 +81,9 @@ class InitialDesigner(AbstractDesigner):
             for op in sess["operations"]:
                 if op["collection"].find("$cmd") != -1:
                     continue
-                assert op["collection"] in col_keys, "Missing: " + op["collection"]
+                if not op["collection"] in col_keys:
+                    LOG.warn("Missing: " + op["collection"])
+                    continue
                 fields = workload.getReferencedFields(op)
                 h = col_keys[op["collection"]]
                 for i in xrange(1, len(fields)+1):
