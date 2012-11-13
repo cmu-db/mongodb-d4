@@ -322,23 +322,23 @@ class Designer():
         
         if not replay:
             initialDesign = InitialDesigner(self.collections, self.workload, self.config).generate()
-            initialDesign.reset("CALL_FORWARDING")
-            initialDesign.reset("SPECIAL_FACILITY")
-            initialDesign.reset("SUBSCRIBER")
-            initialDesign.reset("ACCESS_INFO")
+            #initialDesign.reset("CALL_FORWARDING")
+            #initialDesign.reset("SPECIAL_FACILITY")
+            #initialDesign.reset("SUBSCRIBER")
+            #initialDesign.reset("ACCESS_INFO")
             
-            initialDesign.recover("CALL_FORWARDING")
-            initialDesign.recover("SPECIAL_FACILITY")
-            initialDesign.recover("SUBSCRIBER")
-            initialDesign.recover("ACCESS_INFO")
+            #initialDesign.recover("CALL_FORWARDING")
+            #initialDesign.recover("SPECIAL_FACILITY")
+            #initialDesign.recover("SUBSCRIBER")
+            #initialDesign.recover("ACCESS_INFO")
             
-            initialDesign.setDenormalizationParent("ACCESS_INFO", "SUBSCRIBER")
-            initialDesign.setDenormalizationParent("SPECIAL_FACILITY", "SUBSCRIBER")
-            initialDesign.setDenormalizationParent("CALL_FORWARDING", "SPECIAL_FACILITY")
+            #initialDesign.setDenormalizationParent("ACCESS_INFO", "SUBSCRIBER")
+            #initialDesign.setDenormalizationParent("SPECIAL_FACILITY", "SUBSCRIBER")
+            #initialDesign.setDenormalizationParent("CALL_FORWARDING", "SPECIAL_FACILITY")
             
-            initialDesign.addIndex("SUBSCRIBER", ["s_id"])
-            initialDesign.addIndex("SUBSCRIBER", ["sub_nbr","s_id"])
-            initialDesign.addShardKey("SUBSCRIBER", ["s_id"])
+            #initialDesign.addIndex("SUBSCRIBER", ["s_id"])
+            #initialDesign.addIndex("SUBSCRIBER", ["sub_nbr","s_id"])
+            #initialDesign.addShardKey("SUBSCRIBER", ["s_id"])
             
             LOG.info("design\n%s", initialDesign)
             initialCost = self.cm.overallCost(initialDesign)
