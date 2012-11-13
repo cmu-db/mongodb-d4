@@ -60,6 +60,10 @@ class MySQLConverter(AbstractConverter):
         self.mysql_conn = mdb.connect(host=dbHost, port=dbPort, db=dbName, user=dbUser, passwd=dbPass, charset='utf8')
         self.next_query_id = 1000l
         
+        self.no_mysql_schema = False
+        self.no_mysql_workload = False
+        self.no_mysql_dataset = False
+        
         self.rng = random.Random()
         # LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
@@ -70,7 +74,8 @@ class MySQLConverter(AbstractConverter):
         ## Step 1:
         ## Determine tables/columns/indexes of MySQL schema
         ## ----------------------------------------------
-        self.extractSchema()
+        if not self.no_mysql_schema:
+            self.extractSchema()
     
         ## ----------------------------------------------
         ## Step 2:
@@ -82,7 +87,8 @@ class MySQLConverter(AbstractConverter):
         ## Step 3:
         ## Process MySQL query log for conversion to workload.Session objects
         ## ----------------------------------------------
-        self.extractWorkload()
+        if not self.no_mysql_workload:
+            self.extractWorkload()
     
     ## DEF
     
@@ -141,7 +147,8 @@ class MySQLConverter(AbstractConverter):
             ## -----------------------------------------------------------
             ## EXTRACT DATA
             ## -----------------------------------------------------------
-            self.extractData(tbl_name, tbl_cols[tbl_name])
+            if not self.no_mysql_dataset:
+                self.extractData(tbl_name, tbl_cols[tbl_name])
 
         ## ENDFOR
     ## DEF

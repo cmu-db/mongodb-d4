@@ -120,7 +120,13 @@ if __name__ == '__main__':
     agroup = aparser.add_argument_group(termcolor.bold('MySQL Workload Processing Options'))
     agroup.add_argument('--mysql', action='store_true',
                         help='Whether to process inputs from MySQL. Use must also define ' +
-                             'the database connection parameters in the config file.'),
+                             'the database connection parameters in the config file.')
+    agroup.add_argument('--no-mysql-schema', action='store_true',
+                             help='Skip extracting schema from MySQL.')
+    agroup.add_argument('--no-mysql-workload', action='store_true',
+                             help='Skip processing the MySQL workload trace.')
+    agroup.add_argument('--no-mysql-dataset', action='store_true',
+                             help='Skip copying the MySQL data set to MongoDB.')
 
     # Debugging Options
     agroup = aparser.add_argument_group(termcolor.bold('Debugging Options'))

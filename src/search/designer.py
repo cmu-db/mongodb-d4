@@ -160,6 +160,10 @@ class Designer():
             dbUser=self.config.get(configutil.SECT_MYSQL, 'user'),
             dbPass=self.config.get(configutil.SECT_MYSQL, 'pass'))
 
+        converter.no_mysql_schema = self.no_mysql_schema
+        converter.no_mysql_workload = self.no_mysql_workload
+        converter.no_mysql_dataset = self.no_mysql_dataset
+            
         # Process the inputs and then save the results in mongodb
         converter.process(
             no_load=no_load,
