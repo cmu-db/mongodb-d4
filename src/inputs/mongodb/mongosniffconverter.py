@@ -255,11 +255,12 @@ class MongoSniffConverter(AbstractConverter):
             # deletable.append(sess)
             sess.delete()
         ## FOR
+        avg_ops = 0 if origHistogram.getSampleCount() == 0 else (origTotal / float(origHistogram.getSampleCount()))
         LOG.info("AFTER Sessionization\n" +
                  "  # of Sessions: %d\n" +
                  "  Avg Ops per Session: %.2f", \
                  newHistogram.getSampleCount(), \
-                 (newTotal / float(newHistogram.getSampleCount())))
+                 avg_ops)
         if self.debug:
             LOG.debug("Ops per Session\n%s" % newHistogram)
             

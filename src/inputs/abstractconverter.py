@@ -191,8 +191,8 @@ class AbstractConverter():
         
         parent_count_dict = self.getCountOfValues(parent_col, foreign_key, commom_values)
         child_count_dict = self.getCountOfValues(child_col, foreign_key, commom_values)
-        LOG.info("parent dict: %s", parent_count_dict)
-        LOG.info("child dict: %s", child_count_dict)
+        #LOG.info("parent dict: %s", parent_count_dict)
+        #LOG.info("child dict: %s", child_count_dict)
         return self.getRatio(parent_count_dict, child_count_dict, commom_values)
     ## DEF
 
@@ -222,7 +222,7 @@ class AbstractConverter():
     
     def getCountOfValues(self, col_name, key, values):
         """
-            build a histogram of the number of documents found by the given value
+            build a histogram of the number of d../inputs/abstractconverter.pyocuments found by the given value
         """
         value_count_dict = {x : 0 for x in values}
         
