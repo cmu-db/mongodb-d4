@@ -283,9 +283,9 @@ class MySQLConverter(AbstractConverter):
                     pass
                     #raise
                 finally:
-                    self.opt_ctr += 1
-                    if self.opt_ctr % 50000 == 0:
-                        LOG.info("Processed %d / %d queries [%d%%]", self.opt_ctr, row_total, 100*self.opt_ctr/float(row_total))
+                    self.op_ctr += 1
+                    if self.op_ctr % 50000 == 0:
+                        LOG.info("Processed %d / %d queries [%d%%]", self.op_ctr, row_total, 100*self.op_ctr/float(row_total))
                     if not self.op_limit is None and self.op_ctr >= self.op_limit:
                         LOG.warn("Reached op limit [%d >= %d]", self.op_ctr, self.op_limit)
                         return
