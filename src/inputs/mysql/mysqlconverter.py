@@ -287,7 +287,7 @@ class MySQLConverter(AbstractConverter):
                     if self.opt_ctr % 50000 == 0:
                         LOG.info("Processed %d / %d queries [%d%%]", self.opt_ctr, row_total, 100*self.opt_ctr/float(row_total))
                     if not self.op_limit is None and self.op_ctr >= self.op_limit:
-                        LOG.info("Reached op limit")
+                        LOG.warn("Reached op limit [%d >= %d]", self.op_ctr, self.op_limit)
                         return
 
                 if success:
@@ -317,7 +317,7 @@ class MySQLConverter(AbstractConverter):
                             self.sess_ctr += 1
                             uid += 1
                             if not self.sess_limit is None and self.sess_ctr >= self.sess_limit:
-                                LOG.info("Reached sess limit")
+                                LOG.warn("Reached sess limit [%d >= %d]", self.sess_ctr, self.sess_limit)
                                 return
                             
                         ## ENDIF
