@@ -267,7 +267,9 @@ class BlogWorker(AbstractWorker):
                     
             elif config[self.name]["experiment"] == constants.EXP_SHARDING:
                 #LOG.info("Creating index %s(id)" % self.db[constants.ARTICLE_COLL].full_name)
-                self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                trial = int(config[self.name]["indexes"])
+                if trial == 1:    
+                    self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 pass                
             
             else:
@@ -396,24 +398,8 @@ class BlogWorker(AbstractWorker):
             #readwriteop = random.randint(1,100)
             range = int(config[self.name]["range"])
             articleId = str(random.randint(int(self.num_articles-range-1),self.num_articles-1)).zfill(128)
-            #hardcode articleId
-            #randa = random.randint(1,2)
-            #if randa ==1:
-            #articleId = str(1).zfill(128)
-            #else:
-            # articleId = str(500000).zfill(128)
-            #if readwriteop != 1: # read
-            if trial == 0:
-                opName = "readArticleById"
-                return (opName, (articleId,))
-            elif trial == 1:
-                #digest = hashlib.md5(str(articleId)).hexdigest()
-                #articleHashId = digest + digest + digest + digest
-                opName = "readArticleById"
-                return (opName, (articleId,))
-            #else: # write
-            #    opName = "insertNewArticle"
-            #return (opName, ())
+            opName = "readArticleById"
+            return (opName, (articleId,))
                
         elif config[self.name]["experiment"] == constants.EXP_INDEXING:              
             trial = int(config[self.name]["indexes"])
@@ -461,7 +447,13 @@ class BlogWorker(AbstractWorker):
         #    return
         #assert article["id"] == articleId, \
         #    "Unexpected invalid %s record for id #%d" % (constants.ARTICLE_COLL, articleId)
-        return 1
+        opCount = 1
+        if config[self.name]["experiment"] == constants.EXP_SHARDING:
+            writeop = random.randint(1,100)
+            if writeop == 1: # update
+                self.nextOp.append(("updateArticle", (articleId,)))   
+                opCount = 2
+        return opCount
     #DEF
     
     def readArticlesByTag(self,config, tag):
@@ -538,6 +530,9 @@ class BlogWorker(AbstractWorker):
             
         return 1
     ## DEF
+    
+    def updateArticle(self,config,articleId):
+          self.db[constants.COMMENT_COLL].update({"id": articleId}, {"$inc" : {"views":1}}, False)
     
     def readArticleTopCommentsIncCommentVotes(self,config,articleId):
         """We are searching for the comments that had been written for the article with articleId"""
