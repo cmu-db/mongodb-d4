@@ -60,6 +60,11 @@ class MySQLConverter(AbstractConverter):
         self.no_mysql_schema = False
         self.no_mysql_workload = False
         self.no_mysql_dataset = False
+        self.sess_limit = None
+        self.op_limit = None
+        
+        self.sess_ctr = 0
+        self.op_ctr = 0
         
         # LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
@@ -221,6 +226,7 @@ class MySQLConverter(AbstractConverter):
         cur = self.mysql_conn.cursor()
         cur.execute("SELECT COUNT(*) FROM %s.%s" % (self.dbName, MYSQL_LOG_TABLE_NAME))
         row_total = cur.fetchone()[0]
+        if not self.op_limit is None: row_total = min(row_total, self.op_limit)
         cur.close()
 
         # All the timestamps should be relative to the first timestamp
@@ -239,10 +245,8 @@ class MySQLConverter(AbstractConverter):
         hostIP = utilmethods.detectHostIP()
         tbl_cols = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
         mongo = sql2mongo.Sql2Mongo(tbl_cols)
-        query_ctr = 0
         for row in c4:
             timestamp = float(row[0].strftime("%s")) - start_timestamp
-
             if row[2] <> thread_id :
                 thread_id = row[2]
                 if not first:
@@ -279,9 +283,12 @@ class MySQLConverter(AbstractConverter):
                     pass
                     #raise
                 finally:
-                    query_ctr += 1
-                    if query_ctr % 50000 == 0:
-                        LOG.info("Processed %d / %d queries [%d%%]", query_ctr, row_total, 100*query_ctr/float(row_total))
+                    self.opt_ctr += 1
+                    if self.opt_ctr % 50000 == 0:
+                        LOG.info("Processed %d / %d queries [%d%%]", self.opt_ctr, row_total, 100*self.opt_ctr/float(row_total))
+                    if not self.op_limit is None and self.op_ctr >= self.op_limit:
+                        LOG.info("Reached op limit")
+                        return
 
                 if success:
                     if mongo.query_type <> 'UNKNOWN' :
@@ -307,7 +314,12 @@ class MySQLConverter(AbstractConverter):
                             if session['end_time'] is None:
                                 session['end_time'] = session['operations'][-1]['query_time']
                             session.save()
+                            self.sess_ctr += 1
                             uid += 1
+                            if not self.sess_limit is None and self.sess_ctr >= self.sess_limit:
+                                LOG.info("Reached sess limit")
+                                return
+                            
                         ## ENDIF
                         session = self.metadata_db.Session()
                         session['ip_client'] = utilmethods.stripIPtoUnicode(row[1])

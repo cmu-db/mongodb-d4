@@ -163,6 +163,8 @@ class Designer():
         converter.no_mysql_schema = self.no_mysql_schema
         converter.no_mysql_workload = self.no_mysql_workload
         converter.no_mysql_dataset = self.no_mysql_dataset
+        converter.sess_limit = self.sess_limit
+        converter.op_limit = self.op_limit
         
         # Process the inputs and then save the results in mongodb
         converter.process(
