@@ -316,7 +316,7 @@ class BlogWorker(AbstractWorker):
                     self.db[constants.COMMENT_COLL].insert(comment) 
             ## FOR (comments)
             if config[self.name]["denormalize"]:
-                self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})  
+ec2-23-23-65-137.compute-1.amazonaws.com                self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})  
         ## FOR (articles)
         
         if config[self.name]["denormalize"]:
@@ -532,8 +532,8 @@ class BlogWorker(AbstractWorker):
     ## DEF
     
     def updateArticle(self,config,articleId):
-          self.db[constants.COMMENT_COLL].update({"id": articleId}, {"$inc" : {"views":1}}, False)
-    
+        self.db[constants.COMMENT_COLL].update({"id": articleId}, {"$inc" : {"views":1}}, False)
+        return 1
     def readArticleTopCommentsIncCommentVotes(self,config,articleId):
         """We are searching for the comments that had been written for the article with articleId"""
         
