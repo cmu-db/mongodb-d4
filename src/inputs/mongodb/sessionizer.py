@@ -21,7 +21,7 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
-
+import random
 import logging
 
 from workload import Session
@@ -30,11 +30,14 @@ from util import mathutil
 
 LOG = logging.getLogger(__name__)
 
+RANDOMIZE_TARGET = 5
+
 class Sessionizer:
     """Takes a series of operations and figures out session boundaries"""
     
-    def __init__(self, metadata_db):
+    def __init__(self, metadata_db, randomize=False):
         self.metadata_db = metadata_db
+        self.randomize = randomize
         self.op_ctr = 0
         
         # Reverse look-up for op hashes
@@ -56,6 +59,7 @@ class Sessionizer:
         lastOp = None
         ctr = 0
         for op in sorted(operations, key=lambda op: op["query_time"]):
+            # Calculate the difference between this op and the last
             if not "resp_time" in op: continue
             assert "query_hash" in op, \
                 "Missing hash in operation %d" % op["query_id"]
@@ -141,13 +145,22 @@ class Sessionizer:
             LOG.debug("  Lower Quartile: %s" % lowerQuartile)
             LOG.debug("  Upper Quartile: %s" % upperQuartile)
         
-        self.sessionBoundaries = set()
+        self.sessionBoundaries.clear()
+        
+        # If we're doing this randomly, we want each session to have roughly 
+        # the same number of operations as RANDOMIZE_TARGET
+        if self.randomize:
+            num_outliers = len(outlierCounts)
+            force = random.randint(1, int(num_outliers*0.10))
+            LOG.warn("Forcing %d random outliers out of %d to be chosen from workload", force, num_outliers)
+        else:
+            force = 0
         for cnt in outlierCounts:
-            if cnt >= upperQuartile:
+            if cnt >= upperQuartile or (self.randomize and force > 0):
                 self.sessionBoundaries |= set(opHist.getValuesForCount(cnt))
+                force -= 1
         ## FOR
         LOG.debug("Found %d outlier hashes" % len(self.sessionBoundaries))
-
     ## DEF
         
     def sessionize(self, origSess, nextId):

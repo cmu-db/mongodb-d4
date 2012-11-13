@@ -71,7 +71,7 @@ class Normalizer:
             # Skip ignored collections
             if col_name.split(".")[0] in constants.IGNORED_COLLECTIONS:
                 continue
-            LOG.info("Extracting embedded documents from collection '%s'", col_name)
+            LOG.debug("Extracting embedded documents from collection '%s'", col_name)
 
             # Examine each document in the dataset for this collection
             for doc in self.dataset_db[col_name].find():
@@ -236,7 +236,11 @@ class Normalizer:
                     LOG.error("Error happened when process op: %s", pformat(op))
                     raise
             ## FOR
-            sess.save()
+            try:
+                sess.save()
+            except:
+                LOG.error("Failed to save session!\n%s", pformat(sess))
+                raise
         ## FOR
     ## DEF
 

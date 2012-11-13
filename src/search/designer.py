@@ -135,6 +135,7 @@ class Designer():
         converter.no_mongo_aggregate_fix = self.no_mongo_aggregate_fix
         converter.no_mongo_normalize = self.no_mongo_normalize
         converter.no_mongo_dependencies = self.no_mongo_dependencies
+        converter.random_sessionizer = self.random_sessionizer
         converter.mongo_skip = self.mongo_skip
         converter.sess_limit = self.sess_limit
         converter.op_limit = self.op_limit
