@@ -244,17 +244,30 @@ class Parser:
                 if self.debug:
                     LOG.warn("Ignoring Session %(session_id)d because it doesn't have any operations" % session)
                 continue
-            try:
-                session.save()
-            except (mongokit.MaxDocumentSizeError, InvalidDocument) as err:
-                if noSplit: raise
-                self.splitSession(session)
-                pass
-            except Exception as err:
-                dump = pformat(session)
-                #if len(dump) > 1024: dump = dump[:1024].strip() + "..."
-                LOG.error("Failed to save session: %s\n%s" % (err.message, dump))
-                raise
+
+            while len(session["operations"]) > 0:
+                try:
+                    session.save()
+                    break
+                except (mongokit.MaxDocumentSizeError, InvalidDocument) as err:
+                    if noSplit: raise
+                    self.splitSession(session)
+                    break
+                except Exception as err:
+                    self.error_ctr += 1
+                    
+                    # HACK: Remove operations until it works
+                    session["operations"].pop(-1)
+                    
+                    if len(session["operations"]) == 0:
+                        msg = "Failed to save session: %s [errors=%d]" % (err.message, self.error_ctr)
+                        if self.debug:
+                            msg += "\n" + pformat(session)
+                        LOG.warn(mag)
+                        if self.stop_on_error: raise Exception(msg)
+                        break
+                ## EXCEPT
+            ## WHILE
         ## FOR
     ## DEF
 
