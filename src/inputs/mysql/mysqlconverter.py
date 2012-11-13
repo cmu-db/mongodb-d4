@@ -37,9 +37,6 @@ from util import *
 import utilmethods
 import time
 
-import random
-from scipy.stats import mstats
-
 LOG = logging.getLogger(__name__)
 
 MYSQL_LOG_TABLE_NAME = "general_log"
@@ -65,6 +62,7 @@ class MySQLConverter(AbstractConverter):
         self.no_mysql_dataset = False
         
         self.rng = random.Random()
+
         # LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
@@ -216,75 +214,8 @@ class MySQLConverter(AbstractConverter):
                 field['parent_col'] = parent_table
                 field['parent_key'] = parent_field
                 
-                # add the ratio to the parent collection
-                parent_col_info = self.metadata_db.Collection.fetch_one({"name": parent_table})
-                parent_col_info['embedding_ratio'][child_table] = self.getEmbeddingRatio(parent_table, col_info['name'], parent_field)
-                LOG.info("child col: %s", child_table)
-                LOG.info("parent col: %s", parent_table)
-                LOG.info("embedding_ratio: %s", parent_col_info['embedding_ratio'][child_table])
-                parent_col_info.save()
-                
                 col_info.save()
     ## DEF
-
-    def getEmbeddingRatio(self, parent_col, child_col, foreign_key):
-        '''
-            count how many unique values does the parent collectio and child collection have for the
-            given foreign_key
-        '''
-        commom_values = self.getCommonKeyValues(foreign_key, parent_col, child_col)
-        
-        parent_count_dict = self.getCountOfValues(parent_col, foreign_key, commom_values)
-        child_count_dict = self.getCountOfValues(child_col, foreign_key, commom_values)
-        
-        return self.getRatio(parent_count_dict, child_count_dict, commom_values)
-    ## DEF
-
-    def getRatio(self, parent_count_dict, child_count_dict, values):
-        ratio_list = [ ]
-        
-        for value in values:
-            ratio_list.append(float(child_count_dict[value]) / parent_count_dict[value])
-        ## FOR
-        
-        if len(ratio_list) == 0:
-            ratio_list.append(0)
-        ## IF
-        
-        return mstats.gmean(ratio_list)
-    ## DEF
-    
-    def getCountOfValues(self, col_name, key, values):
-        """
-            build a histogram of the number of documents found by the given value
-        """
-        start = time.time()
-        value_count_dict = {x : 0 for x in values}
-        
-        self.dataset_db[col_name].create_index(key)
-        
-        for value in values:
-            value_count_dict[value] = self.dataset_db[col_name].find({key : value}).count()
-        ## FOR
-        
-        self.dataset_db[col_name].drop_indexes()
-        
-        return value_count_dict
-    ## DEF
-    
-    def getCommonKeyValues(self, key, parent_col, child_col):
-        parent_distinct_values = set(self.dataset_db[parent_col].distinct(key))
-        child_distinct_values = set(self.dataset_db[child_col].distinct(key))
-        
-        intersect_values = parent_distinct_values.intersection(child_distinct_values)
-        
-        sample_num = len(intersect_values) if len(intersect_values) < 10000 else int(len(intersect_values) * 0.05) # FIXME use this magic number 1000 so far
-        sampled_values = self.rng.sample(intersect_values, sample_num)
-        
-        LOG.info("sampled values: %s", len(sampled_values))
-
-        return sampled_values
-## DEF
 
     def extractWorkload(self):
         LOG.info("Extracting workload from MySQL query log")

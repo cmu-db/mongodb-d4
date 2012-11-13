@@ -148,6 +148,7 @@ class Coordinator:
                     #LOG.info("Relaxed collections: %s", msg.data[0])
                     #LOG.info("Relaxed Design:\n%s", msg.data[2])
                     #LOG.info("Current best design:\n%s", msg.data[3])
+                    #LOG.info("Elapsed time for this client: %s", msg.data[4])
                 ## ELIF
                 elif msg.header == MSG_START_SEARCHING:
                     LOG.info("One process started searching, we are good :)")
