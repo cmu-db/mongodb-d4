@@ -122,7 +122,7 @@ class ReplayWorker:
         if not coll in self.collections:
             msg = "Invalid operation on unexpected collection '%s'" % coll
             if coll.find("$cmd"): # MONGODB system error collection
-                LOG.warn(msg)
+                exit(op)
                 return
             else:
                 raise Exception(msg)
@@ -138,17 +138,16 @@ class ReplayWorker:
             
             # And the second element is the projection
             fieldsClause = None
-            if 'fields' in op['query_content']:
+            if 'fields' in op['query_content'] and not op['query_content']['fields'] is None:
                 fieldsClause = op['query_content']['fields']
 
             # Check whether this is for a count
             if 'count' in op['query_content'][0]:
-                assert "query" in op['query_content'][0]
+                assert "query" in op['query_content'][0], "OP: " + pformat(op)
                 # Then do a count
                 whereClause = op['query_content'][0]["query"]
                 isCount = True
                     
-                
             # Execute!
             # TODO: Need to check the performance difference of find vs find_one
             # TODO: We need to handle counts + sorts + limits

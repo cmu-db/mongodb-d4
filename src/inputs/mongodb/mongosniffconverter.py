@@ -211,11 +211,12 @@ class MongoSniffConverter(AbstractConverter):
             origTotal += len(sess['operations'])
             sessions.append(sess)
         ## FOR
+        avg_ops = 0 if origHistogram.getSampleCount() == 0 else (origTotal / float(origHistogram.getSampleCount()))
         LOG.info("BEFORE Sessionization\n" +
                  "  # of Sessions: %d\n" +
                  "  Avg Ops per Session: %.2f", \
                  origHistogram.getSampleCount(), \
-                 (origTotal / float(origHistogram.getSampleCount())))
+                 avg_ops)
         
         # Then split them into separate sessions
         s.calculateSessions()
