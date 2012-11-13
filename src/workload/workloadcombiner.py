@@ -64,11 +64,11 @@ class WorkloadCombiner:
             are combined with each other based on the denormalization scheme.
         """
         ## If the design doesn't have any collection embedding, return None
-        query_count = 0
-        for sess in self.workload:
-            for op in sess['operations']:
-                query_count += len(op['query_content'])
-        print "query count: ", query_count
+        #query_count = 0
+        #for sess in self.workload:
+            #for op in sess['operations']:
+                #query_count += len(op['query_content'])
+        #print "query count: ", query_count
         
         hasDenormCol = False
         for col_name in design.getCollections():
@@ -90,11 +90,11 @@ class WorkloadCombiner:
 
         self.lastDesign = design.copy()
         
-        query_count = 0
-        for sess in self.workload:
-            for op in sess['operations']:
-                query_count += len(op['query_content'])
-        print "query count: ", query_count
+        #query_count = 0
+        #for sess in self.workload:
+            #for op in sess['operations']:
+                #query_count += len(op['query_content'])
+        #print "query count: ", query_count
         return self.workload
     ## DEF
         
@@ -156,7 +156,7 @@ class WorkloadCombiner:
         sorted_collection_with_Score = sorted(collection_scores.iteritems(), key=operator.itemgetter(1))
 
         sorted_collection = [x[0] for x in sorted_collection_with_Score]
-        print "sorted_collection: ", sorted_collection
+
         return sorted_collection
 
     def __update_score__(self, col, design, collection_scores):
