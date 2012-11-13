@@ -316,7 +316,7 @@ class BlogWorker(AbstractWorker):
                     self.db[constants.COMMENT_COLL].insert(comment) 
             ## FOR (comments)
             if config[self.name]["denormalize"]:
-ec2-23-23-65-137.compute-1.amazonaws.com                self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})  
+                self.db[constants.ARTICLE_COLL].update({"id": articleId},{"$pushAll":{"comments":commentsBatch}})  
         ## FOR (articles)
         
         if config[self.name]["denormalize"]:
