@@ -40,6 +40,7 @@ LOG = logging.getLogger(__name__)
 class BlogCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
         ("commentsperarticle","Number of comments per article", 100),
+        ("firstArticle","The first article id to insert into the database", 0),
         ("experiment", "What type of experiment to execute. Valid values = %s" % constants.EXP_ALL, constants.EXP_DENORMALIZATION),
         ("sharding", "Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_SINGLE),
         ("indexes", "Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_ALL, constants.INDEXEXP_9010),
@@ -56,23 +57,22 @@ class BlogCoordinator(AbstractCoordinator):
         self.num_articles = int(config['default']["scalefactor"] * constants.NUM_ARTICLES)
         config[self.name]["denormalize"] = (config[self.name]["denormalize"] == True)
         
-       
         # Create a dict that contains the message that you want to send to
         # each individual channel (i.e., worker)
         messages = { }
         procs = len(channels)
+        first = int(config['default']["firstArticle"])
+        articlesPerChannel = (self.num_articles-first) / procs
         articleRange = [ ]
-        articlesPerChannel = self.num_articles / procs
         print("articlesPerChannel")
         print(articlesPerChannel)
-        first = 0
        
         for i in range(len(channels)):
             last = first + articlesPerChannel-1
             LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
             messages[channels[i]] = (first, last)
             first = last + 1
-	    LOG.info(messages[channels[i]])
+            LOG.info(messages[channels[i]])
         
         # Experiment Type
         config[self.name]["experiment"] = config[self.name]["experiment"].strip()
