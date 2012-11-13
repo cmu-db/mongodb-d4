@@ -154,6 +154,8 @@ class SpencerDesign:
         d.addCollection(col_name)
         d.addIndex(col_name, ["post_id", "meta_key"])
         d.addShardKey(col_name, ["post_id", "meta_key"])
+        
+        print d.toJSON()
     ## DEF
     
     def get_WIKIPEDIA_Design(self):
@@ -319,8 +321,8 @@ class SpencerDesign:
 ## CLASS    
 if __name__ == '__main__':
     s = SpencerDesign()
-    s.get_MMS_Design()
-    s.get_TATP_Design()
-    s.get_EXFM_Design()
-    s.get_WIKIPEDIA_Design()
+    #s.get_MMS_Design()
+    #s.get_TATP_Design()
+    #s.get_EXFM_Design()
+    #s.get_WIKIPEDIA_Design()
     s.get_WORDPRESS_Design()

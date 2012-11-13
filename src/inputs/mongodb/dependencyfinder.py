@@ -56,31 +56,34 @@ class DependencyFinder:
     
     def process(self):
         LOG.info("# of Sessions: %d", len(self.workload))
-        operations = [ ]
         for sess in self.workload:
-            operations.extend(sess["operations"])
-        self.processSession(operations)
+            self.processSession(sess)
             
         for col_name,col_info in self.collections.iteritems():
             # Set of <ThisCollectionKey, OtherCollectionName, OtherCollectionKey>
             matches = self.comparisons[col_name].getMatches()
             if matches:
                 for key0, parent_col, parent_key in matches:
-                    if not parent_candidates in col_info['fields'][key0]:
+                    if not 'parent_candidates' in col_info['fields'][key0]:
                         col_info['fields'][key0]['parent_candidates'] = [ ]
-                    col_info['fields'][key0]['parent_candidates'].append(parent_col, parent_key)
+                    col_info['fields'][key0]['parent_candidates'].append((parent_col, parent_key))
+                ## FOR
+                col_info.save()
+            ## IF
+        ## FOR
     ## DEF
     
-    def processSession(self, operations):
+    def processSession(self, sess):
         #if len(sess["operations"]) > 1:
             #LOG.info(pformat(sess["operations"]))
             #LOG.info("-"*100)
             
-        for op0, op1 in itertools.combinations(operations, 2):
+        for op0, op1 in itertools.combinations(sess["operations"], 2):
             # Skip any pairs that reference the same collection
             if op0["collection"] == op1["collection"]: continue
             if op0["query_id"] == op1["query_id"]: continue
             if op0["collection"].endswith("$cmd"): continue
+            if op1["collection"].endswith("$cmd"): continue
             
             content0 = workload.getOpContents(op0)
             if len(content0) == 0: continue

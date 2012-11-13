@@ -163,7 +163,7 @@ class Designer():
         converter.no_mysql_schema = self.no_mysql_schema
         converter.no_mysql_workload = self.no_mysql_workload
         converter.no_mysql_dataset = self.no_mysql_dataset
-            
+        
         # Process the inputs and then save the results in mongodb
         converter.process(
             no_load=no_load,
@@ -298,7 +298,7 @@ class Designer():
         self.workload = self.loadWorkload(self.collections)
         # Generate all the design candidates
         self.designCandidates = self.generateDesignCandidates(self.collections, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
-
+        LOG.info("candidates: %s\n", self.designCandidates)
         # Instantiate cost model
         cmConfig = {
             'weight_network': self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_network'),
@@ -320,6 +320,25 @@ class Designer():
         
         if not replay:
             initialDesign = InitialDesigner(self.collections, self.workload, self.config).generate()
+            initialDesign.reset("CALL_FORWARDING")
+            initialDesign.reset("SPECIAL_FACILITY")
+            initialDesign.reset("SUBSCRIBER")
+            initialDesign.reset("ACCESS_INFO")
+            
+            initialDesign.recover("CALL_FORWARDING")
+            initialDesign.recover("SPECIAL_FACILITY")
+            initialDesign.recover("SUBSCRIBER")
+            initialDesign.recover("ACCESS_INFO")
+            
+            initialDesign.setDenormalizationParent("ACCESS_INFO", "SUBSCRIBER")
+            initialDesign.setDenormalizationParent("SPECIAL_FACILITY", "SUBSCRIBER")
+            initialDesign.setDenormalizationParent("CALL_FORWARDING", "SPECIAL_FACILITY")
+            
+            initialDesign.addIndex("SUBSCRIBER", ["s_id"])
+            initialDesign.addIndex("SUBSCRIBER", ["sub_nbr","s_id"])
+            initialDesign.addShardKey("SUBSCRIBER", ["s_id"])
+            
+            LOG.info("design\n%s", initialDesign)
             initialCost = self.cm.overallCost(initialDesign)
             return initialCost, initialDesign
         else:

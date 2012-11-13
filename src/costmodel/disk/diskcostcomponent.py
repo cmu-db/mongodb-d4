@@ -53,7 +53,7 @@ class DiskCostComponent(AbstractCostComponent):
         self.debug = False
 
         self.buffers = [ ]
-        LOG.info("Window size: %s", self.state.window_size)
+        #LOG.info("Window size: %s", self.state.window_size)
         for i in xrange(self.state.num_nodes):
             lru = FastLRUBufferWithWindow(self.state.window_size)
             self.buffers.append(lru)
@@ -122,7 +122,7 @@ class DiskCostComponent(AbstractCostComponent):
                     
                 for tup in parent_child_chain:
                     col_info = self.state.collections[tup[0]]
-                    col_cost_map[parent_child_chain[-1][0]] *= col_info['embedding_ratio'][tup[1]]
+                    col_cost_map[parent_child_chain[-1][0]] *= col_info['embedding_ratio'].get(tup[1], 1.0)
                 ## FOR
                 previous_chains.extend(parent_child_chain)
         ## FOR
@@ -150,8 +150,8 @@ class DiskCostComponent(AbstractCostComponent):
         # Ok strap on your helmet, this is the magical part of the whole thing!
         #
         cost_map, child_collections = self.buildEmbeddingCostDictionary(design)
-        print "Magic map: ", pformat(cost_map)
-        print "Magic list: ", child_collections
+        #print "Magic map: ", pformat(cost_map)
+        #print "Magic list: ", child_collections
         # Outline:
         # + For each operation, we need to figure out what document(s) it's going
         #   to need to touch. From this we want to compute a unique hash signature
@@ -238,7 +238,7 @@ class DiskCostComponent(AbstractCostComponent):
                     for node_id in opNodes:
                         lru = self.buffers[node_id]
                         self.total_op_contents += 1
-                        maxHits += cache.fullscan_pages * 2
+                        maxHits += cache.fullscan_pages
                         
                         # If slot size is too large, we consider it as a full page scan
                         if slot_size >= constants.SLOT_SIZE_LIMIT:
