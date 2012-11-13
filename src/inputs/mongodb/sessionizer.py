@@ -107,6 +107,9 @@ class Sessionizer:
         # Lower + Upper Quartiles
         lowerQuartile, upperQuartile = mathutil.quartiles(allDiffs)
         
+        if lowerQuartile is None or upperQuartile is None:
+            LOG.warn("Null quartiles! Can't continue!")
+            return
         # Interquartile Range
         iqr = (upperQuartile - lowerQuartile) * 1.5
         
