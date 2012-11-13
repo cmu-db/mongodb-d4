@@ -22,34 +22,21 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
-from __future__ import division
-from __future__ import with_statement
 
 import os, sys
+import subprocess
 import logging
-import random
-import re
-import string
-import json
 import glob
-import codecs
-from pprint import pformat
 from ConfigParser import RawConfigParser
 
 # Third-Party Dependencies
 basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, "../../src"))
 sys.path.append(os.path.join(basedir, "../../libs"))
-import mongokit
 import argparse
 
-# mongodb-d4
-import catalog
-import workload
-from search import Designer
-from util import configutil
 from util import constants
-from util.histogram import Histogram
+from util import configutil
 
 logging.basicConfig(
     level = logging.INFO,
@@ -57,50 +44,34 @@ logging.basicConfig(
     datefmt="%m-%d-%Y %H:%M:%S",
     stream = sys.stdout
 )
-
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
 ## main
 ## ==============================================
 if __name__ == '__main__':
-    aparser = argparse.ArgumentParser(description="CSV File Duplicator")
+    aparser = argparse.ArgumentParser(description="CSV File Loader")
     aparser.add_argument('input', help='CSV Input Data Dump Directory')
-    aparser.add_argument('output', help='CSV Output Data Dump Directory')
-    aparser.add_argument('multiplier', type=int, help='Data Duplicator Multiplier')
+    aparser.add_argument('--config', type=file, help='Path to %s configuration file' % constants.PROJECT_NAME)
     aparser.add_argument('--debug', action='store_true', help='Enable debug log messages.')
     args = vars(aparser.parse_args())
     if args['debug']: LOG.setLevel(logging.DEBUG)
     
-    if not os.path.exists(args["output"]):
-        os.mkdir(args["output"])
+    if not args['config']:
+        LOG.error("Missing configuration file")
+        print
+        aparser.print_usage()
+        sys.exit(1)
+    LOG.debug("Loading configuration file '%s'" % args['config'])
+    config = RawConfigParser()
+    configutil.setDefaultValues(config)
+    config.read(os.path.realpath(args['config'].name))
+    
+    db_name = config.get(configutil.SECT_MONGODB, 'dataset_db')
     for dataFile in glob.glob(os.path.join(args["input"], "*.json")):
-        newDataFile = os.path.join(args["output"], os.path.basename(dataFile))
-        with codecs.open(newDataFile, encoding='utf-8', mode='w+') as out:
-            with codecs.open(dataFile, encoding='utf-8') as fd:
-                new_ctr = 0
-                orig_ctr = 0
-                for line in fd:
-                    try:
-                        row = json.loads(line.encode('utf-8'))
-                    except:
-                        LOG.error(row)
-                        raise
-                    id = row["_id"]["$oid"]
-                    orig_ctr += 1
-                    new_ctr += 1
-                    for i in xrange(args['multiplier']):
-                        # Just update the _id field
-                        new_id = '%04x%s' % (i, id[4:])
-                        # print id, "->", new_id
-                        out.write(line.replace(id, new_id))
-                        new_ctr += 1
-                    ## FOR
-                ## FOR
-            ## WITH
-            LOG.info("DUPLICATED %s -> ORIG:%d / NEW:%d", newDataFile, orig_ctr, new_ctr)
-        ## WITH
+        collection = os.path.basename(dataFile).replace(".csv", "")
+        cmd = "mongoimport --db %s --collection %s --file %s --type json" % (db_name, collection, dataFile)
+        subprocess.check_call(cmd, shell=True)
+        LOG.info("Loaded %s.%s", db_name, collection)
     ## FOR
-
-
-## MAIN
+## IF
