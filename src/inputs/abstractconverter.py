@@ -193,7 +193,9 @@ class AbstractConverter():
         child_count_dict = self.getCountOfValues(child_col, foreign_key, commom_values)
         #LOG.info("parent dict: %s", parent_count_dict)
         #LOG.info("child dict: %s", child_count_dict)
-        return self.getRatio(parent_count_dict, child_count_dict, commom_values)
+        
+        geomean, parent_average = self.getRatio(parent_count_dict, child_count_dict, commom_values)
+        return geomean, parent_average, commom_values
     ## DEF
 
     def getRatio(self, parent_count_dict, child_count_dict, values):
@@ -290,12 +292,12 @@ class AbstractConverter():
                         # IF
                         msg = child_col + "   --->    " + parent_col + "   key: " + foreign_key
                         print msg
-                        ratio, parent_average = self.getEmbeddingRatio(parent_col, child_col, foreign_key)
+                        ratio, parent_average, commom_values = self.getEmbeddingRatio(parent_col, child_col, foreign_key)
                         
                         print "ratio: ", ratio
                         print "parent_average: ", parent_average
                         
-                        if ratio > 1.0 and parent_average == 1.0: # if it is a 1:N relationship from parent to child
+                        if ratio > 1.0 and (parent_average >= 1.0 and parent_average <= 2.0 and len(commom_values) > 1): # if it is a 1:N relationship from parent to child
                             parent_col_info = self.metadata_db.Collection.fetch_one({"name": parent_col})
                             LOG.info("%s might be embedded into %s", child_col, parent_col)
                             
@@ -321,7 +323,7 @@ class AbstractConverter():
             if 'parent_col' in field and field['parent_col'] and 'parent_key' in field and field['parent_key']: # This is probably only used by mysql trace
                 # add the ratio to the parent collection
                 parent_col_info = self.metadata_db.Collection.fetch_one({"name": field['parent_col']})
-                ratio, parent_average = self.getEmbeddingRatio(field['parent_col'], col_info['name'], field["parent_key"])
+                ratio, parent_average, commom_values = self.getEmbeddingRatio(field['parent_col'], col_info['name'], field["parent_key"])
                 
                 if col_info['name'] in parent_col_info['embedding_ratio']:
                     previous_ratio = parent_col_info['embedding_ratio'][col_info['name']]
