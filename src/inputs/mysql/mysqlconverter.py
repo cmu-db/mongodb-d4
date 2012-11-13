@@ -237,7 +237,9 @@ class MySQLConverter(AbstractConverter):
         if self.debug: LOG.debug("Workload Start Timestamp: %s", start_timestamp)
 
         c4 = self.mysql_conn.cursor()
-        c4.execute("SELECT * FROM %s ORDER BY thread_id, event_time" % MYSQL_LOG_TABLE_NAME)
+        sql = "SELECT * FROM %s ORDER BY thread_id, event_time" % MYSQL_LOG_TABLE_NAME
+        if not self.op_limit is None: sql += " LIMIT %d" % self.op_limit
+        c4.execute(sql)
 
         thread_id = None
         first = True
