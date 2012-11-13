@@ -61,8 +61,6 @@ class MySQLConverter(AbstractConverter):
         self.no_mysql_workload = False
         self.no_mysql_dataset = False
         
-        self.rng = random.Random()
-
         # LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
