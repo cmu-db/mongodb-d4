@@ -28,7 +28,6 @@ from __future__ import with_statement
 import os
 from pprint import pformat
 import sys
-import argparse
 import logging
 import time
 from ConfigParser import RawConfigParser
@@ -43,6 +42,7 @@ else:
 sys.path.append(os.path.join(basedir, "../libs"))
 sys.path.append(os.path.join(basedir, "../exps/tools"))
 
+import argparse
 import mongokit
 
 # mongodb-d4
