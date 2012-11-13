@@ -61,7 +61,7 @@ class BlogCoordinator(AbstractCoordinator):
         # each individual channel (i.e., worker)
         messages = { }
         procs = len(channels)
-        first = int(config['default']["firstArticle"])
+        first = int(config[self.name]["firstArticle"])
         articlesPerChannel = (self.num_articles-first) / procs
         articleRange = [ ]
         print("articlesPerChannel")
