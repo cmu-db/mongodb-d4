@@ -66,6 +66,7 @@ class MongoSniffConverter(AbstractConverter):
         self.no_mongo_sessionizer = False
         self.no_mongo_dependencies = False
         self.no_mongo_normalize = False
+        self.random_sessionizer = False
         self.mongo_skip = None
         self.sess_limit = None
         self.op_limit = None
@@ -77,6 +78,9 @@ class MongoSniffConverter(AbstractConverter):
             
         if not self.no_mongo_reconstruct:
             self.reconstructDatabase()
+        # NOTE: We have to sessionize the workload before we normalize it!!
+        if not self.no_mongo_sessionizer:
+            self.sessionizeWorkload()
         if not self.no_mongo_normalize:
             self.normalizeDatabase()
 
@@ -93,8 +97,7 @@ class MongoSniffConverter(AbstractConverter):
     def postProcessImpl(self):
         if not self.no_mongo_dependencies:
             self.findDependencies()
-        if not self.no_mongo_sessionizer:
-            self.sessionizeWorkload()
+
     ## DEF
     
     ## ----------------------------------------------
@@ -194,7 +197,7 @@ class MongoSniffConverter(AbstractConverter):
         """
         LOG.info("Sessionizing sample workload")
         
-        s = Sessionizer(self.metadata_db)
+        s = Sessionizer(self.metadata_db, randomize=self.random_sessionizer)
         
         # We first feed in all of the operations in for each session
         nextSessId = -1

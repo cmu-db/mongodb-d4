@@ -49,7 +49,6 @@ class AbstractConverter():
         self.clean = None
         self.no_load = False
         self.no_reconstruct = False
-        self.no_sessionizer = False
 
         self.total_ops = 0
         self.err_field_ctr = 0
