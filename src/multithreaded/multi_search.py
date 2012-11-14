@@ -40,7 +40,7 @@ class MultiClientDesigner:
     def createChannels(self):
         '''Create a list of channels used for communication between coordinator and worker'''
         num_clients = self.config.getint(configutil.SECT_MULTI_SEARCH, 'num_clients')
-        LOG.info("Invoking benchmark framework on %d clients" % num_clients)
+        LOG.info("Starting LNS search on %d clients" % num_clients)
 
         import d4
         remoteCall = d4

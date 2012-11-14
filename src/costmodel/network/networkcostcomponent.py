@@ -114,8 +114,9 @@ class NetworkCostComponent(AbstractCostComponent):
 
         if total_op_count > 0:
             cost = total_msg_count / float(self.state.orig_op_count * self.state.num_nodes)
-        LOG.info("Total ops %s, error %s", total_op_count, total_err)
+
         if self.debug:
+            LOG.info("Total ops %s, error %s", total_op_count, total_err)
             LOG.debug("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
                       cost, total_msg_count, total_op_count)
         return cost

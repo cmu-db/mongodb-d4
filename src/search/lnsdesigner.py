@@ -67,7 +67,7 @@ class LNSDesigner(AbstractDesigner):
         ## DEF
     ## CLASS
     
-    def __init__(self, collections, designCandidates, workload, config, costModel, initialDesign, bestCost, channel=None, lock=None, outputfile=None):
+    def __init__(self, collections, designCandidates, workload, config, costModel, initialDesign, bestCost, channel=None, lock=None, worker_id=None):
         AbstractDesigner.__init__(self, collections, workload, config)
         self.costModel = costModel
         
@@ -83,7 +83,7 @@ class LNSDesigner(AbstractDesigner):
             self.init_relaxRatio = 1.0
             self.isExhaustedSearch = True
         else:
-            self.init_bbsearch_time = self.config.getint(configutil.SECT_MULTI_SEARCH, 'init_bbsearch_time')
+            self.init_bbsearch_time = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'init_bbsearch_time')
             self.init_relaxRatio = self.config.getfloat(configutil.SECT_MULTI_SEARCH, 'init_relax_ratio')
             self.isExhaustedSearch = False
             
@@ -95,8 +95,7 @@ class LNSDesigner(AbstractDesigner):
         self.channel = channel
         self.bbsearch_method = None
         self.bestLock = lock
-        self.outputfile = outputfile
-        
+        self.worker_id = worker_id
         self.debug = False
         ### Test
         self.count = 0
@@ -116,16 +115,16 @@ class LNSDesigner(AbstractDesigner):
         
         while True:
             relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, relaxRatio)
-            sendMessage(MSG_SEARCH_INFO, (relaxedCollectionsNames, bbsearch_time_out, relaxedDesign, bestDesign, elapsedTime), self.channel)
+            sendMessage(MSG_SEARCH_INFO, (relaxedCollectionsNames, bbsearch_time_out, relaxedDesign, bestDesign, elapsedTime, self.worker_id), self.channel)
             
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
             self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, bbsearch_time_out, self.channel, self.bestLock)
-            bbDesign, bbCost = self.bbsearch_method.solve()
+            self.bbsearch_method.solve()
 
             if self.bbsearch_method.status != "updated_design":
-                if bbCost < bestCost:
-                    bestCost = bbCost
-                    bestDesign = bbDesign.copy()
+                if self.bbsearch_method.bestCost < bestCost:
+                    bestCost = self.bbsearch_method.bestCost
+                    bestDesign = self.bbsearch_method.bestDesign.copy()
                     elapsedTime = 0
                 else:
                     elapsedTime += self.bbsearch_method.usedTime
@@ -138,14 +137,6 @@ class LNSDesigner(AbstractDesigner):
                     LOG.info("Haven't found a better design for %s minutes. QUIT", elapsedTime)
                     break
 
-                if self.debug:
-                    LOG.info("\n======Relaxed Design=====\n%s", relaxedDesign)
-                    LOG.info("\n====Design Candidates====\n%s", dc)
-                    LOG.info("\n=====BBSearch Design=====\n%s", bbDesign)
-                    LOG.info("\n=====BBSearch Score======\n%s", bbCost)
-                    LOG.info("\n========Best Score=======\n%s", bestCost)
-                    LOG.info("\n========Best Design======\n%s", bestDesign)
-
                 relaxRatio += self.ratio_step
                 if relaxRatio > self.max_ratio:
                     relaxRatio = self.max_ratio
@@ -157,21 +148,12 @@ class LNSDesigner(AbstractDesigner):
                     break
             ## IF
             else:
-                if bbCost < bestCost:
-                    bestCost = bbCost
-                    bestDesign = bbDesign.copy()
+                if self.bbsearch_method.bestCost < bestCost:
+                    bestCost = self.bbsearch_method.bestCost
+                    bestDesign = self.bbsearch_method.bestDesign.copy()
                 ## IF
             ## ELSE
         ## WHILE
-
-        sendMessage(MSG_EXECUTE_COMPLETED, None, self.channel)
-        LOG.info("Current thread is terminated")
-        if self.outputfile:
-            f = open(self.outputfile, 'w')
-            f.write(bestDesign.toJSON())
-            f.close()
-        else:
-            print bestDesign.toJSON()
     # DEF
 
     def __relax__(self, generator, design, ratio):

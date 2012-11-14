@@ -117,7 +117,7 @@ class SkewCostComponent(AbstractCostComponent):
                     continue
             ## FOR (op)
         ## FOR (sess)
-        LOG.info("Total ops %s, errors %s", num_ops, err_ops)
+        if self.debug: LOG.info("Total ops %s, errors %s", num_ops, err_ops)
         if self.debug: LOG.debug("Node Count Histogram:\n%s", self.nodeCounts)
         total = self.nodeCounts.getSampleCount()
         if not total:

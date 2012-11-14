@@ -344,7 +344,7 @@ class DiskCostComponent(AbstractCostComponent):
         # The final disk cost is the ratio of our estimated disk access cost divided
         # by the worst possible cost for this design. If we don't have a worst case,
         # then the cost is simply zero
-        LOG.info("Total operation contents %s, errors %s", self.total_op_contents, self.err_ctr)
+        if self.debug: LOG.info("Total operation contents %s, errors %s", self.total_op_contents, self.err_ctr)
         assert totalCost <= totalWorst,\
             "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
         final_cost = float(totalCost) / float(totalWorst) if totalWorst else 0

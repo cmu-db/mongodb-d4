@@ -348,15 +348,14 @@ class Designer():
             return None
     ## DEF
     
-    def search(self, initialCost, initialDesign):
+    def search(self, initialCost, initialDesign, worker_id):
         """
             Main search process starts here
         """
         lock = thread.allocate_lock()
-        
-        outputfile = self.__dict__.get("output_design", None)
-        self.search_method = LNSDesigner(self.collections, self.designCandidates, self.workload, self.config, self.cm, initialDesign, initialCost, self.channel, lock, outputfile)
+        self.search_method = LNSDesigner(self.collections, self.designCandidates, self.workload, self.config, self.cm, initialDesign, initialCost, self.channel, lock, worker_id)
         self.search_method.start()
+        self.search_method.join()
     ## DEF
 
 ## CLASS
