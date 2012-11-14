@@ -38,13 +38,23 @@ class WorkloadCombiner:
     def __init__(self, col_names, workload):
         self.lastDesign = None
         self.col_names = col_names
-        self.workload = copy.deepcopy(workload)
+        self.temperary_workload = workload # this means this workload may not be processed
+        self.workload = None # This is the workload that will be processed and returned
+        self.col_sess_xref = None
+
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
+    ## DEF
+    
+    def prepareWorkload():
+        self.col_sess_xref = { }
+        # Build mapping from collections to sessions
         
-        # Build indexes from collections to sessions
-        self.col_sess_xref = {}
         for col_name in self.col_names:
             self.col_sess_xref[col_name] = []
-
+        ## FOR
+        
+        self.workload = copy.deepcopy(self.temperary_workload)
+        
         for sess in self.workload:
             cols = set()
             for op in sess["operations"]:
@@ -54,10 +64,8 @@ class WorkloadCombiner:
             for col_name in cols:
                 self.col_sess_xref[col_name].append(sess)
         ## FOR (sess)
-        
-        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
-
+    
     def process(self, design):
         """
             For a new design, return a modified version of the workload where operations
@@ -80,6 +88,9 @@ class WorkloadCombiner:
             
         if not hasDenormCol:
             return None
+        
+        # Here we really need to prepare the workload for use
+        self.prepareWorkload()
         
         collectionsInProperOrder = self.__GetCollectionsInProperOder__(design)
 
