@@ -146,6 +146,9 @@ if __name__ == '__main__':
     aparser.add_argument('--input-design', type=str,
                         help="Path to a design file.")
                         
+    aparser.add_argument('--init-design', action='store_true',
+                        help='Get the initial design for current workload')
+                        
     args = vars(aparser.parse_args())
 
     if args['debug']: LOG.setLevel(logging.DEBUG)
@@ -213,8 +216,11 @@ if __name__ == '__main__':
     # This designer is only used for input processing
     designer = Designer(config, metadata_db, dataset_db)
     designer.setOptionsFromArguments(args)
-    #designer.load()
-    #exit("CUPCAKE")
+    
+    if args['init_design']:
+        designer.load(False, None, True)
+        exit("Initial Design done")
+    ## IF
     if args['input_design']:
         # evaluate the input design and then quit
         ds = Deserializer()
@@ -222,7 +228,7 @@ if __name__ == '__main__':
         replay_design = ds.Deserialize()
         LOG.info("Read in design\n%s", replay_design)
         designer.load(True, replay_design)
-        exit("Design evaluation Done")
+        exit("Design evaluation done")
     ## IF
     
     start = time.time()
