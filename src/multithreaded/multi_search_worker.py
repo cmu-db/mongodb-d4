@@ -43,7 +43,6 @@ class Worker:
         """
         sendMessage(MSG_START_SEARCHING, self.worker_id, self.channel)
         self.designer.search(initialCost, initialDesign, self.worker_id)
-        sendMessage(MSG_EXECUTE_COMPLETED, self.worker_id, self.channel)
     ## DEF
     
     def update(self, data):

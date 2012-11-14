@@ -355,7 +355,6 @@ class Designer():
         lock = thread.allocate_lock()
         self.search_method = LNSDesigner(self.collections, self.designCandidates, self.workload, self.config, self.cm, initialDesign, initialCost, self.channel, lock, worker_id)
         self.search_method.start()
-        self.search_method.join()
     ## DEF
 
 ## CLASS

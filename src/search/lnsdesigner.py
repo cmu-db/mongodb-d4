@@ -154,6 +154,7 @@ class LNSDesigner(AbstractDesigner):
                 ## IF
             ## ELSE
         ## WHILE
+        sendMessage(MSG_EXECUTE_COMPLETED, self.worker_id, self.channel)
     # DEF
 
     def __relax__(self, generator, design, ratio):
