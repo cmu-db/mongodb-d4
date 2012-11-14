@@ -111,7 +111,7 @@ class Coordinator:
                 
                 if msg.header == MSG_EXECUTE_COMPLETED:
                     running_clients -= 1
-                    LOG.info("worker #%s has terminated, [%d] left.", msg.data, running_clients)
+                    LOG.info("worker #%s has terminated, [%d] workers left.", msg.data, running_clients)
                     if running_clients == 0:
                         break
                 ## IF

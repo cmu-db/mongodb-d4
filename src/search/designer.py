@@ -290,7 +290,7 @@ class Designer():
     ## HACK HACK HACK
     # the replay flag and replay_design is used to re-evalutated the design read from a design file
     # This is very ugly...but we don't have time now...
-    def load(self, replay=False, replay_design=None):
+    def load(self, replay=False, replay_design=None, init=False):
         """Perform the actual search for a design"""
         isShardingEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_sharding')
         isIndexesEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_indexes')
@@ -322,26 +322,16 @@ class Designer():
         
         if not replay:
             initialDesign = InitialDesigner(self.collections, self.workload, self.config).generate()
-            #initialDesign.reset("CALL_FORWARDING")
-            #initialDesign.reset("SPECIAL_FACILITY")
-            #initialDesign.reset("SUBSCRIBER")
-            #initialDesign.reset("ACCESS_INFO")
             
-            #initialDesign.recover("CALL_FORWARDING")
-            #initialDesign.recover("SPECIAL_FACILITY")
-            #initialDesign.recover("SUBSCRIBER")
-            #initialDesign.recover("ACCESS_INFO")
+            if init:
+                print initialDesign.toJSON()
+            #import pycallgraph
+            #pycallgraph.start_trace()
             
-            #initialDesign.setDenormalizationParent("ACCESS_INFO", "SUBSCRIBER")
-            #initialDesign.setDenormalizationParent("SPECIAL_FACILITY", "SUBSCRIBER")
-            #initialDesign.setDenormalizationParent("CALL_FORWARDING", "SPECIAL_FACILITY")
-            
-            #initialDesign.addIndex("SUBSCRIBER", ["s_id"])
-            #initialDesign.addIndex("SUBSCRIBER", ["sub_nbr","s_id"])
-            #initialDesign.addShardKey("SUBSCRIBER", ["s_id"])
-            
-            print initialDesign.toJSON()
             initialCost = self.cm.overallCost(initialDesign)
+            
+            #pycallgraph.make_dot_graph('d4.png')
+            
             return initialCost, initialDesign
         else:
             self.cm.overallCost(replay_design)

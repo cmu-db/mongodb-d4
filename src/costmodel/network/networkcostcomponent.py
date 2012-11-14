@@ -49,7 +49,6 @@ class NetworkCostComponent(AbstractCostComponent):
         self.cache = { }
         self.lastDesign = None
         
-        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
@@ -115,9 +114,8 @@ class NetworkCostComponent(AbstractCostComponent):
         if total_op_count > 0:
             cost = total_msg_count / float(self.state.orig_op_count * self.state.num_nodes)
 
-        if self.debug:
-            LOG.info("Total ops %s, error %s", total_op_count, total_err)
-            LOG.debug("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
+        if self.debug: LOG.info("Total ops %s, error %s", total_op_count, total_err)
+        LOG.info("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
                       cost, total_msg_count, total_op_count)
         return cost
     ## DEF
