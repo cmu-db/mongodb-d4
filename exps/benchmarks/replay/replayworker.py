@@ -122,10 +122,10 @@ class ReplayWorker:
         if not coll in self.collections:
             msg = "Invalid operation on unexpected collection '%s'" % coll
             if coll.find("$cmd"): # MONGODB system error collection
-                exit(op)
+                LOG.warn(op)
                 return
-            else:
-                raise Exception(msg)
+            ## IF
+            
         if self.debug:
             LOG.debug("Executing '%s' operation on '%s'" % (op['type'], coll))
         
@@ -143,9 +143,9 @@ class ReplayWorker:
 
             # Check whether this is for a count
             if 'count' in op['query_content'][0]:
-                assert "query" in op['query_content'][0], "OP: " + pformat(op)
+                assert "#query" in op['query_content'][0], "OP: " + pformat(op)
                 # Then do a count
-                whereClause = op['query_content'][0]["query"]
+                whereClause = op['query_content'][0]["#query"]
                 isCount = True
                     
             # Execute!
@@ -155,8 +155,11 @@ class ReplayWorker:
                 LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, fieldsClause))
             resultCursor = self.dataset_db[coll].find(whereClause, fieldsClause)
             
-            if op["query_limit"] != -1:
+            if op["query_limit"] and op["query_limit"] != -1:
+                #try:
                 resultCursor.limit(op["query_limit"])
+                #except:
+                    #exit(pformat(op))
                 
             if isCount:
                 result = resultCursor.count()
@@ -165,8 +168,6 @@ class ReplayWorker:
                 # the cursor has copied all the bytes
                 result = [r for r in resultCursor]
             # IF
-            
-            LOG.debug("Number of Results: %d" % len(result))
             
             # TODO: For queries that were originally joins, we need a way
             # to save the output of the queries to use as the input for
