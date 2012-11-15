@@ -106,8 +106,10 @@ class State():
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.collections = collections
-        self.workload = workload
-
+        self.col_names = [col_name for col_name in collections.iterkeys()]
+        self.workload = None # working workload
+        self.originalWorload = workload # points to the original workload
+        
         self.weight_network = config.get('weight_network', 1.0)
         self.weight_disk = config.get('weight_disk', 1.0)
         self.weight_skew = config.get('weight_skew', 1.0)
@@ -118,22 +120,19 @@ class State():
         self.skew_segments = config['skew_intervals'] # Why? "- 1"
         self.address_size = config['address_size'] / 4
 
-        self.estimator = NodeEstimator(self.collections, self.num_nodes)
+        self.estimator = NodeEstimator(collections, self.num_nodes)
         
         self.window_size = config['window_size']
 
         # Build indexes from collections to sessions/operations
         # Note that this won't change dynamically based on denormalization schemes
         # It's up to the cost components to figure things out based on that
-        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections])
-        self.col_op_xref = dict([(col_name, []) for col_name in self.collections])
-        
-        self.__buildCrossReference__();
+        self.restoreOriginalWorkload()
         
         # We need to know the number of operations in the original workload
         # so that all of our calculations are based on that
         self.orig_op_count = 0
-        for sess in self.workload:
+        for sess in self.originalWorload:
             self.orig_op_count += len(sess["operations"])
         ## FOR
 
@@ -146,28 +145,29 @@ class State():
 
         # ColName -> CacheHandle
         self.cache_handles = { }
-
-        self.originalWorload = None
-        self.originalWorload = copy.deepcopy(self.workload)
-        self.originalCollections = copy.deepcopy(self.collections)
-        
     ## DEF
 
+    def init_xref(self, workload):
+        '''
+            initialize the cross reference based on the current working workload
+        '''
+        self.col_sess_xref = dict([(col_name, []) for col_name in self.col_names])
+        self.col_op_xref = dict([(col_name, []) for col_name in self.col_names])
+        self.__buildCrossReference__(workload)
+    ## DEF
+    
     def updateWorkload(self, workload):
         self.workload = workload
-        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
-        self.col_op_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
-        self.__buildCrossReference__()
+        self.init_xref(workload)
+    ## DEF
 
     def restoreOriginalWorkload(self):
         self.workload = self.originalWorload
-        self.collections = self.originalCollections
-        self.col_sess_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
-        self.col_op_xref = dict([(col_name, []) for col_name in self.collections.iterkeys()])
-        self.__buildCrossReference__()
+        self.init_xref(self.workload)
+    ## DEF
 
-    def __buildCrossReference__(self):
-        for sess in self.workload:
+    def __buildCrossReference__(self, workload):
+        for sess in workload:
             cols = set()
             for op in sess["operations"]:
                 col_name = op["collection"]
