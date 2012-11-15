@@ -145,10 +145,9 @@ class Coordinator:
                 ## ELIF
                 elif msg.header == MSG_SEARCH_INFO:
                     #LOG.info("%s","*"*40)
-                    LOG.info("worker #%s starts a new BBsearch, time limit: [%s], time used: [%s]", msg.data[5], msg.data[1], msg.data[4])
+                    LOG.info("worker #%s starts a new BBsearch, time limit: [%s], patient time used: [%s], worker run time: [%s]", msg.data[5], msg.data[1], msg.data[4], msg.data[3])
                     #LOG.info("Relaxed collections: %s", msg.data[0])
                     #LOG.info("Relaxed Design:\n%s", msg.data[2])
-                    #LOG.info("Current best design:\n%s", msg.data[3])
                 ## ELIF
                 elif msg.header == MSG_START_SEARCHING:
                     LOG.info("worker #%s started searching", msg.data)

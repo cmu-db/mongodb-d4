@@ -107,7 +107,8 @@ class LNSDesigner(AbstractDesigner):
         """
         col_generator = LNSDesigner.RandomCollectionGenerator(self.collections)
         
-        elapsedTime = 0
+        worker_used_time = 0 # This is used to record how long this worker has been running
+        elapsedTime = 0 # this is used to check if this worker has found a better design for a limited time: patient time
         relaxRatio = self.init_relaxRatio
         bbsearch_time_out = self.init_bbsearch_time
         bestCost = self.init_bestCost
@@ -115,12 +116,14 @@ class LNSDesigner(AbstractDesigner):
         
         while True:
             relaxedCollectionsNames, relaxedDesign = self.__relax__(col_generator, bestDesign, relaxRatio)
-            sendMessage(MSG_SEARCH_INFO, (relaxedCollectionsNames, bbsearch_time_out, relaxedDesign, bestDesign, elapsedTime, self.worker_id), self.channel)
+            sendMessage(MSG_SEARCH_INFO, (relaxedCollectionsNames, bbsearch_time_out, relaxedDesign, worker_used_time, elapsedTime, self.worker_id), self.channel)
             
             dc = self.designCandidates.getCandidates(relaxedCollectionsNames)
             self.bbsearch_method = bbsearch.BBSearch(dc, self.costModel, relaxedDesign, bestCost, bbsearch_time_out, self.channel, self.bestLock)
             self.bbsearch_method.solve()
-
+            
+            worker_used_time += self.bbsearch_method.usedTime
+            
             if self.bbsearch_method.status != "updated_design":
                 if self.bbsearch_method.bestCost < bestCost:
                     bestCost = self.bbsearch_method.bestCost

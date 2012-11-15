@@ -45,7 +45,7 @@ class WorkloadCombiner:
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
-    def prepareWorkload():
+    def prepareWorkload(self):
         self.col_sess_xref = { }
         # Build mapping from collections to sessions
         
