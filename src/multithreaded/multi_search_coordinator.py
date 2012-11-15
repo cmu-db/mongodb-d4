@@ -82,7 +82,7 @@ class Coordinator:
                     LOG.info("invalid data\n%s", msg.data)
                     exit("CUPCAKE")
             except Queue.Empty:
-                LOG.info("Got [%d] responses, missing [%d]", num_of_response, len(self.channel) - num_of_response)
+                LOG.info("Got [%d] responses, missing [%d]", num_of_response, len(self.channels) - num_of_response)
         ## WHILE
         
         assert bestInitCost != sys.maxint
