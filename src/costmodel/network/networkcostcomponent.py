@@ -74,7 +74,7 @@ class NetworkCostComponent(AbstractCostComponent):
         total_op_count = 0
         total_msg_count = 0
         total_err = 0
-        for col_name in self.state.collections.iterkeys():
+        for col_name in self.state.col_names:
             # Collection is not in design.. don't include the op
             if not design.hasCollection(col_name):
                 if self.debug: LOG.debug("NOT in design: SKIP - All operations on %s", col_name)

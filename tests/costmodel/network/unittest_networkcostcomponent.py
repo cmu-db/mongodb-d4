@@ -103,9 +103,7 @@ class TestNetworkCost(CostModelTestCase):
 
         # The denormalization cost should also be the same as the cost
         # when we remove all of the ops one the second collection
-        backup_collections = {}
-        for key, value in self.collections.iteritems():
-            backup_collections[key] = copy.deepcopy(value)
+        backup_collections = copy.deepcopy(self.collections)
 
         for sess in self.state.workload:
             for op in sess["operations"]:
@@ -115,6 +113,7 @@ class TestNetworkCost(CostModelTestCase):
         ## FOR (sess)
         for i in xrange(1, len(CostModelTestCase.COLLECTION_NAMES)):
             del self.collections[CostModelTestCase.COLLECTION_NAMES[i]]
+            print "deleted name: ", CostModelTestCase.COLLECTION_NAMES[i]
 
         self.cm.reset()
         self.state.reset()
@@ -125,7 +124,7 @@ class TestNetworkCost(CostModelTestCase):
 
         # Restore the original workload and see if the cost remains the same with the original one
         self.state.restoreOriginalWorkload()
-        self.collections = backup_collections
+        self.state.collections = backup_collections
         
         self.cm.reset()
         self.state.reset()
