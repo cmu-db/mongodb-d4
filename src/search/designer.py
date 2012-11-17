@@ -29,6 +29,11 @@ import os
 import sys
 from pprint import pformat
 
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, ".."))
+sys.path.append(os.path.join(basedir, "../costmodel"))
+sys.path.append(os.path.join(basedir, "../multithreaded"))
+
 # mongodb-d4
 import workload
 import catalog
@@ -40,9 +45,6 @@ from costmodel import CostModel
 from util import constants
 from util import configutil
 from designcandidates import DesignCandidates
-
-basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, "../multithreaded"))
 
 from message import *
 import thread

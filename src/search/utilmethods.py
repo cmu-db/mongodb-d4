@@ -2,8 +2,8 @@
 
 import json
 import logging
-
-import design
+from pprint import pformat
+from design import Design
 
 import os
 import sys
@@ -25,7 +25,7 @@ def fromJSON(input) :
     return (initial, final)
     
 def fromLIST(list) :
-    d = design.Design()
+    d = Design()
     for col in list :
         d.addCollection(col['collection'])
         d.addShardKey(col['collection'], col['shardKey'])
@@ -38,11 +38,14 @@ def getIndexSize(col_info, indexKeys):
         """Estimate the amount of memory required by the indexes of a given design"""
         # TODO: This should be precomputed ahead of time. No need to do this
         #       over and over again.
+        if not indexKeys:
+            return 0
+        ## IF
         index_size = 0
         for f_name in indexKeys:
             f = col_info.getField(f_name)
-            assert f, "Invalid index key '%s.%s'" % (col_info['name'], f_name)
-            index_size += f['avg_size']
+            if f:
+                index_size += f['avg_size']
         index_size += constants.DEFAULT_ADDRESS_SIZE
         
         #LOG.debug("%s Index %s Memory: %d bytes", col_info['name'], repr(indexKeys), index_size)

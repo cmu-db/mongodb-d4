@@ -39,6 +39,7 @@ from fastlrubuffer import FastLRUBuffer
 from fastlrubufferusingwindow import FastLRUBufferWithWindow
 from workload import Session
 from util import Histogram, constants
+from search.utilmethods import getIndexSize
 
 LOG = logging.getLogger(__name__)
 
@@ -217,7 +218,7 @@ class DiskCostComponent(AbstractCostComponent):
                 # Check whether we have a cache index selection based on query_hashes
                 indexKeys, covering = cache.best_index.get(op["query_hash"], (None, None))
                 if indexKeys is None:
-                    indexKeys, covering = self.guessIndex(design, op, col_info)
+                    indexKeys, covering, index_size = self.guessIndex(design, op, col_info)
                     if self.state.cache_enable:
                         if self.debug: self.state.cache_miss_ctr.put("best_index")
                         cache.best_index[op["query_hash"]] = (indexKeys, covering)
@@ -453,7 +454,10 @@ class DiskCostComponent(AbstractCostComponent):
             ## IF
         ## IF
 
-        return best_index, covering
+        # Get the size of the best index
+        index_size = getIndexSize(col_info, best_index)
+        
+        return best_index, covering, index_size
     ## DEF
 
 ## CLASS
