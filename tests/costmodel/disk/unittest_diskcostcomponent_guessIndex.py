@@ -39,7 +39,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         for op in ops:
             last_index, last_covering = (None, None)
             for i in xrange(100):
-                best_index, covering = cm.guessIndex(d, op)
+                col_info = self.collections[op['collection']]
+                best_index, covering = cm.guessIndex(d, op, col_info)
                 self.assertIsNotNone(best_index)
                 self.assertIsNotNone(covering)
                 if not last_index is None:
@@ -83,7 +84,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[0]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(best_index, None)
         self.assertFalse(covering)
@@ -92,7 +94,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[1]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field01")
@@ -103,7 +106,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[2]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field01")
@@ -118,7 +122,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[2]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(len(best_index), 2)
         self.assertFalse(covering)
@@ -131,7 +136,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[2]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(len(best_index), 3)
         self.assertEqual(best_index[0], "field01")
@@ -171,7 +177,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[1]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(len(best_index), 1)
         self.assertEqual(best_index[0], 'field01')
@@ -181,7 +188,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[2]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], 'field01')
@@ -196,7 +204,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[2]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(best_index[0], 'field01')
         self.assertFalse(covering)
@@ -209,7 +218,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[2]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(len(best_index), 1)
         self.assertEqual(best_index[0], 'field01')
@@ -239,7 +249,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[0]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field00")
@@ -269,7 +280,8 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = ops[3]
 
         # Guess index
-        best_index, covering = cm.guessIndex(d, op)
+        col_info = self.collections[op['collection']]
+        best_index, covering = cm.guessIndex(d, op, col_info)
 
         self.assertEqual(best_index[0], "field00")
         self.assertEqual(best_index[1], "field01")

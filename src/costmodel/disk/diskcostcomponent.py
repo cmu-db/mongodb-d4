@@ -60,12 +60,17 @@ class DiskCostComponent(AbstractCostComponent):
         
         self.err_ctr = 0
         self.total_op_contents = 0
+        
+        self.col_cost_map = { }
+        self.child_collections = set()
     ## DEF
-
 
     def reset(self):
         for buf in self.buffers:
             buf.reset()
+        ## FOR
+        self.col_cost_map = { }
+        self.child_collections = set()
     ## DEF
     
     def __GetCollectionsInProperOder__(self, design):
@@ -93,15 +98,13 @@ class DiskCostComponent(AbstractCostComponent):
     def buildEmbeddingCostDictionary(self, design):
         # we should build a set which contains the parent collections from the design so that we can increase the cost
         # of queries to these collections
-        col_cost_map = { }
-        child_collections = set()
         previous_chains = [ ]
         for col_name in self.__GetCollectionsInProperOder__(design):
             parent_child_chain = [ ]
             parent_col = design.getDenormalizationParent(col_name)
             child_col = col_name
             while parent_col:
-                child_collections.add(child_col)
+                self.child_collections.add(child_col)
                 parent_child_chain.append((parent_col, child_col))
                 child_col = parent_col
                 parent_col = design.getDenormalizationParent(child_col)
@@ -117,20 +120,18 @@ class DiskCostComponent(AbstractCostComponent):
                 continue
             
             if len(parent_child_chain) > 0:
-                if not parent_child_chain[-1][0] in col_cost_map:
-                    col_cost_map[parent_child_chain[-1][0]] = 1.0
+                if not parent_child_chain[-1][0] in self.col_cost_map:
+                    self.col_cost_map[parent_child_chain[-1][0]] = 1.0
                     
                 for tup in parent_child_chain:
                     col_info = self.state.collections[tup[0]]
                     key = tup[1]
                     if key.find('.') != -1:
                         key = key.replace('.', '__')
-                    col_cost_map[parent_child_chain[-1][0]] *= col_info['embedding_ratio'].get(key, 1.0)
+                    self.col_cost_map[parent_child_chain[-1][0]] *= col_info['embedding_ratio'].get(key, 1.0)
                 ## FOR
                 previous_chains.extend(parent_child_chain)
         ## FOR
-        
-        return col_cost_map, child_collections
     ## DEF
     
     def getCostImpl(self, design):
@@ -151,8 +152,8 @@ class DiskCostComponent(AbstractCostComponent):
         #     LOG.info(lru)
         #     lru.validate()
         # Ok strap on your helmet, this is the magical part of the whole thing!
-        #
-        cost_map, child_collections = self.buildEmbeddingCostDictionary(design)
+        
+        self.buildEmbeddingCostDictionary(design)
         #print "Magic map: ", pformat(cost_map)
         #print "Magic list: ", child_collections
         # Outline:
@@ -216,7 +217,7 @@ class DiskCostComponent(AbstractCostComponent):
                 # Check whether we have a cache index selection based on query_hashes
                 indexKeys, covering = cache.best_index.get(op["query_hash"], (None, None))
                 if indexKeys is None:
-                    indexKeys, covering = self.guessIndex(design, op)
+                    indexKeys, covering = self.guessIndex(design, op, col_info)
                     if self.state.cache_enable:
                         if self.debug: self.state.cache_miss_ctr.put("best_index")
                         cache.best_index[op["query_hash"]] = (indexKeys, covering)
@@ -226,11 +227,8 @@ class DiskCostComponent(AbstractCostComponent):
                 maxHits = 0
                 isRegex = self.state.__getIsOpRegex__(cache, op)
                 
-                slot_size = self.guess_slot_size(col_info, cost_map, op, child_collections, design)
-                #print "collection: ", op['collection']
-                #print "slot size: ", slot_size
-                # Grab all of the query contents
-                #print "content: ", op['query_content']
+                slot_size = self.guess_slot_size(col_info, op, design)
+
                 for content in workload.getOpContents(op):
                     try:
                         opNodes = self.state.__getNodeIds__(cache, design, op)
@@ -371,22 +369,17 @@ class DiskCostComponent(AbstractCostComponent):
             LOG.debug("-"*100)
             LOG.debug("Buffer Usage %.2f%% [total=%d / used=%d]",buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
     ## DEF
-
-    def reset(self):
-        for lru in self.buffers:
-            lru.reset()
-    ## DEF
     
-    def guess_slot_size(self, col_info, cost_map, op, child_collections, design):
-        assert not op['collection'] in child_collections, "collection %s should not be queried. design \n%s" % (op['collection'], design)
+    def guess_slot_size(self, col_info, op, design):
+        assert not op['collection'] in self.child_collections, "collection %s should not be queried.\n child_collecitons: %s\ndesign: \n%s" % (op['collection'], self.child_collections, design)
         
-        if op['collection'] in cost_map:
-            return int(math.ceil(cost_map[op['collection']])) 
+        if op['collection'] in self.col_cost_map:
+            return int(math.ceil(self.col_cost_map[op['collection']])) 
         else:
             return 1
     ## DEF
     
-    def guessIndex(self, design, op):
+    def guessIndex(self, design, op, col_info):
         """
             Return a tuple containing the best index to use for this operation and a boolean
             flag that is true if that index covers the entire operation's query

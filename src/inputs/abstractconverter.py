@@ -245,7 +245,7 @@ class AbstractConverter():
         
         intersect_values = parent_distinct_values.intersection(child_distinct_values)
         
-        sample_num = len(intersect_values) if len(intersect_values) < 10000 else int(len(intersect_values) * 0.05) # FIXME use this magic number 1000 so far
+        sample_num = len(intersect_values) if len(intersect_values) < 10000 else 10000 # FIXME use this magic number 1000 so far
         sampled_values = self.rng.sample(intersect_values, sample_num)
         
         if self.debug: LOG.info("sampled values: %s", len(sampled_values))
