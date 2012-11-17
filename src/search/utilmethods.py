@@ -5,6 +5,14 @@ import logging
 
 import design
 
+import os
+import sys
+
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, "../"))
+
+from util import constants
+
 LOG = logging.getLogger(__name__)
 
 def fromJSON(input) :
@@ -25,7 +33,21 @@ def fromLIST(list) :
             d.addIndex(col['collection'], i)
         d.denorm[col['collection']] = col['denorm']
     return d
-    
+
+def getIndexSize(col_info, indexKeys):
+        """Estimate the amount of memory required by the indexes of a given design"""
+        # TODO: This should be precomputed ahead of time. No need to do this
+        #       over and over again.
+        index_size = 0
+        for f_name in indexKeys:
+            f = col_info.getField(f_name)
+            assert f, "Invalid index key '%s.%s'" % (col_info['name'], f_name)
+            index_size += f['avg_size']
+        index_size += constants.DEFAULT_ADDRESS_SIZE
+        
+        #LOG.debug("%s Index %s Memory: %d bytes", col_info['name'], repr(indexKeys), index_size)
+        return index_size
+      
 def buildLoadingList(design):
     """Generate the ordered list of collections based on the order that we need to load them"""
     LOG.debug("Computing collection load order")

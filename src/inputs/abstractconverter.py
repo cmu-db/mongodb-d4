@@ -248,7 +248,7 @@ class AbstractConverter():
         sample_num = len(intersect_values) if len(intersect_values) < 10000 else int(len(intersect_values) * 0.05) # FIXME use this magic number 1000 so far
         sampled_values = self.rng.sample(intersect_values, sample_num)
         
-        LOG.info("sampled values: %s", len(sampled_values))
+        if self.debug: LOG.info("sampled values: %s", len(sampled_values))
 
         return sampled_values
     ## DEF
@@ -290,16 +290,18 @@ class AbstractConverter():
                             parent_col = child_col
                             child_col = tmp
                         # IF
-                        msg = child_col + "   --->    " + parent_col + "   key: " + foreign_key
-                        print msg
+                        if self.debug:
+                            LOG.info("%s   --->   %s, key: %s", child_col, parent_col, foreign_key)
+                            
                         ratio, parent_average, commom_values = self.getEmbeddingRatio(parent_col, child_col, foreign_key)
                         
-                        print "ratio: ", ratio
-                        print "parent_average: ", parent_average
+                        if self.debug:
+                            LOG.info("ratio: %s", ratio)
+                            LOG.info("parent_average: %s", parent_average)
                         
                         if ratio > 1.0 and (parent_average >= 1.0 and parent_average <= 2.0 and len(commom_values) > 1): # if it is a 1:N relationship from parent to child
                             parent_col_info = self.metadata_db.Collection.fetch_one({"name": parent_col})
-                            LOG.info("%s might be embedded into %s", child_col, parent_col)
+                            if self.debug: LOG.info("%s might be embedded into %s", child_col, parent_col)
                             
                             if child_col.find('.') != -1:
                                 ## HACK HACK HACK

@@ -33,6 +33,7 @@ from design import Design
 import workload
 from util import Histogram, configutil, constants
 from abstractdesigner import AbstractDesigner
+import utilmethods
 
 LOG = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ class InitialDesigner(AbstractDesigner):
                 # Iterate through all the possible keys for this collection
                 for index_keys in sorted(h.iterkeys(), key=lambda k: h[k]):
                     # TODO: Estimate the amount of memory used by this index
-                    index_memory = self.__getIndexSize__(self.collections[col_name], index_keys)
+                    index_memory = utilmethods.getIndexSize(self.collections[col_name], index_keys)
                     
                     # We always want to remove index_keys from the histogram
                     # even if there isn't enough memory, because we know that 
@@ -140,17 +141,4 @@ class InitialDesigner(AbstractDesigner):
             map(col_keys.pop, to_remove)
         ## WHILE
     ## DEF
-    def __getIndexSize__(self, col_info, indexKeys):
-        """Estimate the amount of memory required by the indexes of a given design"""
-        # TODO: This should be precomputed ahead of time. No need to do this
-        #       over and over again.
-        index_size = 0
-        for f_name in indexKeys:
-            f = col_info.getField(f_name)
-            assert f, "Invalid index key '%s.%s'" % (col_info['name'], f_name)
-            index_size += f['avg_size']
-        index_size += self.address_size
-        if self.debug: 
-            LOG.debug("%s Index %s Memory: %d bytes", col_info['name'], repr(indexKeys), index_size)
-        return index_size
 ## CLASS
