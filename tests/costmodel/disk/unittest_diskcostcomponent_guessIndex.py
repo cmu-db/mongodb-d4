@@ -294,24 +294,19 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         # Guess index
         col_info = self.collections[op0['collection']]
         best_index, covering, index_size = self.cm.guessIndex(d, op0, col_info)
-        print "index_size: ", index_size
-        print "col_info", pformat(col_info)
+        self.assertEqual(24+8, index_size)
         
         col_info = self.collections[op1['collection']]
         best_index, covering, index_size = self.cm.guessIndex(d, op1, col_info)
-        print "index: ", best_index
-        print "index_size: ", index_size
+        self.assertEqual(24+8, index_size)
         
         col_info = self.collections[op2['collection']]
         best_index, covering, index_size = self.cm.guessIndex(d, op2, col_info)
-        print "index: ", best_index
-        print "index_size: ", index_size
+        self.assertEqual(24+24+8, index_size)
         
         col_info = self.collections[op3['collection']]
         best_index, covering, index_size = self.cm.guessIndex(d, op3, col_info)
-        print "index: ", best_index
-        print "index_size: ", index_size
-        
+        self.assertEqual(24+24+8, index_size)
     ## DEF
     
 ## CLASS
