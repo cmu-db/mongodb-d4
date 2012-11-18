@@ -5,7 +5,7 @@ basedir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(os.path.join(basedir, ".."))
 sys.path.append(os.path.join(basedir, "../search"))
 
-from search import Designer
+from search.designer import Designer
 from util import configutil
 from message import *
 

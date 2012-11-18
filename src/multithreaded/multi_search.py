@@ -10,7 +10,7 @@ basedir = os.getcwd()
 sys.path.append(os.path.join(basedir, ".."))
 sys.path.append(os.path.join(basedir, "../search"))
 
-from search import Designer
+from search.designer import Designer
 from multi_search_coordinator import Coordinator
 from util import configutil
 

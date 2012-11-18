@@ -48,7 +48,7 @@ import mongokit
 # mongodb-d4
 import catalog
 import workload
-from search import Designer
+from search.designer import Designer
 from util import configutil
 from util import constants
 from util import termcolor
