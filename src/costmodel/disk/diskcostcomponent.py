@@ -216,12 +216,12 @@ class DiskCostComponent(AbstractCostComponent):
                 cache = self.state.getCacheHandle(col_info)
 
                 # Check whether we have a cache index selection based on query_hashes
-                indexKeys, covering = cache.best_index.get(op["query_hash"], (None, None))
+                indexKeys, covering, index_size = cache.best_index.get(op["query_hash"], (None, None, None))
                 if indexKeys is None:
                     indexKeys, covering, index_size = self.guessIndex(design, op, col_info)
                     if self.state.cache_enable:
                         if self.debug: self.state.cache_miss_ctr.put("best_index")
-                        cache.best_index[op["query_hash"]] = (indexKeys, covering)
+                        cache.best_index[op["query_hash"]] = (indexKeys, covering, index_size)
                 elif self.debug:
                     self.state.cache_hit_ctr.put("best_index")
                 pageHits = 0
