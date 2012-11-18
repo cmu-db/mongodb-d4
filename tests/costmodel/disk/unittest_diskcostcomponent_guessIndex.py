@@ -25,7 +25,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         for sess in self.workload:
             map(self.ops.append, sess["operations"])
             
-    def atestGuessIndex_consistentAnswer(self):
+    def testGuessIndex_consistentAnswer(self):
         """Check that guessIndex always returns the same answer for the same input"""
 
         # initialize design
@@ -36,11 +36,11 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         d.addIndex("apple", ["field00"])
         d.addIndex("apple", ["field01"])
 
-        for op in self.ops:
+        for i in xrange(len(self.ops) - 2):
+            op = self.ops[i]
             last_index, last_covering = (None, None)
             for i in xrange(100):
-                col_info = self.collections[op['collection']]
-                best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+                best_index, covering, index_size = self.cm.guessIndex(d, op)
                 self.assertIsNotNone(best_index)
                 self.assertIsNotNone(covering)
                 if not last_index is None:
@@ -50,7 +50,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
             ## FOR
     ## DEF
 
-    def atestGuessIndex_indexInIncorrectOrder(self):
+    def testGuessIndex_indexInIncorrectOrder(self):
         """
             Design with index (field01, field00)
             1. query uses index (field00)
@@ -78,9 +78,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[0]
 
         # Guess index
-        print "collection: ", op['collection']
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(best_index, None)
         self.assertFalse(covering)
@@ -89,8 +87,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[1]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field01")
@@ -101,8 +98,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field01")
@@ -117,8 +113,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertFalse(covering)
@@ -131,8 +126,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(len(best_index), 3)
         self.assertEqual(best_index[0], "field01")
@@ -140,7 +134,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         self.assertEqual(best_index[2], "field00")
         self.assertFalse(covering)
 
-    def atestGuessIndex_indexChooseTheMostMatch(self):
+    def testGuessIndex_indexChooseTheMostMatch(self):
         """
             Design with index (field01, field00), (field01),
             1. query uses index (field01) without projection field
@@ -166,8 +160,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[1]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(len(best_index), 1)
         self.assertEqual(best_index[0], 'field01')
@@ -177,8 +170,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], 'field01')
@@ -193,8 +185,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(best_index[0], 'field01')
         self.assertFalse(covering)
@@ -207,14 +198,13 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(len(best_index), 1)
         self.assertEqual(best_index[0], 'field01')
         self.assertFalse(covering)
 
-    def atestGuessIndex_indexChooseWithProjectionField(self):
+    def testGuessIndex_indexChooseWithProjectionField(self):
         """
             If a query uses one of the indexes the design has but its projection uses
             one of the indexes the design has, we should choose the index with both
@@ -233,8 +223,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[0]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field00")
@@ -242,7 +231,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         self.assertTrue(covering)
     ## DEF
 
-    def atestGuessIndex_indexChooseWithoutProjectionField(self):
+    def testGuessIndex_indexChooseWithoutProjectionField(self):
         """
             If a query uses all the indexes but doesn't have a projection field,
             we still think it is not a covering index
@@ -259,8 +248,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[3]
 
         # Guess index
-        col_info = self.collections[op['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op)
 
         self.assertEqual(best_index[0], "field00")
         self.assertEqual(best_index[1], "field01")
@@ -271,7 +259,6 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         """
             Check if the size of the indexes vary
         """
-        self.cm = DiskCostComponent(self.state)
         d = Design()
         d.addCollection("apple")
         
@@ -292,21 +279,55 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op3 = self.ops[3]
 
         # Guess index
-        col_info = self.collections[op0['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op0, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op0)
         self.assertEqual(24+8, index_size)
         
-        col_info = self.collections[op1['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op1, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op1)
         self.assertEqual(24+8, index_size)
         
-        col_info = self.collections[op2['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op2, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op2)
         self.assertEqual(24+24+8, index_size)
         
-        col_info = self.collections[op3['collection']]
-        best_index, covering, index_size = self.cm.guessIndex(d, op3, col_info)
+        best_index, covering, index_size = self.cm.guessIndex(d, op3)
         self.assertEqual(24+24+8, index_size)
+    ## DEF
+    
+    def testGuessIndex_IndexSizeEstimation_Denormalization(self):
+        """
+            If collection A is denormalized into B, then the index for collection B should have larger size now
+            (If and only if the index is built on a field that is included by both collection A and collection B)
+        """
+        d = Design()
+        d.addCollection("apple")
+        d.addCollection("microsoft")
+        d.addCollection("google")
+        
+        d.addIndex("apple", ["field00"])
+        d.addIndex("microsoft", ["field00"])
+        d.addIndex("google", ["field00"])
+        
+        # op4 use index (field00) but it only goes to collection microsoft
+        op4 = self.ops[4]
+        
+        # Guess index
+        
+        # Without denormalization
+        best_index, covering, index_size_0 = self.cm.guessIndex(d, op4)
+        
+        # With one denormalization
+        d.setDenormalizationParent("apple", "microsoft")
+        self.cm.buildEmbeddingCostDictionary(d)
+        best_index, covering, index_size_1 = self.cm.guessIndex(d, op4)
+        
+        self.assertGreater(index_size_1, index_size_0)
+        
+        # With chained denormalization
+        self.cm.reset()
+        d.setDenormalizationParent("google", "apple")
+        self.cm.buildEmbeddingCostDictionary(d)
+        best_index, covering, index_size_2 = self.cm.guessIndex(d, op4)
+        
+        self.assertGreater(index_size_2, index_size_1)
     ## DEF
     
 ## CLASS
