@@ -60,7 +60,7 @@ class FastLRUBufferWithWindow:
         self.tail = None
     ## DEF
 
-    def getDocumentFromIndex(self, indexKeys, documentId, slot_size):
+    def getDocumentFromIndex(self, indexKeys, slot_size):
         """
             Get the documents from the given index
             Returns the number of page hits incurred to read these documents.
@@ -69,7 +69,7 @@ class FastLRUBufferWithWindow:
         if slot_size > self.window_size:
             LOG.error("SLOT_SIZE is too HUGE! Total window size: %s. Current slot size: %s", self.window_size, slot_size)
             return 0
-        return self.getDocument(DOC_TYPE_INDEX, indexKeys, documentId, slot_size)
+        return self.getDocument(DOC_TYPE_INDEX, indexKeys, 0, slot_size)
         ## DEF
 
     def getDocumentFromCollection(self, col_name, documentId, slot_size):
