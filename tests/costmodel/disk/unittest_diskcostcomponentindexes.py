@@ -47,32 +47,32 @@ class TestDiskCostIndexes(CostModelTestCase):
         print "diskCost1:", cost1
         self.assertGreater(cost0, cost1)
 
-    #def testDiskCostOnDifferentIndexes(self):
-        #"""Check how indexes will affect the disk cost"""
-        ## 1. Put index on both of the fields seperately
-        #d = Design()
-        #d.addCollection(CostModelTestCase.COLLECTION_NAME)
-        #d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field00"])
-        #d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field01"])
+    def testDiskCostOnDifferentIndexes(self):
+        """Check how indexes will affect the disk cost"""
+        # 1. Put index on both of the fields seperately
+        d = Design()
+        d.addCollection(CostModelTestCase.COLLECTION_NAME)
+        d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field00"])
+        d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field01"])
 
-        #self.cm.reset()
-        #self.cm.state.reset()
-        #cost0 = self.cm.getCost(d)
-        #print "diskCost0:", cost0
+        self.cm.reset()
+        self.cm.state.reset()
+        cost0 = self.cm.getCost(d)
+        print "diskCost0:", cost0
 
-        ## 3. Put indexes on both field together
-        #d = Design()
-        #col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
-        #d.addCollection(CostModelTestCase.COLLECTION_NAME)
-        #d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field01", "field00"])
-        #self.state.invalidateCache(col_info['name'])
+        # 3. Put indexes on both field together
+        d = Design()
+        col_info = self.collections[CostModelTestCase.COLLECTION_NAME]
+        d.addCollection(CostModelTestCase.COLLECTION_NAME)
+        d.addIndex(CostModelTestCase.COLLECTION_NAME, ["field01", "field00"])
+        self.state.invalidateCache(col_info['name'])
 
-        #self.cm.reset()
-        #self.cm.state.reset()
-        #cost1 = self.cm.getCost(d)
-        #print "diskCost1:", cost1
+        self.cm.reset()
+        self.cm.state.reset()
+        cost1 = self.cm.getCost(d)
+        print "diskCost1:", cost1
 
-        #self.assertGreater(cost0, cost1)
+        self.assertGreater(cost0, cost1)
 
     def testDiskCostCaching(self):
         """Check whether disk cost calculations work correctly with caching enabled"""

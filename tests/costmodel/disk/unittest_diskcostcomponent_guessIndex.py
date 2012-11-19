@@ -21,6 +21,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
     def setUp(self):
         CostModelTestCase.setUp(self)
         self.cm = DiskCostComponent(self.state)
+        self.cm.no_index_size_estimation = False
         self.ops = []
         for sess in self.workload:
             map(self.ops.append, sess["operations"])

@@ -52,7 +52,7 @@ class State():
             # a full scan that requires us to evict the entire buffer
             # Hence, we multiple the max pages by two
             # self.fullscan_pages = (col_info['max_pages'] * 2)
-            self.fullscan_pages = 10 #col_info['doc_count'] * 2
+            self.fullscan_pages = col_info['doc_count'] * 2
             assert self.fullscan_pages > 0,\
                 "Zero max_pages for collection '%s'" % col_info['name']
 

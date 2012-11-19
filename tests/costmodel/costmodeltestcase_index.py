@@ -1,5 +1,5 @@
 import os, sys
-from random import shuffle
+import random
 import random
 import time
 
@@ -25,15 +25,15 @@ class CostModelTestCase(MongoDBTestCase):
     """
 
     COLLECTION_NAME = "apples"
-    NUM_DOCUMENTS = 10000000
+    NUM_DOCUMENTS = 10000
     NUM_SESSIONS = 100
     NUM_FIELDS = 2
     NUM_NODES = 1
     NUM_INTERVALS = 10
-
+    
     def setUp(self):
         MongoDBTestCase.setUp(self)
-
+        rng = random.Random()
         # WORKLOAD
         timestamp = time.time()
         for i in  xrange(CostModelTestCase.NUM_SESSIONS):
@@ -44,20 +44,29 @@ class CostModelTestCase(MongoDBTestCase):
             sess['start_time'] = timestamp
 
             _id = str(random.random())
-            queryId = long((i<<16) + 0)
+            queryId = long((i<<16) + i)
             queryContent = { }
             queryPredicates = { }
 
             responseContent = {"_id": _id}
             responseId = (queryId<<8)
-
-            for j in xrange(2):
-                f_name_target = "field%02d" % j
-
+            
+            rdn = rng.randint(0, 9)
+            if rdn % 2 == 0:
+                for j in xrange(2):
+                    f_name_target = "field%02d" % j
+                    responseContent[f_name_target] = random.randint(0, 100)
+                    queryContent[f_name_target] = responseContent[f_name_target]
+                    queryPredicates[f_name_target] = constants.PRED_TYPE_EQUALITY
+                ## FOR
+            ## IF
+            else:
+                f_name_target = "field%02d" % 1
                 responseContent[f_name_target] = random.randint(0, 100)
                 queryContent[f_name_target] = responseContent[f_name_target]
                 queryPredicates[f_name_target] = constants.PRED_TYPE_EQUALITY
-
+            ## ELSE
+            
             queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
             op = Session.operationFactory()
             op['collection']    = CostModelTestCase.COLLECTION_NAME
@@ -89,7 +98,7 @@ class CostModelTestCase(MongoDBTestCase):
         self.assertEqual(1, len(self.collections))
 
         populated_workload = list(c for c in self.metadata_db.Session.fetch())
-        shuffle(populated_workload)
+        rng.shuffle(populated_workload)
 
         # Increase the database size beyond what the converter derived from the workload
         for col_name, col_info in self.collections.iteritems():
@@ -104,7 +113,7 @@ class CostModelTestCase(MongoDBTestCase):
             'skew_intervals': CostModelTestCase.NUM_INTERVALS,
             'address_size':   64,
             'nodes':          CostModelTestCase.NUM_NODES,
-            'window_size':    5
+            'window_size':    10
         }
 
         self.state = State(self.collections, populated_workload, self.costModelConfig)

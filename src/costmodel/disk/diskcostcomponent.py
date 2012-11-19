@@ -67,7 +67,9 @@ class DiskCostComponent(AbstractCostComponent):
         # Map from parent to its children and grandchildren
         # For instance, if A is embedded into B and B is embedded into C
         # the map will be key: C, value: B, A
-        self.parent_to_children_map = { } 
+        self.parent_to_children_map = { }
+        
+        self.no_index_size_estimation = True
     ## DEF
 
     def reset(self):
@@ -151,12 +153,14 @@ class DiskCostComponent(AbstractCostComponent):
                 self.parent_to_children_map[parent_collection_name].add(direct_child)
                 
                 # let's see if there are more than one element in the chain :)
-                length_chain = len(parent_child_chain)
-                if length_chain > 1:
-                    for i in xrange(length_chain-1-1, -1, -1):
-                        self.parent_to_children_map[parent_collection_name].add(parent_child_chain[i][1])
-                        self.parent_to_children_map[parent_collection_name].add(parent_child_chain[i][0])
-                    ## FOR
+                if not self.no_index_size_estimation:
+                    length_chain = len(parent_child_chain)
+                    if length_chain > 1:
+                        for i in xrange(length_chain-1-1, -1, -1):
+                            self.parent_to_children_map[parent_collection_name].add(parent_child_chain[i][1])
+                            self.parent_to_children_map[parent_collection_name].add(parent_child_chain[i][0])
+                        ## FOR
+                    ## IF
                 ## IF
             ## IF
         ## FOR
@@ -269,11 +273,11 @@ class DiskCostComponent(AbstractCostComponent):
                         self.total_op_contents += 1
                         maxHits += cache.fullscan_pages
                         
-                        # If slot size is too large, we consider it as a full page scan
-                        if slot_size >= constants.SLOT_SIZE_LIMIT:
-                            pageHits += cache.fullscan_pages
-                            continue
-                        ## FOR
+                        ## If slot size is too large, we consider it as a full page scan
+                        #if slot_size >= constants.SLOT_SIZE_LIMIT:
+                            #pageHits += cache.fullscan_pages
+                            #continue
+                        ### FOR
                         
                         # TODO: Need to handle whether it's a scan or an equality predicate
                         # TODO: We need to handle when we have a regex predicate. These are tricky
@@ -299,7 +303,7 @@ class DiskCostComponent(AbstractCostComponent):
                             elif self.debug:
                                 self.state.cache_hit_ctr.put("index_docIds")
                                 ## IF
-                            hits = lru.getDocumentFromIndex(indexKeys, documentId, index_size)
+                            hits = lru.getDocumentFromIndex(indexKeys, index_size)
                             # print "hits: ", hits
                             pageHits += hits
                             # maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
@@ -438,7 +442,7 @@ class DiskCostComponent(AbstractCostComponent):
                 # If the ratios are the same, then choose the
                 # one with the most keys
                 if field_ratio == best_ratio:
-                    if len(indexes[i]) < len(best_index):
+                    if len(indexes[i]) <= len(best_index):
                         continue
 
                 if field_ratio != 0:
@@ -472,19 +476,23 @@ class DiskCostComponent(AbstractCostComponent):
         ## IF
 
         # Get the size of the best index
-        index_size = 0
-        col_info = self.state.collections[col_name]
-        index_size += getIndexSize(col_info, best_index)
-        
-        if col_name in self.parent_to_children_map:
-            children_set = self.parent_to_children_map[col_name]
-            if len(children_set) > 0:
-                for child in children_set:
-                    col_info = self.state.collections[child]
-                    index_size += getIndexSize(col_info, best_index)
-                ## FOR
+        if not self.no_index_size_estimation:
+            index_size = 0
+            col_info = self.state.collections[col_name]
+            index_size += getIndexSize(col_info, best_index)
+            
+            if col_name in self.parent_to_children_map:
+                children_set = self.parent_to_children_map[col_name]
+                if len(children_set) > 0:
+                    for child in children_set:
+                        col_info = self.state.collections[child]
+                        index_size += getIndexSize(col_info, best_index)
+                    ## FOR
+                ## IF
             ## IF
         ## IF
+        else:
+            index_size = 1
         
         # Get the slot size of this operation
         assert not col_name in self.child_collections, "collection %s should not be queried.\n child_collecitons: %s\ndesign: \n%s" % (col_name, self.child_collections, design)
