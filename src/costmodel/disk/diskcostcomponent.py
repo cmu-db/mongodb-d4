@@ -243,19 +243,17 @@ class DiskCostComponent(AbstractCostComponent):
                 cache = self.state.getCacheHandle(col_info)
 
                 # Check whether we have a cache index selection based on query_hashes
-                indexKeys, covering, index_size = cache.best_index.get(op["query_hash"], (None, None, None))
+                indexKeys, covering, index_size, slot_size = cache.best_index.get(op["query_hash"], (None, None, None, None))
                 if indexKeys is None:
-                    indexKeys, covering, index_size = self.guessIndex(design, op)
+                    indexKeys, covering, index_size, slot_size = self.guess_op_info(design, op)
                     if self.state.cache_enable:
                         if self.debug: self.state.cache_miss_ctr.put("best_index")
-                        cache.best_index[op["query_hash"]] = (indexKeys, covering, index_size)
+                        cache.best_index[op["query_hash"]] = (indexKeys, covering, index_size, slot_size)
                 elif self.debug:
                     self.state.cache_hit_ctr.put("best_index")
                 pageHits = 0
                 maxHits = 0
                 isRegex = self.state.__getIsOpRegex__(cache, op)
-                
-                slot_size = self.guess_slot_size(col_info, op, design)
 
                 for content in workload.getOpContents(op):
                     try:
@@ -398,16 +396,7 @@ class DiskCostComponent(AbstractCostComponent):
             LOG.debug("Buffer Usage %.2f%% [total=%d / used=%d]",buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
     ## DEF
     
-    def guess_slot_size(self, col_info, op, design):
-        assert not op['collection'] in self.child_collections, "collection %s should not be queried.\n child_collecitons: %s\ndesign: \n%s" % (op['collection'], self.child_collections, design)
-        
-        if op['collection'] in self.col_cost_map:
-            return int(math.ceil(self.col_cost_map[op['collection']])) 
-        else:
-            return 1
-    ## DEF
-    
-    def guessIndex(self, design, op):
+    def guess_op_info(self, design, op):
         """
             Return a tuple containing the best index to use for this operation and a boolean
             flag that is true if that index covers the entire operation's query
@@ -497,7 +486,16 @@ class DiskCostComponent(AbstractCostComponent):
             ## IF
         ## IF
         
-        return best_index, covering, index_size
+        # Get the slot size of this operation
+        assert not col_name in self.child_collections, "collection %s should not be queried.\n child_collecitons: %s\ndesign: \n%s" % (col_name, self.child_collections, design)
+        slot_size = 0
+        
+        if col_name in self.col_cost_map:
+            slot_size = int(math.ceil(self.col_cost_map[col_name])) 
+        else:
+            slot_size = 1
+            
+        return best_index, covering, index_size, slot_size
     ## DEF
 
 ## CLASS

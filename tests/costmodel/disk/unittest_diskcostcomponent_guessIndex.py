@@ -40,7 +40,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
             op = self.ops[i]
             last_index, last_covering = (None, None)
             for i in xrange(100):
-                best_index, covering, index_size = self.cm.guessIndex(d, op)
+                best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
                 self.assertIsNotNone(best_index)
                 self.assertIsNotNone(covering)
                 if not last_index is None:
@@ -78,7 +78,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[0]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(best_index, None)
         self.assertFalse(covering)
@@ -87,7 +87,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[1]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field01")
@@ -98,7 +98,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field01")
@@ -113,7 +113,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertFalse(covering)
@@ -126,7 +126,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(len(best_index), 3)
         self.assertEqual(best_index[0], "field01")
@@ -160,7 +160,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[1]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(len(best_index), 1)
         self.assertEqual(best_index[0], 'field01')
@@ -170,7 +170,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], 'field01')
@@ -185,7 +185,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(best_index[0], 'field01')
         self.assertFalse(covering)
@@ -198,7 +198,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[2]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(len(best_index), 1)
         self.assertEqual(best_index[0], 'field01')
@@ -223,7 +223,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[0]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(len(best_index), 2)
         self.assertEqual(best_index[0], "field00")
@@ -248,7 +248,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op = self.ops[3]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op)
 
         self.assertEqual(best_index[0], "field00")
         self.assertEqual(best_index[1], "field01")
@@ -279,16 +279,16 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         op3 = self.ops[3]
 
         # Guess index
-        best_index, covering, index_size = self.cm.guessIndex(d, op0)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op0)
         self.assertEqual(24+8, index_size)
         
-        best_index, covering, index_size = self.cm.guessIndex(d, op1)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op1)
         self.assertEqual(24+8, index_size)
         
-        best_index, covering, index_size = self.cm.guessIndex(d, op2)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op2)
         self.assertEqual(24+24+8, index_size)
         
-        best_index, covering, index_size = self.cm.guessIndex(d, op3)
+        best_index, covering, index_size, slot_size = self.cm.guess_op_info(d, op3)
         self.assertEqual(24+24+8, index_size)
     ## DEF
     
@@ -312,12 +312,12 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         # Guess index
         
         # Without denormalization
-        best_index, covering, index_size_0 = self.cm.guessIndex(d, op4)
+        best_index, covering, index_size_0, slot_size = self.cm.guess_op_info(d, op4)
         
         # With one denormalization
         d.setDenormalizationParent("apple", "microsoft")
         self.cm.buildEmbeddingCostDictionary(d)
-        best_index, covering, index_size_1 = self.cm.guessIndex(d, op4)
+        best_index, covering, index_size_1, slot_size = self.cm.guess_op_info(d, op4)
         
         self.assertGreater(index_size_1, index_size_0)
         
@@ -325,7 +325,7 @@ class TestDiskCostGuessIndex(CostModelTestCase):
         self.cm.reset()
         d.setDenormalizationParent("google", "apple")
         self.cm.buildEmbeddingCostDictionary(d)
-        best_index, covering, index_size_2 = self.cm.guessIndex(d, op4)
+        best_index, covering, index_size_2, slot_size = self.cm.guess_op_info(d, op4)
         
         self.assertGreater(index_size_2, index_size_1)
     ## DEF

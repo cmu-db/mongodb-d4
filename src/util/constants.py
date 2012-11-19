@@ -98,6 +98,7 @@ WINDOW_SIZE = 1024
 # Slot size upper bound: if the slot size is larger than this value, we will consider it as a 
 # full page scan
 SLOT_SIZE_LIMIT = 10
+
 ## ==============================================
 ## CANDIDATES GENERATOR CONSTRAINTS
 ## ==============================================
