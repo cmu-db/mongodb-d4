@@ -67,10 +67,11 @@ if __name__ == '__main__':
     configutil.setDefaultValues(config)
     config.read(os.path.realpath(args['config'].name))
     
+    db_host = config.get(configutil.SECT_MONGODB, 'host')
     db_name = config.get(configutil.SECT_MONGODB, 'dataset_db')
     for dataFile in glob.glob(os.path.join(args["input"], "*.json")):
         collection = os.path.basename(dataFile).replace(".csv", "")
-        cmd = "mongoimport --db %s --collection %s --file %s --type json" % (db_name, collection, dataFile)
+        cmd = "mongoimport --host=%s --db %s --collection %s --file %s --type json" % (db_host, db_name, collection, dataFile)
         subprocess.check_call(cmd, shell=True)
         LOG.info("Loaded %s.%s", db_name, collection)
     ## FOR
