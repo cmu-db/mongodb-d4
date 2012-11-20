@@ -24,15 +24,18 @@ class CostModelTestCase(MongoDBTestCase):
     """
 
     COLLECTION_NAMES = ["squirrels", "girls"]
-    NUM_DOCUMENTS = 10000000
+    NUM_DOCUMENTS = 10000
     NUM_SESSIONS = 100
-    NUM_FIELDS = 6
+    NUM_FIELDS = 3
     NUM_NODES = 8
     NUM_INTERVALS = 10
 
     def setUp(self):
         MongoDBTestCase.setUp(self)
-
+        field00_value = 0
+        field01_value = 0
+        field02_value = 9999999
+        
         # WORKLOAD
         timestamp = time.time()
         for i in xrange(CostModelTestCase.NUM_SESSIONS):
@@ -52,13 +55,23 @@ class CostModelTestCase(MongoDBTestCase):
                 responseId = (queryId<<8)
                 for f in xrange(0, CostModelTestCase.NUM_FIELDS):
                     f_name = "field%02d" % f
-                    if f % 2 == 0:
-                        responseContent[f_name] = random.randint(0, 100)
+                    if f == 0:
+                        responseContent[f_name] = field00_value
                         queryContent[f_name] = responseContent[f_name]
                         queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
+                        field00_value += 1
+                    elif f == 1:
+                        responseContent[f_name] = field01_value
+                        queryContent[f_name] = responseContent[f_name]
+                        queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
+                        field01_value += 1
                     else:
-                        responseContent[f_name] = str(random.randint(1000, 100000))
-                        ## FOR
+                        responseContent[f_name] = field02_value
+                        queryContent[f_name] = responseContent[f_name]
+                        queryPredicates[f_name] = constants.PRED_TYPE_EQUALITY
+                        field02_value -= 1
+                    ## ELSE
+                ## FOR
 
                 queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
                 op = Session.operationFactory()
@@ -78,7 +91,7 @@ class CostModelTestCase(MongoDBTestCase):
             sess['end_time'] = timestamp
             timestamp += 2
             sess.save()
-            ## FOR (sess)
+        ## FOR (sess)
 
         # Use the MongoSniffConverter to populate our metadata
         converter = MongoSniffConverter(self.metadata_db, self.dataset_db)

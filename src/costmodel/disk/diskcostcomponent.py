@@ -69,7 +69,12 @@ class DiskCostComponent(AbstractCostComponent):
         # the map will be key: C, value: B, A
         self.parent_to_children_map = { }
         
+        # index key insertion penalty: index -> largest key value
+        self.index_key_insertion_penalty_map = { }
+        self.total_index_insertion_penalty = 0 # This is only used for test
+        
         self.no_index_size_estimation = True
+        self.no_index_insertion_penalty = False
     ## DEF
 
     def reset(self):
@@ -79,6 +84,8 @@ class DiskCostComponent(AbstractCostComponent):
         self.col_cost_map = { }
         self.child_collections = set()
         self.parent_to_children_map = { } 
+        self.index_key_insertion_penalty_map = { }
+        self.total_index_insertion_penalty = 0
     ## DEF
     
     def __GetCollectionsInProperOder__(self, design):
@@ -166,6 +173,46 @@ class DiskCostComponent(AbstractCostComponent):
         ## FOR
     ## DEF
     
+    def getIndexKeyInsertionPenalty(self, indexes, query_content):
+        if not indexes:
+            return 0
+        ## IF
+        
+        # STEP 0: Make a list of 0 values based on size of the index
+        value_list = [0 for i in xrange(len(indexes))]
+        # STEP 1: update the values in the list based on the given query_content
+        for k, v in query_content.iteritems():
+            try:
+                key_index = indexes.index(k)
+                value_list[key_index] = v
+            except ValueError:
+                if self.debug: LOG.debug("key %s cannot be found in index: %s", k, indexes)
+                continue
+        ## FOR
+        # STEP 2: Make a tuple out of the list
+        value_tuple = tuple(value_list)
+        # STEP 3: Check if this new value tuple is larger than the stored largest value
+        if not indexes in self.index_key_insertion_penalty_map:
+            self.index_key_insertion_penalty_map[indexes] = value_tuple
+            return 0
+        else:
+            isLarger = True
+            largest_tuple = self.index_key_insertion_penalty_map[indexes]
+            
+            for i in xrange(len(value_tuple)):
+                if value_tuple[i] < largest_tuple[i]:
+                    isLarger = False
+                    break
+                ## IF
+            ## FOR
+            if isLarger:
+                self.index_key_insertion_penalty_map[indexes] = value_tuple
+                return 0
+            else:
+                return 1
+        ## ELSE
+    ## DEF
+    
     def getCostImpl(self, design):
         """
             Estimate the Disk Cost for a design and a workload
@@ -230,6 +277,7 @@ class DiskCostComponent(AbstractCostComponent):
         totalWorst = 0
         totalCost = 0
         sess_ctr = 0
+        total_index_penalty = 0
         
         for sess in self.state.workload:
             for op in sess['operations']:
@@ -257,17 +305,21 @@ class DiskCostComponent(AbstractCostComponent):
                     self.state.cache_hit_ctr.put("best_index")
                 pageHits = 0
                 maxHits = 0
+                indexKeyInsertionPenalty = 0
+                
                 isRegex = self.state.__getIsOpRegex__(cache, op)
 
-                for content in workload.getOpContents(op):
-                    try:
-                        opNodes = self.state.__getNodeIds__(cache, design, op)
-                    except:
-                        if self.debug:
-                            LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
-                        self.err_ctr += 1
-                        continue
+                try:
+                    opNodes = self.state.__getNodeIds__(cache, design, op)
+                except:
+                    if self.debug:
+                        LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                    self.err_ctr += 1
+                    continue
                     
+                for content in workload.getOpContents(op):
+                    indexKeyInsertionPenalty += self.getIndexKeyInsertionPenalty(indexKeys, content)
+
                     for node_id in opNodes:
                         lru = self.buffers[node_id]
                         self.total_op_contents += 1
@@ -358,6 +410,7 @@ class DiskCostComponent(AbstractCostComponent):
                 ## FOR (content)
                 totalCost += pageHits
                 totalWorst += maxHits
+                total_index_penalty += indexKeyInsertionPenalty
                 if self.debug:
                     LOG.debug("Op #%d on '%s' -> [pageHits:%d / worst:%d]",\
                         op["query_id"], op["collection"], pageHits, maxHits)
@@ -369,6 +422,13 @@ class DiskCostComponent(AbstractCostComponent):
 
             ## FOR (sess)
 
+        self.total_index_insertion_penalty = total_index_penalty
+        
+        # Add index insertion penalty to the total cost
+        if not self.no_index_insertion_penalty:
+            totalCost += total_index_penalty
+        ## IF
+        
         # The final disk cost is the ratio of our estimated disk access cost divided
         # by the worst possible cost for this design. If we don't have a worst case,
         # then the cost is simply zero
