@@ -7,7 +7,7 @@ sys.path.append(os.path.join(basedir, "../../libs"))
 
 from designcandidates import DesignCandidates
 from design import Design
-from designer import Designer
+#from designer import Designer
 from utilmethods import *
 
 # Designer Algorithms

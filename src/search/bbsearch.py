@@ -120,8 +120,7 @@ class BBSearch ():
         self.onTerminate()
 
         self.usedTime = time.time() - self.startTime
-        
-        return self.bestDesign, self.bestCost
+    ## DEF
 
     def listAllNodes(self):
         """

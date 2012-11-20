@@ -24,6 +24,9 @@ class CostModelTestCase(MongoDBTestCase):
     """
 
     COLLECTION_NAME = "apple"
+    COLLECTION_NAME_2 = "microsoft"
+    COLLECTION_NAME_3 = "google"
+    
     NUM_DOCUMENTS = 10000000
     NUM_SESSIONS = 1
     NUM_FIELDS = 1
@@ -119,7 +122,7 @@ class CostModelTestCase(MongoDBTestCase):
         queryPredicates['field01'] = constants.PRED_TYPE_EQUALITY
 
         responseContent['field00'] = random.randint(0, 100)
-        queryContent['field00'] = responseContent['field01']
+        queryContent['field00'] = responseContent['field00']
         queryPredicates['field00'] = constants.PRED_TYPE_EQUALITY
 
         projectionField['field02'] = random.randint(0, 100)
@@ -143,7 +146,7 @@ class CostModelTestCase(MongoDBTestCase):
         sess['end_time'] = timestamp
         timestamp += 1
 
-        # generate query 2 querying field00, field01 but without projection field
+        # generate query 3 querying field00, field01 but without projection field
         _id = str(random.random())
         queryId = long((2<<16) + 3)
         queryContent = { }
@@ -158,7 +161,7 @@ class CostModelTestCase(MongoDBTestCase):
         queryPredicates['field01'] = constants.PRED_TYPE_EQUALITY
 
         responseContent['field00'] = random.randint(0, 100)
-        queryContent['field00'] = responseContent['field01']
+        queryContent['field00'] = responseContent['field00']
         queryPredicates['field00'] = constants.PRED_TYPE_EQUALITY
 
         queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
@@ -180,6 +183,72 @@ class CostModelTestCase(MongoDBTestCase):
         sess['end_time'] = timestamp
         timestamp += 1
 
+        # generate query 4 querying field00, field01 but it goes to collection 2
+        _id = str(random.random())
+        queryId = long((2<<16) + 4)
+        queryContent = { }
+        queryPredicates = { }
+        projectionField = { }
+
+        responseContent = {"_id": _id}
+        responseId = (queryId<<8)
+
+        responseContent['field00'] = random.randint(0, 100)
+        queryContent['field00'] = responseContent['field00']
+        queryPredicates['field00'] = constants.PRED_TYPE_EQUALITY
+
+        queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
+        op = Session.operationFactory()
+        op['collection']    = CostModelTestCase.COLLECTION_NAME_2
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = queryId
+        op['query_content'] = [ queryContent ]
+        op['resp_content']  = [ responseContent ]
+        op['resp_id']       = responseId
+        op['predicates']    = queryPredicates
+        op['query_time']    = timestamp
+        op['query_fields']   = projectionField
+        timestamp += 1
+        op['resp_time']    = timestamp
+
+        sess['operations'].append(op)
+
+        sess['end_time'] = timestamp
+        timestamp += 1
+        
+        # generate query 5 querying field00 but it goes to collection 3
+        _id = str(random.random())
+        queryId = long((2<<16) + 5)
+        queryContent = { }
+        queryPredicates = { }
+        projectionField = { }
+
+        responseContent = {"_id": _id}
+        responseId = (queryId<<8)
+
+        responseContent['field00'] = random.randint(0, 100)
+        queryContent['field00'] = responseContent['field00']
+        queryPredicates['field00'] = constants.PRED_TYPE_EQUALITY
+
+        queryContent = { constants.REPLACE_KEY_DOLLAR_PREFIX + "query": queryContent }
+        op = Session.operationFactory()
+        op['collection']    = CostModelTestCase.COLLECTION_NAME_3
+        op['type']          = constants.OP_TYPE_QUERY
+        op['query_id']      = queryId
+        op['query_content'] = [ queryContent ]
+        op['resp_content']  = [ responseContent ]
+        op['resp_id']       = responseId
+        op['predicates']    = queryPredicates
+        op['query_time']    = timestamp
+        op['query_fields']   = projectionField
+        timestamp += 1
+        op['resp_time']    = timestamp
+
+        sess['operations'].append(op)
+
+        sess['end_time'] = timestamp
+        timestamp += 1
+        
         sess.save()
 
         # Use the MongoSniffConverter to populate our metadata

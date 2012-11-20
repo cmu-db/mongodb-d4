@@ -95,6 +95,7 @@ class TestWorkloadCombiner(CostModelTestCase):
         # Cost should remain the same after restoring the original workload
         self.state.restoreOriginalWorkload()
         self.cm.reset()
+        print "child collection ", self.cm.child_collections
         self.cm.state.reset()
         cost2 = self.cm.getCost(d0)
 

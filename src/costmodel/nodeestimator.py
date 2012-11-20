@@ -120,7 +120,8 @@ class NodeEstimator(object):
                     try:
                         node_id = self.computeTouchedNode(values)
                     except:
-                        LOG.error("Unexpected error when computing touched nodes\n%s" % pformat(values))
+                        if self.debug:
+                            LOG.error("Unexpected error when computing touched nodes\n%s" % pformat(values))
                         raise
                     for i in xrange(num_touched):
                         if node_id >= self.num_nodes: node_id = 0

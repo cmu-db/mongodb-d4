@@ -211,11 +211,15 @@ class MongoSniffConverter(AbstractConverter):
             origTotal += len(sess['operations'])
             sessions.append(sess)
         ## FOR
+        nextSessId += 1
+        
+        avg_ops = 0 if origHistogram.getSampleCount() == 0 else (origTotal / float(origHistogram.getSampleCount()))
         LOG.info("BEFORE Sessionization\n" +
                  "  # of Sessions: %d\n" +
-                 "  Avg Ops per Session: %.2f", \
+                 "  Avg Ops per Session: %.2f\n" +
+                 "  Next Session Id: %d", \
                  origHistogram.getSampleCount(), \
-                 (origTotal / float(origHistogram.getSampleCount())))
+                 avg_ops, nextSessId)
         
         # Then split them into separate sessions
         s.calculateSessions()
@@ -254,11 +258,12 @@ class MongoSniffConverter(AbstractConverter):
             # deletable.append(sess)
             sess.delete()
         ## FOR
+        avg_ops = 0 if origHistogram.getSampleCount() == 0 else (origTotal / float(origHistogram.getSampleCount()))
         LOG.info("AFTER Sessionization\n" +
                  "  # of Sessions: %d\n" +
                  "  Avg Ops per Session: %.2f", \
                  newHistogram.getSampleCount(), \
-                 (newTotal / float(newHistogram.getSampleCount())))
+                 avg_ops)
         if self.debug:
             LOG.debug("Ops per Session\n%s" % newHistogram)
             

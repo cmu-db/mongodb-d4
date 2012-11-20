@@ -39,6 +39,7 @@ from fastlrubuffer import FastLRUBuffer
 from fastlrubufferusingwindow import FastLRUBufferWithWindow
 from workload import Session
 from util import Histogram, constants
+from search.utilmethods import getIndexSize
 
 LOG = logging.getLogger(__name__)
 
@@ -60,12 +61,24 @@ class DiskCostComponent(AbstractCostComponent):
         
         self.err_ctr = 0
         self.total_op_contents = 0
+        
+        self.col_cost_map = { }
+        self.child_collections = set()
+        # Map from parent to its children and grandchildren
+        # For instance, if A is embedded into B and B is embedded into C
+        # the map will be key: C, value: B, A
+        self.parent_to_children_map = { }
+        
+        self.no_index_size_estimation = True
     ## DEF
-
 
     def reset(self):
         for buf in self.buffers:
             buf.reset()
+        ## FOR
+        self.col_cost_map = { }
+        self.child_collections = set()
+        self.parent_to_children_map = { } 
     ## DEF
     
     def __GetCollectionsInProperOder__(self, design):
@@ -83,29 +96,31 @@ class DiskCostComponent(AbstractCostComponent):
 
         sorted_collection = [x[0] for x in sorted_collection_with_Score]
         return sorted_collection
-
+    ## DEF
+    
     def __update_score__(self, col, design, collection_scores):
         parent_col = design.getDenormalizationParent(col)
         if parent_col:
             collection_scores[parent_col] += 1
             self.__update_score__(parent_col, design, collection_scores)
-            
+        ## IF
+    ## DEF
+    
     def buildEmbeddingCostDictionary(self, design):
         # we should build a set which contains the parent collections from the design so that we can increase the cost
         # of queries to these collections
-        col_cost_map = { }
-        child_collections = set()
         previous_chains = [ ]
         for col_name in self.__GetCollectionsInProperOder__(design):
             parent_child_chain = [ ]
             parent_col = design.getDenormalizationParent(col_name)
             child_col = col_name
             while parent_col:
-                child_collections.add(child_col)
+                self.child_collections.add(child_col)
                 parent_child_chain.append((parent_col, child_col))
                 child_col = parent_col
                 parent_col = design.getDenormalizationParent(child_col)
-            ## FOR
+            ## WHILE
+        
             isBroken = False
             for tup in parent_child_chain:
                 if tup in previous_chains:
@@ -117,17 +132,38 @@ class DiskCostComponent(AbstractCostComponent):
                 continue
             
             if len(parent_child_chain) > 0:
-                if not parent_child_chain[-1][0] in col_cost_map:
-                    col_cost_map[parent_child_chain[-1][0]] = 1.0
+                if not parent_child_chain[-1][0] in self.col_cost_map:
+                    self.col_cost_map[parent_child_chain[-1][0]] = 1.0
                     
                 for tup in parent_child_chain:
                     col_info = self.state.collections[tup[0]]
-                    col_cost_map[parent_child_chain[-1][0]] *= col_info['embedding_ratio'].get(tup[1], 1.0)
+                    key = tup[1]
+                    if key.find('.') != -1:
+                        key = key.replace('.', '__')
+                    self.col_cost_map[parent_child_chain[-1][0]] *= col_info['embedding_ratio'].get(key, 1.0)
                 ## FOR
                 previous_chains.extend(parent_child_chain)
+                
+                # Add this chain to the map
+                parent_collection_name = parent_child_chain[-1][0] # the parent collection is the first element of the last element the chain
+                direct_child = parent_child_chain[-1][1] # This is the direct child 
+                if parent_collection_name not in self.parent_to_children_map:
+                    self.parent_to_children_map[parent_collection_name] = set()
+                ## IF
+                self.parent_to_children_map[parent_collection_name].add(direct_child)
+                
+                # let's see if there are more than one element in the chain :)
+                if not self.no_index_size_estimation:
+                    length_chain = len(parent_child_chain)
+                    if length_chain > 1:
+                        for i in xrange(length_chain-1-1, -1, -1):
+                            self.parent_to_children_map[parent_collection_name].add(parent_child_chain[i][1])
+                            self.parent_to_children_map[parent_collection_name].add(parent_child_chain[i][0])
+                        ## FOR
+                    ## IF
+                ## IF
+            ## IF
         ## FOR
-        
-        return col_cost_map, child_collections
     ## DEF
     
     def getCostImpl(self, design):
@@ -148,8 +184,8 @@ class DiskCostComponent(AbstractCostComponent):
         #     LOG.info(lru)
         #     lru.validate()
         # Ok strap on your helmet, this is the magical part of the whole thing!
-        #
-        cost_map, child_collections = self.buildEmbeddingCostDictionary(design)
+        
+        self.buildEmbeddingCostDictionary(design)
         #print "Magic map: ", pformat(cost_map)
         #print "Magic list: ", child_collections
         # Outline:
@@ -211,40 +247,37 @@ class DiskCostComponent(AbstractCostComponent):
                 cache = self.state.getCacheHandle(col_info)
 
                 # Check whether we have a cache index selection based on query_hashes
-                indexKeys, covering = cache.best_index.get(op["query_hash"], (None, None))
+                indexKeys, covering, index_size, slot_size = cache.best_index.get(op["query_hash"], (None, None, None, None))
                 if indexKeys is None:
-                    indexKeys, covering = self.guessIndex(design, op)
+                    indexKeys, covering, index_size, slot_size = self.guess_op_info(design, op)
                     if self.state.cache_enable:
                         if self.debug: self.state.cache_miss_ctr.put("best_index")
-                        cache.best_index[op["query_hash"]] = (indexKeys, covering)
+                        cache.best_index[op["query_hash"]] = (indexKeys, covering, index_size, slot_size)
                 elif self.debug:
                     self.state.cache_hit_ctr.put("best_index")
                 pageHits = 0
                 maxHits = 0
                 isRegex = self.state.__getIsOpRegex__(cache, op)
-                
-                slot_size = self.guess_slot_size(col_info, cost_map, op, child_collections, design)
-                #print "collection: ", op['collection']
-                #print "slot size: ", slot_size
-                # Grab all of the query contents
-                #print "content: ", op['query_content']
+
                 for content in workload.getOpContents(op):
                     try:
                         opNodes = self.state.__getNodeIds__(cache, design, op)
                     except:
-                        raise Exception("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                        if self.debug:
+                            LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
                         self.err_ctr += 1
-                        
+                        continue
+                    
                     for node_id in opNodes:
                         lru = self.buffers[node_id]
                         self.total_op_contents += 1
                         maxHits += cache.fullscan_pages
                         
-                        # If slot size is too large, we consider it as a full page scan
-                        if slot_size >= constants.SLOT_SIZE_LIMIT:
-                            pageHits += cache.fullscan_pages
-                            continue
-                        ## FOR
+                        ## If slot size is too large, we consider it as a full page scan
+                        #if slot_size >= constants.SLOT_SIZE_LIMIT:
+                            #pageHits += cache.fullscan_pages
+                            #continue
+                        ### FOR
                         
                         # TODO: Need to handle whether it's a scan or an equality predicate
                         # TODO: We need to handle when we have a regex predicate. These are tricky
@@ -270,7 +303,7 @@ class DiskCostComponent(AbstractCostComponent):
                             elif self.debug:
                                 self.state.cache_hit_ctr.put("index_docIds")
                                 ## IF
-                            hits = lru.getDocumentFromIndex(indexKeys, documentId, 1)
+                            hits = lru.getDocumentFromIndex(indexKeys, index_size)
                             # print "hits: ", hits
                             pageHits += hits
                             # maxHits += hits if op['type'] == constants.OP_TYPE_INSERT else cache.fullscan_pages
@@ -339,7 +372,7 @@ class DiskCostComponent(AbstractCostComponent):
         # The final disk cost is the ratio of our estimated disk access cost divided
         # by the worst possible cost for this design. If we don't have a worst case,
         # then the cost is simply zero
-        LOG.info("Total operation contents %s, errors %s", self.total_op_contents, self.err_ctr)
+        if self.debug: LOG.info("Total operation contents %s, errors %s", self.total_op_contents, self.err_ctr)
         assert totalCost <= totalWorst,\
             "Estimated total pageHits [%d] is greater than worst case pageHits [%d]" % (totalCost, totalWorst)
         final_cost = float(totalCost) / float(totalWorst) if totalWorst else 0
@@ -366,29 +399,16 @@ class DiskCostComponent(AbstractCostComponent):
             LOG.debug("-"*100)
             LOG.debug("Buffer Usage %.2f%% [total=%d / used=%d]",buffer_ratio*100, buffer_total, (buffer_total - buffer_remaining))
     ## DEF
-
-    def reset(self):
-        for lru in self.buffers:
-            lru.reset()
-    ## DEF
     
-    def guess_slot_size(self, col_info, cost_map, op, child_collections, design):
-        assert not op['collection'] in child_collections, "collection %s should not be queried. design \n%s" % (op['collection'], design)
-        
-        if op['collection'] in cost_map:
-            return int(math.ceil(cost_map[op['collection']])) 
-        else:
-            return 1
-    ## DEF
-    
-    def guessIndex(self, design, op):
+    def guess_op_info(self, design, op):
         """
             Return a tuple containing the best index to use for this operation and a boolean
             flag that is true if that index covers the entire operation's query
         """
         # Simply choose the index that has most of the fields
         # referenced in the operation.
-        indexes = design.getIndexes(op['collection'])
+        col_name = op['collection']
+        indexes = design.getIndexes(col_name)
         op_contents = workload.getOpContents(op)
         # extract the keys from op_contents
         op_index_list = []
@@ -422,7 +442,7 @@ class DiskCostComponent(AbstractCostComponent):
                 # If the ratios are the same, then choose the
                 # one with the most keys
                 if field_ratio == best_ratio:
-                    if len(indexes[i]) < len(best_index):
+                    if len(indexes[i]) <= len(best_index):
                         continue
 
                 if field_ratio != 0:
@@ -455,7 +475,35 @@ class DiskCostComponent(AbstractCostComponent):
             ## IF
         ## IF
 
-        return best_index, covering
+        # Get the size of the best index
+        if not self.no_index_size_estimation:
+            index_size = 0
+            col_info = self.state.collections[col_name]
+            index_size += getIndexSize(col_info, best_index)
+            
+            if col_name in self.parent_to_children_map:
+                children_set = self.parent_to_children_map[col_name]
+                if len(children_set) > 0:
+                    for child in children_set:
+                        col_info = self.state.collections[child]
+                        index_size += getIndexSize(col_info, best_index)
+                    ## FOR
+                ## IF
+            ## IF
+        ## IF
+        else:
+            index_size = 1
+        
+        # Get the slot size of this operation
+        assert not col_name in self.child_collections, "collection %s should not be queried.\n child_collecitons: %s\ndesign: \n%s" % (col_name, self.child_collections, design)
+        slot_size = 0
+        
+        if col_name in self.col_cost_map:
+            slot_size = int(math.ceil(self.col_cost_map[col_name])) 
+        else:
+            slot_size = 1
+            
+        return best_index, covering, index_size, slot_size
     ## DEF
 
 ## CLASS

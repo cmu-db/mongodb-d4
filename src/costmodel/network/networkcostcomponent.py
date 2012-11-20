@@ -34,6 +34,7 @@ from costmodel import AbstractCostComponent
 from workload import Session
 from util import Histogram, constants
 
+from pprint import pformat
 LOG = logging.getLogger(__name__)
 
 ## ==============================================
@@ -48,7 +49,6 @@ class NetworkCostComponent(AbstractCostComponent):
         self.cache = { }
         self.lastDesign = None
         
-        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
     
@@ -73,7 +73,8 @@ class NetworkCostComponent(AbstractCostComponent):
         cost = 0
         total_op_count = 0
         total_msg_count = 0
-        for col_name in self.state.collections.iterkeys():
+        total_err = 0
+        for col_name in self.state.col_names:
             # Collection is not in design.. don't include the op
             if not design.hasCollection(col_name):
                 if self.debug: LOG.debug("NOT in design: SKIP - All operations on %s", col_name)
@@ -94,12 +95,16 @@ class NetworkCostComponent(AbstractCostComponent):
                     # Process this op!
                     cache = self.state.getCacheHandleByName(col_info = self.state.collections[col_name])
                     op_count += 1
-                    msgs = self.state.__getNodeIds__(cache, design, op)
-                    assert len(msgs) <= self.state.num_nodes, \
-                        "%s -- NumMsgs[%d] <= NumNodes[%d]" % (msgs, len(msgs), self.state.num_nodes)
-                    msg_count += len(msgs)
-                    # if self.debug: LOG.debug("%s -> Messages %s", op, msgs)
-                
+                    try:
+                        msgs = self.state.__getNodeIds__(cache, design, op)
+                        assert len(msgs) <= self.state.num_nodes, \
+                            "%s -- NumMsgs[%d] <= NumNodes[%d]" % (msgs, len(msgs), self.state.num_nodes)
+                        msg_count += len(msgs)
+                        # if self.debug: LOG.debug("%s -> Messages %s", op, msgs)
+                    except:
+                        #LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                        total_err += 1
+                        continue
                 # Store it in our cache so that we can reuse it
                 self.cache[col_name] = (op_count, msg_count)
 
@@ -109,8 +114,8 @@ class NetworkCostComponent(AbstractCostComponent):
         if total_op_count > 0:
             cost = total_msg_count / float(self.state.orig_op_count * self.state.num_nodes)
 
-        if self.debug:
-            LOG.debug("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
+        if self.debug: LOG.info("Total ops %s, error %s", total_op_count, total_err)
+        LOG.info("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
                       cost, total_msg_count, total_op_count)
         return cost
     ## DEF

@@ -33,6 +33,8 @@ from util import constants
 from util.histogram import Histogram
 from workload import OpHasher
 import workload
+from scipy.stats import mstats
+import random
 
 LOG = logging.getLogger(__name__)
 
@@ -55,7 +57,7 @@ class AbstractConverter():
         self.total_field_ctr = 0
         
         self.hasher = OpHasher()
-
+        self.rng = random.Random()
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
 
@@ -137,7 +139,7 @@ class AbstractConverter():
         ## FOR
         exit("CUPCAKE")
     ## DEF
-
+            
     def postProcess(self, page_size=constants.DEFAULT_PAGE_SIZE):
         """
             The PostProcessor performs final calculations on an already loaded metadata
@@ -157,6 +159,9 @@ class AbstractConverter():
         # Let the converter implementation have a shot at it
         self.postProcessImpl()
 
+        # Calculate the embedding ratio
+        self.calculateEmbeddingRatio()
+        
         # Finalize workload percentage statistics for each collection
         percent_total = 0.0
         for col_info in self.metadata_db.Collection.find():
@@ -176,7 +181,171 @@ class AbstractConverter():
         LOG.warn("Unimplemented %s.postProcessImpl()" % self.__init__.im_class)
         pass
     ## DEF
+    
+    def getEmbeddingRatio(self, parent_col, child_col, foreign_key):
+        '''
+            count how many unique values does the parent collectio and child collection have for the
+            given foreign_key
+        '''
+        commom_values = self.getCommonKeyValues(foreign_key, parent_col, child_col)
+        
+        parent_count_dict = self.getCountOfValues(parent_col, foreign_key, commom_values)
+        child_count_dict = self.getCountOfValues(child_col, foreign_key, commom_values)
+        #LOG.info("parent dict: %s", parent_count_dict)
+        #LOG.info("child dict: %s", child_count_dict)
+        
+        geomean, parent_average = self.getRatio(parent_count_dict, child_count_dict, commom_values)
+        return geomean, parent_average, commom_values
+    ## DEF
 
+    def getRatio(self, parent_count_dict, child_count_dict, values):
+        ratio_list = [ ]
+        parent_sum = 0
+        parent_count = 0
+        
+        for value in values:
+            ratio_list.append(float(child_count_dict[value]) / parent_count_dict[value])
+            parent_count += 1
+            parent_sum += parent_count_dict[value]
+        ## FOR
+        
+        if len(ratio_list) == 0:
+            ratio_list.append(0)
+        ## IF
+        
+        if parent_count > 0:
+            parent_average = float(parent_sum) / parent_count
+        else:
+            parent_average = 0
+        ## IF
+        
+        return mstats.gmean(ratio_list), parent_average
+    ## DEF
+    
+    def getCountOfValues(self, col_name, key, values):
+        """
+            build a histogram of the number of d../inputs/abstractconverter.pyocuments found by the given value
+        """
+        value_count_dict = {x : 0 for x in values}
+        
+        self.dataset_db[col_name].create_index(key)
+        
+        for value in values:
+            value_count_dict[value] = self.dataset_db[col_name].find({key : value}).count()
+        ## FOR
+        
+        self.dataset_db[col_name].drop_indexes()
+        
+        return value_count_dict
+    ## DEF
+    
+    def getCommonKeyValues(self, key, parent_col, child_col):
+        parent_distinct_values = set(self.dataset_db[parent_col].distinct(key))
+        child_distinct_values = set(self.dataset_db[child_col].distinct(key))
+        
+        intersect_values = parent_distinct_values.intersection(child_distinct_values)
+        
+        sample_num = len(intersect_values) if len(intersect_values) < 10000 else 10000 # FIXME use this magic number 1000 so far
+        sampled_values = self.rng.sample(intersect_values, sample_num)
+        
+        if self.debug: LOG.info("sampled values: %s", len(sampled_values))
+
+        return sampled_values
+    ## DEF
+    
+    def calculateEmbeddingRatio(self):
+        for colName in self.dataset_db.collection_names():
+            # Skip ignored collections
+            if colName.split(".")[0] in constants.IGNORED_COLLECTIONS:
+                continue
+            if colName.endswith("$cmd"): continue
+            
+            LOG.info("Calculating embedding ratio for collection '%s'", colName)
+
+            # Get the collection information object
+            # We will use this to store the number times each key is referenced in a query
+            col_info = self.metadata_db.Collection.one({'name': colName})
+            assert col_info, "col_name %s" % colName
+
+            self.calculateFieldEmbeddingRato(col_info, col_info['fields'])
+        ## FOR
+    ## DEF
+    
+    def calculateFieldEmbeddingRato(self, col_info, fields):
+        for k,field in fields.iteritems():
+            # Compute list information
+            if 'parent_candidates' in field and len(field['parent_candidates']) > 0:
+                for tup in field['parent_candidates']:
+                    parent_col = tup[0]
+                    
+                    if parent_col.endswith("$cmd") : continue
+                    
+                    foreign_key = tup[1]
+                    child_col = col_info['name']
+                    
+                    count = 0 # we have no idea the relationship between these two collections, so we use them as both child and parent
+                    while count < 2:
+                        if count == 1:
+                            tmp = parent_col
+                            parent_col = child_col
+                            child_col = tmp
+                        # IF
+                        if self.debug:
+                            LOG.info("%s   --->   %s, key: %s", child_col, parent_col, foreign_key)
+                            
+                        ratio, parent_average, commom_values = self.getEmbeddingRatio(parent_col, child_col, foreign_key)
+                        
+                        if self.debug:
+                            LOG.info("ratio: %s", ratio)
+                            LOG.info("parent_average: %s", parent_average)
+                        
+                        if ratio > 1.0 and (parent_average >= 1.0 and parent_average <= 2.0 and len(commom_values) > 1): # if it is a 1:N relationship from parent to child
+                            parent_col_info = self.metadata_db.Collection.fetch_one({"name": parent_col})
+                            if self.debug: LOG.info("%s might be embedded into %s", child_col, parent_col)
+                            
+                            if child_col.find('.') != -1:
+                                ## HACK HACK HACK
+                                child_col = child_col.replace('.', '__')
+                            ## IF
+                            if child_col in parent_col_info['embedding_ratio']:
+                                previous_ratio = parent_col_info['embedding_ratio'][child_col]
+                                if ratio > previous_ratio:
+                                    parent_col_info['embedding_ratio'][child_col] = ratio
+                            else:
+                                parent_col_info['embedding_ratio'][child_col] = ratio
+                                
+                            parent_col_info.save()
+                        ## IF
+                        
+                        count += 1
+                    ## WHILE
+                ## FOR
+            ## IF
+            
+            if 'parent_col' in field and field['parent_col'] and 'parent_key' in field and field['parent_key']: # This is probably only used by mysql trace
+                # add the ratio to the parent collection
+                parent_col_info = self.metadata_db.Collection.fetch_one({"name": field['parent_col']})
+                ratio, parent_average, commom_values = self.getEmbeddingRatio(field['parent_col'], col_info['name'], field["parent_key"])
+                
+                if col_info['name'] in parent_col_info['embedding_ratio']:
+                    previous_ratio = parent_col_info['embedding_ratio'][col_info['name']]
+                    if ratio > previous_ratio:
+                        parent_col_info['embedding_ratio'][col_info['name']] = ratio
+                else:
+                    parent_col_info['embedding_ratio'][col_info['name']] = ratio
+                ## IF
+                
+                LOG.info("child col: %s", col_info['name'])
+                LOG.info("parent col: %s", field['parent_col'])
+                LOG.info("embedding_ratio: %s", parent_col_info['embedding_ratio'][col_info['name']])
+                parent_col_info.save()
+                
+            if 'fields' in field and field['fields']:
+                self.computeFieldStats(col_info, field['fields'])
+        ## FOR
+    ## DEF
+    
+    
     def addQueryHashes(self):
         total = self.metadata_db.Session.find().count()
         LOG.info("Adding query hashes to %d sessions" % total)
@@ -568,11 +737,12 @@ class AbstractConverter():
                     field['selectivity'] = float(field['cardinality']) / field['num_values']
                 del field['distinct_values']
                 del field['num_values']
+                
             if 'fields' in field and field['fields']:
                 self.computeFieldStats(col_info, field['fields'])
         ## FOR
     ## DEF
-
+    
     ## ==============================================
     ## OPERATION FIXIN'
     ## ==============================================

@@ -64,6 +64,9 @@ class DependencyFinder:
             matches = self.comparisons[col_name].getMatches()
             if matches:
                 for key0, parent_col, parent_key in matches:
+                    splits = key0.split('.')
+                    if len(splits) > 1:
+                        continue
                     if not 'parent_candidates' in col_info['fields'][key0]:
                         col_info['fields'][key0]['parent_candidates'] = [ ]
                     col_info['fields'][key0]['parent_candidates'].append((parent_col, parent_key))
@@ -127,13 +130,15 @@ class DependencyFinder:
             # Special Handling for commands
             if k.startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
                 next_parent = parent
-                if k == "#in":
+                if k == "#in" or k == "#nin":
                     _getListValues(v, parent, extracted)
                     continue
                 elif k == "#date":
                     pass
+                elif k == "#oid":
+                    pass
                 # Things to ignore
-                elif k in ['#options', '#regex', '#lte', '#lt', '#gte', '#gt',]:
+                elif k in ['#not', '#options', '#regex', '#lte', '#lt', '#gte', '#gt', '#or', '#ne', '#exists']:
                     continue
                 else:
                     LOG.info(pformat(content))

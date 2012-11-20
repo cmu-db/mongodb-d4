@@ -53,7 +53,7 @@ class MessageProcessor:
 
             # MSG_CMD_INIT
             if msg.header == MSG_CMD_INIT:
-                self.worker = Worker(msg.data[0],  msg.data[1], self.channel)
+                self.worker = Worker(msg.data[0],  msg.data[1], self.channel, msg.data[2])
             
             elif msg.header == MSG_CMD_LOAD_DB:
                 self.worker.load()

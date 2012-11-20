@@ -38,13 +38,23 @@ class WorkloadCombiner:
     def __init__(self, col_names, workload):
         self.lastDesign = None
         self.col_names = col_names
-        self.workload = copy.deepcopy(workload)
+        self.temperary_workload = workload # this means this workload may not be processed
+        self.workload = None # This is the workload that will be processed and returned
+        self.col_sess_xref = None
+
+        self.debug = LOG.isEnabledFor(logging.DEBUG)
+    ## DEF
+    
+    def prepareWorkload(self):
+        self.col_sess_xref = { }
+        # Build mapping from collections to sessions
         
-        # Build indexes from collections to sessions
-        self.col_sess_xref = {}
         for col_name in self.col_names:
             self.col_sess_xref[col_name] = []
-
+        ## FOR
+        
+        self.workload = copy.deepcopy(self.temperary_workload)
+        
         for sess in self.workload:
             cols = set()
             for op in sess["operations"]:
@@ -54,21 +64,19 @@ class WorkloadCombiner:
             for col_name in cols:
                 self.col_sess_xref[col_name].append(sess)
         ## FOR (sess)
-        
-        self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
-
+    
     def process(self, design):
         """
             For a new design, return a modified version of the workload where operations
             are combined with each other based on the denormalization scheme.
         """
         ## If the design doesn't have any collection embedding, return None
-        query_count = 0
-        for sess in self.workload:
-            for op in sess['operations']:
-                query_count += len(op['query_content'])
-        print "query count: ", query_count
+        #query_count = 0
+        #for sess in self.workload:
+            #for op in sess['operations']:
+                #query_count += len(op['query_content'])
+        #print "query count: ", query_count
         
         hasDenormCol = False
         for col_name in design.getCollections():
@@ -81,6 +89,9 @@ class WorkloadCombiner:
         if not hasDenormCol:
             return None
         
+        # Here we really need to prepare the workload for use
+        self.prepareWorkload()
+        
         collectionsInProperOrder = self.__GetCollectionsInProperOder__(design)
 
         for col_name in collectionsInProperOrder:
@@ -90,11 +101,11 @@ class WorkloadCombiner:
 
         self.lastDesign = design.copy()
         
-        query_count = 0
-        for sess in self.workload:
-            for op in sess['operations']:
-                query_count += len(op['query_content'])
-        print "query count: ", query_count
+        #query_count = 0
+        #for sess in self.workload:
+            #for op in sess['operations']:
+                #query_count += len(op['query_content'])
+        #print "query count: ", query_count
         return self.workload
     ## DEF
         
@@ -156,7 +167,7 @@ class WorkloadCombiner:
         sorted_collection_with_Score = sorted(collection_scores.iteritems(), key=operator.itemgetter(1))
 
         sorted_collection = [x[0] for x in sorted_collection_with_Score]
-        print "sorted_collection: ", sorted_collection
+
         return sorted_collection
 
     def __update_score__(self, col, design, collection_scores):

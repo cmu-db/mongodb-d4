@@ -28,8 +28,10 @@ class Coordinator:
         self.queue = mch.make_receive_queue()
     
         # Tell every client to start
-        self.send2All(MSG_CMD_INIT, (config, args))
-        
+        worker_id = 0
+        for channel in self.channels:
+            sendMessage(MSG_CMD_INIT, (config, args, worker_id), channel)
+            worker_id += 1
         ## FOR
         
         # Count down until all clients are initialized
@@ -64,13 +66,13 @@ class Coordinator:
                 msg = getMessage(res)
                 if msg.header == MSG_INITIAL_DESIGN:
                     num_of_response += 1
-                    LOG.info("Got one initial design")
+                    LOG.info("Got one initial design from worker #%s", msg.data[2])
                     if msg.data[0] < bestInitCost:
                         bestInitCost = msg.data[0]
                         bestInitDesign = msg.data[1].copy()
                     ## IF
                     if num_of_response == len(self.channels):
-                        LOG.info("Got all responses and found the best initial design. Distribute it to all clients...")
+                        LOG.info("Got all responses and found the best initial design. Distribute it to all clients")
                         LOG.info("Initial cost: %s", bestInitCost)
                         LOG.info("Initial design: \n%s", bestInitDesign)
                         break
@@ -80,7 +82,7 @@ class Coordinator:
                     LOG.info("invalid data\n%s", msg.data)
                     exit("CUPCAKE")
             except Queue.Empty:
-                LOG.info("WAITING, Got %d responses", num_of_response)
+                LOG.info("Got [%d] responses, missing [%d]", num_of_response, len(self.channels) - num_of_response)
         ## WHILE
         
         assert bestInitCost != sys.maxint
@@ -109,7 +111,7 @@ class Coordinator:
                 
                 if msg.header == MSG_EXECUTE_COMPLETED:
                     running_clients -= 1
-                    LOG.info("One process has terminated, there are %d left.", running_clients)
+                    LOG.info("worker #%s has terminated, [%d] workers left.", msg.data, running_clients)
                     if running_clients == 0:
                         break
                 ## IF
@@ -129,7 +131,7 @@ class Coordinator:
                     bestDesign = msg.data[1]
                     
                     if bestCost < self.bestCost:
-                        LOG.info("Got new best design. Distribute it!")
+                        LOG.info("Got a new best design. Distribute it!")
                         LOG.info("Best cost is updated from %s to %s", self.bestCost, bestCost)
                         LOG.info("Time eplased: %s",time.time() - start)
                         #LOG.info("New best design\n%s", bestDesign)
@@ -143,21 +145,18 @@ class Coordinator:
                 ## ELIF
                 elif msg.header == MSG_SEARCH_INFO:
                     #LOG.info("%s","*"*40)
-                    LOG.info("One client starts a new BBsearch")
-                    #LOG.info("Time limit for this round: %s", msg.data[1])
+                    LOG.info("worker #%s starts a new BBsearch, time limit: [%s], patient time used: [%s], worker run time: [%s]", msg.data[5], msg.data[1], msg.data[4], msg.data[3])
                     #LOG.info("Relaxed collections: %s", msg.data[0])
                     #LOG.info("Relaxed Design:\n%s", msg.data[2])
-                    #LOG.info("Current best design:\n%s", msg.data[3])
-                    #LOG.info("Elapsed time for this client: %s", msg.data[4])
                 ## ELIF
                 elif msg.header == MSG_START_SEARCHING:
-                    LOG.info("One process started searching, we are good :)")
+                    LOG.info("worker #%s started searching", msg.data)
                     started_searching_process += 1
                     if started_searching_process == len(self.channels):
                         LOG.info("Perfect! All the processes have started searching")
                 ## ELIF
                 elif msg.header == MSG_FINISHED_UPDATE:
-                    LOG.info("One process finished updating new best cost")
+                    LOG.info("worker #%s finished updating new best cost", msg.data)
                     finished_update += 1
                     if finished_update == len(self.channels):
                         LOG.info("Perfect! All the processes have finished update")
@@ -188,10 +187,17 @@ class Coordinator:
         self.sendExecuteCommand(bestInitCost, bestInitDesign)
         
         end = time.time()
-        LOG.info("All the clients finished executing")
+        LOG.info("All the workers finished executing")
         LOG.info("Best cost: %s", self.bestCost)
         LOG.info("Best design: \n%s", self.bestDesign)
         LOG.info("Time elapsed: %s", end - start)
+        
+        outputfile = self.args.get("output_design", None)
+        if outputfile:
+            LOG.info("Writing final best design into files")
+            f = open(outputfile, 'w')
+            f.write(self.bestDesign.toJSON())
+            f.close()
     ## DEF
     
     def send2All(self, cmd, message):

@@ -107,6 +107,9 @@ class Sessionizer:
         # Lower + Upper Quartiles
         lowerQuartile, upperQuartile = mathutil.quartiles(allDiffs)
         
+        if lowerQuartile is None or upperQuartile is None:
+            LOG.warn("Null quartiles! Can't continue!")
+            return
         # Interquartile Range
         iqr = (upperQuartile - lowerQuartile) * 1.5
         
@@ -151,7 +154,7 @@ class Sessionizer:
         # the same number of operations as RANDOMIZE_TARGET
         if self.randomize:
             num_outliers = len(outlierCounts)
-            force = random.randint(1, int(num_outliers*0.10))
+            force = 1 if int(num_outliers*0.10) == 1 else random.randint(1, int(num_outliers*0.10))
             LOG.warn("Forcing %d random outliers out of %d to be chosen from workload", force, num_outliers)
         else:
             force = 0

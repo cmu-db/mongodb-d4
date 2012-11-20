@@ -29,6 +29,11 @@ import os
 import sys
 from pprint import pformat
 
+basedir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(os.path.join(basedir, ".."))
+sys.path.append(os.path.join(basedir, "../costmodel"))
+sys.path.append(os.path.join(basedir, "../multithreaded"))
+
 # mongodb-d4
 import workload
 import catalog
@@ -40,9 +45,6 @@ from costmodel import CostModel
 from util import constants
 from util import configutil
 from designcandidates import DesignCandidates
-
-basedir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(os.path.join(basedir, "../multithreaded"))
 
 from message import *
 import thread
@@ -290,7 +292,7 @@ class Designer():
     ## HACK HACK HACK
     # the replay flag and replay_design is used to re-evalutated the design read from a design file
     # This is very ugly...but we don't have time now...
-    def load(self, replay=False, replay_design=None):
+    def load(self, replay=False, replay_design=None, init=False):
         """Perform the actual search for a design"""
         isShardingEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_sharding')
         isIndexesEnabled = self.config.getboolean(configutil.SECT_DESIGNER, 'enable_indexes')
@@ -300,7 +302,7 @@ class Designer():
         self.workload = self.loadWorkload(self.collections)
         # Generate all the design candidates
         self.designCandidates = self.generateDesignCandidates(self.collections, isShardingEnabled, isIndexesEnabled, isDenormalizationEnabled)
-        LOG.info("candidates: %s\n", self.designCandidates)
+        #LOG.info("candidates: %s\n", self.designCandidates)
         # Instantiate cost model
         cmConfig = {
             'weight_network': self.config.getfloat(configutil.SECT_COSTMODEL, 'weight_network'),
@@ -322,40 +324,28 @@ class Designer():
         
         if not replay:
             initialDesign = InitialDesigner(self.collections, self.workload, self.config).generate()
-            initialDesign.reset("CALL_FORWARDING")
-            initialDesign.reset("SPECIAL_FACILITY")
-            initialDesign.reset("SUBSCRIBER")
-            initialDesign.reset("ACCESS_INFO")
             
-            initialDesign.recover("CALL_FORWARDING")
-            initialDesign.recover("SPECIAL_FACILITY")
-            initialDesign.recover("SUBSCRIBER")
-            initialDesign.recover("ACCESS_INFO")
+            if init:
+                print initialDesign.toJSON()
+            #import pycallgraph
+            #pycallgraph.start_trace()
             
-            initialDesign.setDenormalizationParent("ACCESS_INFO", "SUBSCRIBER")
-            initialDesign.setDenormalizationParent("SPECIAL_FACILITY", "SUBSCRIBER")
-            initialDesign.setDenormalizationParent("CALL_FORWARDING", "SPECIAL_FACILITY")
-            
-            initialDesign.addIndex("SUBSCRIBER", ["s_id"])
-            initialDesign.addIndex("SUBSCRIBER", ["sub_nbr","s_id"])
-            initialDesign.addShardKey("SUBSCRIBER", ["s_id"])
-            
-            LOG.info("design\n%s", initialDesign)
             initialCost = self.cm.overallCost(initialDesign)
+            
+            #pycallgraph.make_dot_graph('d4.png')
+            
             return initialCost, initialDesign
         else:
             self.cm.overallCost(replay_design)
             return None
     ## DEF
     
-    def search(self, initialCost, initialDesign):
+    def search(self, initialCost, initialDesign, worker_id):
         """
             Main search process starts here
         """
         lock = thread.allocate_lock()
-        
-        outputfile = self.__dict__.get("output_design", None)
-        self.search_method = LNSDesigner(self.collections, self.designCandidates, self.workload, self.config, self.cm, initialDesign, initialCost, self.channel, lock, outputfile)
+        self.search_method = LNSDesigner(self.collections, self.designCandidates, self.workload, self.config, self.cm, initialDesign, initialCost, self.channel, lock, worker_id)
         self.search_method.start()
     ## DEF
 
