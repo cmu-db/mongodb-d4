@@ -278,6 +278,7 @@ class DiskCostComponent(AbstractCostComponent):
         totalCost = 0
         sess_ctr = 0
         total_index_penalty = 0
+        total_worst_index_penalty = 0
         
         for sess in self.state.workload:
             for op in sess['operations']:
@@ -306,6 +307,7 @@ class DiskCostComponent(AbstractCostComponent):
                 pageHits = 0
                 maxHits = 0
                 indexKeyInsertionPenalty = 0
+                worst_index_penalty = 0
                 
                 isRegex = self.state.__getIsOpRegex__(cache, op)
 
@@ -318,18 +320,19 @@ class DiskCostComponent(AbstractCostComponent):
                     continue
                     
                 for content in workload.getOpContents(op):
-                    indexKeyInsertionPenalty += self.getIndexKeyInsertionPenalty(indexKeys, content)
-
                     for node_id in opNodes:
                         lru = self.buffers[node_id]
                         self.total_op_contents += 1
                         maxHits += cache.fullscan_pages
                         
-                        ## If slot size is too large, we consider it as a full page scan
-                        #if slot_size >= constants.SLOT_SIZE_LIMIT:
-                            #pageHits += cache.fullscan_pages
-                            #continue
-                        ### FOR
+                        indexKeyInsertionPenalty += self.getIndexKeyInsertionPenalty(indexKeys, content)
+                        worst_index_penalty += 1
+                        
+                        # If slot size is too large, we consider it as a full page scan
+                        if slot_size >= constants.SLOT_SIZE_LIMIT:
+                            pageHits += cache.fullscan_pages
+                            continue
+                        ## FOR
                         
                         # TODO: Need to handle whether it's a scan or an equality predicate
                         # TODO: We need to handle when we have a regex predicate. These are tricky
@@ -411,6 +414,8 @@ class DiskCostComponent(AbstractCostComponent):
                 totalCost += pageHits
                 totalWorst += maxHits
                 total_index_penalty += indexKeyInsertionPenalty
+                total_worst_index_penalty += worst_index_penalty
+                
                 if self.debug:
                     LOG.debug("Op #%d on '%s' -> [pageHits:%d / worst:%d]",\
                         op["query_id"], op["collection"], pageHits, maxHits)
@@ -427,6 +432,7 @@ class DiskCostComponent(AbstractCostComponent):
         # Add index insertion penalty to the total cost
         if not self.no_index_insertion_penalty:
             totalCost += total_index_penalty
+            totalWorst += total_worst_index_penalty
         ## IF
         
         # The final disk cost is the ratio of our estimated disk access cost divided
@@ -562,6 +568,9 @@ class DiskCostComponent(AbstractCostComponent):
             slot_size = int(math.ceil(self.col_cost_map[col_name])) 
         else:
             slot_size = 1
+        
+        if slot_size != 1:
+            slot_size *= 100
             
         return best_index, covering, index_size, slot_size
     ## DEF

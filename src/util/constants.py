@@ -104,7 +104,7 @@ SLOT_SIZE_LIMIT = 10
 ## ==============================================
 MIN_SELECTIVITY = 0.25
 
-MAX_INDEX_SIZE = 3
+MAX_INDEX_SIZE = 10
 
 EXAUSTED_SEARCH_BAR = 4
 
