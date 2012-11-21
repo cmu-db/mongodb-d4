@@ -20,6 +20,7 @@ class TestDiskCostIndexesWithProjection(CostModelTestCase):
     def setUp(self):
         CostModelTestCase.setUp(self)
         self.cm = DiskCostComponent(self.state)
+        self.cm.no_index_insertion_penalty = True
         
     ## DEF
     def testDiskCostIndexes(self):
