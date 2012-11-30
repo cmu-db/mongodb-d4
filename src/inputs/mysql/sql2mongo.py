@@ -131,7 +131,7 @@ class Sql2Mongo (object) :
         elif self.query_type == 'INSERT' :
             return constants.OP_TYPE_INSERT
         elif self.query_type == 'UPDATE' :
-            return constants.OP_TYPE_DELETE
+            return constants.OP_TYPE_UPDATE
         else :
             return None
     ## End mongo_type()
