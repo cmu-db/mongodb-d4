@@ -63,7 +63,6 @@ class Denormalizer:
 
     def process(self):
         """Iterates through all operations of all sessions and denormalizs the dataset..."""
-        LOG.info("Denormalizing Database")
         
         # STEP 0: Check the whole design and see if there are collections that have denorm field
         self.loadDesign()
@@ -148,6 +147,7 @@ class Denormalizer:
         if len(self.src2des) == 0:
             return None
         ## IF
+        LOG.info("Denormalizing Database")
         col_names = [ x for x in self.dataset_db.collection_names()]
         workload = [x for x in self.metadata_db.Session.fetch()]
         combiner = WorkloadCombiner(col_names, workload)

@@ -139,15 +139,18 @@ class ReplayCoordinator:
     ## DEF
     
     def setIndexes(self, design):
+        LOG.info("Creating indexes")
         for col_name in design.getCollections():
+            self.dataset_db[col_name].drop_indexes()
+            #self.dataset_db[col_name].
             indexes = design.getIndexes(col_name)
             # The indexes is a list of tuples
             for tup in indexes:
                 index_list = [ ]
                 for element in tup:
-                    index_list.append((element, pymongo.ASCENDING))
+                    index_list.append((str(element), pymongo.ASCENDING))
                 ## FOR
-                self.dataset_db[col_name].create_index(index_list)
+                self.dataset_db[col_name].ensure_index(index_list)
             ## FOR
         ## FOR
     ## DEF
@@ -186,6 +189,14 @@ class ReplayCoordinator:
                     if started_process == len(self.channels):
                         LOG.info("Perfect! All the processes have started executing")
                 ## IF
+                elif msg.header == MSG_OP_INFO:
+                    debug = False
+                    if debug:
+                        LOG.info("--> %s", msg.data[0])
+                        LOG.info("Type: %s", msg.data[1])
+                        LOG.info("1 cmd: %s", msg.data[2])
+                        LOG.info("2 cmd: %s", msg.data[3])
+                ## ELIF
                 elif msg.header == MSG_EXECUTE_COMPLETED:
                     running_clients -= 1
                     LOG.info("One process has terminated, there are %d left.", running_clients)
