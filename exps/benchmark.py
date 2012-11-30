@@ -36,6 +36,7 @@ import execnet
 import logging
 import time
 import threading
+import types
 from datetime import datetime
 from ConfigParser import SafeConfigParser
 from pymongo import Connection
@@ -86,8 +87,10 @@ class Benchmark:
         ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
         ("design", "Path to database design file (must be supported by benchmark).", ""),
         ("logfile", "Path to debug log file for remote execnet processes", None),
+        ("restart", "If true, then restart the mongod server(s)",True), 
+        ("mongostat", "Enable mongostat data collection", False),
+        ("mongostat_dir", "The directory to store the mongostat state output in.", "mongostat"),
         ("mongostat_sleep", "The number of seconds to sleep before collecting new info using mongostat", 10),
-        ("restart","if true it will restart the mongod server(s)",True), 
     ]
     
     '''main class'''
@@ -129,8 +132,7 @@ class Benchmark:
         '''Load configuration file'''
         assert 'config' in self.args
         assert self.args['config'] != None
-        #print("~~~")
-	print(self.args['config'].name)
+        LOG.info("Loading Configuration File: %s", self.args['config'])
         cparser = SafeConfigParser()
         cparser.read(os.path.realpath(self.args['config'].name))
         config = dict()
@@ -163,11 +165,12 @@ class Benchmark:
         config['default']['path'] = basedir
         
         # Fix common problems
-        for s in config.keys():
-            for key in ["duration", "clientprocs"]:
-                if key in config[s]: config[s][key] = int(config[s][key])
-            for key in ["scalefactor"]:
-                if key in config[s]: config[s][key] = float(config[s][key])
+        defaultDictTypes = dict([(x[0], type(x[-1])) for x in self.DEFAULT_CONFIG ])
+        for s in config.iterkeys():
+            for key in config[s].iterkeys():
+                if key in defaultDictTypes and defaultDictTypes[key] != types.NoneType:
+                    config[s][key] = defaultDictTypes[key](config[s][key])
+            ## FOR
             for key in ["path", "logfile"]:
                 if key in config[s]: config[s][key] = os.path.realpath(config[s][key])
         ## FOR
@@ -187,7 +190,7 @@ class Benchmark:
         ## IF
         
         self.config = config
-        LOG.debug("Configuration File:\n%s" % pformat(self.config))
+        LOG.info("Configuration File:\n%s" % pformat(self.config))
     ## DEF
             
     def runBenchmark(self):
@@ -228,23 +231,41 @@ class Benchmark:
             
         # Step 3: Execute the benchmark workload
         if not self.args['no_execute']:
-            mongostat = None
+            # Initialize MongoStats collectors
+            # This will start them up, but they won't start recording anything 
+            # until we actually need them. We want to do this *after* we flush
+            # and restart the mongo servers (to avoid disconnections)
+            mongostats = [ ]
+            if self.args["mongostat"]:
+                mongostats = self.startMongoStatCollection()
             try:
-                # Start mongostat
-                if self.args["mongostat"]:
-                    # FIXME
-                    dbHost = self.config["default"]["hosts"][0]
-                    mongostat = MongoStatCollector(dbHost, SSH_USER, SSH_OPTIONS)
-                    mongostat.start()
-                self.coordinator.execute(self.config, self.channels)
-                self.coordinator.showResult(self.config, self.channels)
+                self.coordinator.execute(self.config, self.channels, mongostats)
             finally:
-                if not mongostat is None:
-                    mongostat.stop()
+                for msc in mongostats:
+                    msc.stop()
+                for msc in mongostats:
+                    msc.join()
+            self.coordinator.showResult(self.config, self.channels)
         ## IF
             
         # Step 4: Clean things up (?)
         # self.coordinator.moreProcessing(self.config, self.channels)
+    ## DEF
+        
+    def startMongoStatCollection(self):
+        mongostats = [ ]
+        
+        outputDir = self.config["default"]["mongostat_dir"]
+        outputInterval = self.config["default"]["mongostat_sleep"]
+        if not os.path.exists(outputDir):
+            LOG.info("Creating mongostat output directory '%s'", outputDir)
+            os.makedirs(outputDir)
+        for dbHost in set(self.config["default"]["hosts"]):
+            outputFile = os.path.join(outputDir, dbHost.split(":")[0]+".csv")
+            msc = MongoStatCollector(dbHost, outputFile, outputInterval=outputInterval)
+            msc.start()
+            mongostats.append(msc)
+        return (mongostats)
     ## DEF
         
     def createChannels(self):
@@ -346,7 +367,7 @@ def setupBenchmarkPath(benchmark):
 ## ==============================================
 ## flushBuffer
 ## ==============================================
-def flushBuffer(host,restart=False):
+def flushBuffer(host, restart=False):
     if restart:
         remoteCmds = [
             #"sudo service mongod stop",
@@ -466,7 +487,13 @@ if __name__=='__main__':
     
     # Run it!
     ben.loadConfig()
-    ben.runBenchmark()
+    try:
+        ben.runBenchmark()
+    except:
+        # Make sure that we will everybody first
+        LOG.warn("Halting benchmark")
+        
+        raise
 ## MAIN
 
 ## ==============================================

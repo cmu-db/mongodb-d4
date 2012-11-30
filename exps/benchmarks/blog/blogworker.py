@@ -75,7 +75,6 @@ LOG = logging.getLogger(__name__)
 class BlogWorker(AbstractWorker):
   
     
-    
     def initImpl(self, config, msg):
         # A list of booleans that we will randomly select
         # from to tell us whether our op should be a read or write

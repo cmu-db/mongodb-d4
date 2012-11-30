@@ -27,11 +27,16 @@ import time
 import logging
 import random
 import pymongo
+from threading import Timer
 
 from .results import *
 from .message import *
+from .mongostat import MongoStatCollector
 
 LOG = logging.getLogger(__name__)
+
+def textX():
+    print "????"
 
 class AbstractCoordinator:
     '''Abstract coordinator.'''
@@ -172,9 +177,9 @@ class AbstractCoordinator:
         messages = self.loadImpl(config, channels)
         assert isinstance(messages, dict), "Invalid load message dictionary"
         for ch in channels:
-            #sendMessage(MSG_CMD_LOAD, messages[ch], ch)
-	     sendMessage(MSG_CMD_LOAD, None, ch)
-	
+            msg = messages.get(ch, None)
+            sendMessage(MSG_CMD_LOAD, msg, ch)
+    
         # Now block until we get a response from all of the channels
         waiting = channels[:]
         completed = 0.0
@@ -217,8 +222,8 @@ class AbstractCoordinator:
         
         return None
     ## DEF
-        
-    def execute(self, config, channels):
+    
+    def execute(self, config, channels, mongostats):
         '''distribute execution to a list of channels by send command message to each of them.\
         You can collect the execution result from each channel'''
         LOG.info("Executing %s Workload" % self.name.upper())
@@ -238,30 +243,54 @@ class AbstractCoordinator:
                 msg = "Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch)
                 raise Exception(msg)
         ## FOR
-            
+
+        # Tell our mongostats collectors to start recording after our warm-up period
+        timers = [ ]
+        if config['default']['warmup'] > 0:
+            try:
+                for msc in mongostats:
+                    LOG.debug("Installing timer to start recording MongoStat output [%s]", config['default']['warmup'])
+                    t = Timer(config['default']['warmup'], msc.startRecording)
+                    t.start()
+                    timers.append(t)
+                ## FOR
+            except:
+                import traceback
+                import sys
+                traceback.print_exc(file=sys.stdout)
+                sys.exit(1)
+        ## IF
+        
         # Now tell them to start executing their benchmark
-        LOG.debug("Sending MSG_CMD_EXECUTE to %d workers" % len(channels))
+        LOG.info("Sending MSG_CMD_EXECUTE to %d workers" % len(channels))
         for ch in channels:
             sendMessage(MSG_CMD_EXECUTE, None, ch)
-            
+
         # Each channel will return back a Result object
         # We will append each one to our global results
         self.total_results = Results()
-        for ch in channels:
-            msg = getMessage(ch.receive())
-            if msg.header == MSG_EXECUTE_COMPLETED:
-                r = msg.data
-                self.total_results.append(r)
-                continue
-            else:
-                LOG.warn("Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch))
-                pass
+        try:
+            for ch in channels:
+                msg = getMessage(ch.receive())
+                if msg.header == MSG_EXECUTE_COMPLETED:
+                    r = msg.data
+                    self.total_results.append(r)
+                    continue
+                else:
+                    LOG.warn("Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch))
+                    pass
+        finally:
+            # Tell our mongostats collectors to stop recording
+            for msc in mongostats:
+                msc.stopRecording()
+            for t in timers:
+                t.cancel()
         
         return None
         
     def executeImpl(self, config, channels):
         '''Distribute loading to a list of channels by sending command message to each of them'''
-        raise NotImplementedError("%s does not implement loadImpl" % (self.name.upper()))
+        raise NotImplementedError("%s does not implement executeImpl" % (self.name.upper()))
         
     def showResult(self, config, channels):
         print self.total_results.show(self.load_result)

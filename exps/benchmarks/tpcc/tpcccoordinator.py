@@ -56,7 +56,7 @@ class TpccCoordinator(AbstractCoordinator) :
     def initImpl(self, config, channels):
         ## Create our ScaleParameter stuff that we're going to need
         num_warehouses = int(config[self.name]['warehouses'])
-        self._scaleParameters = scaleparameters.makeWithScaleFactor(num_warehouses, config['default']["scalefactor"])
+        self.scaleParameters = scaleparameters.makeWithScaleFactor(num_warehouses, config['default']["scalefactor"])
         return dict([(channels[i], None) for i in xrange(len(channels))])
     ## DEF
     
@@ -64,10 +64,12 @@ class TpccCoordinator(AbstractCoordinator) :
         '''divide loading to several clients'''
         procs = len(channels)
         w_ids = map(lambda x:[], range(procs))
-        for w_id in range(self._scaleParameters.starting_warehouse, self._scaleParameters.ending_warehouse+1):
+        for w_id in range(self.scaleParameters.starting_warehouse, self.scaleParameters.ending_warehouse+1):
             idx = w_id % procs
             w_ids[idx].append(w_id)
-        return dict([(channels[i], w_ids[i]) for i in xrange(len(channels))])
+        messages = dict([(channels[i], w_ids[i]) for i in xrange(procs)])
+        LOG.debug("TPC-C Load Messages:\n%s", pformat(messages))
+        return messages
     ## DEF
 
 ## CLASS

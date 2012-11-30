@@ -70,7 +70,7 @@ class AbstractWorker:
     ## WORKER INIT
     ## ---------------------------------------------------------------------------
     
-    def init(self, config, channel, msg):    
+    def init(self, config, channel, data):    
         '''Worker Initialization. You always must send a INIT_COMPLETED message back'''
         self.lastChannel = channel
         self.config = config
@@ -109,7 +109,7 @@ class AbstractWorker:
             raise
         assert self.conn
         
-        self.initImpl(config, msg)
+        self.initImpl(config, data)
         sendMessage(MSG_INIT_COMPLETED, self.id, channel)
         LOG.info("Finished initializing %s worker #%d" % (self.name.upper(), self.id))
     ## DEF
@@ -121,11 +121,11 @@ class AbstractWorker:
     ## LOAD
     ## ---------------------------------------------------------------------------
         
-    def load(self, config, channel, msg):
+    def load(self, config, channel, data):
         '''Perform actual loading. We will always send back LOAD_COMPLETED message'''
         self.lastChannel = channel
         LOG.info("Invoking %s Loader" % self.name)
-        self.loadImpl(config, channel, msg)
+        self.loadImpl(config, channel, data)
         sendMessage(MSG_LOAD_COMPLETED, self.getWorkerId(), channel)
         pass
     ## DEF
@@ -136,18 +136,18 @@ class AbstractWorker:
         sendMessage(MSG_LOAD_STATUS, data, self.lastChannel)
     ## DEF
     
-    def loadImpl(self, config, channel, msg):
+    def loadImpl(self, config, channel, data):
         raise NotImplementedError("%s does not implement loadImpl" % (self.name))
         
     ## ---------------------------------------------------------------------------
     ## GET DATABASE STATUS
     ## ---------------------------------------------------------------------------
         
-    def status(self, config, channel, msg):
+    def status(self, config, channel, data):
         assert self.conn
         
         
-    def statusImpl(self, config, channel, msg):
+    def statusImpl(self, config, channel, data):
         raise NotImplementedError("%s does not implement statusImpl" % (self.name))    
     
         
@@ -155,7 +155,7 @@ class AbstractWorker:
     ## EXECUTION INITIALIZATION
     ## ---------------------------------------------------------------------------
         
-    def executeInit(self, config, channel, msg):
+    def executeInit(self, config, channel, data):
         self.lastChannel = channel
         LOG.info("Initializing %s before benchmark execution" % self.name)
         self.executeInitImpl(config)
@@ -169,7 +169,7 @@ class AbstractWorker:
     ## WORKLOAD EXECUTION
     ## ---------------------------------------------------------------------------
         
-    def execute(self, config, channel, msg):
+    def execute(self, config, channel, data):
         ''' Actual execution. You might want to send a EXECUTE_COMPLETED message back with the loading time'''
         self.lastChannel = channel
         config['default']['execute'] = True
@@ -201,7 +201,7 @@ class AbstractWorker:
                 return -1
             except (Exception, AssertionError), ex:
                 logging.warn("Failed to execute Transaction '%s': %s" % (txn, ex))
-                if debug: traceback.print_exc(file=sys.stdout)
+                if debug or self.stop_on_error: traceback.print_exc(file=sys.stdout)
                 if self.stop_on_error:
                     raise Exception("WE FAILED --> %s(%s)" % (txn, str(params)))
                 r.abortTransaction(txn_id)
@@ -216,7 +216,7 @@ class AbstractWorker:
     def executeImpl(self, config, txn, params):
         raise NotImplementedError("%s does not implement executeImpl" % (self.name))
         
-    def moreProcessing(config, channel, msg):
+    def moreProcessing(config, channel, data):
         '''hook'''
         return None
 ## CLASS
