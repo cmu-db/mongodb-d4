@@ -23,9 +23,9 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
 import os
-import signal
 import threading
 import subprocess
+import shlex
 import logging
 
 LOG = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ class MongoStatCollector(threading.Thread):
         self.daemon = True
         self.process = None
         self.record = False
+        self.stopThread = False
     ## DEF
     
     def startRecording(self):
@@ -56,22 +57,40 @@ class MongoStatCollector(threading.Thread):
         if self.showAll: command += " --all"
         command += " %d" % self.outputInterval
         
-        LOG.debug("Forking command: %s" % command)
-        self.process = subprocess.Popen(command, \
-                             stdout=subprocess.PIPE, \
-                             shell=True,
-                             preexec_fn=os.setsid)
+        args = shlex.split(command)
+        LOG.info("Forking command: %s" % args)
+        self.process = subprocess.Popen(args,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT,
+                             shell=False,
+        )
         LOG.info("Writing MongoStat output to '%s'" % self.outputFile)
+        header = None
+        headerHash = None
+        writeHeader = True
         with open(self.outputFile, "w") as fd:
-            for line in self.process.stdout:
-                if self.record: fd.write(line)
+            while not self.stopThread:
+                self.process.stdout.flush()
+                line = self.process.stdout.readline()
+                if header is None and line.find("flushes") != -1: 
+                    header = line
+                    headerHash = hash(header)
+                if self.record: 
+                    if writeHeader and not header is None:
+                        fd.write(header)
+                        writeHeader = False
+                    if hash(line) != headerHash:
+                        fd.write(line)
+                        fd.flush()
+            # WHILE
         LOG.debug("MongoStatCollection thread is stopping")
     ## DEF
     
     def stop(self):
         if not self.process is None:
-            LOG.warn("Killing MongoStatCollection process %d [%s]", self.process.pid, self.outputFile)
-            os.killpg(self.process.pid, signal.SIGTERM)
+            LOG.debug("Killing MongoStatCollection process %d [%s]", self.process.pid, self.outputFile)
+            self.stopThread = True
+            self.process.kill()
     ## DEF
 
 ## CLASS

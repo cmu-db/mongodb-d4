@@ -322,7 +322,7 @@ class MongodbDriver(AbstractDriver):
     ## ----------------------------------------------
     def loadFinishDistrict(self, w_id, d_id):
         if self.denormalize:
-            LOG.debug("Pushing %d denormalized CUSTOMER records for WAREHOUSE %d DISTRICT %d into MongoDB" % (len(self.w_customers), w_id, d_id))
+            LOG.debug("Pushing %d denormalized CUSTOMER records for WAREHOUSE %d DISTRICT %d" % (len(self.w_customers), w_id, d_id))
             self.database[constants.TABLENAME_CUSTOMER].insert(self.w_customers.values())
             self.w_customers.clear()
             self.w_orders.clear()

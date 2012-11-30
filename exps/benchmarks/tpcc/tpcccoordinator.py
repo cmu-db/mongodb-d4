@@ -68,7 +68,7 @@ class TpccCoordinator(AbstractCoordinator) :
             idx = w_id % procs
             w_ids[idx].append(w_id)
         messages = dict([(channels[i], w_ids[i]) for i in xrange(procs)])
-        LOG.info("TPC-C Load Messages:\n%s", pformat(messages))
+        LOG.debug("TPC-C Load Messages:\n%s", pformat(messages))
         return messages
     ## DEF
 

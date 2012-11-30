@@ -36,6 +36,7 @@ import execnet
 import logging
 import time
 import threading
+import types
 from datetime import datetime
 from ConfigParser import SafeConfigParser
 from pymongo import Connection
@@ -131,8 +132,7 @@ class Benchmark:
         '''Load configuration file'''
         assert 'config' in self.args
         assert self.args['config'] != None
-        #print("~~~")
-	print(self.args['config'].name)
+        LOG.info("Loading Configuration File: %s", self.args['config'])
         cparser = SafeConfigParser()
         cparser.read(os.path.realpath(self.args['config'].name))
         config = dict()
@@ -165,11 +165,12 @@ class Benchmark:
         config['default']['path'] = basedir
         
         # Fix common problems
-        for s in config.keys():
-            for key in ["duration", "clientprocs"]:
-                if key in config[s]: config[s][key] = int(config[s][key])
-            for key in ["scalefactor"]:
-                if key in config[s]: config[s][key] = float(config[s][key])
+        defaultDictTypes = dict([(x[0], type(x[-1])) for x in self.DEFAULT_CONFIG ])
+        for s in config.iterkeys():
+            for key in config[s].iterkeys():
+                if key in defaultDictTypes and defaultDictTypes[key] != types.NoneType:
+                    config[s][key] = defaultDictTypes[key](config[s][key])
+            ## FOR
             for key in ["path", "logfile"]:
                 if key in config[s]: config[s][key] = os.path.realpath(config[s][key])
         ## FOR
@@ -189,7 +190,7 @@ class Benchmark:
         ## IF
         
         self.config = config
-        LOG.debug("Configuration File:\n%s" % pformat(self.config))
+        LOG.info("Configuration File:\n%s" % pformat(self.config))
     ## DEF
             
     def runBenchmark(self):
@@ -255,12 +256,13 @@ class Benchmark:
         mongostats = [ ]
         
         outputDir = self.config["default"]["mongostat_dir"]
+        outputInterval = self.config["default"]["mongostat_sleep"]
         if not os.path.exists(outputDir):
             LOG.info("Creating mongostat output directory '%s'", outputDir)
             os.makedirs(outputDir)
         for dbHost in set(self.config["default"]["hosts"]):
-            outputFile = os.path.join(outputDir, dbHost+".csv")
-            msc = MongoStatCollector(dbHost, SSH_USER, SSH_OPTIONS, outputFile)
+            outputFile = os.path.join(outputDir, dbHost.split(":")[0]+".csv")
+            msc = MongoStatCollector(dbHost, outputFile, outputInterval=outputInterval)
             msc.start()
             mongostats.append(msc)
         return (mongostats)
@@ -485,7 +487,13 @@ if __name__=='__main__':
     
     # Run it!
     ben.loadConfig()
-    ben.runBenchmark()
+    try:
+        ben.runBenchmark()
+    except:
+        # Make sure that we will everybody first
+        LOG.warn("Halting benchmark")
+        
+        raise
 ## MAIN
 
 ## ==============================================
