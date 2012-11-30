@@ -69,7 +69,7 @@ class BlogCoordinator(AbstractCoordinator):
        
         for i in range(len(channels)):
             last = first + articlesPerChannel-1
-            LOG.info("Loading %s [%d - %d] on Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
+            LOG.info("Assigning %s [%d - %d] to Worker #%d" % (constants.ARTICLE_COLL, first, last, i))
             messages[channels[i]] = (first, last)
             first = last + 1
             LOG.info(messages[channels[i]])
