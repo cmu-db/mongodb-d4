@@ -128,8 +128,9 @@ class MySQLConverter(AbstractConverter):
                 tbl_cols[col_info['name']].append(col_name)
                 col_type_str = catalog.fieldTypeToString(col_type)
                 col_info["fields"][col_name] = catalog.Collection.fieldFactory(col_name, col_type_str)
-                col_info["fields"][col_name]['ordinal_position'] = col_position
-                LOG.debug("Created column information for '%s.%s'", tbl_name, col_name)
+                col_info["fields"][col_name]['ordinal_position'] = int(col_position)
+                if self.debug:
+                    LOG.info("Created column information for '%s.%s'", tbl_name, col_name)
             ## FOR
             c2.close()
 
@@ -256,7 +257,7 @@ class MySQLConverter(AbstractConverter):
         tbl_cols = { }
         for col_info in self.metadata_db.Collection.fetch():
             tbl_cols[col_info['name']] = sorted(col_info['fields'].keys(), key=lambda x: col_info['fields'][x]['ordinal_position'])
-        LOG.info(pformat(tbl_cols))
+        ## FOR
             
         mongo = sql2mongo.Sql2Mongo(tbl_cols)
         for row in c4:
