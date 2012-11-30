@@ -133,13 +133,13 @@ class ReplayWorker:
         if op['type'] == constants.OP_TYPE_QUERY:
             isCount = False
             
-            # The query field has our where clause
-            whereClause = op['query_content'][0]
+            # The query content field has our where clause
+            whereClause = op['query_content'][0]['#query']
             
             # And the second element is the projection
             fieldsClause = None
-            if 'fields' in op['query_content'] and not op['query_content']['fields'] is None:
-                fieldsClause = op['query_content']['fields']
+            if 'query_fields' in op and not op['query_fields'] is None:
+                fieldsClause = op['query_fields']
 
             # Check whether this is for a count
             if 'count' in op['query_content'][0]:
@@ -151,10 +151,9 @@ class ReplayWorker:
             # Execute!
             # TODO: Need to check the performance difference of find vs find_one
             # TODO: We need to handle counts + sorts + limits
-            if self.debug:
-                LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, fieldsClause))
             resultCursor = self.dataset_db[coll].find(whereClause, fieldsClause)
-            
+            sendMessage(MSG_OP_INFO, (op['collection'], op['type'], whereClause, fieldsClause), self.channel)
+
             if op["query_limit"] and op["query_limit"] != -1:
                 #try:
                 resultCursor.limit(op["query_limit"])
@@ -186,16 +185,15 @@ class ReplayWorker:
             # Let 'er rip!
             # TODO: Need to handle 'upsert' and 'multi' flags
             # TODO: What about the 'manipulate' or 'safe' flags?
-            if self.debug:
-                LOG.debug("%s '%s' - WHERE:%s - FIELDS:%s" % (op['type'][1:].upper(), coll, whereClause, updateClause))
             result = self.dataset_db[coll].update(whereClause, updateClause)
+            sendMessage(MSG_OP_INFO, (op['collection'], op['type'], whereClause, updateClause), self.channel)
             
         # INSERT
         elif op['type'] == constants.OP_TYPE_INSERT:
             # Just get the payload and fire it off
             # There's nothing else to really do here
             result = self.dataset_db[coll].insert(op['query_content'])
-            
+            sendMessage(MSG_OP_INFO, (op['collection'], op['type'], op['query_content'], None), self.channel)
         # DELETE
         elif op['type'] == constants.OP_TYPE_DELETE:
             # The first element in the content field is the WHERE clause
@@ -206,9 +204,8 @@ class ReplayWorker:
             assert len(whereClause) > 0, "SAFETY CHECK: Empty WHERE clause for %s" % op['type']
             
             # I'll see you in hell!!
-            if self.debug:
-                LOG.debug("%s '%s' - WHERE:%s" % (op['type'][1:].upper(), coll, whereClause))
             result = self.dataset_db[coll].remove(whereClause)
+            sendMessage(MSG_OP_INFO, (op['collection'], op['type'], whereClause, None), self.channel)
         
         # UNKNOWN!
         else:
