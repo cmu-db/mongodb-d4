@@ -172,9 +172,9 @@ class AbstractCoordinator:
         messages = self.loadImpl(config, channels)
         assert isinstance(messages, dict), "Invalid load message dictionary"
         for ch in channels:
-            #sendMessage(MSG_CMD_LOAD, messages[ch], ch)
-	     sendMessage(MSG_CMD_LOAD, None, ch)
-	
+            msg = messages.get(ch, None)
+            sendMessage(MSG_CMD_LOAD, msg, ch)
+    
         # Now block until we get a response from all of the channels
         waiting = channels[:]
         completed = 0.0
@@ -218,7 +218,7 @@ class AbstractCoordinator:
         return None
     ## DEF
         
-    def execute(self, config, channels):
+    def execute(self, config, channels, mongostats):
         '''distribute execution to a list of channels by send command message to each of them.\
         You can collect the execution result from each channel'''
         LOG.info("Executing %s Workload" % self.name.upper())
@@ -239,6 +239,10 @@ class AbstractCoordinator:
                 raise Exception(msg)
         ## FOR
             
+        # Tell our mongostats collectors to start recording
+        for msc in mongostats:
+            msc.startRecording()
+            
         # Now tell them to start executing their benchmark
         LOG.debug("Sending MSG_CMD_EXECUTE to %d workers" % len(channels))
         for ch in channels:
@@ -247,21 +251,26 @@ class AbstractCoordinator:
         # Each channel will return back a Result object
         # We will append each one to our global results
         self.total_results = Results()
-        for ch in channels:
-            msg = getMessage(ch.receive())
-            if msg.header == MSG_EXECUTE_COMPLETED:
-                r = msg.data
-                self.total_results.append(r)
-                continue
-            else:
-                LOG.warn("Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch))
-                pass
+        try:
+            for ch in channels:
+                msg = getMessage(ch.receive())
+                if msg.header == MSG_EXECUTE_COMPLETED:
+                    r = msg.data
+                    self.total_results.append(r)
+                    continue
+                else:
+                    LOG.warn("Unexpected return result %s from channel %s" % (getMessageName(msg.header), ch))
+                    pass
+        finally:
+            # Tell our mongostats collectors to stop recording
+            for msc in mongostats:
+                msc.stopRecording()
         
         return None
         
     def executeImpl(self, config, channels):
         '''Distribute loading to a list of channels by sending command message to each of them'''
-        raise NotImplementedError("%s does not implement loadImpl" % (self.name.upper()))
+        raise NotImplementedError("%s does not implement executeImpl" % (self.name.upper()))
         
     def showResult(self, config, channels):
         print self.total_results.show(self.load_result)

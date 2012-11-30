@@ -30,16 +30,23 @@ LOG = logging.getLogger(__name__)
 
 class MongoStatCollector(threading.Thread):
     
-    def __init__(self, sshHost, sshUser, sshOpts, updateInterval=10):
+    def __init__(self, sshHost, sshUser, sshOpts, outputFile, updateInterval=10):
         threading.Thread.__init__(self)
         self.sshHost = sshHost
         self.sshUser = sshUser
         self.sshOpts = sshOpts
+        self.outputFile = outputFile
         self.updateInterval = updateInterval
         self.daemon = True
         self.process = None
-        self.outputFile = "mongostat.log" # FIXME
+        self.record = False
     ## DEF
+    
+    def startRecording(self):
+        self.record = True
+        
+    def stopRecording(self):
+        self.record = False
     
     def run(self):
         sshOptsStr = " ".join(map(lambda k: "-o \"%s %s\"" % (k, self.sshOpts[k]), self.sshOpts.iterkeys()))
@@ -56,7 +63,7 @@ class MongoStatCollector(threading.Thread):
         try:
             with open(self.outputFile, "w") as fd:
                 for line in output:
-                    fd.write(line)
+                    if self.record: fd.write(line)
         finally:
             self.process.terminate()
     ## DEF

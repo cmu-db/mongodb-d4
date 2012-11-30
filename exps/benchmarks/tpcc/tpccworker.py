@@ -45,7 +45,7 @@ LOG = logging.getLogger(__name__)
 
 class TpccWorker(AbstractWorker):
     
-    def initImpl(self, config):
+    def initImpl(self, config, data):
         # HACK: Collapse config into a single dict
         new_config = { }
         for s in config.keys():
@@ -86,9 +86,9 @@ class TpccWorker(AbstractWorker):
         return klass
     ## DEF
     
-    def loadImpl(self, config, channel, msg):
+    def loadImpl(self, config, channel, data):
         assert self.driver != None
-        w_ids = msg.data
+        w_ids = list(data)
         loadItems = (1 in w_ids)
         
         try:

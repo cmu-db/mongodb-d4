@@ -86,8 +86,10 @@ class Benchmark:
         ("clientprocs", "Number of worker processes to spawn on each client host.", 1),
         ("design", "Path to database design file (must be supported by benchmark).", ""),
         ("logfile", "Path to debug log file for remote execnet processes", None),
+        ("restart", "If true, then restart the mongod server(s)",True), 
+        ("mongostat", "Enable mongostat data collection", False),
+        ("mongostat_dir", "The directory to store the mongostat state output in.", "mongostat"),
         ("mongostat_sleep", "The number of seconds to sleep before collecting new info using mongostat", 10),
-        ("restart","if true it will restart the mongod server(s)",True), 
     ]
     
     '''main class'''
@@ -228,23 +230,40 @@ class Benchmark:
             
         # Step 3: Execute the benchmark workload
         if not self.args['no_execute']:
-            mongostat = None
+            # Initialize MongoStats collectors
+            # This will start them up, but they won't start recording anything 
+            # until we actually need them. We want to do this *after* we flush
+            # and restart the mongo servers (to avoid disconnections)
+            mongostats = [ ]
+            if self.args["mongostat"]:
+                mongostats = self.startMongoStatCollection()
             try:
-                # Start mongostat
-                if self.args["mongostat"]:
-                    # FIXME
-                    dbHost = self.config["default"]["hosts"][0]
-                    mongostat = MongoStatCollector(dbHost, SSH_USER, SSH_OPTIONS)
-                    mongostat.start()
-                self.coordinator.execute(self.config, self.channels)
-                self.coordinator.showResult(self.config, self.channels)
+                self.coordinator.execute(self.config, self.channels, mongostats)
             finally:
-                if not mongostat is None:
-                    mongostat.stop()
+                for msc in mongostats:
+                    msc.stop()
+                for msc in mongostats:
+                    msc.join()
+            self.coordinator.showResult(self.config, self.channels)
         ## IF
             
         # Step 4: Clean things up (?)
         # self.coordinator.moreProcessing(self.config, self.channels)
+    ## DEF
+        
+    def startMongoStatCollection(self):
+        mongostats = [ ]
+        
+        outputDir = self.config["default"]["mongostat_dir"]
+        if not os.path.exists(outputDir):
+            LOG.info("Creating mongostat output directory '%s'", outputDir)
+            os.makedirs(outputDir)
+        for dbHost in set(self.config["default"]["hosts"]):
+            outputFile = os.path.join(outputDir, dbHost+".csv")
+            msc = MongoStatCollector(dbHost, SSH_USER, SSH_OPTIONS, outputFile)
+            msc.start()
+            mongostats.append(msc)
+        return (mongostats)
     ## DEF
         
     def createChannels(self):
@@ -346,7 +365,7 @@ def setupBenchmarkPath(benchmark):
 ## ==============================================
 ## flushBuffer
 ## ==============================================
-def flushBuffer(host,restart=False):
+def flushBuffer(host, restart=False):
     if restart:
         remoteCmds = [
             #"sudo service mongod stop",

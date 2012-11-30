@@ -201,6 +201,7 @@ class MongodbDriver(AbstractDriver):
         self.database = None
         self.conn = conn
         self.denormalize = False
+        self.op_ctr = 0
         self.w_customers = { }
         self.w_orders = { }
         
@@ -344,6 +345,7 @@ class MongodbDriver(AbstractDriver):
     def executeTransaction(self, txn, params):
         """Execute a transaction based on the given name"""
         
+        self.op_ctr = 0
         if constants.TransactionTypes.DELIVERY == txn:
             result = self.doDelivery(params)
         elif constants.TransactionTypes.NEW_ORDER == txn:
@@ -356,7 +358,7 @@ class MongodbDriver(AbstractDriver):
             result = self.doStockLevel(params)
         else:
             assert False, "Unexpected TransactionType: " + txn
-        return result
+        return self.op_ctr
         
     ## ----------------------------------------------
     ## doDelivery
@@ -376,6 +378,7 @@ class MongodbDriver(AbstractDriver):
         for d_id in xrange(1, constants.DISTRICTS_PER_WAREHOUSE+1):
             ## getNewOrder
             no = self.new_order.find_one({"NO_D_ID": d_id, "NO_W_ID": w_id}, {"NO_O_ID": 1})
+            self.op_ctr += 1
             
             if no == None:
                 ## No orders for this district: skip it. Note: This must be reported if > 1%
@@ -386,6 +389,7 @@ class MongodbDriver(AbstractDriver):
             if self.denormalize:
                 ## getCId
                 c = self.customer.find_one({"ORDERS.O_ID": o_id, "C_D_ID": d_id, "C_W_ID": w_id}, {"C_ID": 1, "ORDERS.O_ID": 1, "ORDERS.ORDER_LINE": 1})
+                self.op_ctr += 1
                 assert c != None, "No customer record [O_ID=%d, D_ID=%d, W_ID=%d]" % (o_id, d_id, w_id)
                 c_id = c["C_ID"]
                 
@@ -409,30 +413,37 @@ class MongodbDriver(AbstractDriver):
 
                 ## updateOrders + updateCustomer
                 self.customer.update({"_id": c['_id'], "ORDERS.O_ID": o_id}, {"$set": {"ORDERS.$.O_CARRIER_ID": o_carrier_id, "ORDERS.$.ORDER_LINE": orderLines}, "$inc": {"C_BALANCE": ol_total}}, multi=False)
+                self.op_ctr += 1
 
             else:
                 ## getCId
                 o = self.orders.find_one({"O_ID": o_id, "O_D_ID": d_id, "O_W_ID": w_id}, {"O_C_ID": 1})
+                self.op_ctr += 1
                 assert o != None
                 c_id = o["O_C_ID"]
                 
                 ## sumOLAmount
                 orderLines = self.order_line.find({"OL_O_ID": o_id, "OL_D_ID": d_id, "OL_W_ID": w_id}, {"OL_AMOUNT": 1})
+                self.op_ctr += 1
                 assert orderLines != None
                 ol_total = sum([ol["OL_AMOUNT"] for ol in orderLines])
                 
                 ## updateOrders
                 self.orders.update(o, {"$set": {"O_CARRIER_ID": o_carrier_id}}, multi=False)
+                self.op_ctr += 1
             
                 ## updateOrderLine
                 self.order_line.update({"OL_O_ID": o_id, "OL_D_ID": d_id, "OL_W_ID": w_id}, {"$set": {"OL_DELIVERY_D": ol_delivery_d}}, multi=True)
+                self.op_ctr += 1
                 
                 ## updateCustomer
                 self.customer.update({"C_ID": c_id, "C_D_ID": d_id, "C_W_ID": w_id}, {"$inc": {"C_BALANCE": ol_total}})
+                self.op_ctr += 1
             ## IF
 
             ## deleteNewOrder
             self.new_order.remove({"_id": no['_id']})
+            self.op_ctr += 1
 
             # These must be logged in the "result file" according to TPC-C 2.7.2.2 (page 39)
             # We remove the queued time, completed time, w_id, and o_carrier_id: the client can figure
@@ -476,6 +487,7 @@ class MongodbDriver(AbstractDriver):
         all_local = (not i_w_ids or [w_id] * len(i_w_ids) == i_w_ids)
         
         items = self.item.find({"I_ID": {"$in": i_ids}}, {"I_ID": 1, "I_PRICE": 1, "I_NAME": 1, "I_DATA": 1})
+        self.op_ctr += 1
         ## TPCC defines 1% of neworder gives a wrong itemid, causing rollback.
         ## Note that this will happen with 1% of transactions on purpose.
         if items.count() != len(i_ids):
@@ -489,11 +501,13 @@ class MongodbDriver(AbstractDriver):
         
         # getWarehouseTaxRate
         w = self.warehouse.find_one({"W_ID": w_id}, {"W_TAX": 1})
+        self.op_ctr += 1
         assert w
         w_tax = w["W_TAX"]
         
         # getDistrict
         d = self.district.find_one({"D_ID": d_id, "D_W_ID": w_id}, {"D_TAX": 1, "D_NEXT_O_ID": 1})
+        self.op_ctr += 1
         assert d
         d_tax = d["D_TAX"]
         d_next_o_id = d["D_NEXT_O_ID"]
@@ -501,9 +515,11 @@ class MongodbDriver(AbstractDriver):
         # incrementNextOrderId
         # HACK: This is not transactionally safe!
         self.district.update(d, {"$inc": {"D_NEXT_O_ID": 1}}, multi=False)
+        self.op_ctr += 1
         
         # getCustomer
         c = self.customer.find_one({"C_ID": c_id, "C_D_ID": d_id, "C_W_ID": w_id}, {"C_DISCOUNT": 1, "C_LAST": 1, "C_CREDIT": 1})
+        self.op_ctr += 1
         assert c
         c_discount = c["C_DISCOUNT"]
 
@@ -515,6 +531,7 @@ class MongodbDriver(AbstractDriver):
 
         # createNewOrder
         self.new_order.insert({"NO_O_ID": d_next_o_id, "NO_D_ID": d_id, "NO_W_ID": w_id})
+        self.op_ctr += 1
 
         o = {"O_ID": d_next_o_id, "O_ENTRY_D": o_entry_d, "O_CARRIER_ID": o_carrier_id, "O_OL_CNT": ol_cnt, "O_ALL_LOCAL": all_local}
         if self.denormalize:
@@ -525,7 +542,8 @@ class MongodbDriver(AbstractDriver):
             o["O_C_ID"] = c_id
             
             # createOrder
-            self.orders.insert(o)  
+            self.orders.insert(o)
+            self.op_ctr += 1
             
         ## ----------------
         ## OPTIMIZATION:
@@ -536,6 +554,7 @@ class MongodbDriver(AbstractDriver):
         if all_local and False:
             # getStockInfo
             allStocks = self.stock.find({"S_I_ID": {"$in": i_ids}, "S_W_ID": w_id}, {"S_I_ID": 1, "S_QUANTITY": 1, "S_DATA": 1, "S_YTD": 1, "S_ORDER_CNT": 1, "S_REMOTE_CNT": 1, s_dist_col: 1})
+            self.op_ctr += 1
             assert allStocks.count() == ol_cnt
             stockInfos = { }
             for si in allStocks:
@@ -564,6 +583,7 @@ class MongodbDriver(AbstractDriver):
                 assert si["S_I_ID"] == ol_i_id, "S_I_ID should be %d\n%s" % (ol_i_id, pformat(si))
             else:
                 si = self.stock.find_one({"S_I_ID": ol_i_id, "S_W_ID": w_id}, {"S_I_ID": 1, "S_QUANTITY": 1, "S_DATA": 1, "S_YTD": 1, "S_ORDER_CNT": 1, "S_REMOTE_CNT": 1, s_dist_col: 1})
+                self.op_ctr += 1
             assert si, "Failed to find S_I_ID: %d\n%s" % (ol_i_id, pformat(itemInfo))
 
             s_quantity = si["S_QUANTITY"]
@@ -585,6 +605,7 @@ class MongodbDriver(AbstractDriver):
 
             # updateStock
             self.stock.update(si, {"$set": {"S_QUANTITY": s_quantity, "S_YTD": s_ytd, "S_ORDER_CNT": s_order_cnt, "S_REMOTE_CNT": s_remote_cnt}})
+            self.op_ctr += 1
 
             if i_data.find(constants.ORIGINAL_STRING) != -1 and s_data.find(constants.ORIGINAL_STRING) != -1:
                 brand_generic = 'B'
@@ -628,6 +649,7 @@ class MongodbDriver(AbstractDriver):
 
         # createOrder
         self.customer.update({"_id": c["_id"]}, {"$push": {"ORDERS": o}})
+        self.op_ctr += 1
 
         ## Pack up values the client is missing (see TPC-C 2.4.3.5)
         misc = [ (w_tax, d_tax, d_next_o_id, total) ]
@@ -666,6 +688,7 @@ class MongodbDriver(AbstractDriver):
             # getCustomerByCustomerId
             search_fields["C_ID"] = c_id
             c = self.customer.find_one(search_fields, return_fields)
+            self.op_ctr += 1
             assert c
             
         else:
@@ -674,6 +697,7 @@ class MongodbDriver(AbstractDriver):
             search_fields['C_LAST'] = c_last
             
             all_customers = self.customer.find(search_fields, return_fields)
+            self.op_ctr += 1
             namecnt = all_customers.count()
             assert namecnt > 0
             index = (namecnt-1)/2
@@ -694,11 +718,13 @@ class MongodbDriver(AbstractDriver):
         else:
             # getLastOrder
             order = self.orders.find({"O_W_ID": w_id, "O_D_ID": d_id, "O_C_ID": c_id}, {"O_ID": 1, "O_CARRIER_ID": 1, "O_ENTRY_D": 1}).sort("O_ID", direction=pymongo.DESCENDING).limit(1)[0]
+            self.op_ctr += 1
             o_id = order["O_ID"]
 
             if order:
                 # getOrderLines
                 orderLines = self.order_line.find({"OL_W_ID": w_id, "OL_D_ID": d_id, "OL_O_ID": o_id}, {"OL_SUPPLY_W_ID": 1, "OL_I_ID": 1, "OL_QUANTITY": 1, "OL_AMOUNT": 1, "OL_DELIVERY_D": 1})
+                self.op_ctr += 1
         ## IF
             
 
@@ -735,6 +761,7 @@ class MongodbDriver(AbstractDriver):
             # getCustomerByCustomerId
             search_fields["C_ID"] = c_id
             c = self.customer.find_one(search_fields, return_fields)
+            self.op_ctr += 1
             assert c
             
         else:
@@ -742,6 +769,7 @@ class MongodbDriver(AbstractDriver):
             # Get the midpoint customer's id
             search_fields['C_LAST'] = c_last
             all_customers = self.customer.find(search_fields, return_fields)
+            self.op_ctr += 1
             namecnt = all_customers.count()
             assert namecnt > 0
             index = (namecnt-1)/2
@@ -753,17 +781,21 @@ class MongodbDriver(AbstractDriver):
 
         # getWarehouse
         w = self.warehouse.find_one({"W_ID": w_id}, {"W_NAME": 1, "W_STREET_1": 1, "W_STREET_2": 1, "W_CITY": 1, "W_STATE": 1, "W_ZIP": 1})
+        self.op_ctr += 1
         assert w
         
         # updateWarehouseBalance
         self.warehouse.update({"_id": w["_id"]}, {"$inc": {"W_YTD": h_amount}})
+        self.op_ctr += 1
 
         # getDistrict
         d = self.district.find_one({"D_W_ID": w_id, "D_ID": d_id}, {"D_NAME": 1, "D_STREET_1": 1, "D_STREET_2": 1, "D_CITY": 1, "D_STATE": 1, "D_ZIP": 1})
+        self.op_ctr += 1
         assert d
         
         # updateDistrictBalance
         self.district.update({"_id": d["_id"]},  {"$inc": {"D_YTD": h_amount}})
+        self.op_ctr += 1
 
         # Build CUSTOMER update command 
         customer_update = {"$inc": {"C_BALANCE": h_amount*-1, "C_YTD_PAYMENT": h_amount, "C_PAYMENT_CNT": 1}}
@@ -783,12 +815,15 @@ class MongodbDriver(AbstractDriver):
             # insertHistory + updateCustomer
             customer_update["$push"] = {constants.TABLENAME_HISTORY: h}
             self.customer.update({"_id": c["_id"]}, customer_update)
+            self.op_ctr += 1
         else:
             # updateCustomer
             self.customer.update({"_id": c["_id"]}, customer_update)
+            self.op_ctr += 1
             
             # insertHistory
             self.history.insert(h)
+            self.op_ctr += 1
 
         # TPC-C 2.5.3.3: Must display the following fields:
         # W_ID, D_ID, C_ID, C_D_ID, C_W_ID, W_STREET_1, W_STREET_2, W_CITY, W_STATE, W_ZIP,
@@ -816,6 +851,7 @@ class MongodbDriver(AbstractDriver):
         
         # getOId
         d = self.district.find_one({"D_W_ID": w_id, "D_ID": d_id}, {"D_NEXT_O_ID": 1})
+        self.op_ctr += 1
         assert d
         o_id = d["D_NEXT_O_ID"]
         
@@ -824,6 +860,7 @@ class MongodbDriver(AbstractDriver):
         # Inner Table: STOCK
         if self.denormalize:
             c = self.customer.find({"C_W_ID": w_id, "C_D_ID": d_id, "ORDERS.O_ID": {"$lt": o_id, "$gte": o_id-20}}, {"ORDERS.ORDER_LINE.OL_I_ID": 1})
+            self.op_ctr += 1
             assert c
             orderLines = [ ]
             for ol in c:
@@ -831,6 +868,7 @@ class MongodbDriver(AbstractDriver):
                 orderLines.extend(ol["ORDERS"][0]["ORDER_LINE"])
         else:
             orderLines = self.order_line.find({"OL_W_ID": w_id, "OL_D_ID": d_id, "OL_O_ID": {"$lt": o_id, "$gte": o_id-20}}, {"OL_I_ID": 1})
+            self.op_ctr += 1
             
         assert orderLines
         ol_ids = set()
@@ -838,6 +876,7 @@ class MongodbDriver(AbstractDriver):
             ol_ids.add(ol["OL_I_ID"])
         ## FOR
         result = self.stock.find({"S_W_ID": w_id, "S_I_ID": {"$in": list(ol_ids)}, "S_QUANTITY": {"$lt": threshold}}).count()
+        self.op_ctr += 1
         
         return int(result)
         
