@@ -12,7 +12,12 @@ from inputs.mysql import sql2mongo
 class TestConversions (unittest.TestCase) :
     
     def setUp(self) :
-        schema = {'users': ['a', 'b', 'name'], 'review' : ['rating'], 'trust' : [], 'user' : []}
+        schema = {
+            'users': ['a', 'b', 'name'],
+            'review' : ['rating'],
+            'trust' : [],
+            'user' : []
+        }
         self.mongo = sql2mongo.Sql2Mongo(schema)
     
     #def testSelectQueryInClause(self):

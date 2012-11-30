@@ -37,6 +37,9 @@ class Collection(Document):
                 'parent_key':        basestring, # TODO(ckeith)
                 'parent_candidates': list,       # List of (parent_col, parent_key) candidates 
                 
+                # SQL Parameters
+                'ordinal_position':   int,       # The original position of this field in the table
+                
                 # List Field Attributes
                 'list_len_min':     int,
                 'list_len_max':     int,
@@ -74,6 +77,7 @@ class Collection(Document):
             'parent_col':       None,
             'parent_key':       None,
             'parent_candidates': [ ],
+            'ordinal_position': None,
             'list_len_min':     None,
             'list_len_max':     None,
             'list_len_avg':     None,

@@ -289,10 +289,8 @@ class Sql2Mongo (object) :
         self.table_aliases['main'] = tbl_name
         
         i = 0
-        col_names = [x for x in cols['fields'].iterkeys()]
-
         for col in column_values :
-            self.add_where_comparison('main', (col_names[i], ':', col))
+            self.add_where_comparison('main', (cols[i], ':', col))
             i += 1
     ## End process_query_insert()
 

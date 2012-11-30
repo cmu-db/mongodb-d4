@@ -116,18 +116,22 @@ class MySQLConverter(AbstractConverter):
 
             c2 = self.mysql_conn.cursor()
             c2.execute("""
-                SELECT COLUMN_NAME, DATA_TYPE
+                SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION
                 FROM information_schema.COLUMNS
                 WHERE TABLE_SCHEMA = %s AND TABLE_NAME=%s
             """, (self.dbName, tbl_name))
             for col_row in c2:
                 col_name = col_row[0]
-                tbl_cols[col_info['name']].append(col_name)
                 col_type = catalog.sqlTypeToPython(col_row[1])
+                col_position = col_row[2]
+                
+                tbl_cols[col_info['name']].append(col_name)
                 col_type_str = catalog.fieldTypeToString(col_type)
                 col_info["fields"][col_name] = catalog.Collection.fieldFactory(col_name, col_type_str)
+                col_info["fields"][col_name]['ordinal_position'] = col_position
                 LOG.debug("Created column information for '%s.%s'", tbl_name, col_name)
             ## FOR
+            c2.close()
 
             # Get the index information from MySQL for this table
             sql = "SHOW INDEXES FROM " + self.dbName + "." + tbl_name
@@ -245,7 +249,15 @@ class MySQLConverter(AbstractConverter):
         first = True
         uid = 0
         hostIP = utilmethods.detectHostIP()
-        tbl_cols = dict([ (c['name'], c) for c in self.metadata_db.Collection.fetch()])
+        
+        # We need to give Sql2Mongo a dictionary that maps the table names to
+        # a list of its field names. We have to make sure that we sort them in
+        # the same order that they were in the original table
+        tbl_cols = { }
+        for col_info in self.metadata_db.Collection.fetch():
+            tbl_cols[col_info['name']] = sorted(col_info['fields'].keys(), key=lambda x: col_info['fields'][x]['ordinal_position'])
+        LOG.info(pformat(tbl_cols))
+            
         mongo = sql2mongo.Sql2Mongo(tbl_cols)
         for row in c4:
             timestamp = float(row[0].strftime("%s")) - start_timestamp
