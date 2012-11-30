@@ -22,55 +22,56 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 # -----------------------------------------------------------------------
-
+import os
+import signal
 import threading
+import subprocess
 import logging
 
 LOG = logging.getLogger(__name__)
 
 class MongoStatCollector(threading.Thread):
     
-    def __init__(self, sshHost, sshUser, sshOpts, outputFile, updateInterval=10):
+    def __init__(self, host, outputFile, outputInterval=10, showAll=True):
         threading.Thread.__init__(self)
-        self.sshHost = sshHost
-        self.sshUser = sshUser
-        self.sshOpts = sshOpts
+        self.host = host
         self.outputFile = outputFile
-        self.updateInterval = updateInterval
+        self.outputInterval = outputInterval
+        self.showAll = outputFile
         self.daemon = True
         self.process = None
         self.record = False
     ## DEF
     
     def startRecording(self):
+        LOG.info("Starting stat data collection [%s]", self.outputFile)
         self.record = True
         
     def stopRecording(self):
+        LOG.info("Stopping stat data collection [%s]", self.outputFile)
         self.record = False
     
     def run(self):
-        sshOptsStr = " ".join(map(lambda k: "-o \"%s %s\"" % (k, self.sshOpts[k]), self.sshOpts.iterkeys()))
-        command = "ssh %s@%s %s \"%s\"" % (SSH_USER, host, sshOpts, "mongostat")
+        command = "mongostat --host %s" % self.host
+        if self.showAll: command += " --all"
+        command += " %d" % self.outputInterval
         
-        LOG.info("Forking command: %s" % command)
+        LOG.debug("Forking command: %s" % command)
         self.process = subprocess.Popen(command, \
                              stdout=subprocess.PIPE, \
-                             stderr=subprocess.PIPE, \
-                             shell=True)
-        output, errors = self.process.communicate()
-        
-        LOG.info("Writing output to '%s'" % self.outputFile)
-        try:
-            with open(self.outputFile, "w") as fd:
-                for line in output:
-                    if self.record: fd.write(line)
-        finally:
-            self.process.terminate()
+                             shell=True,
+                             preexec_fn=os.setsid)
+        LOG.info("Writing MongoStat output to '%s'" % self.outputFile)
+        with open(self.outputFile, "w") as fd:
+            for line in self.process.stdout:
+                if self.record: fd.write(line)
+        LOG.debug("MongoStatCollection thread is stopping")
     ## DEF
     
     def stop(self):
         if not self.process is None:
-            self.process.terminate()
+            LOG.warn("Killing MongoStatCollection process %d [%s]", self.process.pid, self.outputFile)
+            os.killpg(self.process.pid, signal.SIGTERM)
     ## DEF
 
 ## CLASS
