@@ -134,7 +134,10 @@ class ReplayWorker:
             isCount = False
             
             # The query content field has our where clause
-            whereClause = op['query_content'][0]['#query']
+            try:
+                whereClause = op['query_content'][0]['#query']
+            except:
+                return
             
             # And the second element is the projection
             fieldsClause = None
