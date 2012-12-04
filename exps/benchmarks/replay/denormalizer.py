@@ -80,33 +80,13 @@ class Denormalizer:
     ## DEF
 
     def updateMetadata(self, workload):
-        # First we put everything in the given workload back to the metadata_db: This sounds correct
-        new_sessions = [ ]
-        for sess in workload:
-            new_sess = self.metadata_db.Session()
-            self.copySessions(sess, new_sess)
-            new_sessions.append(new_sess)
-        ## FOR
-        
-        # Then we remove all the sessions in the metadata_db: This sounds crazy but...yeah...
-        for sess in self.metadata_db.Session.fetch():
-            sess.delete()
-        ## FOR
+        # we first remove all the sessions in the metadata_db: This sounds crazy but...yeah...
+        self.metadata_db.sessions.remove()
         
         # After that save the new sessions
-        for sess in new_sessions:
-            sess.save()
+        for sess in workload:
+            self.metadata_db.sessions.save(sess)
         ## FOR
-    ## DEF
-    
-    def copySessions(self, src_sess, target_sess):
-        # Copy the contents in the old_session to the new_sess
-        target_sess['session_id'] = src_sess['session_id']
-        target_sess['ip_client'] = src_sess['ip_client']
-        target_sess['ip_server'] = src_sess['ip_server']
-        target_sess['start_time'] = src_sess['start_time']
-        target_sess['end_time'] = src_sess['end_time']
-        target_sess['operations'] = copy.deepcopy(src_sess['operations'])
     ## DEF
     
     def migrateDocuments(self):
@@ -149,9 +129,10 @@ class Denormalizer:
         ## IF
         LOG.info("Denormalizing Database")
         col_names = [ x for x in self.dataset_db.collection_names()]
-        workload = [x for x in self.metadata_db.Session.fetch()]
+        workload = [x for x in self.metadata_db.sessions.find()]
         combiner = WorkloadCombiner(col_names, workload)
         new_workload = combiner.process(self.design)
         assert new_workload
         return new_workload
     ## FOR
+## CLASS

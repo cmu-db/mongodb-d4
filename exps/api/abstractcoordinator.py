@@ -156,6 +156,11 @@ class AbstractCoordinator:
             #
         ### FOR
         
+        # If the current benchmark is replay
+        if config['default']['name'] == 'replay':
+            self.prepare()
+        ## IF
+
         LOG.info("%s Initialization Completed!" % self.name.upper())
         
     ## DEF
@@ -166,7 +171,7 @@ class AbstractCoordinator:
             This needs to return a dict that maps from channel
             to the message to send to the remote worker
         '''
-        raise NotImplementedError("%s does not implement initImpl" % (self.name.upper()))
+        raise NotImplementedError("%s does not implement loadImpl" % (self.name.upper()))
         
     def load(self, config, channels):
         ''' distribute loading to a list of channels by sending command message to each of them.\
@@ -231,7 +236,7 @@ class AbstractCoordinator:
         # Tell all the workers to get initialize themselves for a new 
         # round of execution. This will allow them to perform any initialization
         # that is specific to execution
-        LOG.debug("Sending MSG_CMD_EXECUTE_INIT to %d workers" % len(channels))
+        LOG.info("Sending MSG_CMD_EXECUTE_INIT to %d workers" % len(channels))
         for ch in channels:
             sendMessage(MSG_CMD_EXECUTE_INIT, None, ch)
         for ch in channels:
@@ -249,7 +254,7 @@ class AbstractCoordinator:
         if config['default']['warmup'] > 0:
             try:
                 for msc in mongostats:
-                    LOG.debug("Installing timer to start recording MongoStat output [%s]", config['default']['warmup'])
+                    LOG.info("Installing timer to start recording MongoStat output [%s]", config['default']['warmup'])
                     t = Timer(config['default']['warmup'], msc.startRecording)
                     t.start()
                     timers.append(t)

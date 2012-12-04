@@ -38,8 +38,7 @@ class WorkloadCombiner:
     def __init__(self, col_names, workload):
         self.lastDesign = None
         self.col_names = col_names
-        self.temperary_workload = workload # this means this workload may not be processed
-        self.workload = None # This is the workload that will be processed and returned
+        self.workload = workload
         self.col_sess_xref = None
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
@@ -53,9 +52,9 @@ class WorkloadCombiner:
             self.col_sess_xref[col_name] = []
         ## FOR
         
-        self.workload = copy.deepcopy(self.temperary_workload)
+        workload = copy.deepcopy(self.workload)
         
-        for sess in self.workload:
+        for sess in workload:
             cols = set()
             for op in sess["operations"]:
                 if op["collection"] in self.col_sess_xref:
@@ -64,6 +63,8 @@ class WorkloadCombiner:
             for col_name in cols:
                 self.col_sess_xref[col_name].append(sess)
         ## FOR (sess)
+
+        return workload
     ## DEF
     
     def process(self, design):
@@ -72,11 +73,6 @@ class WorkloadCombiner:
             are combined with each other based on the denormalization scheme.
         """
         ## If the design doesn't have any collection embedding, return None
-        #query_count = 0
-        #for sess in self.workload:
-            #for op in sess['operations']:
-                #query_count += len(op['query_content'])
-        #print "query count: ", query_count
         
         hasDenormCol = False
         for col_name in design.getCollections():
@@ -90,7 +86,7 @@ class WorkloadCombiner:
             return None
         
         # Here we really need to prepare the workload for use
-        self.prepareWorkload()
+        workload = self.prepareWorkload()
         
         collectionsInProperOrder = self.__GetCollectionsInProperOder__(design)
 
@@ -106,7 +102,7 @@ class WorkloadCombiner:
             #for op in sess['operations']:
                 #query_count += len(op['query_content'])
         #print "query count: ", query_count
-        return self.workload
+        return workload
     ## DEF
         
     # If we want to embed queries accessing collection B to queries accessing collection A

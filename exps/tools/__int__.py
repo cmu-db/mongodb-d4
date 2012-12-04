@@ -1,1 +1,2 @@
-from design_deserializer import Deserializer 
+# -*- coding: utf-8 -*-
+__all__ = ["design_deserializer"]

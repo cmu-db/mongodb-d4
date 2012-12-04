@@ -88,7 +88,7 @@ class AbstractWorker:
         ## DATABASE DESIGN
         ## ----------------------------------------------
         self.design = None
-        if config['default']['design']:
+        if config['default']['design'] and config['default']['name'] != 'replay':
             if self.debug:
                 LOG.debug("Instantiating design from JSON")
             initalD, self.design = search.utilmethods.fromJSON(config['default']['design'])
