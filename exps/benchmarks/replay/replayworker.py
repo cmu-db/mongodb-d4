@@ -29,13 +29,6 @@ import string
 import re
 import logging
 import traceback
-
-basedir = os.getcwd()
-sys.path.append(os.path.join(basedir, "../../../libs"))
-sys.path.append(os.path.join(basedir, "../../../src"))
-
-import pymongo
-import mongokit
 from pprint import pprint, pformat
 
 # Designer

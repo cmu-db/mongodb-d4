@@ -58,7 +58,6 @@ for d in ["src", "libs"]:
         sys.path.append(dir)
 ## FOR
 import argparse
-import mongokit
 
 # We need to load up the stuff that our execnet threads will need
 from util.histogram import Histogram
