@@ -32,9 +32,6 @@ import traceback
 from pprint import pprint, pformat
 
 # Designer
-import workload
-import catalog
-import search
 from util import constants
 
 from api.abstractworker import AbstractWorker
