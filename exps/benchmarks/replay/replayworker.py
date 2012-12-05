@@ -102,9 +102,18 @@ class ReplayWorker(AbstractWorker):
                 isCount = False
                 
                 # The query content field has our where clause
-                try:
-                    whereClause = op['query_content'][0]['#query']
-                except:
+                # After query combination, one query_content fields could contain more than one queries
+                for i in xrange(len(op['query_content'])):
+                    whereClause = None
+
+                    try:
+                        whereClause = op['query_content'][i]['#query']
+                        op_counter += 1
+                    except:
+                        continue
+                ## FOR
+
+                if not whereClause:
                     return
                 
                 # And the second element is the projection

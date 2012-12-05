@@ -129,7 +129,22 @@ class Denormalizer:
         ## IF
         LOG.info("Denormalizing Database")
         col_names = [ x for x in self.dataset_db.collection_names()]
-        workload = [x for x in self.metadata_db.sessions.find()]
+        workload_cursor = self.metadata_db.sessions.find()
+        workload = [ ]
+        total_sess = 0
+        error_sess = 0 
+        while True:
+            total_sess += 1
+            try:
+                workload.append(workload_cursor.next())
+            except StopIteration:
+                break
+            except:
+                error_sess += 1
+                continue
+            ## TRY
+        ## WHILE
+
         combiner = WorkloadCombiner(col_names, workload)
         new_workload = combiner.process(self.design)
         assert new_workload
