@@ -52,11 +52,7 @@ class ReplayWorker(AbstractWorker):
     ## DEF
     
     def loadImpl(self, config, channel, msg):
-        self.metadata_db = self.conn[config['replay']['metadata']]
-        self.dataset_db = self.conn[config['replay']['dataset']]
-        self.collections = [col_name for col_name in self.dataset_db.collection_names()]
-
-        self.__rewind_cursor__()
+        pass
     ## DEF
     
     def __rewind_cursor__(self):
@@ -75,7 +71,11 @@ class ReplayWorker(AbstractWorker):
     ## DEF
 
     def executeInitImpl(self, config):
-        pass
+        self.metadata_db = self.conn[config['replay']['metadata']]
+        self.dataset_db = self.conn[config['replay']['dataset']]
+        self.collections = [col_name for col_name in self.dataset_db.collection_names()]
+
+        self.__rewind_cursor__()
     ## DEF
 
     def executeImpl(self, config, txn, sess):
