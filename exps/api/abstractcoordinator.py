@@ -155,11 +155,6 @@ class AbstractCoordinator:
             #msg = getMessage(ch.receive())
             #
         ### FOR
-        
-        # If the current benchmark is replay
-        if config['default']['name'] == 'replay':
-            self.prepare()
-        ## IF
 
         LOG.info("%s Initialization Completed!" % self.name.upper())
         
