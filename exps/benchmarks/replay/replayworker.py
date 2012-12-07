@@ -67,7 +67,8 @@ class ReplayWorker(AbstractWorker):
             sess = self.replayCursor.next()
         ## TRY
 
-        return sess['operations'][0]['type'], sess
+        # Now we are just set with "Replay Queries" since the name is not important(at least Yang thinks so...)
+        return "Replay Queries", sess
     ## DEF
 
     def executeInitImpl(self, config):

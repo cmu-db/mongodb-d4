@@ -78,7 +78,7 @@ class ReplayCoordinator(AbstractCoordinator):
         LOG.info("Creating indexes")
         for col_name in design.getCollections():
             dataset_db[col_name].drop_indexes()
-            #self.dataset_db[col_name].
+            
             indexes = design.getIndexes(col_name)
             # The indexes is a list of tuples
             for tup in indexes:
