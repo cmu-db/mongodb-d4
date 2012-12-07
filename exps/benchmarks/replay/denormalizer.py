@@ -59,6 +59,7 @@ class Denormalizer:
         
         self.design = design
         self.src2des = { } # Dict that map source collection to destination collection
+        self.processed_session_ids = set()
         ## DEF
 
     def process(self):
@@ -68,32 +69,120 @@ class Denormalizer:
         self.loadDesign()
         
         # STEP 1: Re-construct the operations in the workload
-        new_workload = self.combineOperations()
-        
-        # STEP 1.5: Update the metadata_db in the database
-        if new_workload:
-            self.updateMetadata(new_workload)
-        ## IF
+        self.denormalize()
         
         # STEP 2: Remove the documents from the source collection and put them into the destination collection
         self.migrateDocuments()
     ## DEF
 
-    def updateMetadata(self, workload):
-        # we first remove all the sessions in the metadata_db: This sounds crazy but...yeah...
-        self.metadata_db.sessions.remove()
+    def __query_counter__(self):
+        counter = 0
+        for sess in self.metadata_db.sessions.find():
+            for op in sess['operations']:
+                counter += len(op['query_content'])
+            ## FOR
+        ## FOR
+        print "Number of queries: ", counter
+    ## FOR
+
+    def denormalize(self):
+        if len(self.src2des) == 0:
+            return None
+        ## IF
+        LOG.info("Denormalizing metadata database")
+        #self.__query_counter__()
+        start_time = time.time()
+
+        col_names = [ x for x in self.dataset_db.collection_names()]
+        workload_cursor = self.metadata_db.sessions.find()
+        total_sess = workload_cursor.count()
+        processed_sess = 0
+        error_sess = 0
+        left_sess = total_sess
         
+        LOG.info("Processing %s sessions", total_sess)
+        
+        # In order to be RAM friendly, we process limited number of sessions each time
+        while left_sess > 0:
+            if left_sess >= constants.WORKLOAD_WINDOW_SIZE:
+                num_to_be_processed = constants.WORKLOAD_WINDOW_SIZE
+            else:
+                num_to_be_processed = left_sess
+            ## IF
+            new_workload, num_error, processed_workload_ids = self.combineOperations(workload_cursor, num_to_be_processed, col_names)
+            
+            error_sess += num_error
+            processed_sess += len(processed_workload_ids)
+            if processed_sess % 100000 == 0:
+                LOG.info("Processed %s sessions", processed_sess)
+            ## IF
+            left_sess -= num_to_be_processed
+
+            self.updateMetadata(new_workload, processed_workload_ids)
+            # rewind the cursor after we update the database
+            workload_cursor = self.metadata_db.sessions.find()
+            self.processed_session_ids.update(processed_workload_ids)
+        ## WHILE
+
+        LOG.info("Finished metadata denormalization. Total sessions: %s. Error sessions: %s. Processed sessions: %s", total_sess, error_sess, processed_sess)
+        LOG.info("Metadata Denormalization takes: %s seconds", time.time() - start_time)
+    ## DEF
+
+    def updateMetadata(self, workload, processed_workload_ids):
+        # Remove all the processed sessions
+        for sess_id in processed_workload_ids:
+            self.metadata_db.sessions.remove({"_id" : sess_id})
+        ## FOR
+
         # After that save the new sessions
         for sess in workload:
             self.metadata_db.sessions.save(sess)
         ## FOR
     ## DEF
-    
+
+    def combineOperations(self, cursor, num_to_be_processed, col_names):
+        processed_workload = [ ]
+        processed_workload_ids = set()
+        counter = 0
+        error_sess = 0
+
+        while True:
+            try:
+                next_sess = cursor.next()
+                if next_sess['_id'] in self.processed_session_ids:
+                    continue
+                ## IF
+
+                processed_workload.append(next_sess)
+                processed_workload_ids.add(next_sess['_id'])
+                counter += 1
+
+                if counter >= num_to_be_processed:
+                    break
+                ## IF
+            except StopIteration:
+                break
+            except:
+                counter += 1
+                error_sess += 1
+                continue
+            ## TRY
+        ## WHILE
+
+        combiner = WorkloadCombiner(col_names, processed_workload)
+        new_workload = combiner.process(self.design)
+        assert new_workload
+
+        return new_workload, error_sess, processed_workload_ids 
+    ## FOR
+
     def migrateDocuments(self):
         if len(self.src2des) == 0:
             return None
         ## IF
         
+        start_time = time.time()
+        LOG.info("Starting dataset denormalization")
         # Put the documents from source collection into destination collection
         for src_col, des_col in self.src2des.iteritems():
             for doc in self.dataset_db[src_col].find():
@@ -113,6 +202,7 @@ class Denormalizer:
             self.dataset_db[col_name].drop()
         ## FOR
         
+        LOG.info("Dataset denormalization finished in %s seconds", time.time() - start_time)
     ## DEF
     
     def loadDesign(self): 
@@ -122,32 +212,4 @@ class Denormalizer:
             ## IF
         ## FOR
     ## DEF
-
-    def combineOperations(self):
-        if len(self.src2des) == 0:
-            return None
-        ## IF
-        LOG.info("Denormalizing Database")
-        col_names = [ x for x in self.dataset_db.collection_names()]
-        workload_cursor = self.metadata_db.sessions.find()
-        workload = [ ]
-        total_sess = 0
-        error_sess = 0 
-        while True:
-            total_sess += 1
-            try:
-                workload.append(workload_cursor.next())
-            except StopIteration:
-                break
-            except:
-                error_sess += 1
-                continue
-            ## TRY
-        ## WHILE
-
-        combiner = WorkloadCombiner(col_names, workload)
-        new_workload = combiner.process(self.design)
-        assert new_workload
-        return new_workload
-    ## FOR
 ## CLASS
