@@ -56,6 +56,7 @@ class ReplayCoordinator(AbstractCoordinator):
     ## DEF
     
     def loadImpl(self, config, channels):
+        self.prepare()
         return dict()
     ## DEF
     
