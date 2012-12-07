@@ -122,3 +122,9 @@ MIN_SPLIT_SIZE = 3
 
 # We want to SKIP these two fields since we are functional fields not data fields
 FUNCTIONAL_FIELD = 'parent_col'
+## ==============================================
+## REPLAY BENCHMARK
+## ==============================================
+
+# how many sessions to handle each time
+WORKLOAD_WINDOW_SIZE = 100000
