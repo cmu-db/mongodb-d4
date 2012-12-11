@@ -70,8 +70,11 @@ class ReplayCoordinator(AbstractCoordinator):
         d = Denormalizer(metadata_db, dataset_db, design)
         d.process()
         
-        # STEP 1.5: Put indexs on the dataset_db based on the given design
+        # STEP 2: Put indexs on the dataset_db based on the given design
         self.setIndexes(dataset_db, design)
+
+        # SETP 3: Create shardkeys through mongos
+        self.setShardKeys(dataset_db, design)
     ## DEF
     
     def setIndexes(self, dataset_db, design):
@@ -86,11 +89,46 @@ class ReplayCoordinator(AbstractCoordinator):
                 for element in tup:
                     index_list.append((str(element), pymongo.ASCENDING))
                 ## FOR
-                dataset_db[col_name].ensure_index(index_list)
+                try:
+                    dataset_db[col_name].ensure_index(index_list)
+                except:
+                    LOG.error("Failed to create indexes on collection %s", col_name)
+                    LOG.error("Indexes: %s", index_list)
+                    raise
             ## FOR
         ## FOR
+        LOG.info("Finished indexes creation")
     ## DEF
     
+    def setShardKeys(self, db, design):
+        LOG.info("Creating shardKeys")
+        admindb = self.conn["admin"]
+
+        assert admindb != None
+        assert db != None
+
+        for col_name in design.getCollections():
+            shardKeyDict = { }
+            
+            for key in design.getShardKeys(col_name):
+                shardKeyDict[key] = 1
+            ## FOR
+
+            # Continue if there are no shardKeys for this collection
+            if len(shardKeyDict) == 0:
+                continue
+            
+            # add shard keys
+            try: 
+                admindb.command({"shardcollection" : str(db.name) + "." + col_name, "key" : shardKeyDict})
+            except: 
+                LOG.error("Failed to enable sharding on collection '%s.%s'" % (db.name, col_name))
+                LOG.error("Command ran: %s", {"shardcollection" : str(db.name) + "." + col_name, "key" : shardKeyDict})
+                raise
+        ## FOR
+        LOG.info("Successfully create shardKeys on collections")
+    ## DEF
+
     def getDesign(self, design):
         assert design, "design path is empty"
 
