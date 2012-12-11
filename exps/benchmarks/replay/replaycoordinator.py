@@ -52,6 +52,9 @@ class ReplayCoordinator(AbstractCoordinator):
     ## DEF
 
     def initImpl(self, config, channels):
+        self.metadata_db = self.conn[self.config['replay']['metadata']]
+        self.dataset_db = self.conn[self.config['replay']['dataset']]
+        self.design = self.getDesign(self.config['default']['design'])
         return dict()
     ## DEF
     
@@ -61,20 +64,12 @@ class ReplayCoordinator(AbstractCoordinator):
     ## DEF
     
     def prepare(self):
-        # STEP 0: Get the current metadata and dataset
-        metadata_db = self.conn[self.config['replay']['metadata']]
-        dataset_db = self.conn[self.config['replay']['dataset']]
-        
         # STEP 1: Reconstruct database and workload based on the given design
-        design = self.getDesign(self.config['default']['design'])
-        d = Denormalizer(metadata_db, dataset_db, design)
+        d = Denormalizer(self.metadata_db, self.dataset_db, self.design)
         d.process()
         
         # STEP 2: Put indexs on the dataset_db based on the given design
-        self.setIndexes(dataset_db, design)
-
-        # SETP 3: Create shardkeys through mongos
-        self.setShardKeys(dataset_db, design)
+        self.setIndexes(self.dataset_db, self.design)
     ## DEF
     
     def setIndexes(self, dataset_db, design):
@@ -100,12 +95,22 @@ class ReplayCoordinator(AbstractCoordinator):
         LOG.info("Finished indexes creation")
     ## DEF
     
-    def setShardKeys(self, db, design):
+    def setupShardKeys(self):
         LOG.info("Creating shardKeys")
+        design = self.design
         admindb = self.conn["admin"]
+        db = self.dataset_db
 
         assert admindb != None
         assert db != None
+        # Enable sharding on the entire database
+        try:
+            # print {"enablesharding": db.name}
+            result = admindb.command({"enablesharding": db.name})
+            assert result["ok"] == 1, "DB Result: %s" % pformat(result)
+        except:
+            LOG.error("Failed to enable sharding on database '%s'" % db.name)
+            raise
 
         for col_name in design.getCollections():
             shardKeyDict = { }
@@ -120,6 +125,7 @@ class ReplayCoordinator(AbstractCoordinator):
             
             # add shard keys
             try: 
+                # print {"shardcollection" : str(db.name) + "." + col_name, "key" : shardKeyDict}
                 admindb.command({"shardcollection" : str(db.name) + "." + col_name, "key" : shardKeyDict})
             except: 
                 LOG.error("Failed to enable sharding on collection '%s.%s'" % (db.name, col_name))
@@ -129,10 +135,10 @@ class ReplayCoordinator(AbstractCoordinator):
         LOG.info("Successfully create shardKeys on collections")
     ## DEF
 
-    def getDesign(self, design):
-        assert design, "design path is empty"
+    def getDesign(self, design_path):
+        assert design_path, "design path is empty"
 
-        deserializer = Deserializer(design)
+        deserializer = Deserializer(design_path)
         
         design = deserializer.Deserialize()
         LOG.info("current design \n%s" % design)

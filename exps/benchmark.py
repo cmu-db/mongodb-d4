@@ -220,9 +220,15 @@ class Benchmark:
                 for host in hostsToRestart:
                     flushBuffer(host, self.config["default"]["restart"])
             ## IF
-        
+
         # Step 1: Initialize all of the Workers on the client nodes
         self.coordinator.init(self.config, self.channels) 
+        
+        # Step 1.5: Setup shard keys if the --add-shardKeys flag is set
+        if self.args['add_shardKeys']:
+            self.coordinator.setupShardKeys()
+            exit(0)
+        ## IF
         
         # Step 2: Load the benchmark database
         if not self.args['no_load']:
@@ -460,7 +466,8 @@ if __name__=='__main__':
                          help='Disable loading the benchmark data')
     agroup.add_argument('--no-execute', action='store_true',
                          help='Disable executing the benchmark workload')
-
+    agroup.add_argument('--add-shardKeys', action='store_true',
+                         help='Set up shard keys')
     # Debugging Options
     agroup = aparser.add_argument_group(termcolor.bold('Debugging Options'))
     agroup.add_argument('--direct', action='store_true',
