@@ -45,6 +45,7 @@ class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
         ("dataset", "Name of the dataset replay will be executed on (Change None to valid dataset name)", "None"),
         ("metadata", "Name of the metadata replay will execute (Change None to valid metadata name)", "None"),
+        ("metadata_host", "The host name for metadata database", "localhost:27017"),
      ]
     
     def benchmarkConfigImpl(self):
@@ -52,7 +53,16 @@ class ReplayCoordinator(AbstractCoordinator):
     ## DEF
 
     def initImpl(self, config, channels):
-        self.metadata_db = self.conn[self.config['replay']['metadata']]
+        metadata_conn = None
+        targetHost = config['replay']['metadata_host']
+        try:
+            metadata_conn = pymongo.Connection(targetHost)
+        except:
+            LOG.error("Failed to connect to target MongoDB at %s", targetHost)
+            raise
+        assert metadata_conn
+
+        self.metadata_db = metadata_conn[config['replay']['metadata']]
         self.dataset_db = self.conn[self.config['replay']['dataset']]
         self.design = self.getDesign(self.config['default']['design'])
         return dict()

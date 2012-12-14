@@ -78,7 +78,7 @@ SSH_OPTIONS = {
 class Benchmark:
     DEFAULT_CONFIG = [
         ("dbname", "The name of the MongoDB database to use for this benchmark invocation.", None), 
-        ("hosts", "Comma-separated list of MongoDB instances to use in this benchmark. Can be hostname:port#", "localhost:27017"),
+        ("hosts", "Comma-separated list of MongoDB instances to use in this benchmark. Can be hostname:port# (For replay benchmark this is only the host for dataset database)", "localhost:27017"),
         ("scalefactor", "Benchmark database scale factor", 1.0),
         ("duration", "Benchmark execution time in seconds", 60),
         ("warmup", "Benchmark warm-up period", 60),

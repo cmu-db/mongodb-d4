@@ -29,6 +29,9 @@ import string
 import re
 import logging
 import traceback
+
+import pymongo
+
 from pprint import pprint, pformat
 
 # Designer
@@ -72,7 +75,16 @@ class ReplayWorker(AbstractWorker):
     ## DEF
 
     def executeInitImpl(self, config):
-        self.metadata_db = self.conn[config['replay']['metadata']]
+        metadata_conn = None
+        targetHost = config['replay']['metadata_host']
+        try:
+            metadata_conn = pymongo.Connection(targetHost)
+        except:
+            LOG.error("Failed to connect to target MongoDB at %s", targetHost)
+            raise
+        assert metadata_conn
+
+        self.metadata_db = metadata_conn[config['replay']['metadata']]
         self.dataset_db = self.conn[config['replay']['dataset']]
         self.collections = [col_name for col_name in self.dataset_db.collection_names()]
 
