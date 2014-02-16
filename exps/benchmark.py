@@ -77,7 +77,7 @@ SSH_OPTIONS = {
 ## ==============================================
 class Benchmark:
     DEFAULT_CONFIG = [
-        ("dbname", "The name of the MongoDB database to use for this benchmark invocation.", None), 
+        ("dbname", "The name of the MongoDB database to use for this benchmark invocation.", None),
         ("hosts", "Comma-separated list of MongoDB instances to use in this benchmark. Can be hostname:port# (For replay benchmark this is only the host for dataset database)", "localhost:27017"),
         ("scalefactor", "Benchmark database scale factor", 1.0),
         ("duration", "Benchmark execution time in seconds", 60),
@@ -468,6 +468,7 @@ if __name__=='__main__':
                          help='Disable executing the benchmark workload')
     agroup.add_argument('--add-shardKeys', action='store_true',
                          help='Set up shard keys')
+
     # Debugging Options
     agroup = aparser.add_argument_group(termcolor.bold('Debugging Options'))
     agroup.add_argument('--direct', action='store_true',

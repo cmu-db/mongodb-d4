@@ -43,7 +43,8 @@ from api.message import *
 
 class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
-        ("dataset", "Name of the dataset replay will be executed on (Change None to valid dataset name)", "None"),
+        ("ori_db", "Name of the database that contains the original data (Change None to valid dataset name)", "None"),
+        ("new_db", "Name of the database that we will copy the 'orig_database' into using the new design.", "None"),
         ("metadata", "Name of the metadata replay will execute (Change None to valid metadata name)", "None"),
         ("metadata_host", "The host name for metadata database", "localhost:27017"),
      ]
@@ -63,7 +64,8 @@ class ReplayCoordinator(AbstractCoordinator):
         assert metadata_conn
 
         self.metadata_db = metadata_conn[config['replay']['metadata']]
-        self.dataset_db = self.conn[self.config['replay']['dataset']]
+        self.ori_db = self.conn[self.config['replay']['ori_db']]
+        self.new_db = self.conn[self.config['replay']['new_db']]
         self.design = self.getDesign(self.config['default']['design'])
         return dict()
     ## DEF
@@ -72,20 +74,50 @@ class ReplayCoordinator(AbstractCoordinator):
         self.prepare()
         return dict()
     ## DEF
-    
-    def prepare(self):
-        # STEP 1: Reconstruct database and workload based on the given design
-        d = Denormalizer(self.metadata_db, self.dataset_db, self.design)
-        d.process()
-        
-        # STEP 2: Put indexs on the dataset_db based on the given design
-        self.setIndexes(self.dataset_db, self.design)
+
+    ## DEF
+    def copyData(self, doc, cur_name):
+        '''doc is a dict'''
+        for key in doc.keys():
+        # Insert into new collection and add the parent's id
+            if isinstance(doc[key], dict):
+                doc[key]['PARENT_ID'] = doc['_id']
+                self.copyData(doc[key], cur_name+'.'+str(key))
+                del doc[key]
+            elif isinstance(doc[key], list):
+                for obj in doc[key]:
+                    if isinstance(obj, dict):
+                        obj['PARENT_ID'] = doc['_id']
+                        self.copyData(obj, cur_name+'.'+str(key))
+
+                newlist = [x for x in doc[key] if not isinstance(x, dict)]
+                doc[key] = newlist
+                if len(doc[key]) == 0:
+                    del doc[key]
+
+        self.new_db[cur_name].insert(doc)   
     ## DEF
     
-    def setIndexes(self, dataset_db, design):
+    def prepare(self):
+        # STEP 1: Setup new database and install the sharding key configuration
+        # TODO
+        for col_name in self.ori_db.collection_names(False):
+            col = self.ori_db[col_name]
+            for doc in col.find({},{'_id':False}):
+                    self.copyData(doc, col_name)
+                
+        # STEP 2: Reconstruct database and workload based on the given design
+        #d = Denormalizer(self.metadata_db, self.ori_db, self.design)
+        #d.process()
+        
+        # STEP 3: Put indexs on the dataset_db based on the given design
+        self.setIndexes(self.ori_db, self.design)
+    ## DEF
+    
+    def setIndexes(self, ori_db, design):
         LOG.info("Creating indexes")
         for col_name in design.getCollections():
-            dataset_db[col_name].drop_indexes()
+            ori_db[col_name].drop_indexes()
             
             indexes = design.getIndexes(col_name)
             # The indexes is a list of tuples
@@ -95,7 +127,7 @@ class ReplayCoordinator(AbstractCoordinator):
                     index_list.append((str(element), pymongo.ASCENDING))
                 ## FOR
                 try:
-                    dataset_db[col_name].ensure_index(index_list)
+                    ori_db[col_name].ensure_index(index_list)
                 except:
                     LOG.error("Failed to create indexes on collection %s", col_name)
                     LOG.error("Indexes: %s", index_list)
