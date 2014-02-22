@@ -78,16 +78,30 @@ class ReplayCoordinator(AbstractCoordinator):
     ## DEF
     def copyData(self, doc, cur_name):
         '''doc is a dict'''
+        self.new_db[cur_name].insert(doc)   
+        docs = self.new_db[cur_name].find().sort('_id',-1).limit(1)
+        for tmp in docs:
+            doc = tmp
+
         for key in doc.keys():
         # Insert into new collection and add the parent's id
             if isinstance(doc[key], dict):
-                doc[key]['PARENT_ID'] = doc['_id']
+                doc[key]['PARENT_ID'] = []
+                if 'PARENT_ID' in doc:
+                    doc[key]['PARENT_ID'].extend(doc['PARENT_ID'])
+                else:
+                    doc[key]['PARENT_ID'] = []
+                doc[key]['PARENT_ID'].append(doc['_id'])
                 self.copyData(doc[key], cur_name+'.'+str(key))
                 del doc[key]
             elif isinstance(doc[key], list):
                 for obj in doc[key]:
                     if isinstance(obj, dict):
-                        obj['PARENT_ID'] = doc['_id']
+                        obj['PARENT_ID'] = []
+                        if 'PARENT_ID' in doc:
+                            obj['PARENT_ID'].extend(doc['PARENT_ID'])
+
+                        obj['PARENT_ID'].append(doc['_id'])
                         self.copyData(obj, cur_name+'.'+str(key))
 
                 newlist = [x for x in doc[key] if not isinstance(x, dict)]
@@ -95,7 +109,8 @@ class ReplayCoordinator(AbstractCoordinator):
                 if len(doc[key]) == 0:
                     del doc[key]
 
-        self.new_db[cur_name].insert(doc)   
+        self.new_db[cur_name].save(doc)
+
     ## DEF
     
     def prepare(self):
