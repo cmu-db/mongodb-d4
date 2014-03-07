@@ -85,7 +85,7 @@ class ReplayWorker(AbstractWorker):
         assert metadata_conn
 
         self.metadata_db = metadata_conn[config['replay']['metadata']]
-        self.dataset_db = self.conn[config['replay']['dataset']]
+        self.dataset_db = self.conn[config['replay']['ori_db']]
         self.collections = [col_name for col_name in self.dataset_db.collection_names()]
 
         self.__rewind_cursor__()
