@@ -36,7 +36,7 @@ sys.path.append(os.path.join(basedir, "tools"))
 
 import pymongo
 
-from denormalizer import Denormalizer
+from dbdenormalizer import DBDenormalizer
 from design_deserializer import Deserializer
 
 from api.abstractcoordinator import AbstractCoordinator
@@ -72,164 +72,28 @@ class ReplayCoordinator(AbstractCoordinator):
     ## DEF
     
     def loadImpl(self, config, channels):
+        if self.config['default']['reset']:
+            LOG.info("Resetting database %s" % self.config['replay']['new_db'])
+            self.conn.drop_database(self.new_db)
         self.prepare()
         return dict()
-    ## DEF
-
-    ## DEF
-    def readSchema(self, schema_str):
-        ret = {}
-        col = self.metadata_db[schema_str]
-        for doc in col.find({},{'_id':False}):
-            for field in doc['fields']:
-                if not doc['fields'][field]['parent_col'] is None:
-                    if not doc['name'] in ret:
-                        ret[doc['name']] = {}
-                    ret[doc['name']][doc['fields'][field]['parent_col']] = doc['fields'][field]['parent_key']
-
-        return ret
-        
-
-    ## DEF
-    def copyData(self, doc, cur_name, parent_keys):
-        '''
-            doc is a dict
-        '''
-        #self.new_db[cur_name].insert(doc)   
-        #docs = self.new_db[cur_name].find().sort('_id',-1).limit(1)
-        #for tmp in docs:
-        #   doc = tmp
-
-        for key in doc.keys():
-            # Insert into new collection and add the parent's id
-            if isinstance(doc[key], dict) and not parent_keys[key] is None and not parent_keys[key][cur_name] is None:
-                
-                doc[key][parent_keys[key][cur_name]] = doc[parent_keys[key][cur_name]]
-                
-                self.copyData(doc[key], str(key), parent_keys)
-                del doc[key]
-            elif isinstance(doc[key], list):
-                for obj in doc[key]:
-                    if isinstance(obj, dict) and not parent_keys[key] is None and not parent_keys[key][cur_name] is None:
-                        obj[parent_keys[key][cur_name]] = []
-
-                        obj[parent_keys[key][cur_name]] = doc[parent_keys[key][cur_name]]
-                        self.copyData(obj, str(key), parent_keys)
-
-                newlist = [x for x in doc[key] if not isinstance(x, dict)]
-                doc[key] = newlist
-                if len(doc[key]) == 0:
-                    del doc[key]
-
-        self.new_db[cur_name].insert(doc)
-
-    ## DEF
-    
-    ## DEF
-    def constructGraph(self):
-        '''
-            Construct a graph based on the design
-        '''
-        graph = {}
-
-        data = self.design.data
-
-        for k in data:
-            p = data[k]['denorm']
-            if not k in graph:
-                graph[k] = 0
-            if not p is None:
-                if not p in graph:
-                    graph[p] = 1
-                else:
-                    graph[p] += 1
-
-        print graph
-        return graph
-    ## DEF
-
-    ## DEF
-    def denormalize(self, graph):
-        while len(graph) > 0:
-            # For each collection that has no embedded collections
-            todelete = []
-            for key in graph:
-                if graph[key] == 0:
-                    if not self.design.data[key]['denorm'] is None:
-                        # Get its parent collection's name
-                        parent = self.design.data[key]['denorm']
-                        # Get its parent collection's id (foreign key)
-                        f_id = parent.lower()[0] + u'_id'
-                        # For each document in this collection
-                        cnt = 1
-                        for doc in self.new_db[key].find({},{'_id':False}):
-                            print cnt
-                            cnt += 1
-                            # Get the foreign key's value
-                            p_id = doc[f_id]
-                            
-                            # Get the parent document
-                            p_doc = self.new_db[parent].find({f_id:p_id})
-                            del doc[f_id]
-                            for pdoc in p_doc:
-                                # if this parent document has no this attribute (first embedded)
-                                if not key in pdoc:
-                                    pdoc[key] = doc
-                                # else this parent has already embedded such document before
-                                else:
-                                    # if it is a dictionary, transform to a list first then append
-                                    if isinstance(pdoc[key], dict):
-                                        newdic = copy.deepcopy(pdoc[key])
-                                        del pdoc[key]
-                                        pdoc[key] = []
-                                        pdoc[key].append(newdic)
-                                        pdoc[key].append(doc)
-                                    # if it is already a list, just append
-                                    elif isinstance(pdoc[key], list):
-                                        pdoc[key].append(doc)
-                                # update the parent document 
-                                self.new_db[parent].save(pdoc)
-                        # drop the child collection
-                        self.new_db[key].drop()
-                        # update the graph
-                        graph[parent] -= 1
-                    todelete.append(key)
-            for entry in todelete:
-                del graph[entry]
-
-
-    ## DEF
+    ## DEF    
 
     def prepare(self):
-        # STEP 1: Setup new database and install the sharding key configuration
-        # TODO
-        # Normalization
-        parent_keys = self.readSchema('schema')
-        for col_name in self.ori_db.collection_names(False):
-            col = self.ori_db[col_name]
-            cnt = 1
-            for doc in col.find({},{'_id':False}):
-                    if cnt == 1000:
-                        break
-                    self.copyData(doc, col_name, parent_keys)
-                    cnt += 1
-        # Construct graph
-        graph = self.constructGraph()
-        
-        self.denormalize(graph)
         # Denormalization 
-        # STEP 2: Reconstruct database and workload based on the given design
-        #d = Denormalizer(self.metadata_db, self.ori_db, self.design)
-        #d.process()
-        
-        # STEP 3: Put indexs on the dataset_db based on the given design
-        self.setIndexes(self.ori_db, self.design)
+        # STEP 1: Reconstruct database and workload based on the given design
+        LOG.info("Denormalizing database")
+        d = DBDenormalizer(self.metadata_db, self.ori_db, self.new_db, self.design)
+        d.process()
+
+        # STEP 2: Put indexs on the dataset_db based on the given design
+        self.setIndexes(self.new_db, self.design)
     ## DEF
     
-    def setIndexes(self, ori_db, design):
+    def setIndexes(self, new_db, design):
         LOG.info("Creating indexes")
         for col_name in design.getCollections():
-            ori_db[col_name].drop_indexes()
+            new_db[col_name].drop_indexes()
             
             indexes = design.getIndexes(col_name)
             # The indexes is a list of tuples
@@ -239,7 +103,7 @@ class ReplayCoordinator(AbstractCoordinator):
                     index_list.append((str(element), pymongo.ASCENDING))
                 ## FOR
                 try:
-                    ori_db[col_name].ensure_index(index_list)
+                    new_db[col_name].ensure_index(index_list)
                 except:
                     LOG.error("Failed to create indexes on collection %s", col_name)
                     LOG.error("Indexes: %s", index_list)
