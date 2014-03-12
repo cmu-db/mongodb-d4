@@ -205,11 +205,11 @@ class MySQLConverter(AbstractConverter):
         SELECT CONCAT( table_name, '.', column_name, '.',
         referenced_table_name, '.', referenced_column_name ) AS list_of_fks
         FROM INFORMATION_SCHEMA.key_column_usage
-        WHERE referenced_table_schema = %s
+        WHERE referenced_table_schema = '%s'
         AND referenced_table_name IS NOT NULL
-        """
+        """ % self.dbName
         c3 = self.mysql_conn.cursor()
-        c3.execute(sql, (self.dbName))
+        c3.execute(sql)
 
         for row in c3 :
             rel = tuple(row[0].split('.'))
