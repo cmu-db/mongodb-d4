@@ -10,10 +10,10 @@ from util import constants
 import logging
 import random
 
-logging.basicConfig(level = logging.INFO,
-format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
-datefmt="%m-%d-%Y %H:%M:%S",
-stream = sys.stdout)
+#logging.basicConfig(level = logging.INFO,
+#format="%(asctime)s [%(filename)s:%(lineno)03d] %(levelname)-5s: %(message)s",
+#datefmt="%m-%d-%Y %H:%M:%S",
+#stream = sys.stdout)
 LOG = logging.getLogger(__name__)
 
 basedir = os.path.realpath(os.path.dirname(__file__))
