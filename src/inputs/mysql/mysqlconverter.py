@@ -36,6 +36,7 @@ import sql2mongo
 from util import *
 import utilmethods
 import time
+from decimal import *
 
 LOG = logging.getLogger(__name__)
 
@@ -174,7 +175,14 @@ class MySQLConverter(AbstractConverter):
         row_ctr = 0
         batch = [ ]
         for data_row in c4 :
-            mongo_record = dict((tbl_cols[i], data_row[i]) for i in xrange(len(tbl_cols)))
+            #for i in xrange(len(tbl_cols)):
+                #if tbl_cols[i] == u'c_discount':
+                #if isinstance(data_row[i], float): 
+                    #print type(data_row[i]), data_row[i]
+                #if isinstance(data_row[i], Decimal):
+                #    data_row[i] = float(data_row[i])
+
+            mongo_record = dict((tbl_cols[i], float(data_row[i]) if isinstance(data_row[i], Decimal) else data_row[i]) for i in xrange(len(tbl_cols)))
             batch.append(mongo_record)
             row_ctr += 1
 
