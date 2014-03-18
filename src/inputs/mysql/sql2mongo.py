@@ -564,6 +564,12 @@ class Sql2Mongo (object) :
                     val = self.stmt.tokens[i]
                     clause = self.process_where_clause(parts[1], self.process_where_comparison_operator(op), self.process_where_comparison_value(val))
                     self.set_cols[self.table_aliases[parts[0]]].append(clause)
+                elif cls == 'IdentifierList' :
+                    #print self.stmt.tokens
+                    for tok in self.stmt.tokens[i].tokens:
+                        if tok.__class__.__name__ == 'Comparison':
+                            parts = self.process_where_comparison(tok)
+                            self.set_cols[self.table_aliases[parts[0]]].append(parts[1])
                 i += 1
         
         ''' PROCESS WHERE clause '''
@@ -614,6 +620,7 @@ class Sql2Mongo (object) :
             elif self.query_type == 'DELETE' :
                 self.process_query_delete()
             elif self.query_type == 'UPDATE' :
+                #print sql
                 self.process_query_update()
             else :
                 self.query_type = 'UNKNOWN'
@@ -650,6 +657,7 @@ class Sql2Mongo (object) :
     def process_where_comparison(self, comp) :
         tokens = self.strip_whitespace(comp)
         parts = self.process_identifier(tokens[0])
+        #print tokens
         clause = self.process_where_clause(parts[1], self.process_where_comparison_operator(tokens[1]), self.process_where_comparison_value(tokens[2]))
         return (parts[0], clause)
     ## End process_where_comparison()
@@ -698,6 +706,7 @@ class Sql2Mongo (object) :
     def process_where_comparison_value(self, value) :
         cls = value.__class__.__name__
         if cls == 'Identifier' :
+            #print value,str(value.to_unicode())
             return "'" + str(value.to_unicode()).strip('"\'') + "'"
         elif value.ttype == sqlparse.tokens.String :
             return "'" + str(value.to_unicode()).strip('"\'') + "'"
@@ -899,8 +908,22 @@ class Sql2Mongo (object) :
     
     def render_trace_set_clause(self, table) :
         output = {}
+        output['#set'] = {}
+        output['#inc'] = {}
+        output['#mul'] = {}
         for col in self.set_cols[table] :
-            output[col[0]] = self.render_trace_value(col[2])
+            val = self.render_trace_value(col[2])
+            if isinstance(val, list) and val[2] in ['+','-','*','/']:
+                if val[2] == '+':
+                    output['#inc'][col[0]] = float(val[1]) 
+                elif val[2] == '-':
+                    output['#inc'][col[0]] = -float(val[1]) 
+                elif val[2] == '*':
+                    output['#mul'][col[0]] = float(val[1]) 
+                elif val[2] == '/':
+                    output['#mul'][col[0]] = 1/float(val[1]) 
+            else:
+                output['#set'][col[0]] = val
         return output
     ## End render_trace_set_clause()
     
@@ -917,6 +940,18 @@ class Sql2Mongo (object) :
     def render_trace_value(self, val) :
         if val.lower() == 'null' :
             val = 'null'
+        elif '+' in val:
+            val = val.strip('"\'').split('+')
+            val.append('+')
+        elif '-' in val:
+            val = val.strip('"\'').split('-')
+            val.append('-')
+        elif '*' in val:
+            val = val.strip('"\'').split('*')
+            val.append('*')
+        elif '/' in val:
+            val = val.strip('"\'').split('/')
+            val.append('/')
         elif val[0] in ['"', "'"] :
             val = val.strip('"\'')
         elif val[0] == '(':
@@ -980,6 +1015,7 @@ class Sql2Mongo (object) :
     Remove white space tokens from a TokenList
     '''
     def strip_whitespace(self, tokenlist) :
+        #print tokenlist
         newlist = []
         for token in tokenlist.tokens :
             if token.ttype == sqlparse.tokens.Whitespace :
