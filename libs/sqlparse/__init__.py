@@ -6,11 +6,7 @@
 """Parse SQL statements."""
 
 
-__version__ = '0.1.4'
-
-
-class SQLParseError(Exception):
-    """Base class for exceptions in this module."""
+__version__ = '0.1.11'
 
 
 # Setup namespace
@@ -18,17 +14,30 @@ from sqlparse import engine
 from sqlparse import filters
 from sqlparse import formatter
 
+# Deprecated in 0.1.5. Will be removed in 0.2.0
+from sqlparse.exceptions import SQLParseError
 
-def parse(sql):
+
+def parse(sql, encoding=None):
     """Parse sql and return a list of statements.
 
-    *sql* is a single string containting one or more SQL statements.
+    :param sql: A string containting one or more SQL statements.
+    :param encoding: The encoding of the statement (optional).
+    :returns: A tuple of :class:`~sqlparse.sql.Statement` instances.
+    """
+    return tuple(parsestream(sql, encoding))
 
-    Returns a tuple of :class:`~sqlparse.sql.Statement` instances.
+
+def parsestream(stream, encoding=None):
+    """Parses sql statements from file-like object.
+
+    :param stream: A file-like object.
+    :param encoding: The encoding of the stream contents (optional).
+    :returns: A generator of :class:`~sqlparse.sql.Statement` instances.
     """
     stack = engine.FilterStack()
     stack.full_analyze()
-    return tuple(stack.run(sql))
+    return stack.run(stream, encoding)
 
 
 def format(sql, **options):
@@ -36,26 +45,34 @@ def format(sql, **options):
 
     Available options are documented in :ref:`formatting`.
 
-    Returns the formatted SQL statement as string.
+    In addition to the formatting options this function accepts the
+    keyword "encoding" which determines the encoding of the statement.
+
+    :returns: The formatted SQL statement as string.
     """
+    encoding = options.pop('encoding', None)
     stack = engine.FilterStack()
     options = formatter.validate_options(options)
     stack = formatter.build_filter_stack(stack, options)
     stack.postprocess.append(filters.SerializerUnicode())
-    return ''.join(stack.run(sql))
+    return ''.join(stack.run(sql, encoding))
 
 
-def split(sql):
+def split(sql, encoding=None):
     """Split *sql* into single statements.
 
-    Returns a list of strings.
+    :param sql: A string containting one or more SQL statements.
+    :param encoding: The encoding of the statement (optional).
+    :returns: A list of strings.
     """
     stack = engine.FilterStack()
     stack.split_statements = True
-    return [unicode(stmt) for stmt in stack.run(sql)]
+    return [unicode(stmt).strip() for stmt in stack.run(sql, encoding)]
 
 
 from sqlparse.engine.filter import StatementFilter
+
+
 def split2(stream):
     splitter = StatementFilter()
     return list(splitter.process(None, stream))
