@@ -45,6 +45,7 @@ class DBCombiner:
         graph = copy.deepcopy(self.graph)
         
         error_ops = 0
+        ret = []
 
         n_ops = {}
         for op in i_ops:
@@ -94,7 +95,16 @@ class DBCombiner:
                                 ## END IF
                             ## END FOR
                             # no embedded parent operation found
+                            # transform this insert into a update
                             if flag is False:
+                                op['type'] = '$update'
+                                op['collection'] = parent
+                                content = op['query_content'][0]
+                                parent_values = {dicts[f_id]:op['query_content'][0][f_id] for f_id in c_ids}
+                                op['query_content'][0] = parent_values
+                                op['query_content'][1] = {}
+                                op['query_content'][1]['#push'] = {key:content}
+                                ret.append(op)
                                 error_ops += 1
                         ## END FOR
                         del n_ops[key]
@@ -107,7 +117,6 @@ class DBCombiner:
                 del graph[entry]
         ## END WHILE
         ## FOR
-        ret = []
         for key in n_ops:
             ret.append(n_ops[key])
         ## END FOR        
