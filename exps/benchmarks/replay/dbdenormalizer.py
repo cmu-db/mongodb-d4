@@ -186,7 +186,8 @@ class DBDenormalizer:
 
                 if cnt >= num_to_be_processed:
                     break
-                break
+                if cnt == 1:
+                    break
             except StopIteration:
                 break
             except:
@@ -205,22 +206,17 @@ class DBDenormalizer:
     ## DEF
     def process(self):
         ## step1: copy data from the old_db to new_db
-        # self.parent_keys = self.readSchema('schema')
-        self.parent_keys = {}
-        self.parent_keys['order_line'] = {} 
-        self.parent_keys['order_line']['oorder'] = {} 
-        self.parent_keys['order_line']['oorder']['ol_w_id'] = 'o_w_id'
-        self.parent_keys['order_line']['oorder']['ol_o_id'] = 'o_id'
-        self.parent_keys['order_line']['oorder']['ol_d_id'] = 'o_d_id'
-        ## print parent_keys
+        self.parent_keys = self.readSchema('schema')
+        print self.parent_keys
         #migrator = DBMigrator(self.ori_db, self.new_db)
         #migrator.migrate(self.parent_keys)
 
         ## step2: denormalize the database schema
-        ## self.graph = self.constructGraph()
-        self.graph = {}
-        self.graph['oorder'] = 1
-        self.graph['order_line'] = 0
+        self.graph = self.constructGraph()
+        print self.graph
+        #self.graph = {}
+        #self.graph['oorder'] = 1
+        #self.graph['order_line'] = 0
         #self.denormalize(self.graph, self.parent_keys)
 
         ## step3: combine queries
