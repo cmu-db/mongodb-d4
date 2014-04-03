@@ -98,7 +98,7 @@ class DBCombiner:
                             # no embedded parent operation found
                             # transform this insert into a update
                             if flag is False:
-                                op['type'] = '$update'
+                                op['type'] = constants.OP_TYPE_UPDATE
                                 op['collection'] = parent
                                 content = op['query_content'][0]
                                 parent_values = {dicts[f_id]:op['query_content'][0][f_id] for f_id in c_ids}
@@ -187,7 +187,7 @@ class DBCombiner:
                             # no embedded parent operation found
                             # transform this insert into a update
                             if flag is False:
-                                op['type'] = '$update'
+                                op['type'] = constants.OP_TYPE_INSERT
                                 op['collection'] = parent
 
                                 content = op['query_content'][0]
@@ -202,8 +202,8 @@ class DBCombiner:
                                         op['query_content'][0][dicts[c_attr]] = content[c_attr]
                                         clause_delete.append(c_attr)
                                     else:
-                                        op['query_content'][0][key+'.'+c_attr] = content[c_attr]
-                                        op['predicates'][key+'.'+c_attr] = child_query_predicates[c_attr]
+                                        op['query_content'][0][key+constants.REPLACE_KEY_PERIOD+c_attr] = content[c_attr]
+                                        op['predicates'][key+constants.REPLACE_KEY_PERIOD+c_attr] = child_query_predicates[c_attr]
                                 for c_attr in clause_delete:
                                     del content[c_attr]
 
@@ -307,8 +307,8 @@ class DBCombiner:
                                 # child collection query has where clause more than foreign keys
                                 for c_attr in child_contents[0]['#query']:
                                     if not c_attr in c_ids:
-                                        op['query_content'][0]['#query'][key+'.'+c_attr] = child_contents[0]['#query'][c_attr]
-                                        op['predicates'][key+'.'+c_attr] = child_query_predicates[c_attr]
+                                        op['query_content'][0]['#query'][key+constants.REPLACE_KEY_PERIOD+c_attr] = child_contents[0]['#query'][c_attr]
+                                        op['predicates'][key+constants.REPLACE_KEY_PERIOD+c_attr] = child_query_predicates[c_attr]
 
                                 n_ops[parent].append(op)
                                 error_ops += 1
@@ -382,8 +382,8 @@ class DBCombiner:
                                 if c_attr in c_ids:
                                     op['query_content'][0][dicts[c_attr]] = where_clause[c_attr]
                                 else:
-                                    op['query_content'][0][key+'.'+c_attr] = where_clause[c_attr]
-                                    op['predicates'][key+'.'+c_attr] = child_query_predicates[c_attr]
+                                    op['query_content'][0][key+constants.REPLACE_KEY_PERIOD+c_attr] = where_clause[c_attr]
+                                    op['predicates'][key+constants.REPLACE_KEY_PERIOD+c_attr] = child_query_predicates[c_attr]
 
                             field_clause = op['query_content'][1]
                             op['query_content'][1] = {}
@@ -392,7 +392,7 @@ class DBCombiner:
                             for up_op in field_clause:
                                 op['query_content'][1][up_op] = {}
                                 for k in field_clause[up_op]:
-                                    op['query_content'][1][up_op][key+'.0.'+k] = field_clause[up_op][k]
+                                    op['query_content'][1][up_op][key+constants.REPLACE_KEY_PERIOD+'0'+constants.REPLACE_KEY_PERIOD+k] = field_clause[up_op][k]
                             ## END FOR
 
                         ## END FOR
@@ -412,8 +412,8 @@ class DBCombiner:
         for key in n_ops:
             ret.extend(n_ops[key])
         ## END FOR        
-        for op in ret:
-            print op
+        #for op in ret:
+        #    print op
         return ret, error_ops
     ## DEF
         
@@ -445,22 +445,30 @@ class DBCombiner:
 
         i_ret, errors, i_updates = self.combineInserts(insert_ops)
         update_ops.extend(i_updates)
+        session['operations'] = i_ret
 
-        self.combineQueries(query_ops)
+        q_ret, errors = self.combineQueries(query_ops)
+        session['operations'].extend(q_ret)
 
         d_ret, errors, d_updates = self.combineDeletes(delete_ops)
         update_ops.extend(d_updates)
+        session['operations'].extend(d_ret)
 
-        self.combineUpdates(update_ops)
+        u_ret, errors = self.combineUpdates(update_ops)
+        session['operations'].extend(u_ret)
+
+        return session
     ## DEF
 
     ## DEF
     def process(self):
         LOG.info("Combining operations")
+        ret = []
         cnt = 0
         for sess in self.sessions:
-            self.combine(sess)
+            ret.append(self.combine(sess))
             if cnt == 2:
                 break
             cnt += 1
+        return ret
     ## DEF

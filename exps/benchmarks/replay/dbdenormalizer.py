@@ -27,9 +27,10 @@ from dbcombiner import DBCombiner
 LOG = logging.getLogger(__name__)
 
 class DBDenormalizer:
-    def __init__(self, metadata_db, ori_db, new_db, design):
+    def __init__(self, metadata_db, new_meta, ori_db, new_db, design):
 
         self.metadata_db = metadata_db
+        self.new_meta = new_meta
         self.ori_db = ori_db
         self.new_db = new_db
         self.design = design
@@ -40,10 +41,10 @@ class DBDenormalizer:
     ## DEF
 
     ## DEF
-    def readSchema(self, schema_str):
+    def readSchema(self):
         LOG.info("Reading Schema information")
         ret = {}
-        col = self.metadata_db[schema_str]
+        col = self.metadata_db[constants.COLLECTION_SCHEMA]
 
         for doc in col.find({},{'_id':False}):
             for field in doc['fields']:
@@ -159,6 +160,9 @@ class DBDenormalizer:
             processed_sess += len(processed_workload_ids)
             left_sess -= num_to_be_processed
 
+            # insert into new metadata database
+            self.new_meta[constants.COLLECTION_WORKLOAD].insert(new_workload)
+
             self.processed_session_ids.update(processed_workload_ids)
         ## END WHILE
         LOG.info("Finished metadata denormalization. Total sessions: %s. Error sessions: %s. Processed sessions: %s", total_sess, error_sess, processed_sess)
@@ -199,14 +203,14 @@ class DBDenormalizer:
         ## END WHILE
 
         combiner = DBCombiner(sessions, self.design, self.graph, self.parent_keys)
-        combiner.process()
+        sessions = combiner.process()
         return sessions, error_sess, processed_workload_ids
     ## DEF
 
     ## DEF
     def process(self):
         ## step1: copy data from the old_db to new_db
-        self.parent_keys = self.readSchema('schema')
+        self.parent_keys = self.readSchema()
         print self.parent_keys
         #migrator = DBMigrator(self.ori_db, self.new_db)
         #migrator.migrate(self.parent_keys)

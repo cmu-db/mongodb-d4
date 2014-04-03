@@ -62,6 +62,64 @@ class ReplayWorker(AbstractWorker):
         self.replayCursor = self.metadata_db.sessions.find()
     ## DEF
 
+    ## DEF 
+    @staticmethod
+    def processDollarReplacement(key):
+        if key[0] == constants.REPLACE_KEY_DOLLAR_PREFIX:
+            key[0] = '$'
+        return key
+    ## END DEF 
+
+    ## DEF 
+    @staticmethod
+    def processPeriodReplacement(key):
+        return string.replace(key, constants.REPLACE_KEY_PERIOD, '.')
+    ## END DEF
+
+    ## DEF
+    @staticmethod
+    def replacePeriod(clause):
+        assert clause is dict 
+
+        new_clause = {}
+        for key in clause:
+            n_key = processPeriodReplacement(key)
+            new_clause[n_key] = clause[key]
+        return new_clause
+    ## END DEF 
+
+    ## DEF
+    @staticmethod
+    def getWhereClause(whereClause, predicates):
+        # get the predicates
+        ## FOR
+        for attr in whereClause:
+            if not attr in predicates:
+                raise Exception("Missing predicate for attribute %s" % attr)
+            # TOFIX: range format? regrex? 
+            if predicates[attr] != constants.PRED_TYPE_EQUALITY:
+                val = whereClause[attr]
+                whereClause[attr] = {}
+                whereClause[attr]['$'+ predicates[attr]] = val
+        ## END FOR 
+        return whereClause
+    ## END DEF 
+
+    ## DEF 
+    @staticmethod
+    def getUpdateClause(updateClause):
+        new_clause = {}
+        ## FOR
+        for key in updateClause:
+            n_key = processDollarReplacement(key)
+
+            new_clause[n_key] = replacePeriod(updateClause[key])
+        ## END FOR
+
+        return new_clause
+    ## END DEF
+    
+
     def next(self, config):
         try:
             sess = self.replayCursor.next()
@@ -84,8 +142,8 @@ class ReplayWorker(AbstractWorker):
             raise
         assert metadata_conn
 
-        self.metadata_db = metadata_conn[config['replay']['metadata']]
-        self.dataset_db = self.conn[config['replay']['dataset']]
+        self.metadata_db = metadata_conn[config['replay']['new_meta']]
+        self.dataset_db = self.conn[config['replay']['new_db']]
         self.collections = [col_name for col_name in self.dataset_db.collection_names()]
 
         self.__rewind_cursor__()
@@ -169,10 +227,14 @@ class ReplayWorker(AbstractWorker):
                 # The first element in the content field is the WHERE clause
                 whereClause = op['query_content'][0]
                 assert whereClause, "Missing WHERE clause for %s" % op['type']
-                
+
+                whereClause = getWhereClause(whereClause, op['predicates'])
+
                 # The second element has what we're trying to update
                 updateClause = op['query_content'][1]
                 assert updateClause, "Missing UPDATE clause for %s" % op['type']
+
+                updateClause = getUpdateClause(updateClause)
                 
                 # Let 'er rip!
                 # TODO: Need to handle 'upsert' and 'multi' flags
@@ -194,6 +256,8 @@ class ReplayWorker(AbstractWorker):
                 # SAFETY CHECK: Don't let them accidently delete the entire collection
                 assert len(whereClause) > 0, "SAFETY CHECK: Empty WHERE clause for %s" % op['type']
                 
+                whereClause = getWhereClause(whereClause, op['predicates'])
+
                 # I'll see you in hell!!
                 result = self.dataset_db[coll].remove(whereClause)            
             # UNKNOWN!
