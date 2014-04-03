@@ -70,8 +70,15 @@ class NodeEstimator(object):
             LOG.debug("Computing node estimate for Op #%d [sharding=%s]", \
                       op['query_id'], shardingKeys)
 
+        # If there are no sharding keys
+        # All requests on this collection will be routed to the primary node
+        # We assume the node 0 is the primary node
+        if len(shardingKeys) == 0:
+            broadcast = False
+            results.add(0)
+
         # Inserts always go to a single node
-        if op['type'] == constants.OP_TYPE_INSERT:
+        elif op['type'] == constants.OP_TYPE_INSERT:
             # Get the documents that they're trying to insert and then
             # compute their hashes based on the sharding key
             # Because there is no logical replication, each document will
