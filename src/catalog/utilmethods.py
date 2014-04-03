@@ -61,6 +61,10 @@ def sqlTypeToPython(sqlType):
         t = types.IntType
     elif sqlType.endswith('double') :
         t = float
+    elif sqlType.endswith('decimal'):
+        t = float
+    elif sqlType.endswith('float'):
+        t = float
     elif sqlType.endswith('text') or sqlType.endswith('char'):
         t = types.StringType
     elif sqlType.endswith('time'):

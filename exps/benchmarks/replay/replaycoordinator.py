@@ -27,6 +27,7 @@ import sys
 import os
 import logging
 from pprint import pprint, pformat
+import copy
 
 LOG = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ sys.path.append(os.path.join(basedir, "tools"))
 
 import pymongo
 
-from denormalizer import Denormalizer
+from dbdenormalizer import DBDenormalizer
 from design_deserializer import Deserializer
 
 from api.abstractcoordinator import AbstractCoordinator
@@ -43,7 +44,8 @@ from api.message import *
 
 class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
-        ("dataset", "Name of the dataset replay will be executed on (Change None to valid dataset name)", "None"),
+        ("ori_db", "Name of the database that contains the original data (Change None to valid dataset name)", "None"),
+        ("new_db", "Name of the database that we will copy the 'orig_database' into using the new design.", "None"),
         ("metadata", "Name of the metadata replay will execute (Change None to valid metadata name)", "None"),
         ("metadata_host", "The host name for metadata database", "localhost:27017"),
      ]
@@ -63,29 +65,35 @@ class ReplayCoordinator(AbstractCoordinator):
         assert metadata_conn
 
         self.metadata_db = metadata_conn[config['replay']['metadata']]
-        self.dataset_db = self.conn[self.config['replay']['dataset']]
+        self.ori_db = self.conn[self.config['replay']['ori_db']]
+        self.new_db = self.conn[self.config['replay']['new_db']]
         self.design = self.getDesign(self.config['default']['design'])
         return dict()
     ## DEF
     
     def loadImpl(self, config, channels):
+        if self.config['default']['reset']:
+            LOG.info("Resetting database %s" % self.config['replay']['new_db'])
+            self.conn.drop_database(self.new_db)
         self.prepare()
         return dict()
-    ## DEF
-    
+    ## DEF    
+
     def prepare(self):
+        # Denormalization 
         # STEP 1: Reconstruct database and workload based on the given design
-        d = Denormalizer(self.metadata_db, self.dataset_db, self.design)
+        LOG.info("Denormalizing database")
+        d = DBDenormalizer(self.metadata_db, self.ori_db, self.new_db, self.design)
         d.process()
-        
+
         # STEP 2: Put indexs on the dataset_db based on the given design
-        self.setIndexes(self.dataset_db, self.design)
+        self.setIndexes(self.new_db, self.design)
     ## DEF
     
-    def setIndexes(self, dataset_db, design):
+    def setIndexes(self, new_db, design):
         LOG.info("Creating indexes")
         for col_name in design.getCollections():
-            dataset_db[col_name].drop_indexes()
+            new_db[col_name].drop_indexes()
             
             indexes = design.getIndexes(col_name)
             # The indexes is a list of tuples
@@ -95,7 +103,7 @@ class ReplayCoordinator(AbstractCoordinator):
                     index_list.append((str(element), pymongo.ASCENDING))
                 ## FOR
                 try:
-                    dataset_db[col_name].ensure_index(index_list)
+                    new_db[col_name].ensure_index(index_list)
                 except:
                     LOG.error("Failed to create indexes on collection %s", col_name)
                     LOG.error("Indexes: %s", index_list)

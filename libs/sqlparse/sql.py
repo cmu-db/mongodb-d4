@@ -3,6 +3,7 @@
 """This module contains classes representing syntactical elements of SQL."""
 
 import re
+import sys
 
 from sqlparse import tokens as T
 
@@ -15,18 +16,28 @@ class Token(object):
     the type of the token.
     """
 
-    __slots__ = ('value', 'ttype', 'parent')
+    __slots__ = ('value', 'ttype', 'parent', 'normalized', 'is_keyword')
 
     def __init__(self, ttype, value):
         self.value = value
+        if ttype in T.Keyword:
+            self.normalized = value.upper()
+        else:
+            self.normalized = value
         self.ttype = ttype
+        self.is_keyword = ttype in T.Keyword
         self.parent = None
 
     def __str__(self):
-        return unicode(self).encode('utf-8')
+        if sys.version_info[0] == 3:
+            return self.value
+        else:
+            return unicode(self).encode('utf-8')
 
     def __repr__(self):
         short = self._get_repr_value()
+        if sys.version_info[0] < 3:
+            short = short.encode('utf-8')
         return '<%s \'%s\' at 0x%07x>' % (self._get_repr_name(),
                                           short, id(self))
 
@@ -36,8 +47,9 @@ class Token(object):
 
     def to_unicode(self):
         """Returns a unicode representation of this object.
-        
-        @deprecated: please use __unicode__()
+
+        .. deprecated:: 0.1.5
+           Use ``unicode(token)`` (for Python 3: ``str(token)``) instead.
         """
         return unicode(self)
 
@@ -47,10 +59,8 @@ class Token(object):
     def _get_repr_value(self):
         raw = unicode(self)
         if len(raw) > 7:
-            short = raw[:6] + u'...'
-        else:
-            short = raw
-        return re.sub('\s+', ' ', short)
+            raw = raw[:6] + u'...'
+        return re.sub('\s+', ' ', raw)
 
     def flatten(self):
         """Resolve subgroups."""
@@ -71,23 +81,33 @@ class Token(object):
         type_matched = self.ttype is ttype
         if not type_matched or values is None:
             return type_matched
-        if isinstance(values, basestring):
-            values = set([values])
+
         if regex:
+            if isinstance(values, basestring):
+                values = set([values])
+
             if self.ttype is T.Keyword:
-                values = set([re.compile(v, re.IGNORECASE) for v in values])
+                values = set(re.compile(v, re.IGNORECASE) for v in values)
             else:
-                values = set([re.compile(v) for v in values])
+                values = set(re.compile(v) for v in values)
+
             for pattern in values:
                 if pattern.search(self.value):
                     return True
             return False
-        else:
-            if self.ttype in T.Keyword:
-                values = set([v.upper() for v in values])
-                return self.value.upper() in values
-            else:
-                return self.value in values
+
+        if isinstance(values, basestring):
+            if self.is_keyword:
+                return values.upper() == self.normalized
+            return values == self.value
+
+        if self.is_keyword:
+            for v in values:
+                if v.upper() == self.normalized:
+                    return True
+            return False
+
+        return self.value in values
 
     def is_group(self):
         """Returns ``True`` if this object has children."""
@@ -137,10 +157,22 @@ class TokenList(Token):
         if tokens is None:
             tokens = []
         self.tokens = tokens
-        Token.__init__(self, None, unicode(self))
+        Token.__init__(self, None, self._to_string())
 
     def __unicode__(self):
-        return ''.join(unicode(x) for x in self.flatten())
+        return self._to_string()
+
+    def __str__(self):
+        str_ = self._to_string()
+        if sys.version_info[0] < 2:
+            str_ = str_.encode('utf-8')
+        return str_
+
+    def _to_string(self):
+        if sys.version_info[0] == 3:
+            return ''.join(x.value for x in self.flatten())
+        else:
+            return ''.join(unicode(x) for x in self.flatten())
 
     def _get_repr_name(self):
         return self.__class__.__name__
@@ -159,6 +191,23 @@ class TokenList(Token):
             if (token.is_group() and (max_depth is None or depth < max_depth)):
                 token._pprint_tree(max_depth, depth + 1)
 
+    def _remove_quotes(self, val):
+        """Helper that removes surrounding quotes from strings."""
+        if not val:
+            return val
+        if val[0] in ('"', '\'') and val[-1] == val[0]:
+            val = val[1:-1]
+        return val
+
+    def get_token_at_offset(self, offset):
+        """Returns the token that is on position offset."""
+        idx = 0
+        for token in self.flatten():
+            end = idx + len(token.value)
+            if idx <= offset <= end:
+                return token
+            idx = end
+
     def flatten(self):
         """Generator yielding ungrouped tokens.
 
@@ -170,6 +219,13 @@ class TokenList(Token):
                     yield item
             else:
                 yield token
+
+#    def __iter__(self):
+#        return self
+#
+#    def next(self):
+#        for token in self.tokens:
+#            yield token
 
     def is_group(self):
         return True
@@ -203,11 +259,8 @@ class TokenList(Token):
 
         If no matching token can be found ``None`` is returned.
         """
-        if isinstance(clss, (list, tuple)):
+        if not isinstance(clss, (list, tuple)):
             clss = (clss,)
-
-        if isinstance(clss, tuple):
-            clss = tuple(clss)
 
         for token in self.tokens[idx:]:
             if isinstance(token, clss):
@@ -227,7 +280,8 @@ class TokenList(Token):
         if not isinstance(idx, int):
             idx = self.token_index(idx)
 
-        for token in self.tokens[idx:]:
+        for n in xrange(idx, len(self.tokens)):
+            token = self.tokens[n]
             if token.match(ttype, value, regex):
                 return token
 
@@ -244,7 +298,7 @@ class TokenList(Token):
 
     def token_matching(self, idx, funcs):
         for token in self.tokens[idx:]:
-            for i, func in enumerate(funcs):
+            for func in funcs:
                 if func(token):
                     return token
 
@@ -260,7 +314,7 @@ class TokenList(Token):
         if not isinstance(idx, int):
             idx = self.token_index(idx)
 
-        while idx != 0:
+        while idx:
             idx -= 1
             if self.tokens[idx].is_whitespace() and skip_ws:
                 continue
@@ -322,9 +376,9 @@ class TokenList(Token):
         """Inserts *token* before *where*."""
         self.tokens.insert(self.token_index(where), token)
 
-    def insert_after(self, where, token):
+    def insert_after(self, where, token, skip_ws=True):
         """Inserts *token* after *where*."""
-        next_token = self.token_next(where)
+        next_token = self.token_next(where, skip_ws=skip_ws)
         if next_token is None:
             self.tokens.append(token)
         else:
@@ -344,11 +398,13 @@ class TokenList(Token):
         else:
             next_ = self.token_next_by_instance(0, Identifier)
             if next_ is None:
-                return None
+                next_ = self.token_next_by_type(0, T.String.Symbol)
+                if next_ is None:
+                    return None
             alias = next_
         if isinstance(alias, Identifier):
             return alias.get_name()
-        return unicode(alias)
+        return self._remove_quotes(unicode(alias))
 
     def get_name(self):
         """Returns the name of this identifier.
@@ -367,13 +423,16 @@ class TokenList(Token):
         # a.b
         dot = self.token_next_match(0, T.Punctuation, '.')
         if dot is None:
-            return self.token_next_by_type(0, T.Name).value
-        else:
-            next_ = self.token_next_by_type(self.token_index(dot),
-                                            (T.Name, T.Wildcard))
-            if next_ is None:  # invalid identifier, e.g. "a."
-                return None
-            return next_.value
+            next_ = self.token_next_by_type(0, T.Name)
+            if next_ is not None:
+                return self._remove_quotes(next_.value)
+            return None
+
+        next_ = self.token_next_by_type(self.token_index(dot),
+                                        (T.Name, T.Wildcard, T.String.Symbol))
+        if next_ is None:  # invalid identifier, e.g. "a."
+            return None
+        return self._remove_quotes(next_.value)
 
 
 class Statement(TokenList):
@@ -395,7 +454,7 @@ class Statement(TokenList):
             return 'UNKNOWN'
 
         elif first_token.ttype in (T.Keyword.DML, T.Keyword.DDL):
-            return first_token.value.upper()
+            return first_token.normalized
 
         return 'UNKNOWN'
 
@@ -419,7 +478,7 @@ class Identifier(TokenList):
         prev_ = self.token_prev(self.token_index(dot))
         if prev_ is None:  # something must be verry wrong here..
             return None
-        return prev_.value
+        return self._remove_quotes(prev_.value)
 
     def is_wildcard(self):
         """Return ``True`` if this identifier contains a wildcard."""
@@ -435,6 +494,13 @@ class Identifier(TokenList):
         if next_ is None:
             return None
         return unicode(next_)
+
+    def get_ordering(self):
+        """Returns the ordering or ``None`` as uppercase string."""
+        ordering = self.token_next_by_type(0, T.Keyword.Order)
+        if ordering is None:
+            return None
+        return ordering.value.upper()
 
 
 class IdentifierList(TokenList):
@@ -479,6 +545,14 @@ class For(TokenList):
 class Comparison(TokenList):
     """A comparison used for example in WHERE clauses."""
     __slots__ = ('value', 'ttype', 'tokens')
+
+    @property
+    def left(self):
+        return self.tokens[0]
+
+    @property
+    def right(self):
+        return self.tokens[-1]
 
 
 class Comment(TokenList):
@@ -552,4 +626,14 @@ class Function(TokenList):
         for t in parenthesis.tokens:
             if isinstance(t, IdentifierList):
                 return t.get_identifiers()
+            elif isinstance(t, Identifier) or \
+                isinstance(t, Function) or \
+                t.ttype in T.Literal:
+                return [t,]
         return []
+
+
+class Begin(TokenList):
+    """A BEGIN/END block."""
+
+    __slots__ = ('value', 'ttype', 'tokens')
