@@ -7,3 +7,4 @@
 nosetests.xml
 src/*.png
 *~
+*.log
