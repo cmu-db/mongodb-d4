@@ -191,6 +191,8 @@ class AbstractWorker:
         start = r.startBenchmark()
         while (time.time() - start) <= int(config['default']['duration']):
             txn, params = self.next(config)
+            if params is None:
+                break
             txn_id = r.startTransaction(txn)
             if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:

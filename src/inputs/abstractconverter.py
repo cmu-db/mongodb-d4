@@ -148,16 +148,16 @@ class AbstractConverter():
             This should only be invoked once after do the initial loading.
         """
         # STEP 1: Add query hashes
-        self.addQueryHashes()
+        #self.addQueryHashes()
 
         # STEP 2: Process workload
-        self.computeWorkloadStats()
+        #self.computeWorkloadStats()
 
         # STEP 3: Process dataset
-        self.extractSchemaCatalog()
+        #self.extractSchemaCatalog()
         
         # Let the converter implementation have a shot at it
-        self.postProcessImpl()
+        #self.postProcessImpl()
 
         # Calculate the embedding ratio
         self.calculateEmbeddingRatio()
@@ -195,6 +195,7 @@ class AbstractConverter():
         #LOG.info("child dict: %s", child_count_dict)
         
         geomean, parent_average = self.getRatio(parent_count_dict, child_count_dict, commom_values)
+        print geomean
         return geomean, parent_average, commom_values
     ## DEF
 
