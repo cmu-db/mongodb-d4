@@ -77,6 +77,7 @@ class ReplayCoordinator(AbstractCoordinator):
         if self.config['default']['reset']:
             LOG.info("Resetting database %s" % self.config['replay']['new_db'])
             self.conn.drop_database(self.new_db)
+            self.conn.drop_database(self.new_meta)
         self.prepare()
         return dict()
     ## DEF    

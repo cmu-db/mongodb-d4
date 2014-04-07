@@ -83,7 +83,7 @@ class ReplayWorker(AbstractWorker):
 
         new_clause = {}
         for key in clause:
-            n_key = processPeriodReplacement(key)
+            n_key = ReplayWorker.processPeriodReplacement(key)
             new_clause[n_key] = clause[key]
         return new_clause
     ## END DEF 
@@ -105,15 +105,21 @@ class ReplayWorker(AbstractWorker):
         return whereClause
     ## END DEF 
 
+    ## DEF
+    @staticmethod
+    def getFieldClause(fieldClause):
+        pass
+    ## END DEF
+
     ## DEF 
     @staticmethod
     def getUpdateClause(updateClause):
         new_clause = {}
         ## FOR
         for key in updateClause:
-            n_key = processDollarReplacement(key)
+            n_key = ReplayWorker.processDollarReplacement(key)
 
-            new_clause[n_key] = replacePeriod(updateClause[key])
+            new_clause[n_key] = ReplayWorker.replacePeriod(updateClause[key])
         ## END FOR
 
         return new_clause
@@ -171,26 +177,21 @@ class ReplayWorker(AbstractWorker):
             # QUERY
             if op['type'] == constants.OP_TYPE_QUERY:
                 isCount = False
+
+                whereClause = op['query_content'][0]['#query']
                 
-                # The query content field has our where clause
-                # After query combination, one query_content fields could contain more than one queries
-                for i in xrange(len(op['query_content'])):
-                    whereClause = None
-
-                    try:
-                        whereClause = op['query_content'][i]['#query']
-                        op_counter += 1
-                    except:
-                        continue
-                ## FOR
-
                 if not whereClause:
                     return
                 
+                whereClause = ReplayWorker.getWhereClause(whereClause, op['predicates'])
+
                 # And the second element is the projection
                 fieldsClause = None
                 if 'query_fields' in op and not op['query_fields'] is None:
                     fieldsClause = op['query_fields']
+
+                if fieldsClause is None:
+                    fieldsClause = {}
 
                 # Check whether this is for a count
                 if 'count' in op['query_content'][0]:
@@ -228,13 +229,13 @@ class ReplayWorker(AbstractWorker):
                 whereClause = op['query_content'][0]
                 assert whereClause, "Missing WHERE clause for %s" % op['type']
 
-                whereClause = getWhereClause(whereClause, op['predicates'])
+                whereClause = ReplayWorker.getWhereClause(whereClause, op['predicates'])
 
                 # The second element has what we're trying to update
                 updateClause = op['query_content'][1]
                 assert updateClause, "Missing UPDATE clause for %s" % op['type']
 
-                updateClause = getUpdateClause(updateClause)
+                updateClause = ReplayWorker.getUpdateClause(updateClause)
                 
                 # Let 'er rip!
                 # TODO: Need to handle 'upsert' and 'multi' flags
@@ -256,7 +257,7 @@ class ReplayWorker(AbstractWorker):
                 # SAFETY CHECK: Don't let them accidently delete the entire collection
                 assert len(whereClause) > 0, "SAFETY CHECK: Empty WHERE clause for %s" % op['type']
                 
-                whereClause = getWhereClause(whereClause, op['predicates'])
+                whereClause = ReplayWorker.getWhereClause(whereClause, op['predicates'])
 
                 # I'll see you in hell!!
                 result = self.dataset_db[coll].remove(whereClause)            

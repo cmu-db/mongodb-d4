@@ -90,7 +90,7 @@ class DBDenormalizer:
             todelete = []
             for key in graph:
                 if graph[key] == 0:
-                    if not self.design.data[key]['denorm'] is None:
+                    if key in self.design.data and not self.design.data[key]['denorm'] is None:
                         # Get its parent collection's name
                         parent = self.design.data[key]['denorm']
                         # Get its parent collection's id (foreign key)
@@ -111,19 +111,12 @@ class DBDenormalizer:
                             for pdoc in p_doc:
                                 # if this parent document has no this attribute (first embedded)
                                 if not key in pdoc:
-                                    pdoc[key] = doc
+                                    pdoc[key] = []
+                                    pdoc[key].append(doc)
                                 # else this parent has already embedded such document before
                                 else:
-                                    # if it is a dictionary, transform to a list first then append
-                                    if isinstance(pdoc[key], dict):
-                                        newdic = copy.deepcopy(pdoc[key])
-                                        del pdoc[key]
-                                        pdoc[key] = []
-                                        pdoc[key].append(newdic)
-                                        pdoc[key].append(doc)
-                                    # if it is already a list, just append
-                                    elif isinstance(pdoc[key], list):
-                                        pdoc[key].append(doc)
+                                    #if isinstance(pdoc[key], list):
+                                    pdoc[key].append(doc)
                                 # update the parent document 
                                 self.new_db[parent].save(pdoc)
                         # drop the child collection
@@ -211,17 +204,14 @@ class DBDenormalizer:
     def process(self):
         ## step1: copy data from the old_db to new_db
         self.parent_keys = self.readSchema()
-        print self.parent_keys
-        #migrator = DBMigrator(self.ori_db, self.new_db)
-        #migrator.migrate(self.parent_keys)
+        #print self.parent_keys
+        migrator = DBMigrator(self.ori_db, self.new_db)
+        migrator.migrate(self.parent_keys)
 
         ## step2: denormalize the database schema
         self.graph = self.constructGraph()
-        print self.graph
-        #self.graph = {}
-        #self.graph['oorder'] = 1
-        #self.graph['order_line'] = 0
-        #self.denormalize(self.graph, self.parent_keys)
+        #print self.graph
+        self.denormalize(self.graph, self.parent_keys)
 
         ## step3: combine queries
         ## TODO
