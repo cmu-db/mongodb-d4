@@ -25,6 +25,7 @@ class Sql2Mongo (object) :
         self.schema = schema
         self.reset()
         self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.func = None
     ## End __init__()
     
     '''
@@ -47,7 +48,10 @@ class Sql2Mongo (object) :
 
     def generate_content_query(self, table) :
         query_dict = self.render_trace_where_clause(table)
-        return {constants.REPLACE_KEY_DOLLAR_PREFIX+'query': query_dict}
+        ret =  {constants.REPLACE_KEY_DOLLAR_PREFIX+'query': query_dict}
+        if self.func <> None:
+            ret[self.func] = 1
+        return ret
     ## End generate_content_query()
     
     def generate_content_fields(self, table):
@@ -152,6 +156,7 @@ class Sql2Mongo (object) :
             tables = []
             alias = None
             for k,v in self.schema.iteritems() :
+                #print self.sql, k, v
                 if data in v :
                     tables.append(k)
             for k,v in self.table_aliases.iteritems() :
@@ -356,7 +361,9 @@ class Sql2Mongo (object) :
         i = from_loc + 1
         while i < end :
             cls = self.stmt.tokens[i].__class__.__name__
+            #print self.sql, cls
             if cls == 'IdentifierList' :
+                #print self.sql, 'list'
                 clauses = []
                 vals = self.stmt.tokens[i].get_identifiers()
                 for v in vals :
@@ -423,8 +430,14 @@ class Sql2Mongo (object) :
                 clause = self.stmt.tokens[i].to_unicode()
                 left_paren = clause.find('(')
                 right_paren = clause.rfind(')')
-                func = clause[0:left_paren]
+                self.func = clause[0:left_paren]
                 args = clause[left_paren + 1:right_paren]
+                if args != '*':
+                    parts = args.split('.')
+                    if len(parts) == 1 :
+                        self.project_cols[self.table_aliases['main']].append(parts[0])
+                    else :
+                        self.project_cols[self.table_aliases[parts[0]]].append(parts[1])
             else :
                 parts = self.stmt.tokens[i].to_unicode().split('.')
                 if len(parts) == 1 :
@@ -458,7 +471,9 @@ class Sql2Mongo (object) :
                         self.add_where_comparison(parts[0], parts[1])
                         i += 4
                     elif cls == 'Comparison' :
+                        #print self.sql, where.tokens[i]
                         parts = self.process_where_comparison(where.tokens[i])
+                        #print self.sql, parts[0],parts[1]
                         self.add_where_comparison(parts[0], parts[1])
                     ## ENDIF
                 ## ENDIF
@@ -786,6 +801,8 @@ class Sql2Mongo (object) :
                 mongo += ".limit(%s)" % self.limit[table]
             if self.skip[table] <> None and int(self.skip[table]) > 0:
                 mongo += ".skip(%s)" % self.skip[table]
+            if self.func <> None:
+                mongo += '.%s()' % self.func
             output.append(unicode(mongo))
         return output
     ## End render_mongo_query()
@@ -793,7 +810,7 @@ class Sql2Mongo (object) :
     def render_mongo_set_clause(self, tbl_name) :
         parts = []
         for tuple in self.set_cols[tbl_name] :
-            parts.append('$set:{' + tuple[0] + ':' + tuple[2] + '}')
+            parts.append(constants.REPLACE_KEY_DOLLAR_PREFIX + 'set:{' + tuple[0] + ':' + tuple[2] + '}')
         return '{' + ','.join(parts) + '}'
     ## End render_mongo_set_clause()
     
@@ -838,10 +855,10 @@ class Sql2Mongo (object) :
                     inner_parts = []
                     for tups in ops :
                         if tups[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):
-                            tups[0] = "$" + tups[0][1:]
+                            tups[0] = constant.REPLACE_KEY_DOLLAR_PREFIX  + tups[0][1:]
                         inner_parts.append(tups[0] + ':' + tups[1])
                     parts.append('\'' + col + '\':{' + ','.join(inner_parts) + '}')
-            return '{$or:[{' + '},{'.join(parts) + '}]}'
+            return '{' + constants.REPLACE_KEY_DOLLAR_PREFIX + 'or:[{' + '},{'.join(parts) + '}]}'
         else :
             if len(self.where_cols[tbl_name]) > 0 :
                 parts = []
@@ -988,7 +1005,7 @@ class Sql2Mongo (object) :
                         inner_parts[tups[0]] = self.render_trace_value(tups[1])
                     part[col] = inner_parts
                 clauses.append(part)
-            return {'$or' : clauses }
+            return {constants.EPLACE_KEY_DOLLAR_PREFIX + 'or' : clauses }
         else :
             if len(self.where_cols[tbl_name]) > 0 :
                 for col, ops in self.where_cols[tbl_name].iteritems() :
