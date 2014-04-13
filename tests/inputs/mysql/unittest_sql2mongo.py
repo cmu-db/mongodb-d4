@@ -279,13 +279,13 @@ class TestConversions (unittest.TestCase) :
         self.assertEqual(output, result[0])
     
     def testSelectQuery15(self) :
-        sql = 'SELECT avg(rating) FROM review r, user u WHERE u.u_id = r.r_u_id AND r.r_u_id=2000 ORDER BY rating LIMIT 10'
+        sql = 'SELECT avg(r.rating) FROM review r, users u WHERE u.u_id = r.r_u_id AND r.r_u_id=2000 ORDER BY rating LIMIT 10'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         #print self.mongo.render_trace()
     
     def testSelectQuery15Op(self) :
-        sql = 'SELECT avg(rating) FROM review r, user u WHERE u.u_id = r.u_id AND r.u_id=2000 ORDER BY rating LIMIT 10'
+        sql = 'SELECT avg(r.rating) FROM review r, users u WHERE u.u_id = r.u_id AND r.u_id=2000 ORDER BY rating LIMIT 10'
         self.mongo.process_sql(sql)
         result = self.mongo.generate_operations(100)
         self.assertEqual(2, len(result))

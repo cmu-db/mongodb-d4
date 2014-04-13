@@ -4,6 +4,7 @@ import sqlparse
 import json
 import yaml
 import logging
+import re
 from pprint import pformat
 
 from util import constants
@@ -145,9 +146,13 @@ class Sql2Mongo (object) :
     '''
     def process_identifier(self, token) :
         parts = token.to_unicode().split('.')
+        order = None
         if len(parts) == 1 :
             index = 'main'
-            data = parts[0]
+            sub_parts = re.split('\s+', parts[0])
+            data = sub_parts[0]
+            if len(sub_parts) > 1:
+                order = sub_parts[1]
         else :
             index = parts[0]
             data = parts[1]
@@ -163,9 +168,9 @@ class Sql2Mongo (object) :
                 for t in tables :
                     if t == v :
                         alias = k
-            return (alias, data)
+            return (alias, data, order)
         else :
-            return (index, data)
+            return (index, data, order)
     ## End process_identifier()
 
     def process_query_delete(self) :
@@ -435,6 +440,7 @@ class Sql2Mongo (object) :
                 if args != '*':
                     parts = args.split('.')
                     if len(parts) == 1 :
+                        # TOFIX: when joining two tables with alias and the attribute is unique, the main is empty
                         self.project_cols[self.table_aliases['main']].append(parts[0])
                     else :
                         self.project_cols[self.table_aliases[parts[0]]].append(parts[1])
@@ -498,14 +504,20 @@ class Sql2Mongo (object) :
                     cls = self.stmt.tokens[i].__class__.__name__
                     if cls == 'Identifier' :
                         parts = self.process_identifier(self.stmt.tokens[i])
-                        if i + 2 > end :
-                            sort = '1'
-                        elif self.stmt.tokens[i + 2].ttype == sqlparse.tokens.Token.Punctuation :
-                            sort = '1'
-                        else :
-                            if self.stmt.tokens[i + 2].value == 'ASC' :
+                        if i + 2 > end:
+                            if parts[2] is None or parts[2] == 'ASC':
                                 sort = '1'
-                            else :
+                            elif parts[2] == 'DESC':
+                                sort = '-1'
+                        elif self.stmt.tokens[i + 2].ttype == sqlparse.tokens.Token.Punctuation:
+                            if parts[2] is None or parts[2] == 'ASC':
+                                sort = '1'
+                            elif parts[2] == 'DESC':
+                                sort = '-1'
+                        else :
+                            if parts[2] is None or parts[2] == 'ASC':
+                                sort = '1'
+                            elif parts[2] == 'DESC':
                                 sort = '-1'
                             ## ENDIF
                         self.sort_cols[self.table_aliases[parts[0]]].append('{' + parts[1] + ':' + sort + '}')
