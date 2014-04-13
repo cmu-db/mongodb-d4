@@ -34,7 +34,16 @@ class Sql2Mongo (object) :
     defining the Where clause
     '''
     def add_where_comparison(self, table_alias, tuple) :
-        tbl_name = self.table_aliases[table_alias]
+        #tbl_name = self.table_aliases[table_alias]
+        tbl_name = "" 
+        for tbl in self.schema:
+            if tuple[0] in self.schema[tbl]:
+                tbl_name = tbl
+                break
+
+        if not tbl_name in self.schema:
+            return
+
         columns = list(self.where_cols[tbl_name])
         if tuple[0] in columns :
             pass
@@ -428,7 +437,13 @@ class Sql2Mongo (object) :
                 for il in ilist :
                     parts = il.to_unicode().split('.')
                     if len(parts) == 1 :
-                        self.project_cols[self.table_aliases['main']].append(parts[0])
+                        tbl_name = ""
+                        for tbl in self.schema:
+                            if parts[0] in self.schema[tbl]:
+                                tbl_name = tbl
+                                break
+                        if tbl_name in self.schema:
+                            self.project_cols[tbl_name].append(parts[0])
                     else :
                         self.project_cols[self.table_aliases[parts[0]]].append(parts[1])
             elif cls == 'Function' :

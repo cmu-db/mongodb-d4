@@ -13,10 +13,10 @@ class TestConversions (unittest.TestCase) :
     
     def setUp(self) :
         schema = {
-            'users': ['a', 'b', 'name'],
+            'users': ['a', 'b', 'u_id', 'name', 'age', 'z'],
             'review' : ['rating','r_u_id'],
-            'trust' : [],
-            'user' : ['u_id']
+            'trust' : []
+            #'user' : ['u_id']
         }
         self.mongo = sql2mongo.Sql2Mongo(schema)
     
@@ -317,6 +317,11 @@ class TestConversions (unittest.TestCase) :
         update_query = {'#set': set, '#mul':{}, '#inc':{}}
         self.assertEqual(query, result[0])
         self.assertEqual(update_query, result[1])
+    
+    def testJoin(self) :
+        sql = "SELECT u_id, name, b, rating  FROM users, review WHERE u_id = 1 AND r_u_id = 1 AND a = 1 AND rating = 0.5"
+        self.mongo.process_sql(sql)
+        operations = self.mongo.generate_operations(0)
 
     
 ## END CLASS
