@@ -65,9 +65,10 @@ class ReplayWorker(AbstractWorker):
     ## DEF 
     @staticmethod
     def processDollarReplacement(key):
+        newkey = ''
         if key[0] == constants.REPLACE_KEY_DOLLAR_PREFIX:
-            key[0] = '$'
-        return key
+            newkey = ''.join(['$',key[1:]])
+        return newkey
     ## END DEF 
 
     ## DEF 
@@ -79,7 +80,7 @@ class ReplayWorker(AbstractWorker):
     ## DEF
     @staticmethod
     def replacePeriod(clause):
-        assert clause is dict 
+        assert not clause is dict 
 
         new_clause = {}
         for key in clause:
@@ -96,11 +97,12 @@ class ReplayWorker(AbstractWorker):
         for attr in whereClause:
             if not attr in predicates:
                 raise Exception("Missing predicate for attribute %s" % attr)
-            # TOFIX: range format? regrex? 
-            if predicates[attr] != constants.PRED_TYPE_EQUALITY:
+            # TOFIX: regrex? 
+            if predicates[attr] == constants.PRED_TYPE_RANGE:
                 val = whereClause[attr]
                 whereClause[attr] = {}
-                whereClause[attr]['$'+ predicates[attr]] = val
+                for op in val:
+                    whereClause[attr][ReplayWorker.processDollarReplacement(op)] = val
         ## END FOR 
         return whereClause
     ## END DEF 
@@ -181,7 +183,7 @@ class ReplayWorker(AbstractWorker):
                 whereClause = op['query_content'][0]['#query']
                 
                 if not whereClause:
-                    return
+                    continue
                 
                 whereClause = ReplayWorker.getWhereClause(whereClause, op['predicates'])
 
@@ -202,8 +204,9 @@ class ReplayWorker(AbstractWorker):
                         
                 # Execute!
                 # TODO: Need to check the performance difference of find vs find_one
-                # TODO: We need to handle counts + sorts + limits
                 resultCursor = self.dataset_db[coll].find(whereClause, fieldsClause)
+                if 'sort' in op['query_content'][0]:
+                    resultCursor.sort(op['query_content'][0]['sort'])
 
                 if op["query_limit"] and op["query_limit"] != -1:
                     #try:
@@ -238,9 +241,17 @@ class ReplayWorker(AbstractWorker):
                 updateClause = ReplayWorker.getUpdateClause(updateClause)
                 
                 # Let 'er rip!
-                # TODO: Need to handle 'upsert' and 'multi' flags
                 # TODO: What about the 'manipulate' or 'safe' flags?
-                result = self.dataset_db[coll].update(whereClause, updateClause)
+                flags = {}
+                if op['update_upsert'] and op['update_upsert'] == 'true':
+                    flags['upsert'] = True
+                if op['update_multi'] and op['update_multi'] == 'true':
+                    flags['multi'] = True
+                if len(flags) > 0:
+                    result = self.dataset_db[coll].update(whereClause, updateClause, flags)
+                else:
+                    result = self.dataset_db[coll].update(whereClause, updateClause)
+                    
 
             # INSERT
             elif op['type'] == constants.OP_TYPE_INSERT:

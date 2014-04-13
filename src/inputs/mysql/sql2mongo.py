@@ -59,6 +59,9 @@ class Sql2Mongo (object) :
     def generate_content_query(self, table) :
         query_dict = self.render_trace_where_clause(table)
         ret =  {constants.REPLACE_KEY_DOLLAR_PREFIX+'query': query_dict}
+        if self.sort_cols <> None:
+            if table in self.sort_cols and len(self.sort_cols[table]) > 0:
+                ret['sort'] = self.sort_cols[table]
         if self.func <> None:
             ret[self.func] = 1
         return ret
@@ -535,7 +538,8 @@ class Sql2Mongo (object) :
                             elif parts[2] == 'DESC':
                                 sort = '-1'
                             ## ENDIF
-                        self.sort_cols[self.table_aliases[parts[0]]].append('{' + parts[1] + ':' + sort + '}')
+                        #self.sort_cols[self.table_aliases[parts[0]]].append('{' + parts[1] + ':' + sort + '}')
+                        self.sort_cols[self.table_aliases[parts[0]]][parts[1]] =  sort
                         i += 2
                 i += 1
         
@@ -776,7 +780,7 @@ class Sql2Mongo (object) :
             self.where_cols[table] = {}
             self.project_cols[table] = []
             self.set_cols[table] = []
-            self.sort_cols[table] = []
+            self.sort_cols[table] = {}
             self.limit[table] = -1
             self.skip[table] = 0
     ## End reset()
@@ -823,7 +827,15 @@ class Sql2Mongo (object) :
                 mongo += ', ' + self.render_mongo_project_clause(table)
             mongo += ')'
             if len(self.sort_cols[table]) > 0 :
-                mongo += '.sort(' + ','.join(self.sort_cols[table]) + ')'
+                content = '{'
+                for key in self.sort_cols[table]:
+                    content += str(key)
+                    content += ':'
+                    content += str(self.sort_cols[table][key])
+                    content += ','
+                content = content[:-1]
+                content += '}'
+                mongo += '.sort(' + content + ')'
             if self.limit[table] <> None and int(self.limit[table]) > 0:
                 mongo += ".limit(%s)" % self.limit[table]
             if self.skip[table] <> None and int(self.skip[table]) > 0:
