@@ -336,7 +336,7 @@ class MySQLConverter(AbstractConverter):
                                 session['start_time'] = session['operations'][0]['query_time']
                             if session['end_time'] is None:
                                 session['end_time'] = session['operations'][-1]['query_time']
-                            print session
+                            #print session
                             session.save()
                             self.sess_ctr += 1
                             uid += 1

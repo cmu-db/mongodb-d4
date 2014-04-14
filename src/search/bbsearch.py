@@ -464,20 +464,9 @@ class BBNode():
             LOG.warn("Invalid denormalization candidate '%s' for collection %s", denorm, self.currentCol)
             feasible = False
             
-        # enforce mutual exclustion of sharding keys...
-        # when col1 gets denormalized into col2, they cannot have
-        # both assigned a sharding key
-        # again, denormalization can be chained... so we have to consider the whole chain
+        # embedded collections should not have a sharding key
         if feasible and not denorm is None and len(shardKey) != 0:
-            denorm_parent = denorm
-            # check all the way to the end of the embedding chain:
-            while denorm_parent:
-                # if the encapsulating collection has a shard key, it's a conflict
-                if denorm_parent in self.design.data:
-                    if self.design.getShardKeys(denorm_parent) is not None and len(self.design.getShardKeys(denorm_parent)) != 0:
-                        feasible = False
-                        break
-                denorm_parent = self.design.getDenormalizationParent(denorm_parent)
+            feasible = False
         
         return feasible
     

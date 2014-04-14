@@ -61,7 +61,8 @@ class NodeEstimator(object):
             return an estimate of a list of node ids that we think that
             the query will be executed on
         """
-
+        if op['collection'] == 'SPECIAL_FACILITY':
+            pass
         results = set()
         broadcast = True
         shardingKeys = design.getShardKeys(op['collection'])
@@ -92,11 +93,14 @@ class NodeEstimator(object):
         # Network costs of SELECT, UPDATE, DELETE queries are based off
         # of using the sharding key in the predicate
         elif len(op['predicates']) > 0:
+            predicate_fields = set()
             predicate_types = set()
             for k,v in op['predicates'].iteritems() :
-                if design.inShardKeyPattern(op['collection'], k) :
-                    broadcast = False
+                if design.inShardKeyPattern(op['collection'], k):
+                    predicate_fields.add(k)
                     predicate_types.add(v)
+            if len(predicate_fields) == len(shardingKeys):
+                broadcast = False
             if self.debug:
                 LOG.debug("Op #%d %s Predicates: %s [broadcast=%s / predicateTypes=%s]",\
                           op['query_id'], op['collection'], op['predicates'], broadcast, list(predicate_types))
