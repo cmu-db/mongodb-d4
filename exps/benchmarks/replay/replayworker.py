@@ -205,15 +205,19 @@ class ReplayWorker(AbstractWorker):
                 # Execute!
                 # TODO: Need to check the performance difference of find vs find_one
                 resultCursor = self.dataset_db[coll].find(whereClause, fieldsClause)
+                # Handle sort
                 if 'sort' in op['query_content'][0]:
-                    resultCursor.sort(op['query_content'][0]['sort'])
+                    sort_content = [(k,pymongo.ASCENDING if v == 1 else pymongo.DESCENDING) for k,v in op['query_content'][0]['sort'].iteritems()]
+                    resultCursor.sort(sort_content)
 
+                # Handle limit
                 if op["query_limit"] and op["query_limit"] != -1:
                     #try:
                     resultCursor.limit(op["query_limit"])
                     #except:
                         #exit(pformat(op))
                     
+                # Handle count
                 if isCount:
                     result = resultCursor.count()
                 else:

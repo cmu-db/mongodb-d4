@@ -4,6 +4,7 @@ import logging
 from pprint import pformat
 import time
 import copy
+import pymongo
 
 # Third-Party Dependencies
 basedir = os.getcwd()
@@ -95,16 +96,17 @@ class DBDenormalizer:
                         parent = self.design.data[key]['denorm']
                         # Get its parent collection's id (foreign key)
                         f_id = parent_keys[key][parent]
-                        #f_id = parent.lower()[0] + u'_id'
+                        self.new_db[parent].ensure_index([(f_id[k], pymongo.ASCENDING) for k in f_id]) 
                         # For each document in this collection
                         cnt = 1
-                        for doc in self.new_db[key].find({},{'_id':False}):
-                            print cnt
+                        for doc in self.new_db[key].find({},{'_id':False},timeout=False):
+                            if cnt % 5000 == 0:
+                                print cnt
                             cnt += 1
                             # Get the foreign key's value
                             con_dic = {f_id[k]: doc[k] for k in f_id}
                             # Get the parent document
-                            p_doc = self.new_db[parent].find(con_dic)
+                            p_doc = self.new_db[parent].find(con_dic, timeout=False)
                             for k in f_id:
                                 del doc[k]
 
@@ -154,9 +156,13 @@ class DBDenormalizer:
             left_sess -= num_to_be_processed
 
             # insert into new metadata database
-            self.new_meta[constants.COLLECTION_WORKLOAD].insert(new_workload)
+            try:
+                self.new_meta[constants.COLLECTION_WORKLOAD].insert(new_workload)
+            except:
+                print 'Error happend when bulk inserting'
 
             self.processed_session_ids.update(processed_workload_ids)
+            LOG.info("Processed %%%f sessions" % (processed_sess*100/float(total_sess)))
         ## END WHILE
         LOG.info("Finished metadata denormalization. Total sessions: %s. Error sessions: %s. Processed sessions: %s", total_sess, error_sess, processed_sess)
         LOG.info("Metadata Denormalization takes: %s seconds", time.time() - start_time)
@@ -182,8 +188,6 @@ class DBDenormalizer:
                 cnt += 1
 
                 if cnt >= num_to_be_processed:
-                    break
-                if cnt == 1:
                     break
             except StopIteration:
                 break

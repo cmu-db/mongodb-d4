@@ -120,7 +120,7 @@ class ReplayCoordinator(AbstractCoordinator):
         LOG.info("Creating shardKeys")
         design = self.design
         admindb = self.conn["admin"]
-        db = self.dataset_db
+        db = self.new_db
 
         assert admindb != None
         assert db != None

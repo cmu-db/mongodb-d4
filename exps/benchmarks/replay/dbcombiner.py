@@ -75,26 +75,29 @@ class DBCombiner:
                             child_values = {f_id:op['query_content'][0][f_id] for f_id in c_ids}
 
                             flag = False
-                            # Iterate each parent operation
-                            ## FOR
-                            for p_op in n_ops[parent]:
-                                # Get the value of these keys in the parent op
-                                parent_values = {f_id:p_op['query_content'][0][dicts[f_id]] for f_id in c_ids}
-                                ## IF
-                                if cmp(child_values, parent_values) == 0:
-                                    flag = True
+                            ## IF
+                            if parent in n_ops:
+                                # Iterate each parent operation
+                                ## FOR
+                                for p_op in n_ops[parent]:
+                                    # Get the value of these keys in the parent op
+                                    parent_values = {f_id:p_op['query_content'][0][dicts[f_id]] for f_id in c_ids}
                                     ## IF
-                                    if not key in p_op['query_content'][0]:
-                                        p_op['query_content'][0][key] = []
+                                    if cmp(child_values, parent_values) == 0:
+                                        flag = True
+                                        ## IF
+                                        if not key in p_op['query_content'][0]:
+                                            p_op['query_content'][0][key] = []
+                                        ## END IF
+                                        ## FOR
+                                        for f_id in c_ids:
+                                           del op['query_content'][0][f_id] 
+                                        ## END FOR 
+                                        p_op['query_content'][0][key].append(op['query_content'][0])
+                                        break
                                     ## END IF
-                                    ## FOR
-                                    for f_id in c_ids:
-                                       del op['query_content'][0][f_id] 
-                                    ## END FOR 
-                                    p_op['query_content'][0][key].append(op['query_content'][0])
-                                    break
-                                ## END IF
-                            ## END FOR
+                                ## END FOR
+                            ## END IF
                             # no embedded parent operation found
                             # transform this insert into a update
                             if flag is False:
@@ -171,19 +174,22 @@ class DBCombiner:
                             child_predicates = {dicts[f_id]:op['predicates'][f_id] for f_id in (f_id for f_id in c_ids if f_id in op['predicates'])}
 
                             flag = False
-                            # Iterate each parent operation
-                            ## FOR
-                            for p_op in n_ops[parent]:
-                                # Get the value of these keys in the parent op
-                                parent_values = {dicts[f_id]:p_op['query_content'][0][dicts[f_id]] for f_id in  (f_id for f_id in c_ids if dicts[f_id] in p_op['query_content'][0])}
-                                # Get the parent predicates
-                                parent_predicates = {dicts[f_id]:p_op['predicates'][dicts[f_id]] for f_id in (f_id for f_id in c_ids if dicts[f_id] in p_op['predicates'])}
-                                ## IF
-                                if all(item in child_values.items() for item in parent_values.items()) and all(item in child_predicates.items() for item in parent_predicates.items()):
-                                    flag = True
-                                    break
-                                ## END IF
-                            ## END FOR
+                            ## IF
+                            if parent in n_ops:
+                                # Iterate each parent operation
+                                ## FOR
+                                for p_op in n_ops[parent]:
+                                    # Get the value of these keys in the parent op
+                                    parent_values = {dicts[f_id]:p_op['query_content'][0][dicts[f_id]] for f_id in  (f_id for f_id in c_ids if dicts[f_id] in p_op['query_content'][0])}
+                                    # Get the parent predicates
+                                    parent_predicates = {dicts[f_id]:p_op['predicates'][dicts[f_id]] for f_id in (f_id for f_id in c_ids if dicts[f_id] in p_op['predicates'])}
+                                    ## IF
+                                    if all(item in child_values.items() for item in parent_values.items()) and all(item in child_predicates.items() for item in parent_predicates.items()):
+                                        flag = True
+                                        break
+                                    ## END IF
+                                ## END FOR
+                            ## END IF
                             # no embedded parent operation found
                             # transform this insert into a update
                             if flag is False:
@@ -268,26 +274,32 @@ class DBCombiner:
                         ## FOR
                         for op in n_ops[key]:
                             # Get the value of these keys in the child op
-                            child_values = {dicts[f_id]:op['query_content'][0]['#query'][f_id] for f_id in  (f_id for f_id in c_ids if f_id in op['query_content'][0]['#query'])}
+                            if op['query_content'][0]['#query'] is None:
+                                child_values = None
+                            else:
+                                child_values = {dicts[f_id]:op['query_content'][0]['#query'][f_id] for f_id in  (f_id for f_id in c_ids if f_id in op['query_content'][0]['#query'])}
                             # Get the child predicates
                             child_predicates = {dicts[f_id]:op['predicates'][f_id] for f_id in (f_id for f_id in c_ids if f_id in op['predicates'])}
 
                             flag = False
-                            # Iterate each parent operation
-                            ## FOR
-                            for p_op in n_ops[parent]:
-                                # Get the value of these keys in the parent op
-                                parent_values = {dicts[f_id]:p_op['query_content'][0]['#query'][dicts[f_id]] for f_id in  (f_id for f_id in c_ids if dicts[f_id] in p_op['query_content'][0]['#query'])}
-                                # Get the parent predicates 
-                                parent_predicates = {dicts[f_id]:p_op['predicates'][dicts[f_id]] for f_id in (f_id for f_id in c_ids if dicts[f_id] in p_op['predicates'])}
-                                ## IF
-                                # parent where clause should be subset of child where clause
-                                if all(item in child_values.items() for item in parent_values.items()) and all(item in child_predicates.items() for item in parent_predicates.items()): #and all(item in c_ids for item in op['query_content'][0]):
-                                    flag = True
-                                    p_op['query_fields'][key] = 1
-                                    break
-                                ## END IF
-                            ## END FOR
+                            ## IF
+                            if parent in n_ops:
+                                # Iterate each parent operation
+                                ## FOR
+                                for p_op in n_ops[parent]:
+                                    # Get the value of these keys in the parent op
+                                    parent_values = {dicts[f_id]:p_op['query_content'][0]['#query'][dicts[f_id]] for f_id in  (f_id for f_id in c_ids if dicts[f_id] in p_op['query_content'][0]['#query'])}
+                                    # Get the parent predicates 
+                                    parent_predicates = {dicts[f_id]:p_op['predicates'][dicts[f_id]] for f_id in (f_id for f_id in c_ids if dicts[f_id] in p_op['predicates'])}
+                                    ## IF
+                                    # parent where clause should be subset of child where clause
+                                    if all(item in child_values.items() for item in parent_values.items()) and all(item in child_predicates.items() for item in parent_predicates.items()): #and all(item in c_ids for item in op['query_content'][0]):
+                                        flag = True
+                                        p_op['query_fields'][key] = 1
+                                        break
+                                    ## END IF
+                                ## END FOR
+                            ## END IF
                             # no embedded parent operation found
                             # transform this query into a query of a parent collection
                             if flag is False:
@@ -310,6 +322,8 @@ class DBCombiner:
                                         op['query_content'][0]['#query'][key+constants.REPLACE_KEY_PERIOD+c_attr] = child_contents[0]['#query'][c_attr]
                                         op['predicates'][key+constants.REPLACE_KEY_PERIOD+c_attr] = child_query_predicates[c_attr]
 
+                                if not parent in n_ops:
+                                    n_ops[parent] = []
                                 n_ops[parent].append(op)
                                 error_ops += 1
                         ## END FOR
@@ -462,13 +476,12 @@ class DBCombiner:
 
     ## DEF
     def process(self):
-        LOG.info("Combining operations")
         ret = []
         cnt = 0
         for sess in self.sessions:
             ret.append(self.combine(sess))
-            if cnt == 2:
-                break
+            #if cnt == 2:
+            #    break
             cnt += 1
         return ret
     ## DEF

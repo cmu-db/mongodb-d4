@@ -155,7 +155,7 @@ class Results:
             rate = u"%.02f txn/s" % ((self.txn_counters[txn] / total_time))
             #total_running_time +=txn_time
             #rate = u"%.02f op/s" % ((self.txn_counters[txn] / total_time))
-            #rate = u"%.02f op/s" % ((self.opCount / total_time))
+            rate = u"%.02f op/s" % ((self.opCount / total_time))
             ret += f % (txn, txn_cnt, str(txn_time * 1000), rate)
             
             #LOG.info("totalOps="+str(self.totalOps))
