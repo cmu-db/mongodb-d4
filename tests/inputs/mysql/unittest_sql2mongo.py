@@ -13,10 +13,10 @@ class TestConversions (unittest.TestCase) :
     
     def setUp(self) :
         schema = {
-            'users': ['a', 'b', 'name'],
-            'review' : ['rating'],
-            'trust' : [],
-            'user' : []
+            'users': ['a', 'b', 'u_id', 'name', 'age', 'z'],
+            'review' : ['rating','r_u_id'],
+            'trust' : []
+            #'user' : ['u_id']
         }
         self.mongo = sql2mongo.Sql2Mongo(schema)
     
@@ -38,6 +38,13 @@ class TestConversions (unittest.TestCase) :
         self.mongo.process_sql(sql)
         result = self.mongo.render_trace()
         output = {u'#query' : { u'a' : { '#in': [ 3 ]}}}
+        self.assertEqual(output, result[0])
+
+    def testSelectQueryAndClauseTrace(self):
+        sql = 'SELECT name FROM users WHERE a = 3 and b = 4'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {u'#query' : { u'a' :  3 , u'b' : 4}}
         self.assertEqual(output, result[0])
         
     def testDeleteQuery01(self) :
@@ -250,7 +257,7 @@ class TestConversions (unittest.TestCase) :
         sql = 'SELECT * FROM users WHERE a=1 or b=2'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
-        self.assertEqual(u"db.users.find({$or:[{a:1},{b:2}]})", result[0])
+        self.assertEqual(u"db.users.find({#or:[{a:1},{b:2}]})", result[0])
         
     def testSelectQuery13(self) :
         sql = 'SELECT * FROM users LIMIT 1'
@@ -272,28 +279,34 @@ class TestConversions (unittest.TestCase) :
         self.assertEqual(output, result[0])
     
     def testSelectQuery15(self) :
-        sql = 'SELECT avg(rating) FROM review r, user u WHERE u.u_id = r.u_id AND r.u_id=2000 ORDER BY rating LIMIT 10'
+        sql = 'SELECT avg(r.rating) FROM review r, users u WHERE u.u_id = r.r_u_id AND r.r_u_id=2000 ORDER BY rating LIMIT 10'
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
         #print self.mongo.render_trace()
     
     def testSelectQuery15Op(self) :
-        sql = 'SELECT avg(rating) FROM review r, user u WHERE u.u_id = r.u_id AND r.u_id=2000 ORDER BY rating LIMIT 10'
+        sql = 'SELECT avg(r.rating) FROM review r, users u WHERE u.u_id = r.u_id AND r.u_id=2000 ORDER BY rating LIMIT 10'
         self.mongo.process_sql(sql)
         result = self.mongo.generate_operations(100)
         self.assertEqual(2, len(result))
+
+    def testSeletQueryCount(self) :
+        sql = 'SELECT count(*) FROM review'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_mongo_command()
+        self.assertEqual('db.review.find().count()', result[0])
     
     def testUpdateQuery01(self) :
         sql = "UPDATE users SET a=1 WHERE b='q'"
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
-        self.assertEqual(u"db.users.update({b:'q'}, {$set:{a:1}}, false, true)", result[0])
+        self.assertEqual(u"db.users.update({b:'q'}, {#set:{a:1}}, false, true)", result[0])
 
     def testUpdateQuery02(self) :
         sql = "UPDATE users SET name = 'XXXXXXXXXXX' WHERE u_id=2000"
         self.mongo.process_sql(sql)
         result = self.mongo.render_mongo_command()
-        self.assertEqual(u"db.users.update({u_id:2000}, {$set:{name:'XXXXXXXXXXX'}}, false, true)", result[0])
+        self.assertEqual(u"db.users.update({u_id:2000}, {#set:{name:'XXXXXXXXXXX'}}, false, true)", result[0])
 
     def testUpdateQuery01Trace(self) :
         sql = "UPDATE users SET a=1 WHERE b='q'"
@@ -301,8 +314,15 @@ class TestConversions (unittest.TestCase) :
         result = self.mongo.render_trace()
         query = {'b' : 'q'}
         set = {'a' : 1.0}
+        update_query = {'#set': set, '#mul':{}, '#inc':{}}
         self.assertEqual(query, result[0])
-        self.assertEqual(set, result[1])
+        self.assertEqual(update_query, result[1])
+    
+    def testJoin(self) :
+        sql = "SELECT u_id, name, b, rating  FROM users, review WHERE u_id = 1 AND r_u_id = 1 AND a = 1 AND rating = 0.5"
+        self.mongo.process_sql(sql)
+        operations = self.mongo.generate_operations(0)
+
     
 ## END CLASS
 

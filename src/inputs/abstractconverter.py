@@ -195,6 +195,7 @@ class AbstractConverter():
         #LOG.info("child dict: %s", child_count_dict)
         
         geomean, parent_average = self.getRatio(parent_count_dict, child_count_dict, commom_values)
+        print geomean
         return geomean, parent_average, commom_values
     ## DEF
 

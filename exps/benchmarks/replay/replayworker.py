@@ -62,6 +62,72 @@ class ReplayWorker(AbstractWorker):
         self.replayCursor = self.metadata_db.sessions.find()
     ## DEF
 
+    ## DEF 
+    @staticmethod
+    def processDollarReplacement(key):
+        newkey = ''
+        if key[0] == constants.REPLACE_KEY_DOLLAR_PREFIX:
+            newkey = ''.join(['$',key[1:]])
+        return newkey
+    ## END DEF 
+
+    ## DEF 
+    @staticmethod
+    def processPeriodReplacement(key):
+        return string.replace(key, constants.REPLACE_KEY_PERIOD, '.')
+    ## END DEF
+
+    ## DEF
+    @staticmethod
+    def replacePeriod(clause):
+        assert not clause is dict 
+
+        new_clause = {}
+        for key in clause:
+            n_key = ReplayWorker.processPeriodReplacement(key)
+            new_clause[n_key] = clause[key]
+        return new_clause
+    ## END DEF 
+
+    ## DEF
+    @staticmethod
+    def getWhereClause(whereClause, predicates):
+        # get the predicates
+        ## FOR
+        for attr in whereClause:
+            if not attr in predicates:
+                raise Exception("Missing predicate for attribute %s" % attr)
+            # TOFIX: regrex? 
+            if predicates[attr] == constants.PRED_TYPE_RANGE:
+                val = whereClause[attr]
+                whereClause[attr] = {}
+                for op in val:
+                    whereClause[attr][ReplayWorker.processDollarReplacement(op)] = val
+        ## END FOR 
+        return whereClause
+    ## END DEF 
+
+    ## DEF
+    @staticmethod
+    def getFieldClause(fieldClause):
+        pass
+    ## END DEF
+
+    ## DEF 
+    @staticmethod
+    def getUpdateClause(updateClause):
+        new_clause = {}
+        ## FOR
+        for key in updateClause:
+            n_key = ReplayWorker.processDollarReplacement(key)
+
+            new_clause[n_key] = ReplayWorker.replacePeriod(updateClause[key])
+        ## END FOR
+
+        return new_clause
+    ## END DEF
+    
+
     def next(self, config):
         try:
             sess = self.replayCursor.next()
@@ -84,8 +150,8 @@ class ReplayWorker(AbstractWorker):
             raise
         assert metadata_conn
 
-        self.metadata_db = metadata_conn[config['replay']['metadata']]
-        self.dataset_db = self.conn[config['replay']['dataset']]
+        self.metadata_db = metadata_conn[config['replay']['new_meta']]
+        self.dataset_db = self.conn[config['replay']['new_db']]
         self.collections = [col_name for col_name in self.dataset_db.collection_names()]
 
         self.__rewind_cursor__()
@@ -113,26 +179,21 @@ class ReplayWorker(AbstractWorker):
             # QUERY
             if op['type'] == constants.OP_TYPE_QUERY:
                 isCount = False
+
+                whereClause = op['query_content'][0]['#query']
                 
-                # The query content field has our where clause
-                # After query combination, one query_content fields could contain more than one queries
-                for i in xrange(len(op['query_content'])):
-                    whereClause = None
-
-                    try:
-                        whereClause = op['query_content'][i]['#query']
-                        op_counter += 1
-                    except:
-                        continue
-                ## FOR
-
                 if not whereClause:
-                    return
+                    continue
                 
+                whereClause = ReplayWorker.getWhereClause(whereClause, op['predicates'])
+
                 # And the second element is the projection
                 fieldsClause = None
                 if 'query_fields' in op and not op['query_fields'] is None:
                     fieldsClause = op['query_fields']
+
+                if fieldsClause is None:
+                    fieldsClause = {}
 
                 # Check whether this is for a count
                 if 'count' in op['query_content'][0]:
@@ -143,15 +204,20 @@ class ReplayWorker(AbstractWorker):
                         
                 # Execute!
                 # TODO: Need to check the performance difference of find vs find_one
-                # TODO: We need to handle counts + sorts + limits
                 resultCursor = self.dataset_db[coll].find(whereClause, fieldsClause)
+                # Handle sort
+                if 'sort' in op['query_content'][0]:
+                    sort_content = [(k,pymongo.ASCENDING if v == 1 else pymongo.DESCENDING) for k,v in op['query_content'][0]['sort'].iteritems()]
+                    resultCursor.sort(sort_content)
 
+                # Handle limit
                 if op["query_limit"] and op["query_limit"] != -1:
                     #try:
                     resultCursor.limit(op["query_limit"])
                     #except:
                         #exit(pformat(op))
                     
+                # Handle count
                 if isCount:
                     result = resultCursor.count()
                 else:
@@ -169,15 +235,27 @@ class ReplayWorker(AbstractWorker):
                 # The first element in the content field is the WHERE clause
                 whereClause = op['query_content'][0]
                 assert whereClause, "Missing WHERE clause for %s" % op['type']
-                
+
+                whereClause = ReplayWorker.getWhereClause(whereClause, op['predicates'])
+
                 # The second element has what we're trying to update
                 updateClause = op['query_content'][1]
                 assert updateClause, "Missing UPDATE clause for %s" % op['type']
+
+                updateClause = ReplayWorker.getUpdateClause(updateClause)
                 
                 # Let 'er rip!
-                # TODO: Need to handle 'upsert' and 'multi' flags
                 # TODO: What about the 'manipulate' or 'safe' flags?
-                result = self.dataset_db[coll].update(whereClause, updateClause)
+                flags = {}
+                if op['update_upsert'] and op['update_upsert'] == 'true':
+                    flags['upsert'] = True
+                if op['update_multi'] and op['update_multi'] == 'true':
+                    flags['multi'] = True
+                if len(flags) > 0:
+                    result = self.dataset_db[coll].update(whereClause, updateClause, flags)
+                else:
+                    result = self.dataset_db[coll].update(whereClause, updateClause)
+                    
 
             # INSERT
             elif op['type'] == constants.OP_TYPE_INSERT:
@@ -194,6 +272,8 @@ class ReplayWorker(AbstractWorker):
                 # SAFETY CHECK: Don't let them accidently delete the entire collection
                 assert len(whereClause) > 0, "SAFETY CHECK: Empty WHERE clause for %s" % op['type']
                 
+                whereClause = ReplayWorker.getWhereClause(whereClause, op['predicates'])
+
                 # I'll see you in hell!!
                 result = self.dataset_db[coll].remove(whereClause)            
             # UNKNOWN!

@@ -127,4 +127,4 @@ FUNCTIONAL_FIELD = 'parent_col'
 ## ==============================================
 
 # how many sessions to handle each time
-WORKLOAD_WINDOW_SIZE = 100000
+WORKLOAD_WINDOW_SIZE = 1000

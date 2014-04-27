@@ -45,8 +45,9 @@ from api.message import *
 class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
         ("ori_db", "Name of the database that contains the original data (Change None to valid dataset name)", "None"),
-        ("new_db", "Name of the database that we will copy the 'orig_database' into using the new design.", "None"),
+        ("new_db", "Name of the database that we will copy the 'original database' into using the new design.", "None"),
         ("metadata", "Name of the metadata replay will execute (Change None to valid metadata name)", "None"),
+        ("new_meta", "Name of the new metadata database that replay will execute", "None"),
         ("metadata_host", "The host name for metadata database", "localhost:27017"),
      ]
     
@@ -65,6 +66,7 @@ class ReplayCoordinator(AbstractCoordinator):
         assert metadata_conn
 
         self.metadata_db = metadata_conn[config['replay']['metadata']]
+        self.new_meta = metadata_conn[config['replay']['new_meta']]
         self.ori_db = self.conn[self.config['replay']['ori_db']]
         self.new_db = self.conn[self.config['replay']['new_db']]
         self.design = self.getDesign(self.config['default']['design'])
@@ -75,6 +77,7 @@ class ReplayCoordinator(AbstractCoordinator):
         if self.config['default']['reset']:
             LOG.info("Resetting database %s" % self.config['replay']['new_db'])
             self.conn.drop_database(self.new_db)
+            self.conn.drop_database(self.new_meta)
         self.prepare()
         return dict()
     ## DEF    
@@ -83,7 +86,7 @@ class ReplayCoordinator(AbstractCoordinator):
         # Denormalization 
         # STEP 1: Reconstruct database and workload based on the given design
         LOG.info("Denormalizing database")
-        d = DBDenormalizer(self.metadata_db, self.ori_db, self.new_db, self.design)
+        d = DBDenormalizer(self.metadata_db, self.new_meta, self.ori_db, self.new_db, self.design)
         d.process()
 
         # STEP 2: Put indexs on the dataset_db based on the given design
@@ -117,7 +120,7 @@ class ReplayCoordinator(AbstractCoordinator):
         LOG.info("Creating shardKeys")
         design = self.design
         admindb = self.conn["admin"]
-        db = self.dataset_db
+        db = self.new_db
 
         assert admindb != None
         assert db != None

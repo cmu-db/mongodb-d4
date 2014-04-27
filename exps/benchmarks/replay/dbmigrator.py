@@ -79,8 +79,8 @@ class DBMigrator:
                 continue
             col = self.ori_db[col_name]
             cnt = 1
-            for doc in col.find({},{'_id':False}):
-                    if cnt == 100:
-                        break
+            for doc in col.find({},{'_id':False}, timeout=False):
+                    #if cnt == 1000:
+                    #    break
                     self.copyData(doc, col_name, parent_keys)
                     cnt += 1

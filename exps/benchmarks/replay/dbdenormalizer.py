@@ -4,6 +4,7 @@ import logging
 from pprint import pformat
 import time
 import copy
+import pymongo
 
 # Third-Party Dependencies
 basedir = os.getcwd()
@@ -27,9 +28,10 @@ from dbcombiner import DBCombiner
 LOG = logging.getLogger(__name__)
 
 class DBDenormalizer:
-    def __init__(self, metadata_db, ori_db, new_db, design):
+    def __init__(self, metadata_db, new_meta, ori_db, new_db, design):
 
         self.metadata_db = metadata_db
+        self.new_meta = new_meta
         self.ori_db = ori_db
         self.new_db = new_db
         self.design = design
@@ -40,10 +42,10 @@ class DBDenormalizer:
     ## DEF
 
     ## DEF
-    def readSchema(self, schema_str):
+    def readSchema(self):
         LOG.info("Reading Schema information")
         ret = {}
-        col = self.metadata_db[schema_str]
+        col = self.metadata_db[constants.COLLECTION_SCHEMA]
 
         for doc in col.find({},{'_id':False}):
             for field in doc['fields']:
@@ -89,40 +91,34 @@ class DBDenormalizer:
             todelete = []
             for key in graph:
                 if graph[key] == 0:
-                    if not self.design.data[key]['denorm'] is None:
+                    if key in self.design.data and not self.design.data[key]['denorm'] is None:
                         # Get its parent collection's name
                         parent = self.design.data[key]['denorm']
                         # Get its parent collection's id (foreign key)
                         f_id = parent_keys[key][parent]
-                        #f_id = parent.lower()[0] + u'_id'
+                        self.new_db[parent].ensure_index([(f_id[k], pymongo.ASCENDING) for k in f_id]) 
                         # For each document in this collection
                         cnt = 1
-                        for doc in self.new_db[key].find({},{'_id':False}):
-                            print cnt
+                        for doc in self.new_db[key].find({},{'_id':False},timeout=False):
+                            if cnt % 5000 == 0:
+                                print cnt
                             cnt += 1
                             # Get the foreign key's value
                             con_dic = {f_id[k]: doc[k] for k in f_id}
                             # Get the parent document
-                            p_doc = self.new_db[parent].find(con_dic)
+                            p_doc = self.new_db[parent].find(con_dic, timeout=False)
                             for k in f_id:
                                 del doc[k]
 
                             for pdoc in p_doc:
                                 # if this parent document has no this attribute (first embedded)
                                 if not key in pdoc:
-                                    pdoc[key] = doc
+                                    pdoc[key] = []
+                                    pdoc[key].append(doc)
                                 # else this parent has already embedded such document before
                                 else:
-                                    # if it is a dictionary, transform to a list first then append
-                                    if isinstance(pdoc[key], dict):
-                                        newdic = copy.deepcopy(pdoc[key])
-                                        del pdoc[key]
-                                        pdoc[key] = []
-                                        pdoc[key].append(newdic)
-                                        pdoc[key].append(doc)
-                                    # if it is already a list, just append
-                                    elif isinstance(pdoc[key], list):
-                                        pdoc[key].append(doc)
+                                    #if isinstance(pdoc[key], list):
+                                    pdoc[key].append(doc)
                                 # update the parent document 
                                 self.new_db[parent].save(pdoc)
                         # drop the child collection
@@ -159,7 +155,14 @@ class DBDenormalizer:
             processed_sess += len(processed_workload_ids)
             left_sess -= num_to_be_processed
 
+            # insert into new metadata database
+            try:
+                self.new_meta[constants.COLLECTION_WORKLOAD].insert(new_workload)
+            except:
+                print 'Error happend when bulk inserting'
+
             self.processed_session_ids.update(processed_workload_ids)
+            LOG.info("Processed %%%f sessions" % (processed_sess*100/float(total_sess)))
         ## END WHILE
         LOG.info("Finished metadata denormalization. Total sessions: %s. Error sessions: %s. Processed sessions: %s", total_sess, error_sess, processed_sess)
         LOG.info("Metadata Denormalization takes: %s seconds", time.time() - start_time)
@@ -186,8 +189,6 @@ class DBDenormalizer:
 
                 if cnt >= num_to_be_processed:
                     break
-                if cnt == 1:
-                    break
             except StopIteration:
                 break
             except:
@@ -199,25 +200,22 @@ class DBDenormalizer:
         ## END WHILE
 
         combiner = DBCombiner(sessions, self.design, self.graph, self.parent_keys)
-        combiner.process()
+        sessions = combiner.process()
         return sessions, error_sess, processed_workload_ids
     ## DEF
 
     ## DEF
     def process(self):
         ## step1: copy data from the old_db to new_db
-        self.parent_keys = self.readSchema('schema')
-        print self.parent_keys
-        #migrator = DBMigrator(self.ori_db, self.new_db)
-        #migrator.migrate(self.parent_keys)
+        self.parent_keys = self.readSchema()
+        #print self.parent_keys
+        migrator = DBMigrator(self.ori_db, self.new_db)
+        migrator.migrate(self.parent_keys)
 
         ## step2: denormalize the database schema
         self.graph = self.constructGraph()
-        print self.graph
-        #self.graph = {}
-        #self.graph['oorder'] = 1
-        #self.graph['order_line'] = 0
-        #self.denormalize(self.graph, self.parent_keys)
+        #print self.graph
+        self.denormalize(self.graph, self.parent_keys)
 
         ## step3: combine queries
         ## TODO
