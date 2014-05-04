@@ -59,7 +59,9 @@ class ReplayWorker(AbstractWorker):
     ## DEF
     
     def __rewind_cursor__(self):
-        self.replayCursor = self.metadata_db.sessions.find()
+        #self.replayCursor = self.metadata_db.sessions.find()
+        print self.data
+        self.replayCursor = self.metadata_db.sessions.find({'session_id':{'$ge':self.data[0],'$lt':self.data[1]}})
     ## DEF
 
     ## DEF 

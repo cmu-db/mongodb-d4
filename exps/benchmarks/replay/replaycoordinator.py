@@ -166,4 +166,22 @@ class ReplayCoordinator(AbstractCoordinator):
 
         return design
     ## DEF
+
+    ## DEF
+    def executeImpl(self, config, channels):
+        cnt = self.new_meata[COLLECTION_WORKLOAD].count()
+        num = len(channels)
+        range_size = cnt/num
+        start = 0
+        ret = []
+
+        while start <= cnt:
+            end = start + range_size
+            end = end > cnt? cnt+1 : end
+            ret.append((start, end))
+
+            start += range_size 
+
+        return ret
+    ## DEF
 ## CLASS

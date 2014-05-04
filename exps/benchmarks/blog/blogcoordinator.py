@@ -141,4 +141,7 @@ class BlogCoordinator(AbstractCoordinator):
         return dict()
     ## DEF
 
+    def executeImpl(self, config, channels):
+        return None
+
 ## CLASS

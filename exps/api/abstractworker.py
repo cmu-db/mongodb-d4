@@ -178,6 +178,7 @@ class AbstractWorker:
         assert r
         LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
         debug = LOG.isEnabledFor(logging.DEBUG)
+        self.data = data
 
         start = time.time()
         LOG.info("Starting warm-up period")

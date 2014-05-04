@@ -262,9 +262,14 @@ class AbstractCoordinator:
         ## IF
         
         # Now tell them to start executing their benchmark
+        data = self.executeImpl(self, config, channels)
         LOG.info("Sending MSG_CMD_EXECUTE to %d workers" % len(channels))
+        cnt = 0
         for ch in channels:
-            sendMessage(MSG_CMD_EXECUTE, None, ch)
+            send_data = None
+            if not data is None:
+                send_data = data[cnt]
+            sendMessage(MSG_CMD_EXECUTE, send_data, ch)
 
         # Each channel will return back a Result object
         # We will append each one to our global results
