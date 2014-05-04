@@ -177,7 +177,8 @@ class ReplayCoordinator(AbstractCoordinator):
 
         while start <= cnt:
             end = start + range_size
-            end = end > cnt? cnt+1 : end
+            if end > cnt:
+                end = cnt + 1
             ret.append((start, end))
 
             start += range_size 
