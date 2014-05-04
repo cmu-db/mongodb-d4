@@ -232,8 +232,14 @@ class AbstractCoordinator:
         # round of execution. This will allow them to perform any initialization
         # that is specific to execution
         LOG.info("Sending MSG_CMD_EXECUTE_INIT to %d workers" % len(channels))
+        data = self.executeImpl(config, channels)
+        cnt = 0
         for ch in channels:
-            sendMessage(MSG_CMD_EXECUTE_INIT, None, ch)
+            send_data = None
+            if not data is None:
+                send_data = data[cnt]
+            sendMessage(MSG_CMD_EXECUTE_INIT, send_data, ch)
+            cnt += 1
         for ch in channels:
             msg = getMessage(ch.receive())
             if msg.header == MSG_INIT_COMPLETED:
@@ -262,14 +268,9 @@ class AbstractCoordinator:
         ## IF
         
         # Now tell them to start executing their benchmark
-        data = self.executeImpl(self, config, channels)
         LOG.info("Sending MSG_CMD_EXECUTE to %d workers" % len(channels))
-        cnt = 0
         for ch in channels:
-            send_data = None
-            if not data is None:
-                send_data = data[cnt]
-            sendMessage(MSG_CMD_EXECUTE, send_data, ch)
+            sendMessage(MSG_CMD_EXECUTE, None, ch)
 
         # Each channel will return back a Result object
         # We will append each one to our global results

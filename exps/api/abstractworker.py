@@ -157,6 +157,7 @@ class AbstractWorker:
         
     def executeInit(self, config, channel, data):
         self.lastChannel = channel
+        self.data = data
         LOG.info("Initializing %s before benchmark execution" % self.name)
         self.executeInitImpl(config)
         sendMessage(MSG_INIT_COMPLETED, self.getWorkerId(), channel)
@@ -178,7 +179,6 @@ class AbstractWorker:
         assert r
         LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
         debug = LOG.isEnabledFor(logging.DEBUG)
-        self.data = data
 
         start = time.time()
         LOG.info("Starting warm-up period")

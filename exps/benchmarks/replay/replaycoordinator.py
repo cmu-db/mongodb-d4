@@ -33,6 +33,7 @@ LOG = logging.getLogger(__name__)
 
 basedir = os.getcwd()
 sys.path.append(os.path.join(basedir, "tools"))
+sys.path.append(os.path.join(basedir, "../../../src"))
 
 import pymongo
 
@@ -41,6 +42,8 @@ from design_deserializer import Deserializer
 
 from api.abstractcoordinator import AbstractCoordinator
 from api.message import *
+
+from util import constants
 
 class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
@@ -169,20 +172,21 @@ class ReplayCoordinator(AbstractCoordinator):
 
     ## DEF
     def executeImpl(self, config, channels):
-        cnt = self.new_meata[COLLECTION_WORKLOAD].count()
+        cnt = self.new_meta[constants.COLLECTION_WORKLOAD].count()
         num = len(channels)
         range_size = cnt/num
         start = 0
         ret = []
 
         while start <= cnt:
-            end = start + range_size
+            end = start + range_size + 1
             if end > cnt:
                 end = cnt + 1
             ret.append((start, end))
 
-            start += range_size 
+            start = end
 
+        print ret
         return ret
     ## DEF
 ## CLASS
