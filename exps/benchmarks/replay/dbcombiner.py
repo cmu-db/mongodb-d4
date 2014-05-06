@@ -105,11 +105,13 @@ class DBCombiner:
                                 op['collection'] = parent
                                 content = op['query_content'][0]
                                 parent_values = {dicts[f_id]:op['query_content'][0][f_id] for f_id in c_ids}
+                                parent_predicate = {dicts[f_id]:'eq' for f_id in c_ids}
                                 for f_id in c_ids:
                                     del content[f_id]
                                 op['query_content'][0] = parent_values
                                 op['query_content'].append({})
                                 op['query_content'][1]['#push'] = {key:content}
+                                op['predicates'] = parent_predicate
                                 updates.append(op)
                                 error_ops += 1
                         ## END FOR
