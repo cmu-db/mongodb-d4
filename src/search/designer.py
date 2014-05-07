@@ -181,13 +181,15 @@ class Designer():
         dc = DesignCandidates()
         valid_collection = set()
         for col_info in collections.itervalues():
+            valid_collection.add(col_info['name'])
+
+        for col_info in collections.itervalues():
 
             shardKeys = []
             indexKeys = []
             denorm = []
 
             interesting = col_info['interesting']
-            valid_collection.add(col_info['name'])
             
             interesting = self.__remove_heuristicaly_bad_key__(col_info, interesting)
             # Make sure that none of our interesting fields start with
