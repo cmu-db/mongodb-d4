@@ -94,11 +94,16 @@ class ReplayCoordinator(AbstractCoordinator):
 
         # STEP 2: Put indexs on the dataset_db based on the given design
         self.setIndexes(self.new_db, self.design)
+
+        self.setupShardKeys()
+
     ## DEF
     
     def setIndexes(self, new_db, design):
         LOG.info("Creating indexes")
-        for col_name in design.getCollections():
+        for col_name in new_db.collection_names():
+            if col_name == 'system.indexes':
+                continue
             new_db[col_name].drop_indexes()
             
             indexes = design.getIndexes(col_name)
