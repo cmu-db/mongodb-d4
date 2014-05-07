@@ -72,4 +72,7 @@ class TpccCoordinator(AbstractCoordinator) :
         return messages
     ## DEF
 
+    def executeImpl(self, config, channels):
+        return None
+
 ## CLASS

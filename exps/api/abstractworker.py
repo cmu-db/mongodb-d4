@@ -157,6 +157,7 @@ class AbstractWorker:
         
     def executeInit(self, config, channel, data):
         self.lastChannel = channel
+        self.data = data
         LOG.info("Initializing %s before benchmark execution" % self.name)
         self.executeInitImpl(config)
         sendMessage(MSG_INIT_COMPLETED, self.getWorkerId(), channel)
