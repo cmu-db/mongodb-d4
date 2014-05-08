@@ -55,10 +55,8 @@ class DBMigrator:
                         ## FOR
                         # set the foreign key of the child doc
                         for f_id in parent_keys[key][cur_name]:
-                            obj[f_id] = []
-
                             obj[f_id] = doc[parent_keys[key][cur_name][f_id]]
-                            self.copyData(obj, str(key), parent_keys)
+                        self.copyData(obj, str(key), parent_keys)
                         ## END FOR
 
                 newlist = [x for x in doc[key] if not isinstance(x, dict)]
