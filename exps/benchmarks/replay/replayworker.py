@@ -179,6 +179,7 @@ class ReplayWorker(AbstractWorker):
                 LOG.debug("Executing '%s' operation on '%s'" % (op['type'], coll))
             
             # QUERY
+            start = time.time()
             if op['type'] == constants.OP_TYPE_QUERY:
                 isCount = False
 
@@ -201,7 +202,7 @@ class ReplayWorker(AbstractWorker):
                 if 'count' in op['query_content'][0]:
                     assert "#query" in op['query_content'][0], "OP: " + pformat(op)
                     # Then do a count
-                    whereClause = op['query_content'][0]["#query"]
+                    #whereClause = op['query_content'][0]["#query"]
                     isCount = True
                         
                 # Execute!
@@ -222,10 +223,10 @@ class ReplayWorker(AbstractWorker):
                 # Handle count
                 if isCount:
                     result = resultCursor.count()
-                else:
+                #else:
                     # We have to iterate through the result so that we know that
                     # the cursor has copied all the bytes
-                    result = [r for r in resultCursor]
+                    #result = [r for r in resultCursor]
                 # IF
                 
                 # TODO: For queries that were originally joins, we need a way
@@ -238,6 +239,7 @@ class ReplayWorker(AbstractWorker):
                 whereClause = op['query_content'][0]
                 assert whereClause, "Missing WHERE clause for %s" % op['type']
 
+                print op
                 whereClause = ReplayWorker.getWhereClause(whereClause, op['predicates'])
 
                 # The second element has what we're trying to update
@@ -281,8 +283,15 @@ class ReplayWorker(AbstractWorker):
             # UNKNOWN!
             else:
                 raise Exception("Unexpected query type: %s" % op['type'])
+            end = time.time()
+            if (end - start) * 1000 > 100:
+                LOG.info("time:%f ms\n" , ((end-start) * 1000));
+                LOG.info(op)
             
-            op_counter += 1
+            if not 'ori_number' in op:
+                op_counter += 1
+            else:
+                op_counter += op['ori_number']
             if self.debug:
                 LOG.debug("%s Result: %s" % (op['type'], pformat(result)))
         ## FOR
