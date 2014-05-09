@@ -94,6 +94,15 @@ class DBCombiner:
                                            del op['query_content'][0][f_id] 
                                         ## END FOR 
                                         p_op['query_content'][0][key].append(op['query_content'][0])
+                                        ## IF
+                                        if not 'ori_number' in p_op:
+                                            if not 'ori_number' in op:
+                                                p_op['ori_number'] = 1
+                                            else:
+                                                p_op['ori_number'] = 1 + op['ori_number']
+                                        ## END IF
+                                        p_op['ori_number'] += 1
+
                                         break
                                     ## END IF
                                 ## END FOR
@@ -187,6 +196,15 @@ class DBCombiner:
                                     parent_predicates = {dicts[f_id]:p_op['predicates'][dicts[f_id]] for f_id in (f_id for f_id in c_ids if dicts[f_id] in p_op['predicates'])}
                                     ## IF
                                     if all(item in child_values.items() for item in parent_values.items()) and all(item in child_predicates.items() for item in parent_predicates.items()):
+                                        ## IF
+                                        if not 'ori_number' in p_op:
+                                            if not 'ori_number' in op:
+                                                p_op['ori_number'] = 1
+                                            else:
+                                                p_op['ori_number'] = 1 + op['ori_number']
+                                        ## END IF
+                                        p_op['ori_number'] += 1
+
                                         flag = True
                                         break
                                     ## END IF
@@ -298,6 +316,14 @@ class DBCombiner:
                                     if all(item in child_values.items() for item in parent_values.items()) and all(item in child_predicates.items() for item in parent_predicates.items()): #and all(item in c_ids for item in op['query_content'][0]):
                                         flag = True
                                         p_op['query_fields'][key] = 1
+                                        ## IF
+                                        if not 'ori_number' in p_op:
+                                            if not 'ori_number' in op:
+                                                p_op['ori_number'] = 1
+                                            else:
+                                                p_op['ori_number'] = 1 + op['ori_number']
+                                        ## END IF
+                                        p_op['ori_number'] += 1
                                         break
                                     ## END IF
                                 ## END FOR

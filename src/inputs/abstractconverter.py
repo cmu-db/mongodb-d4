@@ -182,20 +182,19 @@ class AbstractConverter():
         pass
     ## DEF
     
-    def getEmbeddingRatio(self, parent_col, child_col, foreign_key):
+    def getEmbeddingRatio(self, parent_col, child_col, foreign_key, key):
         '''
             count how many unique values does the parent collectio and child collection have for the
             given foreign_key
         '''
-        commom_values = self.getCommonKeyValues(foreign_key, parent_col, child_col)
+        commom_values = self.getCommonKeyValues(foreign_key, key, parent_col, child_col)
         
         parent_count_dict = self.getCountOfValues(parent_col, foreign_key, commom_values)
-        child_count_dict = self.getCountOfValues(child_col, foreign_key, commom_values)
+        child_count_dict = self.getCountOfValues(child_col, key, commom_values)
         #LOG.info("parent dict: %s", parent_count_dict)
         #LOG.info("child dict: %s", child_count_dict)
         
         geomean, parent_average = self.getRatio(parent_count_dict, child_count_dict, commom_values)
-        print geomean
         return geomean, parent_average, commom_values
     ## DEF
 
@@ -240,8 +239,8 @@ class AbstractConverter():
         return value_count_dict
     ## DEF
     
-    def getCommonKeyValues(self, key, parent_col, child_col):
-        parent_distinct_values = set(self.dataset_db[parent_col].distinct(key))
+    def getCommonKeyValues(self, foreign_key, key, parent_col, child_col):
+        parent_distinct_values = set(self.dataset_db[parent_col].distinct(foreign_key))
         child_distinct_values = set(self.dataset_db[child_col].distinct(key))
         
         intersect_values = parent_distinct_values.intersection(child_distinct_values)
@@ -294,7 +293,7 @@ class AbstractConverter():
                         if self.debug:
                             LOG.info("%s   --->   %s, key: %s", child_col, parent_col, foreign_key)
                             
-                        ratio, parent_average, commom_values = self.getEmbeddingRatio(parent_col, child_col, foreign_key)
+                        ratio, parent_average, commom_values = self.getEmbeddingRatio(parent_col, child_col, foreign_key, k)
                         
                         if self.debug:
                             LOG.info("ratio: %s", ratio)
@@ -326,7 +325,7 @@ class AbstractConverter():
             if 'parent_col' in field and field['parent_col'] and 'parent_key' in field and field['parent_key']: # This is probably only used by mysql trace
                 # add the ratio to the parent collection
                 parent_col_info = self.metadata_db.Collection.fetch_one({"name": field['parent_col']})
-                ratio, parent_average, commom_values = self.getEmbeddingRatio(field['parent_col'], col_info['name'], field["parent_key"])
+                ratio, parent_average, commom_values = self.getEmbeddingRatio(field['parent_col'], col_info['name'], field["parent_key"], k)
                 
                 if col_info['name'] in parent_col_info['embedding_ratio']:
                     previous_ratio = parent_col_info['embedding_ratio'][col_info['name']]
@@ -339,6 +338,7 @@ class AbstractConverter():
                 LOG.info("child col: %s", col_info['name'])
                 LOG.info("parent col: %s", field['parent_col'])
                 LOG.info("embedding_ratio: %s", parent_col_info['embedding_ratio'][col_info['name']])
+
                 parent_col_info.save()
                 
             if 'fields' in field and field['fields']:
