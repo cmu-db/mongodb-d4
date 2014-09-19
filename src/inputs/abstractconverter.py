@@ -204,7 +204,13 @@ class AbstractConverter():
         parent_count = 0
         
         for value in values:
-            ratio_list.append(float(child_count_dict[value]) / parent_count_dict[value])
+            if parent_count_dict[value] == 0:
+                if child_count_dict[value] == 0:
+                    ratio_list.append(0)
+                else:
+                    ratio_list.append(float("inf"))
+            else:
+                ratio_list.append(float(child_count_dict[value]) / parent_count_dict[value])
             parent_count += 1
             parent_sum += parent_count_dict[value]
         ## FOR
