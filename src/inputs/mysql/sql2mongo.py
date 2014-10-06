@@ -35,21 +35,16 @@ class Sql2Mongo (object) :
     '''
     def add_where_comparison(self, table_alias, tuple) :
         #tbl_name = self.table_aliases[table_alias]
-        tbl_name = "" 
+        tbl_name = ""
         for tbl in self.schema:
             if tuple[0] in self.schema[tbl]:
                 tbl_name = tbl
-                break
+                columns = list(self.where_cols[tbl_name])
+                if tuple[0] not in columns :
+                    self.where_cols[tbl_name][tuple[0]] = []
+                self.where_cols[tbl_name][tuple[0]].append((tuple[1], tuple[2]))
 
-        if not tbl_name in self.schema:
-            return
 
-        columns = list(self.where_cols[tbl_name])
-        if tuple[0] in columns :
-            pass
-        else :
-            self.where_cols[tbl_name][tuple[0]] = []
-        self.where_cols[tbl_name][tuple[0]].append((tuple[1], tuple[2]))
     ## End add_where_comparison()
     
     def generate_content_insert(self, table) :

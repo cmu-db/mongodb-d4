@@ -13,10 +13,10 @@ class TestConversions (unittest.TestCase) :
     
     def setUp(self) :
         schema = {
+            'event' : ['u_id', 'timestamp'],
             'users': ['a', 'b', 'u_id', 'name', 'age', 'z'],
             'review' : ['rating','r_u_id'],
             'trust' : []
-            #'user' : ['u_id']
         }
         self.mongo = sql2mongo.Sql2Mongo(schema)
     
@@ -46,7 +46,14 @@ class TestConversions (unittest.TestCase) :
         result = self.mongo.render_trace()
         output = {u'#query' : { u'a' :  3 , u'b' : 4}}
         self.assertEqual(output, result[0])
-        
+
+    def testSelectQueryAndClauseWithConflictingColsTrace(self):
+        sql = 'SELECT name FROM users WHERE u_id = 3 and b = 4'
+        self.mongo.process_sql(sql)
+        result = self.mongo.render_trace()
+        output = {u'#query' : { u'u_id' :  3 , u'b' : 4}}
+        self.assertEqual(output, result[0])
+
     def testDeleteQuery01(self) :
         sql = 'DELETE FROM users WHERE z="abc"'
         self.mongo.process_sql(sql)
