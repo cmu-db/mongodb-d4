@@ -91,7 +91,7 @@ class Sql2Mongo (object) :
             op['query_time'] = timestamp
             op['resp_time'] = None
             op['query_content'] = []
-            op['query_fields'] = None
+            op['query_fields'] = {}
             op['resp_content'] = []
             op['type'] = self.mongo_type()
             op['query_size'] = 0
