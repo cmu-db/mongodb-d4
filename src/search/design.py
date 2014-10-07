@@ -270,7 +270,8 @@ class Design(object):
             ret += "[%02d] %s\n" % (ctr, col_name)
             if self.data[col_name]:
                 for k, v in self.data[col_name].iteritems():
-                    ret += "  %-10s %s\n" % (k+":", v)
+                    if k != "indexes":
+                        ret += "  %-10s %s\n" % (k+":", v)
             ctr += 1
         return ret
     ## DEF

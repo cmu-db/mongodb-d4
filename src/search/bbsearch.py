@@ -391,25 +391,30 @@ class BBNode():
         except:
             self.denormIter.rewind()
             denorm = self.denormIter.next()
-            
-            # ShARDKEY ITERATION
-            try:
-                shardKey = None
-                while shardKey == None:
-                    shardKey = self.shardIter.next()
-            except:
-                self.shardIter.rewind()
-                shardKey = self.shardIter.next()
-                
-                # INDEX KEYS ITERATION
+
+            if denorm is None:
+                # ShARDKEY ITERATION
                 try:
-                    indexes = None
-                    while indexes == None:
-                        indexes = self.indexIter.next()
+                    shardKey = None
+                    while shardKey == None:
+                        shardKey = self.shardIter.next()
                 except:
-                    # all combinations exhausted
-                    # == all children enumerated
-                    return None
+                    self.shardIter.rewind()
+                    shardKey = self.shardIter.next()
+
+                    # INDEX KEYS ITERATION
+                    try:
+                        indexes = None
+                        while indexes == None:
+                            indexes = self.indexIter.next()
+                    except:
+                        # all combinations exhausted
+                        # == all children enumerated
+                        return None
+            else:
+                shardKey = None
+                indexes = None
+
         if self.debug:
             LOG.debug("APPLYING: %s -> shardKey:%s / denorm:%s / indexes:%s", \
                       self.currentCol, shardKey, denorm, indexes)

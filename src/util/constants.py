@@ -102,7 +102,7 @@ SLOT_SIZE_LIMIT = 10
 ## ==============================================
 ## CANDIDATES GENERATOR CONSTRAINTS
 ## ==============================================
-MIN_SELECTIVITY = 0.25
+MIN_SELECTIVITY = 0.01
 
 MAX_INDEX_SIZE = 10
 

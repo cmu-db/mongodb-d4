@@ -61,8 +61,6 @@ class NodeEstimator(object):
             return an estimate of a list of node ids that we think that
             the query will be executed on
         """
-        if op['collection'] == 'SPECIAL_FACILITY':
-            pass
         results = set()
         broadcast = True
         shardingKeys = design.getShardKeys(op['collection'])
@@ -172,7 +170,10 @@ class NodeEstimator(object):
             This is just a simple (hash % N), where N is the number of nodes in the cluster
         """
         assert isinstance(values, tuple)
-        return hash(values) % self.num_nodes
+        if len(values) == 0:
+            return 0
+        else:
+            return hash(values) % self.num_nodes
     ## DEF
 
     def guessNodes(self, design, colName, fieldName):

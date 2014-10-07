@@ -191,7 +191,7 @@ class Designer():
 
             interesting = col_info['interesting']
             
-            interesting = self.__remove_heuristicaly_bad_key__(col_info, interesting)
+            #interesting = self.__remove_heuristicaly_bad_key__(col_info, interesting)
             # Make sure that none of our interesting fields start with
             # the character that we used to convert $ commands
             for key in interesting:

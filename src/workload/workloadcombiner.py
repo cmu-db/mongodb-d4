@@ -34,7 +34,7 @@ from util import constants
 LOG = logging.getLogger(__name__)
 
 class WorkloadCombiner:
-    
+
     def __init__(self, col_names, workload):
         self.lastDesign = None
         self.col_names = col_names
@@ -43,20 +43,21 @@ class WorkloadCombiner:
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
-    
+
     def prepareWorkload(self):
         self.col_sess_xref = { }
         # Build mapping from collections to sessions
-        
+
         for col_name in self.col_names:
             self.col_sess_xref[col_name] = []
         ## FOR
-        
+
         workload = copy.deepcopy(self.workload)
-        
+
         for sess in workload:
             cols = set()
             for op in sess["operations"]:
+                op["weight"] = 1
                 if op["collection"] in self.col_sess_xref:
                     cols.add(op["collection"])
             ## FOR (op)
@@ -66,14 +67,14 @@ class WorkloadCombiner:
 
         return workload
     ## DEF
-    
+
     def process(self, design):
         """
             For a new design, return a modified version of the workload where operations
             are combined with each other based on the denormalization scheme.
         """
         ## If the design doesn't have any collection embedding, return None
-        
+
         hasDenormCol = False
         for col_name in design.getCollections():
             if design.isDenormalized(col_name):
@@ -81,13 +82,13 @@ class WorkloadCombiner:
                 break
             ## IF
         ## FOR
-            
+
         if not hasDenormCol:
             return None
-        
+
         # Here we really need to prepare the workload for use
         workload = self.prepareWorkload()
-        
+
         collectionsInProperOrder = self.__GetCollectionsInProperOder__(design)
 
         for col_name in collectionsInProperOrder:
@@ -96,15 +97,10 @@ class WorkloadCombiner:
                 self.__combine_queries__(col_name, parent_col)
 
         self.lastDesign = design.copy()
-        
-        #query_count = 0
-        #for sess in self.workload:
-            #for op in sess['operations']:
-                #query_count += len(op['query_content'])
-        #print "query count: ", query_count
+
         return workload
     ## DEF
-        
+
     # If we want to embed queries accessing collection B to queries accessing collection A
     # We just remove all the queries that
     def __combine_queries__(self, col, parent_col):
@@ -123,6 +119,7 @@ class WorkloadCombiner:
                     for op_tuple in combinedQueries:
                         if op_tuple[1]['type'] == operations_in_use[cursor]['type']:
                             operations_in_use[cursor]['query_content'].extend(op_tuple[1]['query_content'])
+                            operations_in_use[cursor]['weight'] += op_tuple[1]['weight']
                         #print "removed query: ", query['query_content']
                         #print "remove query type: ", query['type']
                         #print "new query: ", operations_in_use[cursor]['query_content']
@@ -142,7 +139,7 @@ class WorkloadCombiner:
                     op['collection'] = parent_col
                 ## IF
             ## FOR
-            
+
             # now this session has operations to the parent collection
             self.col_sess_xref[parent_col].append(sess)
         ## FOR
@@ -156,10 +153,10 @@ class WorkloadCombiner:
 
         for col in collections:
             collection_scores[col] = 0
-        
+
         for col in collections:
             self.__update_score__(col, design, collection_scores)
-        
+
         sorted_collection_with_Score = sorted(collection_scores.iteritems(), key=operator.itemgetter(1))
 
         sorted_collection = [x[0] for x in sorted_collection_with_Score]

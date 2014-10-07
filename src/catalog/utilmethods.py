@@ -141,7 +141,8 @@ def getFieldValues(fieldNames, fields):
     """
     values = [ ]
     for fieldName in fieldNames:
-        values.append(getFieldValue(fieldName, fields))
+        value = getFieldValue(fieldName, fields)
+        if value is not None: values.append(value)
     return tuple(values)
 ## DEF
 
@@ -173,6 +174,8 @@ def getFieldValue(fieldName, fields):
                 value = value[key]
                 if isinstance(value, list):
                     value = tuple(value)
+            elif key.startswith(":"):
+                value = None
         elif len(value.keys()) == 2: # This will happen when there are things like range predicates (Example {"#gt": 123})
             keys = value.keys()
             if keys[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX) and keys[1].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):

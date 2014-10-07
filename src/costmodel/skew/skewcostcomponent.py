@@ -102,18 +102,22 @@ class SkewCostComponent(AbstractCostComponent):
                     continue
                 col_info = self.state.collections[op['collection']]
                 cache = self.state.getCacheHandle(col_info)
+                op_count = 1
+                if "weight" in op:
+                    op_count = op["weight"]
 
                 #  This just returns an estimate of which nodes  we expect
                 #  the op to touch. We don't know exactly which ones they will
                 #  be because auto-sharding could put shards anywhere...
                 try: 
                     node_ids = self.state.__getNodeIds__(cache, design, op)
-                    map(self.nodeCounts.put, node_ids)
-                    num_ops += 1
+                    for node_id in node_ids:
+                        self.nodeCounts.put(node_id, op_count)
+                    num_ops += op_count
                 except:
                     if self.debug:
                         LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
-                    err_ops += 1
+                    err_ops += op_count
                     continue
             ## FOR (op)
         ## FOR (sess)

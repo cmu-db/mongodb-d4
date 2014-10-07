@@ -86,6 +86,7 @@ class InitialDesigner(AbstractDesigner):
                     LOG.warn("Missing: " + op["collection"])
                     continue
                 fields = workload.getReferencedFields(op)
+                fields = filter(lambda field: field in self.collections[op["collection"]]["interesting"], fields)
                 h = col_keys[op["collection"]]
                 for i in xrange(1, len(fields)+1):
                     map(h.put, itertools.combinations(fields, i))
