@@ -315,6 +315,8 @@ class DBCombiner:
                                     # parent where clause should be subset of child where clause
                                     if all(item in child_values.items() for item in parent_values.items()) and all(item in child_predicates.items() for item in parent_predicates.items()): #and all(item in c_ids for item in op['query_content'][0]):
                                         flag = True
+                                        if p_op["query_fields"] is None:
+                                            p_op["query_fields"] = {}
                                         p_op['query_fields'][key] = 1
                                         ## IF
                                         if not 'ori_number' in p_op:
