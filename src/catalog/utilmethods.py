@@ -175,7 +175,7 @@ def getFieldValue(fieldName, fields):
                 if isinstance(value, list):
                     value = tuple(value)
             elif key.startswith(":"):
-                value = None
+                value = value[key]
         elif len(value.keys()) == 2: # This will happen when there are things like range predicates (Example {"#gt": 123})
             keys = value.keys()
             if keys[0].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX) and keys[1].startswith(constants.REPLACE_KEY_DOLLAR_PREFIX):

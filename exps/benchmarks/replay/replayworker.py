@@ -284,9 +284,6 @@ class ReplayWorker(AbstractWorker):
             else:
                 raise Exception("Unexpected query type: %s" % op['type'])
             end = time.time()
-            if (end - start) * 1000 > 100:
-                LOG.info("time:%f ms\n" , ((end-start) * 1000));
-                LOG.info(op)
             
             if not 'ori_number' in op:
                 op_counter += 1
