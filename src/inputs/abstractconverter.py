@@ -754,9 +754,9 @@ class AbstractConverter():
     ## DEF
 
     def computeFieldRange(self, field):
-        if len(field['distinct_values']) > 0:
-            num_ranges = self.num_nodes
-            sorted_distinct_values = sorted(field['distinct_values'])
+        num_ranges = self.num_nodes
+        sorted_distinct_values = sorted([value for value in field['distinct_values'] if value is not None])
+        if len(sorted_distinct_values) > 0:
             field['ranges'] = []
             if num_ranges <= 1:
                 field['ranges'].append(sorted_distinct_values[0])
