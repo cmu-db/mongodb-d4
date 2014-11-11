@@ -55,8 +55,8 @@ LOG = logging.getLogger(__name__)
 ## ==============================================
 class MongoSniffConverter(AbstractConverter):
     
-    def __init__(self, metadata_db, dataset_db, fd=None):
-        AbstractConverter.__init__(self, metadata_db, dataset_db)
+    def __init__(self, metadata_db, dataset_db, fd=None, num_nodes=1):
+        AbstractConverter.__init__(self, metadata_db, dataset_db, num_nodes)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         self.fd = fd

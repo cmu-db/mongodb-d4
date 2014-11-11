@@ -84,7 +84,7 @@ class NodeEstimator(object):
             # be inserted in one and only one node
             for content in workload.getOpContents(op):
                 values = catalog.getFieldValues(shardingKeys, content)
-                results.add(self.computeTouchedNode(values))
+                results.add(self.computeTouchedNode(op['collection'], shardingKeys, values))
             ## FOR
             broadcast = False
 
@@ -115,29 +115,7 @@ class NodeEstimator(object):
             ## PRED_TYPE_RANGE
             ## ----------------------------------------------
             elif not broadcast and constants.PRED_TYPE_RANGE in predicate_types:
-                # If it's a scan, then we need to first figure out what
-                # node they will start the scan at, and then just approximate
-                # what it will do by adding N nodes to the touched list starting
-                # from that first node. We will wrap around to zero
-                num_touched = self.guessNodes(design, op['collection'], k)
-                if self.debug:
-                    LOG.info("Estimating that Op #%d on '%s' touches %d nodes",\
-                             op["query_id"], op["collection"], num_touched)
-                for content in workload.getOpContents(op):
-                    values = catalog.getFieldValues(shardingKeys, content)
-                    if self.debug: LOG.debug("%s -> %s", shardingKeys, values)
-                    try:
-                        node_id = self.computeTouchedNode(values)
-                    except:
-                        if self.debug:
-                            LOG.error("Unexpected error when computing touched nodes\n%s" % pformat(values))
-                        raise
-                    for i in xrange(num_touched):
-                        if node_id >= self.num_nodes: node_id = 0
-                        results.add(node_id)
-                        node_id += 1
-                    ## FOR
-                ## FOR
+                broadcast = True
             ## ----------------------------------------------
             ## PRED_TYPE_EQUALITY
             ## ----------------------------------------------
@@ -145,7 +123,7 @@ class NodeEstimator(object):
                 broadcast = False
                 for content in workload.getOpContents(op):
                     values = catalog.getFieldValues(shardingKeys, content)
-                    results.add(self.computeTouchedNode(values))
+                    results.add(self.computeTouchedNode(op['collection'], shardingKeys, values))
                 ## FOR
             ## ----------------------------------------------
             ## BUSTED!
@@ -164,17 +142,30 @@ class NodeEstimator(object):
         return results
     ## DEF
 
-    def computeTouchedNode(self, values):
-        """
-            Compute which node the given set of values will need to go
-            This is just a simple (hash % N), where N is the number of nodes in the cluster
-        """
-        assert isinstance(values, tuple)
-        if len(values) == 0:
+    def computeTouchedNode(self, col_name, fields, values):
+        index = 0
+        factor = 1
+        if len(values) != len(fields):
             return 0
-        else:
-            return hash(values) % self.num_nodes
+        for i in range(len(fields)):
+            index += (self.computeTouchedRange(col_name, fields[i], values[i]) * factor)
+            factor *= self.num_nodes
+        return index / int(math.pow(self.num_nodes, len(fields) - 1))
+
     ## DEF
+
+    def computeTouchedRange(self, col_name, field_name, value):
+        ranges = self.collections[col_name]['fields'][field_name]['ranges']
+        if len(ranges) == 0:
+            return hash(str(value)) % self.num_nodes
+        index = 0
+        while index < len(ranges):
+            if index == len(ranges) - 1:
+                return index
+            if ranges[index] <= value < ranges[index + 1]:
+                return index
+            index += 1
+        return index
 
     def guessNodes(self, design, colName, fieldName):
         """

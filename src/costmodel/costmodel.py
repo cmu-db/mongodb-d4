@@ -128,8 +128,8 @@ class CostModel(object):
         self.last_design = design
 
         # Calculate cache hit/miss ratio
-        LOG.info("Overall Cost %.3f / Computed in %.2f seconds", \
-                 self.last_cost, (stop - start))
+        LOG.info("Overall Cost %.3f / Computed in %.2f seconds, design\n %s", \
+                 self.last_cost, (stop - start), design)
 
         self.finish()
         if combinedWorkload:

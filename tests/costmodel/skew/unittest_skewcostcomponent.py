@@ -45,6 +45,9 @@ class TestSkewCost(CostModelTestCase):
                 op_ctr += 1
             ## FOR (op)
         ## FOR (session)
+
+        col_info["fields"][shard_key]["ranges"] = range(CostModelTestCase.NUM_NODES)
+
         cost0 = self.cm.getCost(d)
         self.assertLessEqual(cost0, 1.0)
         #        print "skewCost0:", cost0

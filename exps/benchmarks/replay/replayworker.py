@@ -59,9 +59,9 @@ class ReplayWorker(AbstractWorker):
     ## DEF
     
     def __rewind_cursor__(self):
-        #self.replayCursor = self.metadata_db.sessions.find()
-        print self.data
-        self.replayCursor = self.metadata_db.sessions.find({'session_id':{'$gte':self.data[0],'$lt':self.data[1]}})
+        self.replayCursor = self.metadata_db.sessions.find()
+        #print self.data
+        #self.replayCursor = self.metadata_db.sessions.find({'session_id':{'$gte':self.data[0],'$lt':self.data[1]}})
     ## DEF
 
     ## DEF 
@@ -171,8 +171,7 @@ class ReplayWorker(AbstractWorker):
             if not coll in self.collections:
                 msg = "Invalid operation on unexpected collection '%s'" % coll
                 if coll.find("$cmd"): # MONGODB system error collection
-                    LOG.warn(op)
-                    return
+                    return op_counter
                 ## IF
                 
             if self.debug:

@@ -42,7 +42,7 @@ LOG = logging.getLogger(__name__)
 ## Abstract Convertor
 ## ==============================================
 class AbstractConverter():
-    def __init__(self, metadata_db, dataset_db):
+    def __init__(self, metadata_db, dataset_db, num_nodes=1):
         self.metadata_db = metadata_db
         self.dataset_db = dataset_db
         self.stop_on_error = False
@@ -59,6 +59,7 @@ class AbstractConverter():
         self.hasher = OpHasher()
         self.rng = random.Random()
         self.debug = LOG.isEnabledFor(logging.DEBUG)
+        self.num_nodes = num_nodes
     ## DEF
 
     def reset(self):
@@ -74,6 +75,7 @@ class AbstractConverter():
                 v['query_use_count'] = 0
                 v['query_hash']  = 0
                 v['cardinality'] = 0
+                v['ranges'] = []
                 v['selectivity'] = 0.0
                 v['avg_size']    = 0
             col_info.save()
@@ -742,6 +744,7 @@ class AbstractConverter():
                     field['selectivity'] = 0.0
                 else :
                     field['selectivity'] = float(field['cardinality']) / field['num_values']
+                self.computeFieldRange(field)
                 del field['distinct_values']
                 del field['num_values']
                 
@@ -749,6 +752,22 @@ class AbstractConverter():
                 self.computeFieldStats(col_info, field['fields'])
         ## FOR
     ## DEF
+
+    def computeFieldRange(self, field):
+        if len(field['distinct_values']) > 0:
+            num_ranges = self.num_nodes
+            sorted_distinct_values = sorted(field['distinct_values'])
+            field['ranges'] = []
+            if num_ranges <= 1:
+                field['ranges'].append(sorted_distinct_values[0])
+            else:
+                range_len = len(sorted_distinct_values) / num_ranges
+                if range_len == 0:
+                    range_len = 1
+                i = 0
+                while i < len(sorted_distinct_values) and len(field['ranges']) < num_ranges:
+                    field['ranges'].append(sorted_distinct_values[i])
+                    i += range_len
     
     ## ==============================================
     ## OPERATION FIXIN'

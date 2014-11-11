@@ -47,8 +47,8 @@ MYSQL_LOG_TABLE_NAME = "general_log"
 ## ==============================================
 class MySQLConverter(AbstractConverter):
     
-    def __init__(self, metadata_db, dataset_db, dbHost, dbPort, dbName, dbUser, dbPass):
-        AbstractConverter.__init__(self, metadata_db, dataset_db)
+    def __init__(self, metadata_db, dataset_db, dbHost, dbPort, dbName, dbUser, dbPass, num_nodes=1):
+        AbstractConverter.__init__(self, metadata_db, dataset_db, num_nodes)
 
         self.dbHost = dbHost
         self.dbPort = dbPort

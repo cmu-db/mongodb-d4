@@ -32,6 +32,7 @@ class Collection(Document):
                 'query_use_count':   int,        # The number of times this field is referenced in queries
                 'cardinality':       int,        # Number of distinct values
                 'selectivity':       float,      # Cardinality / Number of all values
+                'ranges':            [None],
                 'avg_size':          int,        # The average size of the values for this field (bytes)
                 'parent_col':        basestring, # TODO(ckeith)
                 'parent_key':        basestring, # TODO(ckeith)
@@ -73,6 +74,7 @@ class Collection(Document):
             'query_use_count':  0,
             'cardinality':      0,
             'selectivity':      0.0,
+            'ranges':           [],
             'avg_size':         0,
             'parent_col':       None,
             'parent_key':       None,

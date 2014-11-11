@@ -128,7 +128,8 @@ class Designer():
         converter = inputs.mongodb.MongoSniffConverter(
             self.metadata_db,
             self.dataset_db,
-            fd
+            fd,
+            num_nodes=self.config.getint("cluster", "nodes")
         )
         converter.stop_on_error = self.stop_on_error
         converter.no_mongo_parse = self.no_mongo_parse
@@ -160,7 +161,8 @@ class Designer():
             dbPort=self.config.getint(configutil.SECT_MYSQL, 'port'),
             dbName=self.config.get(configutil.SECT_MYSQL, 'name'),
             dbUser=self.config.get(configutil.SECT_MYSQL, 'user'),
-            dbPass=self.config.get(configutil.SECT_MYSQL, 'pass'))
+            dbPass=self.config.get(configutil.SECT_MYSQL, 'pass'),
+            num_nodes=self.config.getint("cluster", "nodes"))
 
         converter.no_mysql_schema = self.no_mysql_schema
         converter.no_mysql_workload = self.no_mysql_workload
