@@ -218,7 +218,10 @@ class State():
         for col_name in self.collections.keys():
             if design.hasCollection(col_name):
                 cardinality = 1
-                for shard_key in design.getShardKeys(col_name):
+                shard_keys = design.getShardKeys(col_name)
+                if shard_keys is None or len(shard_keys) == 0:
+                    continue
+                for shard_key in shard_keys:
                     if ((not self.collections[col_name]["fields"].has_key(shard_key)) or
                         (not self.collections[col_name]["fields"][shard_key].has_key("cardinality"))):
                         continue

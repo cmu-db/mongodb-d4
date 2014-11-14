@@ -182,7 +182,7 @@ class Design(object):
         for col_name in self.data.keys():
             if not collections.has_key(col_name):
                 collections[col_name] = []
-            if self.data[col_name]['denorm'] is not None:
+            if self.data[col_name] is not None and self.data[col_name]['denorm'] is not None:
                 parent_col_name = self.data[col_name]['denorm']
                 if not collections.has_key(parent_col_name):
                     collections[parent_col_name] = []
