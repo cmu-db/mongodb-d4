@@ -70,7 +70,7 @@ class ReplayCoordinator(AbstractCoordinator):
 
         self.metadata_db = metadata_conn[config['replay']['metadata']]
         self.new_meta = metadata_conn[config['replay']['new_meta']]
-        self.ori_db = self.conn[self.config['replay']['ori_db']]
+        self.ori_db = metadata_conn[self.config['replay']['ori_db']]
         self.new_db = self.conn[self.config['replay']['new_db']]
         self.design = self.getDesign(self.config['default']['design'])
         return dict()
