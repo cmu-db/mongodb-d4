@@ -135,7 +135,7 @@ class NodeEstimator(object):
         if broadcast:
             if self.debug: LOG.debug("Op #%d on '%s' is a broadcast query to all nodes",\
                                      op["query_id"], op["collection"])
-            map(results.add, xrange(0, self.num_nodes))
+            map(results.add, xrange(0, self.num_nodes[op["collection"]]))
 
         map(self.nodeCounts.put, results)
         self.op_count += 1
@@ -149,23 +149,23 @@ class NodeEstimator(object):
             return 0
         for i in range(len(fields)):
             index += (self.computeTouchedRange(col_name, fields[i], values[i]) * factor)
-            factor *= self.num_nodes
-        return index / int(math.pow(self.num_nodes, len(fields) - 1))
+            factor *= self.num_nodes[col_name]
+        return index / int(math.pow(self.num_nodes[col_name], len(fields) - 1))
 
     ## DEF
 
     def computeTouchedRange(self, col_name, field_name, value):
         ranges = self.collections[col_name]['fields'][field_name]['ranges']
         if len(ranges) == 0:
-            return hash(str(value)) % self.num_nodes
+            return hash(str(value)) % self.num_nodes[col_name]
         index = 0
         while index < len(ranges):
             if index == len(ranges) - 1:
-                return index
+                return index % self.num_nodes[col_name]
             if ranges[index] <= value < ranges[index + 1]:
-                return index
+                return index % self.num_nodes[col_name]
             index += 1
-        return index
+        return index % self.num_nodes[col_name]
 
     def guessNodes(self, design, colName, fieldName):
         """
@@ -180,7 +180,7 @@ class NodeEstimator(object):
 
         # TODO: How do we use the statistics to determine the selectivity of this particular
         #       attribute and thus determine the number of nodes required to answer the query?
-        return int(math.ceil(field['selectivity'] * self.num_nodes))
+        return int(math.ceil(field['selectivity'] * self.num_nodes[colName]))
     ## DEF
 
     def getOpCount(self):

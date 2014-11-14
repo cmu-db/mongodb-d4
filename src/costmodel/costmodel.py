@@ -95,12 +95,35 @@ class CostModel(object):
     def overallCost(self, design):
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
+        # design.data = {
+        #     "ACCESS_INFO": {
+        #           "denorm":    None,
+        #           "shardKeys": ['ai_type'],
+        #           "indexes":   []
+        #     },
+        #     "CALL_FORWARDING": {
+        #           "denorm":    'SPECIAL_FACILITY',
+        #           "shardKeys": [],
+        #           "indexes":   []
+        #     },
+        #     "SPECIAL_FACILITY": {
+        #           "denorm":    'SUBSCRIBER',
+        #           "shardKeys": [],
+        #           "indexes":   []
+        #     },
+        #     "SUBSCRIBER": {
+        #           "denorm":    None,
+        #           "shardKeys": ['s_id'],
+        #           "indexes":   []
+        #     }
+        # }
         self.new_design = design
         
         combiner = WorkloadCombiner(self.col_names, self.workload)
         combinedWorkload = combiner.process(design)
         if combinedWorkload:
             self.state.updateWorkload(combinedWorkload)
+        self.state.updateNumNodes(design)
 
         # This is meant to apply to all components
         # but it only works with network component

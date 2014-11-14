@@ -55,7 +55,7 @@ class DiskCostComponent(AbstractCostComponent):
 
         self.buffers = [ ]
         #LOG.info("Window size: %s", self.state.window_size)
-        for i in xrange(self.state.num_nodes):
+        for i in xrange(self.state.max_num_nodes):
             lru = FastLRUBufferWithWindow(self.state.window_size)
             self.buffers.append(lru)
         

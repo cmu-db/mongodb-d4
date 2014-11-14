@@ -27,6 +27,7 @@ import copy
 
 # mongodb-d4
 import workload
+import math
 from nodeestimator import NodeEstimator
 from util.histogram import Histogram
 
@@ -113,7 +114,10 @@ class State():
         self.weight_network = config.get('weight_network', 1.0)
         self.weight_disk = config.get('weight_disk', 1.0)
         self.weight_skew = config.get('weight_skew', 1.0)
-        self.num_nodes = config.get('nodes', 1)
+        self.max_num_nodes = config.get('nodes', 1)
+        self.num_nodes = {}
+        for col_name in collections.keys():
+            self.num_nodes[col_name] = self.max_num_nodes
 
         # Convert MB to bytes
         self.max_memory = config['max_memory'] * 1024 * 1024
@@ -208,6 +212,50 @@ class State():
         # Clear out caches for all collections
         self.cache_handles.clear()
         self.estimator.reset()
+
+    def updateNumNodes(self, design):
+        collections_size = self.collectionsSize(design)
+        for col_name in self.collections.keys():
+            if design.hasCollection(col_name):
+                cardinality = 1
+                for shard_key in design.getShardKeys(col_name):
+                    if ((not self.collections[col_name]["fields"].has_key(shard_key)) or
+                        (not self.collections[col_name]["fields"][shard_key].has_key("cardinality"))):
+                        continue
+                    cardinality *= self.collections[col_name]["fields"][shard_key]["cardinality"]
+                cardinality_ratio = cardinality / float(self.collections[col_name]["doc_count"])
+                if cardinality_ratio < 0.5:
+                    cardinality_ratio = math.fabs(math.log(2, cardinality_ratio))
+                elif cardinality_ratio > 2:
+                    cardinality_ratio = math.log(2, cardinality_ratio)
+                else:
+                    cardinality_ratio = 1
+                size_ratio = collections_size[col_name] / float(1 << 24)
+                num_nodes = int(math.ceil(cardinality_ratio * size_ratio))
+                if num_nodes == 0:
+                    num_nodes = 1
+                if num_nodes > self.max_num_nodes:
+                    num_nodes = self.max_num_nodes
+                self.num_nodes[col_name] = num_nodes
+
+    def collectionsSize(self, design):
+        collectionsOrder = design.getCollectionsInTopologicalOrder()
+        collectionsSize = {}
+        for col_name in collectionsOrder.keys():
+            self.collectionSize(collectionsOrder, collectionsSize, col_name)
+        return collectionsSize
+
+    def collectionSize(self, collectionsOrder, collectionsSize, col_name):
+        if not collectionsSize.has_key(col_name):
+            if len(collectionsOrder[col_name]) == 0:
+                collectionsSize[col_name] = self.collections[col_name]["data_size"]
+            else:
+                size = 0
+                for child_col_name in collectionsOrder[col_name]:
+                    size += self.collectionSize(collectionsOrder, collectionsSize, child_col_name)
+                collectionsSize[col_name] = size
+        return collectionsSize[col_name]
+
 
     ## -----------------------------------------------------------------------
     ## UTILITY CODE

@@ -58,7 +58,7 @@ class SkewCostComponent(AbstractCostComponent):
         """Calculate the network cost for each segment for skew analysis"""
 
         # If there is only one node, then the cost is always zero
-        if self.state.num_nodes == 1:
+        if self.state.max_num_nodes == 1:
             LOG.info("Computed Skew Cost: %f", 0.0)
             return 0.0
 
@@ -127,14 +127,14 @@ class SkewCostComponent(AbstractCostComponent):
         if not total:
             return (0.0, num_ops)
 
-        best = 1 / float(self.state.num_nodes)
+        best = 1 / float(self.state.max_num_nodes)
         skew = 0.0
-        for i in xrange(self.state.num_nodes):
+        for i in xrange(self.state.max_num_nodes):
             ratio = self.nodeCounts.get(i, 0) / float(total)
             if ratio < best:
                 ratio = best + ((1 - ratio/best) * (1 - best))
             skew += math.log(ratio / best)
-        return skew / (math.log(1 / best) * self.state.num_nodes), num_ops
+        return skew / (math.log(1 / best) * self.state.max_num_nodes), num_ops
     ## DEF
 
     ## -----------------------------------------------------------------------

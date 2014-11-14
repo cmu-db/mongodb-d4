@@ -132,6 +132,27 @@ class TestDesign (unittest.TestCase):
             self.assertEqual(expected[collection], hierarchy)
         ## FOR
     ## DEF
+
+    def testGetCollectionsInTopologicalOrder(self):
+        expected = {
+            'A': ['B', 'C'],
+            'B': ['D'],
+            'C': [],
+            'D': []
+        }
+
+        d = design.Design()
+        d.addCollections(expected.keys())
+        d.setDenormalizationParent('B', 'A')
+        d.setDenormalizationParent('C', 'A')
+        d.setDenormalizationParent('D', 'B')
+
+        topologicalOrder = d.getCollectionsInTopologicalOrder()
+        self.assertNotEqual(topologicalOrder, None)
+        for collection in topologicalOrder.keys():
+            topologicalOrder[collection] = sorted(topologicalOrder[collection])
+        self.assertEqual(expected, topologicalOrder)
+
 ## End Class
 
 if __name__ == '__main__':

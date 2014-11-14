@@ -64,7 +64,7 @@ class NetworkCostComponent(AbstractCostComponent):
 
     def getCostImpl(self, design):
         if self.debug:
-            LOG.debug("Computing network cost for %d sessions [origOpCount=%d / numNodes=%d]", len(self.state.workload), self.state.orig_op_count, self.state.num_nodes)
+            LOG.debug("Computing network cost for %d sessions [origOpCount=%d / numNodes=%d]", len(self.state.workload), self.state.orig_op_count, self.state.max_num_nodes)
         self.lastDesign = design
         
         # Build a cache for the network cost per collection
@@ -97,8 +97,8 @@ class NetworkCostComponent(AbstractCostComponent):
                     op_count += 1
                     try:
                         msgs = self.state.__getNodeIds__(cache, design, op)
-                        assert len(msgs) <= self.state.num_nodes, \
-                            "%s -- NumMsgs[%d] <= NumNodes[%d]" % (msgs, len(msgs), self.state.num_nodes)
+                        assert len(msgs) <= self.state.num_nodes[op["collection"]], \
+                            "%s -- NumMsgs[%d] <= NumNodes[%d]" % (msgs, len(msgs), self.state.num_nodes[col_name])
                         msg_count += len(msgs)
                         # if self.debug: LOG.debug("%s -> Messages %s", op, msgs)
                     except:
@@ -112,7 +112,7 @@ class NetworkCostComponent(AbstractCostComponent):
                 total_msg_count += msg_count
 
         if total_op_count > 0:
-            cost = total_msg_count / float(self.state.orig_op_count * self.state.num_nodes)
+            cost = total_msg_count / float(self.state.orig_op_count * self.state.max_num_nodes)
 
         if self.debug: LOG.info("Total ops %s, error %s", total_op_count, total_err)
         LOG.info("Computed Network Cost: %f [msgCount=%d / opCount=%d]",\
