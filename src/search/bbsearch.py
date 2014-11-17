@@ -335,9 +335,11 @@ class ShardKeyIterator:
         self.currentSize = len(self.keys)
 
     def next(self):
+        if self.currentSize < 0:
+            raise StopIteration
         result = None
         if self.currentSize == 0:
-            self.currentSize = len(self.keys)
+            self.currentSize = -1
             result = []
         else:
             if self.currentIterator is None:
