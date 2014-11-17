@@ -332,12 +332,14 @@ class ShardKeyIterator:
         else:
             self.maxCompoundCount = maxCompoundCount
         self.keys = keys[0:self.maxCompoundCount]
-        self.currentSize = len(self.keys)
+        self.currentSize = 0
 
     def next(self):
+        if self.currentSize > self.maxCompoundCount:
+            raise StopIteration
         result = None
         if self.currentSize == 0:
-            self.currentSize = len(self.keys)
+            self.currentSize = 1
             result = []
         else:
             if self.currentIterator is None:
@@ -345,7 +347,7 @@ class ShardKeyIterator:
             try:
                 result = self.currentIterator.next()
             except:
-                self.currentSize -= 1
+                self.currentSize += 1
                 self.currentIterator = None
                 result = self.next()
         self.lastValue = result
@@ -354,7 +356,7 @@ class ShardKeyIterator:
 
     def rewind(self):
         self.lastValue = None
-        self.currentSize = len(self.keys)
+        self.currentSize = 0
         self.currentIterator = None
 
     def getLastValue(self):
