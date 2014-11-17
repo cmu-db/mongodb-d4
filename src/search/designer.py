@@ -207,7 +207,10 @@ class Designer():
             # deal with shards
             if isShardingEnabled:
                 LOG.debug("Sharding is enabled")
-                shardKeys = interesting
+                fields = col_info['fields']
+                shardKeys = sorted(interesting,
+                                   key=lambda interesting_key: (0 - fields[interesting_key]['cardinality'] *
+                                                                fields[interesting_key]["query_use_count"]))
 
             # deal with indexes
             if isIndexesEnabled:

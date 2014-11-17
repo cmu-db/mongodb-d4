@@ -323,6 +323,49 @@ class CompoundKeyIterator:
         self.invalidCombinations = self.__generate_invalid_combinations__(self.keys, self.maxCompoundCount)
 ## CLASS
 
+class ShardKeyIterator:
+    def __init__(self, keys, maxCompoundCount):
+        self.lastValue = None
+        self.currentIterator = None
+        if maxCompoundCount < 0:
+            self.maxCompoundCount = len(keys)
+        else:
+            self.maxCompoundCount = maxCompoundCount
+        self.keys = keys[0:self.maxCompoundCount]
+        self.currentSize = len(self.keys)
+
+    def next(self):
+        result = None
+        if self.currentSize == 0:
+            self.currentSize = len(self.keys)
+            result = []
+        else:
+            if self.currentIterator is None:
+                self.currentIterator = itertools.combinations(self.keys, self.currentSize)
+            try:
+                result = self.currentIterator.next()
+            except:
+                self.currentSize -= 1
+                self.currentIterator = None
+                result = self.next()
+        self.lastValue = result
+        return result
+
+
+    def rewind(self):
+        self.lastValue = None
+        self.currentSize = len(self.keys)
+        self.currentIterator = None
+
+    def getLastValue(self):
+        if self.lastValue == None:
+            return self.next()
+        else:
+            return self.lastValue
+
+    def __iter__(self):
+        return self
+
 ## ==============================================
 ## BBNode: main building block of the BBSearch tree
 ## ==============================================
@@ -484,7 +527,7 @@ class BBNode():
                 self.currentCol = col_name
                 break
         # create the iterators
-        self.shardIter = CompoundKeyIterator(self.bbsearch.designCandidate.shardKeys[self.currentCol], SHARD_KEY_MAX_COMPOUND_COUNT)
+        self.shardIter = ShardKeyIterator(self.bbsearch.designCandidate.shardKeys[self.currentCol], SHARD_KEY_MAX_COMPOUND_COUNT)
         self.denormIter = SimpleKeyIterator(self.bbsearch.designCandidate.denorm[self.currentCol])
         self.indexIter = CompoundKeyIterator(self.bbsearch.designCandidate.indexKeys[self.currentCol], INDEX_KEY_MAX_COMPOUND_COUNT)
         
