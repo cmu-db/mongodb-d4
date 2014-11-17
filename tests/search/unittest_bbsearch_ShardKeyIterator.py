@@ -14,21 +14,21 @@ class TestShardKeyIterator(unittest.TestCase):
         pass
 
     def testIfGeneratedAllCombination(self):
-        expected = [[], ["3"], ["2"], ["1"], ["3", "2"], ["3", "1"], ["2", "1"], ["3", "2", "1"]]
+        expected = [["3", "2", "1"], ["3", "2"], ["3", "1"], ["2", "1"], ["3"], ["2"], ["1"], []]
         iterator = bbsearch.ShardKeyIterator(["3", "2", "1"], -1)
         for combinations in expected:
             result = iterator.next()
             self.assertEqual(tuple(combinations), tuple(result))
-            if len(result) == 3:
+            if len(result) == 0:
                 break
 
     def testIfGeneratedLimitedCombination(self):
-        expected = [[], ["3"], ["2"], ["3", "2"]]
+        expected = [["3", "2"], ["3"], ["2"], []]
         iterator = bbsearch.ShardKeyIterator(["3", "2", "1"], 2)
         for combinations in expected:
             result = iterator.next()
             self.assertEqual(tuple(combinations), tuple(result))
-            if len(result) == 2:
+            if len(result) == 0:
                 break
 
 if __name__ == '__main__':
