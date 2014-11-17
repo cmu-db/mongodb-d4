@@ -45,6 +45,8 @@ from api.message import *
 
 from util import constants
 
+from collections import OrderedDict
+
 class ReplayCoordinator(AbstractCoordinator):
     DEFAULT_CONFIG = [
         ("ori_db", "Name of the database that contains the original data (Change None to valid dataset name)", "None"),
@@ -142,7 +144,7 @@ class ReplayCoordinator(AbstractCoordinator):
             raise
 
         for col_name in design.getCollections():
-            shardKeyDict = { }
+            shardKeyDict = OrderedDict()
             
             for key in design.getShardKeys(col_name):
                 shardKeyDict[key] = 1
@@ -155,6 +157,7 @@ class ReplayCoordinator(AbstractCoordinator):
             # add shard keys
             try: 
                 # print {"shardcollection" : str(db.name) + "." + col_name, "key" : shardKeyDict}
+                db[col_name].ensure_index([(key, pymongo.ASCENDING) for key in shardKeyDict.keys()])
                 admindb.command({"shardcollection" : str(db.name) + "." + col_name, "key" : shardKeyDict})
             except: 
                 LOG.error("Failed to enable sharding on collection '%s.%s'" % (db.name, col_name))
