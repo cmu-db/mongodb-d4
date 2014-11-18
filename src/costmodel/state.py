@@ -224,14 +224,18 @@ class State():
                     if ((not self.collections[col_name]["fields"].has_key(shard_key)) or
                         (not self.collections[col_name]["fields"][shard_key].has_key("cardinality"))):
                         continue
-                    cardinality *= self.collections[col_name]["fields"][shard_key]["cardinality"]
-                cardinality_ratio = cardinality / float(self.collections[col_name]["doc_count"])
-                if cardinality_ratio < 0.5:
-                    cardinality_ratio = math.fabs(math.log(2, cardinality_ratio))
-                elif cardinality_ratio > 2:
-                    cardinality_ratio = math.log(2, cardinality_ratio)
-                else:
+                    field_cardinality = self.collections[col_name]["fields"][shard_key]["cardinality"]
+                    if field_cardinality > 0:
+                        cardinality *= field_cardinality
+                cardinality_ratio = self.collections[col_name]["doc_count"] / float(cardinality)
+                if cardinality_ratio > 0:
+                    cardinality_ratio = math.log(cardinality_ratio, 2)
+                if cardinality_ratio == 0:
                     cardinality_ratio = 1
+                elif cardinality_ratio < 0:
+                    cardinality_ratio = -cardinality_ratio
+                else:
+                    cardinality_ratio = 1 / cardinality_ratio
                 size_ratio = collections_size[col_name] / float(1 << 24)
                 col_num_nodes = int(math.ceil(cardinality_ratio * size_ratio))
                 if col_num_nodes == 0:

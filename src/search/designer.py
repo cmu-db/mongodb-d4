@@ -37,6 +37,8 @@ sys.path.append(os.path.join(basedir, "../multithreaded"))
 # mongodb-d4
 import workload
 import catalog
+import math
+from operator import itemgetter
 from initialdesigner import InitialDesigner
 from design import Design
 from lnsdesigner import LNSDesigner
@@ -208,9 +210,21 @@ class Designer():
             if isShardingEnabled:
                 LOG.debug("Sharding is enabled")
                 fields = col_info['fields']
-                shardKeys = sorted(interesting,
-                                   key=lambda interesting_key: (0 - fields[interesting_key]['cardinality'] *
-                                                                fields[interesting_key]["query_use_count"]))
+                interesting_scores = []
+                for interesting_key in interesting:
+                    cardinality = fields[interesting_key]['cardinality']
+                    if cardinality > 0:
+                        cardinality = math.log(cardinality, 2)
+                    else:
+                        cardinality = 1
+                    query_use_count = fields[interesting_key]["query_use_count"]
+                    score = cardinality * query_use_count
+                    interesting_scores.append((interesting_key, score))
+                sorted(interesting_scores, key=itemgetter(1), reverse=True)
+                shardKeys = [item[0] for item in interesting_scores]
+                if len(shardKeys) == 0:
+                    sorted_fields = sorted(fields.keys(), key=lambda field: fields[field]["cardinality"], reverse=True)
+                    shardKeys = sorted_fields[:1]
 
             # deal with indexes
             if isIndexesEnabled:
@@ -259,7 +273,7 @@ class Designer():
             # Skip any collection that doesn't have any documents in it
             # This is because we won't be able to make any estimates about how
             # big the collection actually is
-            if not col_info['doc_count'] or not col_info['avg_doc_size'] or len(col_info['interesting']) == 0 or col_info['workload_queries'] == 0:
+            if not col_info['doc_count'] or not col_info['avg_doc_size'] or col_info['workload_queries'] == 0:
                 continue
             collections[col_info['name']] = col_info
         ## FOR
