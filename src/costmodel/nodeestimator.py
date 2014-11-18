@@ -34,12 +34,12 @@ LOG = logging.getLogger(__name__)
 
 class NodeEstimator(object):
 
-    def __init__(self, collections, num_nodes):
+    def __init__(self, collections, max_num_nodes):
         assert isinstance(collections, dict)
 #        LOG.setLevel(logging.DEBUG)
         self.debug = LOG.isEnabledFor(logging.DEBUG)
         self.collections = collections
-        self.num_nodes = num_nodes
+        self.max_num_nodes = max_num_nodes
 
         # Keep track of how many times that we accessed each node
         self.nodeCounts = Histogram()
@@ -55,7 +55,12 @@ class NodeEstimator(object):
         self.op_count = 0
     ## DEF
 
-    def estimateNodes(self, design, op):
+    def colNumNodes(self, num_nodes, col_name):
+        if num_nodes is None or not num_nodes.has_key(col_name):
+            return self.max_num_nodes
+        return num_nodes[col_name]
+
+    def estimateNodes(self, design, op, num_nodes=None):
         """
             For the given operation and a design object,
             return an estimate of a list of node ids that we think that
@@ -84,7 +89,7 @@ class NodeEstimator(object):
             # be inserted in one and only one node
             for content in workload.getOpContents(op):
                 values = catalog.getFieldValues(shardingKeys, content)
-                results.add(self.computeTouchedNode(op['collection'], shardingKeys, values))
+                results.add(self.computeTouchedNode(op['collection'], shardingKeys, values, num_nodes))
             ## FOR
             broadcast = False
 
@@ -123,7 +128,7 @@ class NodeEstimator(object):
                 broadcast = False
                 for content in workload.getOpContents(op):
                     values = catalog.getFieldValues(shardingKeys, content)
-                    results.add(self.computeTouchedNode(op['collection'], shardingKeys, values))
+                    results.add(self.computeTouchedNode(op['collection'], shardingKeys, values, num_nodes))
                 ## FOR
             ## ----------------------------------------------
             ## BUSTED!
@@ -135,39 +140,40 @@ class NodeEstimator(object):
         if broadcast:
             if self.debug: LOG.debug("Op #%d on '%s' is a broadcast query to all nodes",\
                                      op["query_id"], op["collection"])
-            map(results.add, xrange(0, self.num_nodes[op["collection"]]))
+            map(results.add, xrange(0, self.colNumNodes(num_nodes, op["collection"])))
 
         map(self.nodeCounts.put, results)
         self.op_count += 1
         return results
     ## DEF
 
-    def computeTouchedNode(self, col_name, fields, values):
+    def computeTouchedNode(self, col_name, fields, values, num_nodes=None):
         index = 0
         factor = 1
         if len(values) != len(fields):
             return 0
         for i in range(len(fields)):
-            index += (self.computeTouchedRange(col_name, fields[i], values[i]) * factor)
-            factor *= self.num_nodes[col_name]
-        return index / int(math.pow(self.num_nodes[col_name], len(fields) - 1))
+            index += (self.computeTouchedRange(col_name, fields[i], values[i], num_nodes) * factor)
+            factor *= self.max_num_nodes
+        index /= math.pow(self.max_num_nodes, len(fields) - 1)
+        return int(math.ceil(index * self.colNumNodes(num_nodes, col_name) / self.max_num_nodes))
 
     ## DEF
 
-    def computeTouchedRange(self, col_name, field_name, value):
+    def computeTouchedRange(self, col_name, field_name, value, num_nodes=None):
         ranges = self.collections[col_name]['fields'][field_name]['ranges']
         if len(ranges) == 0:
-            return hash(str(value)) % self.num_nodes[col_name]
+            return hash(str(value)) % self.max_num_nodes
         index = 0
         while index < len(ranges):
             if index == len(ranges) - 1:
-                return index % self.num_nodes[col_name]
+                return index % self.max_num_nodes
             if ranges[index] <= value < ranges[index + 1]:
-                return index % self.num_nodes[col_name]
+                return index % self.max_num_nodes
             index += 1
-        return index % self.num_nodes[col_name]
+        return index % self.max_num_nodes
 
-    def guessNodes(self, design, colName, fieldName):
+    def guessNodes(self, design, colName, fieldName, num_nodes=None):
         """
             Return the number of nodes that a query accessing a collection
             using the given field will touch.
@@ -180,7 +186,7 @@ class NodeEstimator(object):
 
         # TODO: How do we use the statistics to determine the selectivity of this particular
         #       attribute and thus determine the number of nodes required to answer the query?
-        return int(math.ceil(field['selectivity'] * self.num_nodes[colName]))
+        return int(math.ceil(field['selectivity'] * self.colNumNodes(num_nodes, colName)))
     ## DEF
 
     def getOpCount(self):

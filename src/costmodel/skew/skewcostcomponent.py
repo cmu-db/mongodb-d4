@@ -54,7 +54,7 @@ class SkewCostComponent(AbstractCostComponent):
         self.splitWorkload()
     ## DEF
 
-    def getCostImpl(self, design):
+    def getCostImpl(self, design, num_nodes=None):
         """Calculate the network cost for each segment for skew analysis"""
 
         # If there is only one node, then the cost is always zero
@@ -62,12 +62,11 @@ class SkewCostComponent(AbstractCostComponent):
             LOG.info("Computed Skew Cost: %f", 0.0)
             return 0.0
 
-        self.nodeCounts
         op_counts = [ 0 ] *  self.state.skew_segments
         segment_skew = [ 0 ] *  self.state.skew_segments
         for i in range(0, len(self.workload_segments)):
             # TODO: We should cache this so that we don't have to call it twice
-            segment_skew[i], op_counts[i] = self.calculateSkew(design, self.workload_segments[i])
+            segment_skew[i], op_counts[i] = self.calculateSkew(design, self.workload_segments[i], num_nodes)
 
         weighted_skew = sum([segment_skew[i] * op_counts[i] for i in xrange(len(self.workload_segments))])
         cost = weighted_skew / float(sum(op_counts))
@@ -75,7 +74,7 @@ class SkewCostComponent(AbstractCostComponent):
         return cost
     ## DEF
 
-    def calculateSkew(self, design, segment):
+    def calculateSkew(self, design, segment, num_nodes=None):
         """
             Calculate the cluster skew factor for the given workload segment
             See Alg.#3 from Pavlo et al. 2012:
@@ -110,7 +109,7 @@ class SkewCostComponent(AbstractCostComponent):
                 #  the op to touch. We don't know exactly which ones they will
                 #  be because auto-sharding could put shards anywhere...
                 try: 
-                    node_ids = self.state.__getNodeIds__(cache, design, op)
+                    node_ids = self.state.__getNodeIds__(cache, design, op, num_nodes)
                     for node_id in node_ids:
                         self.nodeCounts.put(node_id, op_count)
                     num_ops += op_count

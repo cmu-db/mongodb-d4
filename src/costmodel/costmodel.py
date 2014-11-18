@@ -96,24 +96,50 @@ class CostModel(object):
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
         # design.data = {
-        #     "ACCESS_INFO": {
+        #     "CUSTOMER": {
         #           "denorm":    None,
-        #           "shardKeys": ['ai_type'],
+        #           "shardKeys": [u'C_W_ID'],
         #           "indexes":   []
         #     },
-        #     "CALL_FORWARDING": {
-        #           "denorm":    'SPECIAL_FACILITY',
-        #           "shardKeys": [],
-        #           "indexes":   []
-        #     },
-        #     "SPECIAL_FACILITY": {
-        #           "denorm":    'SUBSCRIBER',
-        #           "shardKeys": [],
-        #           "indexes":   []
-        #     },
-        #     "SUBSCRIBER": {
+        #     "DISTRICT": {
         #           "denorm":    None,
-        #           "shardKeys": ['s_id'],
+        #           "shardKeys": [u'D_W_ID', u'D_ID'],
+        #           "indexes":   []
+        #     },
+        #     "HISTORY": {
+        #           "denorm":    None,
+        #           "shardKeys": [u'H_DATA', u'H_AMOUNT', u'H_C_ID'],
+        #           "indexes":   []
+        #     },
+        #     "ITEM": {
+        #           "denorm":    None,
+        #           "shardKeys": [u'I_ID'],
+        #           "indexes":   []
+        #     }
+        #     ,
+        #     "NEW_ORDER": {
+        #           "denorm":    None,
+        #           "shardKeys": [u'NO_O_ID', u'NO_D_ID', u'NO_W_ID'],
+        #           "indexes":   []
+        #     },
+        #     "OORDER": {
+        #           "denorm":    None,
+        #           "shardKeys": [u'O_ENTRY_D'],
+        #           "indexes":   []
+        #     },
+        #     "ORDER_LINE": {
+        #           "denorm":    None,
+        #           "shardKeys": [u'OL_I_ID'],
+        #           "indexes":   []
+        #     },
+        #     "STOCK": {
+        #           "denorm":    None,
+        #           "shardKeys": [u'S_I_ID', u'S_QUANTITY'],
+        #           "indexes":   []
+        #     },
+        #     "WAREHOUSE": {
+        #           "denorm":    None,
+        #           "shardKeys": [u'W_ID'],
         #           "indexes":   []
         #     }
         # }
@@ -123,7 +149,8 @@ class CostModel(object):
         combinedWorkload = combiner.process(design)
         if combinedWorkload:
             self.state.updateWorkload(combinedWorkload)
-        self.state.updateNumNodes(design)
+
+        num_nodes = self.state.calcNumNodes(design)
 
         # This is meant to apply to all components
         # but it only works with network component
@@ -140,11 +167,11 @@ class CostModel(object):
         cost = 0.0
         start = time.time()
         if self.state.weight_disk > 0:
-            cost += self.state.weight_disk * self.diskComponent.getCost(design)
+            cost += self.state.weight_disk * self.diskComponent.getCost(design, num_nodes)
         if self.state.weight_network > 0:
-            cost += self.state.weight_network * self.networkComponent.getCost(design)
+            cost += self.state.weight_network * self.networkComponent.getCost(design, num_nodes)
         if self.state.weight_skew > 0:
-            cost += self.state.weight_skew * self.skewComponent.getCost(design)
+            cost += self.state.weight_skew * self.skewComponent.getCost(design, num_nodes)
         stop = time.time()
             
         self.last_cost = cost / self.weights_sum

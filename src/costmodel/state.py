@@ -115,16 +115,12 @@ class State():
         self.weight_disk = config.get('weight_disk', 1.0)
         self.weight_skew = config.get('weight_skew', 1.0)
         self.max_num_nodes = config.get('nodes', 1)
-        self.num_nodes = {}
-        for col_name in collections.keys():
-            self.num_nodes[col_name] = self.max_num_nodes
-
         # Convert MB to bytes
         self.max_memory = config['max_memory'] * 1024 * 1024
         self.skew_segments = config['skew_intervals'] # Why? "- 1"
         self.address_size = config['address_size'] / 4
 
-        self.estimator = NodeEstimator(collections, self.num_nodes)
+        self.estimator = NodeEstimator(collections, self.max_num_nodes)
         
         self.window_size = config['window_size']
 
@@ -196,7 +192,7 @@ class State():
         """
         cache = self.cache_handles.get(col_info['name'], None)
         if cache is None:
-            cache = State.Cache(col_info, self.num_nodes)
+            cache = State.Cache(col_info, self.max_num_nodes)
             self.cache_handles[col_info['name']] = cache
         return cache
     ## DEF
@@ -213,7 +209,10 @@ class State():
         self.cache_handles.clear()
         self.estimator.reset()
 
-    def updateNumNodes(self, design):
+    def calcNumNodes(self, design):
+        num_nodes = {}
+        for col_name in self.collections.keys():
+            num_nodes[col_name] = self.max_num_nodes
         collections_size = self.collectionsSize(design)
         for col_name in self.collections.keys():
             if design.hasCollection(col_name):
@@ -234,12 +233,13 @@ class State():
                 else:
                     cardinality_ratio = 1
                 size_ratio = collections_size[col_name] / float(1 << 24)
-                num_nodes = int(math.ceil(cardinality_ratio * size_ratio))
-                if num_nodes == 0:
-                    num_nodes = 1
-                if num_nodes > self.max_num_nodes:
-                    num_nodes = self.max_num_nodes
-                self.num_nodes[col_name] = num_nodes
+                col_num_nodes = int(math.ceil(cardinality_ratio * size_ratio))
+                if col_num_nodes == 0:
+                    col_num_nodes = 1
+                if col_num_nodes > self.max_num_nodes:
+                    col_num_nodes = self.max_num_nodes
+                num_nodes[col_name] = col_num_nodes
+        return num_nodes
 
     def collectionsSize(self, design):
         collectionsOrder = design.getCollectionsInTopologicalOrder()
@@ -276,11 +276,11 @@ class State():
         return isRegex
     ## DEF
 
-    def __getNodeIds__(self, cache, design, op):
+    def __getNodeIds__(self, cache, design, op, num_nodes=None):
         node_ids = cache.op_nodeIds.get(op['query_id'], None)
         if node_ids is None:
             try:
-                node_ids = self.estimator.estimateNodes(design, op)
+                node_ids = self.estimator.estimateNodes(design, op, num_nodes)
             except:
                 if self.debug:
                     LOG.error("Failed to estimate touched nodes for op #%d\n%s", op['query_id'], pformat(op))

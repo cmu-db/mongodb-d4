@@ -62,7 +62,7 @@ class NetworkCostComponent(AbstractCostComponent):
     def reset(self):
         self.cache = { }
 
-    def getCostImpl(self, design):
+    def getCostImpl(self, design, num_nodes=None):
         if self.debug:
             LOG.debug("Computing network cost for %d sessions [origOpCount=%d / numNodes=%d]", len(self.state.workload), self.state.orig_op_count, self.state.max_num_nodes)
         self.lastDesign = design
@@ -97,8 +97,8 @@ class NetworkCostComponent(AbstractCostComponent):
                     op_count += 1
                     try:
                         msgs = self.state.__getNodeIds__(cache, design, op)
-                        assert len(msgs) <= self.state.num_nodes[op["collection"]], \
-                            "%s -- NumMsgs[%d] <= NumNodes[%d]" % (msgs, len(msgs), self.state.num_nodes[col_name])
+                        assert len(msgs) <= self.state.max_num_nodes, \
+                            "%s -- NumMsgs[%d] <= NumNodes[%d]" % (msgs, len(msgs), self.state.max_num_nodes)
                         msg_count += len(msgs)
                         # if self.debug: LOG.debug("%s -> Messages %s", op, msgs)
                     except:

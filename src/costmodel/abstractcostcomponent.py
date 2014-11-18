@@ -37,13 +37,13 @@ class AbstractCostComponent():
         self.lastDesign = None
     ## DEF
         
-    def getCost(self, design):
+    def getCost(self, design, num_nodes=None):
         cost = self.getCostImpl(design)
         self.lastDesign = design
         return (cost)
     ## DEF
 
-    def getCostImpl(self, design):
+    def getCostImpl(self, design, num_nodes=None):
         raise NotImplementedError("Unimplemented %s.getCostImpl()" % self.__init__.im_class)
 
     def invalidateCache(self, newDesign, col_name):

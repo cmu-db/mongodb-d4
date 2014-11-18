@@ -213,7 +213,7 @@ class DiskCostComponent(AbstractCostComponent):
         ## ELSE
     ## DEF
     
-    def getCostImpl(self, design):
+    def getCostImpl(self, design, num_nodes=None):
         """
             Estimate the Disk Cost for a design and a workload
             Note: If this is being invoked with overallCost(), then the diskCost()

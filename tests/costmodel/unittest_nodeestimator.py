@@ -27,7 +27,7 @@ COLLECTION_NAMES = ["squirrels", "girls"]
 NUM_DOCUMENTS = 1000000
 NUM_SESSIONS = 1
 NUM_FIELDS = 6
-NUM_NODES = {"squirrels":8, "girls": 8}
+NUM_NODES = 8
 NUM_INTERVALS = 10
 
 class TestNodeEstimator(MongoDBTestCase):
@@ -163,7 +163,7 @@ class TestNodeEstimator(MongoDBTestCase):
         op = sess['operations'][0]
         touched0 = list(self.estimator.estimateNodes(d, op))
 #        print "touched0:", touched0
-        self.assertListEqual(range(NUM_NODES[COLLECTION_NAMES[0]]), touched0)
+        self.assertListEqual(range(NUM_NODES), touched0)
 
         # But if we insert into that collection with a document that doesn't
         # have the sharding key, it should only go to one node
