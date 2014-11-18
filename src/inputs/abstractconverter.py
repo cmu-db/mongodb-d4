@@ -475,7 +475,9 @@ class AbstractConverter():
             f_type = type(v)
             if not k in fields:
                 fields[k] = catalog.Collection.fieldFactory(k, catalog.fieldTypeToString(f_type))
-            fields[k]['query_use_count'] += 1
+
+            if op['type'] != constants.OP_TYPE_INSERT:
+                fields[k]['query_use_count'] += 1
 
             # No predicate for insert operations
             # No projections for insert operations
