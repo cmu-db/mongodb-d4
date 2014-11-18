@@ -224,6 +224,7 @@ class Designer():
                 shardKeys = [item[0] for item in interesting_scores]
                 if len(shardKeys) == 0:
                     sorted_fields = sorted(fields.keys(), key=lambda field: fields[field]["cardinality"], reverse=True)
+                    sorted_fields.remove("_id")
                     shardKeys = sorted_fields[:1]
 
             # deal with indexes
