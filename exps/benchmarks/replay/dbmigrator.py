@@ -28,7 +28,7 @@ class DBMigrator:
     ## DEF
 
     ## DEF
-    def copyData(self, doc, cur_name, parent_keys):
+    def copyData(self, doc, cur_name, parent_keys, docs=[]):
         '''
             doc is a dict
         '''
@@ -47,7 +47,7 @@ class DBMigrator:
                     doc[key][f_id] = doc[parent_keys[key][cur_name][f_id]]
                 ## END FOR
                 
-                self.copyData(doc[key], str(key), parent_keys)
+                self.copyData(doc[key], str(key), parent_keys, docs)
                 del doc[key]
             elif isinstance(doc[key], list):
                 for obj in doc[key]:
@@ -56,7 +56,7 @@ class DBMigrator:
                         # set the foreign key of the child doc
                         for f_id in parent_keys[key][cur_name]:
                             obj[f_id] = doc[parent_keys[key][cur_name][f_id]]
-                        self.copyData(obj, str(key), parent_keys)
+                        self.copyData(obj, str(key), parent_keys, docs)
                         ## END FOR
 
                 newlist = [x for x in doc[key] if not isinstance(x, dict)]
@@ -64,7 +64,7 @@ class DBMigrator:
                 if len(doc[key]) == 0:
                     del doc[key]
 
-        self.new_db[cur_name].insert(doc)
+        docs.append(doc)
     ## DEF
 
     ## DEF
@@ -77,8 +77,10 @@ class DBMigrator:
                 continue
             col = self.ori_db[col_name]
             cnt = 1
+            docs = []
             for doc in col.find({},{'_id':False}, timeout=False):
                     #if cnt == 1000:
                     #    break
-                    self.copyData(doc, col_name, parent_keys)
+                    self.copyData(doc, col_name, parent_keys, docs)
                     cnt += 1
+            self.new_db[col_name].insert(docs)

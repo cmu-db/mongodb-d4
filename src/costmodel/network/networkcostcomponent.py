@@ -70,6 +70,7 @@ class NetworkCostComponent(AbstractCostComponent):
         # Build a cache for the network cost per collection
         # That way if the design doesn't change for a collection, we
         # can reuse the message & op counts from the last calculation
+        self.reset()
         cost = 0
         total_op_count = 0
         total_msg_count = 0
