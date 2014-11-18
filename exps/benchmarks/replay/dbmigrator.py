@@ -82,5 +82,10 @@ class DBMigrator:
                     #if cnt == 1000:
                     #    break
                     self.copyData(doc, col_name, parent_keys, docs)
+                    if cnt % 1000 == 0:
+                        self.new_db[col_name].insert(docs)
+                        docs = []
                     cnt += 1
-            self.new_db[col_name].insert(docs)
+            if len(docs) != 0:
+                self.new_db[col_name].insert(docs)
+
