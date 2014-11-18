@@ -98,7 +98,7 @@ class CostModel(object):
         # design.data = {
         #     "CUSTOMER": {
         #           "denorm":    None,
-        #           "shardKeys": [u'C_W_ID'],
+        #           "shardKeys": [u'C_ID', u'C_LAST', u'C_W_ID'],
         #           "indexes":   []
         #     },
         #     "DISTRICT": {
@@ -108,7 +108,7 @@ class CostModel(object):
         #     },
         #     "HISTORY": {
         #           "denorm":    None,
-        #           "shardKeys": [u'H_DATA', u'H_AMOUNT', u'H_C_ID'],
+        #           "shardKeys": [u'H_DATA', u'H_C_ID'],
         #           "indexes":   []
         #     },
         #     "ITEM": {
@@ -119,22 +119,22 @@ class CostModel(object):
         #     ,
         #     "NEW_ORDER": {
         #           "denorm":    None,
-        #           "shardKeys": [u'NO_O_ID', u'NO_D_ID', u'NO_W_ID'],
+        #           "shardKeys": [u'NO_D_ID'],
         #           "indexes":   []
         #     },
         #     "OORDER": {
         #           "denorm":    None,
-        #           "shardKeys": [u'O_ENTRY_D'],
+        #           "shardKeys": [u'O_ID', u'O_C_ID', u'O_ENTRY_D'],
         #           "indexes":   []
         #     },
         #     "ORDER_LINE": {
         #           "denorm":    None,
-        #           "shardKeys": [u'OL_I_ID'],
+        #           "shardKeys": [u'OL_DIST_INFO', u'OL_AMOUNT', u'OL_I_ID'],
         #           "indexes":   []
         #     },
         #     "STOCK": {
         #           "denorm":    None,
-        #           "shardKeys": [u'S_I_ID', u'S_QUANTITY'],
+        #           "shardKeys": [u'S_I_ID', u'S_W_ID', u'S_QUANTITY'],
         #           "indexes":   []
         #     },
         #     "WAREHOUSE": {
@@ -178,7 +178,7 @@ class CostModel(object):
         self.last_design = design
 
         # Calculate cache hit/miss ratio
-        LOG.info("Overall Cost %.3f / Computed in %.2f seconds, design\n %s", \
+        LOG.info("Overall Cost %f / Computed in %.2f seconds, design\n %s", \
                  self.last_cost, (stop - start), design)
 
         self.finish()
