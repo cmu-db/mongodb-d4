@@ -114,8 +114,7 @@ class SkewCostComponent(AbstractCostComponent):
                         self.nodeCounts.put(node_id, op_count)
                     num_ops += op_count
                 except:
-                    if self.debug:
-                        LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                    LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
                     err_ops += op_count
                     continue
             ## FOR (op)

@@ -38,7 +38,7 @@ class AbstractCostComponent():
     ## DEF
         
     def getCost(self, design, num_nodes=None):
-        cost = self.getCostImpl(design)
+        cost = self.getCostImpl(design, num_nodes)
         self.lastDesign = design
         return (cost)
     ## DEF

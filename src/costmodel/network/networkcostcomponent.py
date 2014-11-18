@@ -96,7 +96,7 @@ class NetworkCostComponent(AbstractCostComponent):
                     cache = self.state.getCacheHandleByName(col_info = self.state.collections[col_name])
                     op_count += 1
                     try:
-                        msgs = self.state.__getNodeIds__(cache, design, op)
+                        msgs = self.state.__getNodeIds__(cache, design, op, num_nodes)
                         assert len(msgs) <= self.state.max_num_nodes, \
                             "%s -- NumMsgs[%d] <= NumNodes[%d]" % (msgs, len(msgs), self.state.max_num_nodes)
                         msg_count += len(msgs)
