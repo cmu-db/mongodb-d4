@@ -168,10 +168,20 @@ class NodeEstimator(object):
         while index < len(ranges):
             if index == len(ranges) - 1:
                 return index % self.max_num_nodes
-            if ranges[index] <= value < ranges[index + 1]:
+            if self.inRange(value, ranges[index], ranges[index + 1]):
                 return index % self.max_num_nodes
             index += 1
         return index % self.max_num_nodes
+
+    def inRange(self, value, start, end):
+        try:
+            if isinstance(value, list):
+                value = "%s-%s-%s" % (value[0], value[1], value[2])
+                return str(start) <= value < str(end)
+            return start <= value < end
+        except:
+            return True
+
 
     def guessNodes(self, design, colName, fieldName, num_nodes=None):
         """

@@ -102,7 +102,7 @@ class NetworkCostComponent(AbstractCostComponent):
                         msg_count += len(msgs)
                         # if self.debug: LOG.debug("%s -> Messages %s", op, msgs)
                     except:
-                        #LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
+                        LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
                         total_err += 1
                         continue
                 # Store it in our cache so that we can reuse it
