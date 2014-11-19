@@ -182,7 +182,11 @@ class ReplayWorker(AbstractWorker):
             if op['type'] == constants.OP_TYPE_QUERY:
                 isCount = False
 
-                whereClause = op['query_content'][0]['#query']
+                whereClause = {}
+                for content in op["query_content"]:
+                    if "#query" in content:
+                        whereClause = content["#query"]
+                        break
                 
                 if not whereClause:
                     continue
