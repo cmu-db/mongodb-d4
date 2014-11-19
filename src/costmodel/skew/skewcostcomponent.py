@@ -47,7 +47,8 @@ class SkewCostComponent(AbstractCostComponent):
         self.debug = LOG.isEnabledFor(logging.DEBUG)
 
         # Keep track of how many times that we accessed each node
-        self.nodeCounts = Histogram()
+        self.nodeCounts = {}
+        self.collectionCounts = {}
         self.workload_segments = [ ]
 
         # Pre-split the workload into separate intervals
@@ -85,6 +86,7 @@ class SkewCostComponent(AbstractCostComponent):
                       len(segment), self.state.skew_segments)
 
         self.nodeCounts.clear()
+        self.collectionCounts.clear()
                       
         # Iterate over each session and get the list of nodes
         # that we estimate that each of its operations will need to touch
@@ -99,6 +101,10 @@ class SkewCostComponent(AbstractCostComponent):
                 if design.isRelaxed(op['collection']):
                     if self.debug: LOG.debug("Relaxed: SKIP - %s Op #%d on %s", op['type'], op['query_id'], op['collection'])
                     continue
+                if not op["collection"] in self.collectionCounts:
+                    self.collectionCounts[op["collection"]] = 1
+                else:
+                    self.collectionCounts[op["collection"]] += 1
                 col_info = self.state.collections[op['collection']]
                 cache = self.state.getCacheHandle(col_info)
                 op_count = 1
@@ -110,8 +116,10 @@ class SkewCostComponent(AbstractCostComponent):
                 #  be because auto-sharding could put shards anywhere...
                 try: 
                     node_ids = self.state.__getNodeIds__(cache, design, op, num_nodes)
+                    if not op["collection"] in self.nodeCounts:
+                        self.nodeCounts[op["collection"]] = Histogram()
                     for node_id in node_ids:
-                        self.nodeCounts.put(node_id, op_count)
+                        self.nodeCounts[op["collection"]].put(node_id, op_count)
                     num_ops += op_count
                 except:
                     LOG.warn("Failed to estimate touched nodes for op\n%s" % pformat(op))
@@ -119,20 +127,27 @@ class SkewCostComponent(AbstractCostComponent):
                     continue
             ## FOR (op)
         ## FOR (sess)
-        if self.debug: LOG.info("Total ops %s, errors %s", num_ops, err_ops)
-        if self.debug: LOG.debug("Node Count Histogram:\n%s", self.nodeCounts)
-        total = self.nodeCounts.getSampleCount()
-        if not total:
-            return (0.0, num_ops)
+        col_factor_total = 0
+        skew_total = 0
+        for col_name in self.nodeCounts.keys():
+            col_factor = self.collectionCounts[col_name]
+            col_factor_total += col_factor
+            total = self.nodeCounts[col_name].getSampleCount()
+            if not total:
+                continue
+            best = 1 / float(self.state.max_num_nodes)
+            skew = 0.0
+            for i in xrange(self.state.max_num_nodes):
+                ratio = self.nodeCounts[col_name].get(i, 0) / float(total)
+                if ratio < best:
+                    ratio = best + ((1 - ratio/best) * (1 - best))
+                skew += math.log(ratio / best)
+            skew_total += ((skew / (math.log(1 / best) * self.state.max_num_nodes)) * col_factor)
+        if col_factor_total == 0:
+            return 0, num_ops
+        else:
+            return skew_total / col_factor_total, num_ops
 
-        best = 1 / float(self.state.max_num_nodes)
-        skew = 0.0
-        for i in xrange(self.state.max_num_nodes):
-            ratio = self.nodeCounts.get(i, 0) / float(total)
-            if ratio < best:
-                ratio = best + ((1 - ratio/best) * (1 - best))
-            skew += math.log(ratio / best)
-        return skew / (math.log(1 / best) * self.state.max_num_nodes), num_ops
     ## DEF
 
     ## -----------------------------------------------------------------------

@@ -209,13 +209,11 @@ class State():
         self.cache_handles.clear()
         self.estimator.reset()
 
-    def calcNumNodes(self, design):
+    def calcNumNodes(self, design, maxCardinality):
         num_nodes = {}
         for col_name in self.collections.keys():
             num_nodes[col_name] = self.max_num_nodes
-        collections_size = self.collectionsSize(design)
-        for col_name in self.collections.keys():
-            if design.hasCollection(col_name):
+            if maxCardinality[col_name] is not None and design.hasCollection(col_name):
                 cardinality = 1
                 shard_keys = design.getShardKeys(col_name)
                 if shard_keys is None or len(shard_keys) == 0:
@@ -227,42 +225,18 @@ class State():
                     field_cardinality = self.collections[col_name]["fields"][shard_key]["cardinality"]
                     if field_cardinality > 0:
                         cardinality *= field_cardinality
-                cardinality_ratio = self.collections[col_name]["doc_count"] / float(cardinality)
-                if cardinality_ratio > 0:
-                    cardinality_ratio = math.log(cardinality_ratio, 2)
-                if cardinality_ratio == 0:
+                cardinality_ratio = maxCardinality[col_name] / float(cardinality)
+                if cardinality_ratio == 1:
+                    cardinality_ratio = 0
+                elif cardinality_ratio < 2:
                     cardinality_ratio = 1
-                elif cardinality_ratio < 0:
-                    cardinality_ratio = -cardinality_ratio
                 else:
-                    cardinality_ratio = 1 / cardinality_ratio
-                size_ratio = collections_size[col_name] / float(1 << 24)
-                col_num_nodes = int(math.ceil(cardinality_ratio * size_ratio))
-                if col_num_nodes == 0:
+                    cardinality_ratio = int(math.ceil(math.log(cardinality_ratio, 2)))
+                col_num_nodes = self.max_num_nodes - cardinality_ratio
+                if col_num_nodes <= 0:
                     col_num_nodes = 1
-                if col_num_nodes > self.max_num_nodes:
-                    col_num_nodes = self.max_num_nodes
                 num_nodes[col_name] = col_num_nodes
         return num_nodes
-
-    def collectionsSize(self, design):
-        collectionsOrder = design.getCollectionsInTopologicalOrder()
-        collectionsSize = {}
-        for col_name in collectionsOrder.keys():
-            self.collectionSize(collectionsOrder, collectionsSize, col_name)
-        return collectionsSize
-
-    def collectionSize(self, collectionsOrder, collectionsSize, col_name):
-        if not collectionsSize.has_key(col_name):
-            if len(collectionsOrder[col_name]) == 0:
-                collectionsSize[col_name] = self.collections[col_name]["data_size"]
-            else:
-                size = 0
-                for child_col_name in collectionsOrder[col_name]:
-                    size += self.collectionSize(collectionsOrder, collectionsSize, child_col_name)
-                collectionsSize[col_name] = size
-        return collectionsSize[col_name]
-
 
     ## -----------------------------------------------------------------------
     ## UTILITY CODE

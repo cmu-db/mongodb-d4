@@ -86,63 +86,30 @@ class CostModel(object):
         
         self.col_names = [x for x in collections.iterkeys()]
         self.workload = workload
+        self.maxCardinality = self.calcMaxCardinality(collections)
         
         self.debug = False
         
         self.design_set = set()
     ## DEF
 
+    def calcMaxCardinality(self, collections):
+        maxCardinality = {}
+        for colName in collections:
+            interestingKeys = collections[colName]["interesting"]
+            cardinality = None
+            for interestingKey in interestingKeys:
+                keyCardinality = collections[colName]["fields"][interestingKey]["cardinality"]
+                if cardinality is None:
+                    cardinality = keyCardinality
+                else:
+                    cardinality *= keyCardinality
+            maxCardinality[colName] = cardinality
+        return maxCardinality
+
     def overallCost(self, design):
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
-        # design.data = {
-        #     "CUSTOMER": {
-        #           "denorm":    None,
-        #           "shardKeys": [u'C_ID', u'C_LAST', u'C_W_ID'],
-        #           "indexes":   []
-        #     },
-        #     "DISTRICT": {
-        #           "denorm":    None,
-        #           "shardKeys": [u'D_W_ID', u'D_ID'],
-        #           "indexes":   []
-        #     },
-        #     "HISTORY": {
-        #           "denorm":    None,
-        #           "shardKeys": [u'H_DATA', u'H_C_ID'],
-        #           "indexes":   []
-        #     },
-        #     "ITEM": {
-        #           "denorm":    None,
-        #           "shardKeys": [u'I_ID'],
-        #           "indexes":   []
-        #     }
-        #     ,
-        #     "NEW_ORDER": {
-        #           "denorm":    None,
-        #           "shardKeys": [u'NO_D_ID'],
-        #           "indexes":   []
-        #     },
-        #     "OORDER": {
-        #           "denorm":    None,
-        #           "shardKeys": [u'O_ID', u'O_C_ID', u'O_ENTRY_D'],
-        #           "indexes":   []
-        #     },
-        #     "ORDER_LINE": {
-        #           "denorm":    None,
-        #           "shardKeys": [u'OL_DIST_INFO', u'OL_AMOUNT', u'OL_I_ID'],
-        #           "indexes":   []
-        #     },
-        #     "STOCK": {
-        #           "denorm":    None,
-        #           "shardKeys": [u'S_I_ID', u'S_W_ID', u'S_QUANTITY'],
-        #           "indexes":   []
-        #     },
-        #     "WAREHOUSE": {
-        #           "denorm":    None,
-        #           "shardKeys": [u'W_ID'],
-        #           "indexes":   []
-        #     }
-        # }
         self.new_design = design
         
         combiner = WorkloadCombiner(self.col_names, self.workload)
@@ -150,7 +117,7 @@ class CostModel(object):
         if combinedWorkload:
             self.state.updateWorkload(combinedWorkload)
 
-        num_nodes = self.state.calcNumNodes(design)
+        num_nodes = self.state.calcNumNodes(design, self.maxCardinality)
 
         # This is meant to apply to all components
         # but it only works with network component
