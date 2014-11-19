@@ -148,15 +148,32 @@ class NodeEstimator(object):
     ## DEF
 
     def computeTouchedNode(self, col_name, fields, values, num_nodes=None):
-        index = 0
-        factor = 1
         if len(values) != len(fields):
             return 0
+        fieldsTuple = []
+        fieldsToCalc = []
+        valuesToCalc = []
+        for i in range(len(fields)):
+            fieldsTuple.append((fields[i], values[i], self.collections[col_name]["fields"][fields[i]]["cardinality"]))
+        fieldsTuple = sorted(fieldsTuple, key=lambda field: field[2], reverse=True)
+        cardinality = 1
+        for fieldTuple in fieldsTuple:
+            cardinality *= fieldTuple[2]
+            fieldsToCalc.append(fieldTuple[0])
+            valuesToCalc.append(fieldTuple[1])
+            if cardinality >= self.max_num_nodes:
+                break
+        return self.computeTouchedNodeImpl(col_name, fieldsToCalc, valuesToCalc, num_nodes)
+
+
+    def computeTouchedNodeImpl(self, col_name, fields, values, num_nodes=None):
+        index = 0
+        factor = 1
         for i in range(len(fields)):
             index += (self.computeTouchedRange(col_name, fields[i], values[i], num_nodes) * factor)
             factor *= self.max_num_nodes
         index /= math.pow(self.max_num_nodes, len(fields) - 1)
-        return int(math.ceil(index * self.colNumNodes(num_nodes, col_name) / self.max_num_nodes))
+        return int(math.floor(index * self.colNumNodes(num_nodes, col_name) / float(self.max_num_nodes)))
 
     ## DEF
 
