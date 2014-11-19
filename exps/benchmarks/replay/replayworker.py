@@ -226,10 +226,10 @@ class ReplayWorker(AbstractWorker):
                 # Handle count
                 if isCount:
                     result = resultCursor.count()
-                #else:
+                else:
                     # We have to iterate through the result so that we know that
                     # the cursor has copied all the bytes
-                    #result = [r for r in resultCursor]
+                    result = [r for r in resultCursor]
                 # IF
                 
                 # TODO: For queries that were originally joins, we need a way
