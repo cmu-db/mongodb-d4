@@ -101,15 +101,16 @@ class SkewCostComponent(AbstractCostComponent):
                 if design.isRelaxed(op['collection']):
                     if self.debug: LOG.debug("Relaxed: SKIP - %s Op #%d on %s", op['type'], op['query_id'], op['collection'])
                     continue
-                if not op["collection"] in self.collectionCounts:
-                    self.collectionCounts[op["collection"]] = 1
-                else:
-                    self.collectionCounts[op["collection"]] += 1
                 col_info = self.state.collections[op['collection']]
                 cache = self.state.getCacheHandle(col_info)
                 op_count = 1
                 if "weight" in op:
                     op_count = op["weight"]
+
+                if not op["collection"] in self.collectionCounts:
+                    self.collectionCounts[op["collection"]] = 1
+                else:
+                    self.collectionCounts[op["collection"]] += 1
 
                 #  This just returns an estimate of which nodes  we expect
                 #  the op to touch. We don't know exactly which ones they will

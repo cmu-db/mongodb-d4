@@ -83,7 +83,6 @@ class InitialDesigner(AbstractDesigner):
                 if op["collection"].find("$cmd") != -1:
                     continue
                 if not op["collection"] in col_keys:
-                    LOG.warn("Missing: " + op["collection"])
                     continue
                 fields = workload.getReferencedFields(op)
                 fields = filter(lambda field: field in self.collections[op["collection"]]["interesting"], fields)

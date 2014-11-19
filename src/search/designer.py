@@ -210,6 +210,7 @@ class Designer():
             if isShardingEnabled:
                 LOG.debug("Sharding is enabled")
                 fields = col_info['fields']
+                max_query_use_count = 1
                 interesting_scores = []
                 for interesting_key in interesting:
                     cardinality = fields[interesting_key]['cardinality']
@@ -218,14 +219,15 @@ class Designer():
                     else:
                         cardinality = 1
                     query_use_count = fields[interesting_key]["query_use_count"]
+                    if query_use_count > max_query_use_count:
+                        max_query_use_count = query_use_count
                     score = cardinality * query_use_count
-                    interesting_scores.append((interesting_key, score))
+                    interesting_scores.append((interesting_key, score, query_use_count))
                 sorted(interesting_scores, key=itemgetter(1), reverse=True)
-                shardKeys = [item[0] for item in interesting_scores]
-                if len(shardKeys) == 0:
-                    sorted_fields = sorted(fields.keys(), key=lambda field: fields[field]["cardinality"], reverse=True)
-                    sorted_fields.remove("_id")
-                    shardKeys = sorted_fields[:1]
+                shardKeys = []
+                for interesting_key in interesting_scores:
+                    if (interesting_key[2] / float(max_query_use_count)) > 0.1:
+                        shardKeys.append(interesting_key[0])
 
             # deal with indexes
             if isIndexesEnabled:
@@ -274,7 +276,7 @@ class Designer():
             # Skip any collection that doesn't have any documents in it
             # This is because we won't be able to make any estimates about how
             # big the collection actually is
-            if not col_info['doc_count'] or not col_info['avg_doc_size'] or col_info['workload_queries'] == 0:
+            if not col_info['doc_count'] or not col_info['avg_doc_size'] or len(col_info["interesting"]) == 0 or col_info['workload_queries'] == 0:
                 continue
             collections[col_info['name']] = col_info
         ## FOR
