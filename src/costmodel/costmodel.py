@@ -87,6 +87,7 @@ class CostModel(object):
         self.col_names = [x for x in collections.iterkeys()]
         self.workload = workload
         self.maxCardinality = self.calcMaxCardinality(collections)
+        self.collections = collections
         
         self.debug = False
         
@@ -110,9 +111,10 @@ class CostModel(object):
     def overallCost(self, design):
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
+
         self.new_design = design
         
-        combiner = WorkloadCombiner(self.col_names, self.workload)
+        combiner = WorkloadCombiner(self.col_names, self.workload, self.collections)
         combinedWorkload = combiner.process(design)
         if combinedWorkload:
             self.state.updateWorkload(combinedWorkload)

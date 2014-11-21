@@ -35,11 +35,12 @@ LOG = logging.getLogger(__name__)
 
 class WorkloadCombiner:
 
-    def __init__(self, col_names, workload):
+    def __init__(self, col_names, workload, collections=None):
         self.lastDesign = None
         self.col_names = col_names
         self.workload = workload
         self.col_sess_xref = None
+        self.collections = collections
 
         self.debug = LOG.isEnabledFor(logging.DEBUG)
     ## DEF
@@ -101,6 +102,24 @@ class WorkloadCombiner:
         return workload
     ## DEF
 
+    def __replace_query_key__(self, query_contents, col, parent_col):
+        if isinstance(query_contents, list):
+            for query_content in query_contents:
+                self.__replace_query_key__(query_content, col, parent_col)
+        elif isinstance(query_contents, dict):
+            keys = query_contents.keys()
+            for key in keys:
+                if isinstance(query_contents[key], dict):
+                    self.__replace_query_key__(query_contents[key], col, parent_col)
+                else:
+                    if key in self.collections[col]["fields"]:
+                        field_parent_col = self.collections[col]["fields"][key]["parent_col"]
+                        field_parent_key = self.collections[col]["fields"][key]["parent_key"]
+                        if field_parent_col == parent_col:
+                            value = query_contents[key]
+                            del query_contents[key]
+                            query_contents[field_parent_key] = value
+
     # If we want to embed queries accessing collection B to queries accessing collection A
     # We just remove all the queries that
     def __combine_queries__(self, col, parent_col):
@@ -108,6 +127,10 @@ class WorkloadCombiner:
         sessions = self.col_sess_xref[col]
         for sess in sessions:
             operations = sess['operations']
+            if self.collections is not None:
+                for op in operations:
+                    if op["collection"] == col:
+                        self.__replace_query_key__(op["query_content"], col, parent_col)
             operations_in_use = operations[:]
             cursor = len(operations)  - 1
             combinedQueries = []
