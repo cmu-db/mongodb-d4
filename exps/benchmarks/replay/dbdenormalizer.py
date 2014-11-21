@@ -83,7 +83,7 @@ class DBDenormalizer:
 
     ## DEF
     def denormalize(self, input_graph, parent_keys):
-        LOG.info("Denomalizing database")
+        LOG.info("Denormalizing database")
 
         graph = copy.deepcopy(input_graph) 
         while len(graph) > 0:
@@ -99,9 +99,13 @@ class DBDenormalizer:
                         self.new_db[parent].ensure_index([(f_id[k], pymongo.ASCENDING) for k in f_id]) 
                         # For each document in this collection
                         cnt = 1
+                        total = self.new_db[key].count()
+                        last_percent = 0
                         for doc in self.new_db[key].find({},{'_id':False},timeout=False):
-                            if cnt % 5000 == 0:
-                                print cnt
+                            percent = int(cnt * 100 / float(total))
+                            if percent != last_percent:
+                                last_percent = percent
+                                LOG.info("Denormalizing %s to %s: %d%%(%d/%d)", key, parent, percent, cnt, total)
                             cnt += 1
                             # Get the foreign key's value
                             con_dic = {f_id[k]: doc[k] for k in f_id}
