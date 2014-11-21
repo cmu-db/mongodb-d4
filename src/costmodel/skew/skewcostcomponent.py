@@ -70,7 +70,11 @@ class SkewCostComponent(AbstractCostComponent):
             segment_skew[i], op_counts[i] = self.calculateSkew(design, self.workload_segments[i], num_nodes)
 
         weighted_skew = sum([segment_skew[i] * op_counts[i] for i in xrange(len(self.workload_segments))])
-        cost = weighted_skew / float(sum(op_counts))
+        op_counts_sum = sum(op_counts)
+        if op_counts_sum == 0:
+            cost = 1.0
+        else:
+            cost = weighted_skew / float(sum(op_counts))
         LOG.info("Computed Skew Cost: %f", cost)
         return cost
     ## DEF

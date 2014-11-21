@@ -514,7 +514,8 @@ class BBNode():
         if not denorm is None and len(denorm) == 0:
             LOG.warn("Invalid denormalization candidate '%s' for collection %s", denorm, self.currentCol)
             feasible = False
-
+        if denorm is not None and (not self.design.hasCollection(denorm) or self.design.data[denorm] is None):
+            feasible = False
         
         return feasible
     
