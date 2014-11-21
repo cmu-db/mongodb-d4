@@ -61,18 +61,18 @@ class ReplayCoordinator(AbstractCoordinator):
     ## DEF
 
     def initImpl(self, config, channels):
-        metadata_conn = None
+        self.metadata_conn = None
         targetHost = config['replay']['metadata_host']
         try:
-            metadata_conn = pymongo.Connection(targetHost)
+            self.metadata_conn = pymongo.Connection(targetHost)
         except:
             LOG.error("Failed to connect to target MongoDB at %s", targetHost)
             raise
-        assert metadata_conn
+        assert self.metadata_conn
 
-        self.metadata_db = metadata_conn[config['replay']['metadata']]
-        self.new_meta = metadata_conn[config['replay']['new_meta']]
-        self.ori_db = metadata_conn[self.config['replay']['ori_db']]
+        self.metadata_db = self.metadata_conn[config['replay']['metadata']]
+        self.new_meta = self.metadata_conn[config['replay']['new_meta']]
+        self.ori_db = self.metadata_conn[self.config['replay']['ori_db']]
         self.new_db = self.conn[self.config['replay']['new_db']]
         self.design = self.getDesign(self.config['default']['design'])
         return dict()
