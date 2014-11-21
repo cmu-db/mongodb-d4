@@ -115,10 +115,12 @@ class WorkloadCombiner:
                     if key in self.collections[col]["fields"]:
                         field_parent_col = self.collections[col]["fields"][key]["parent_col"]
                         field_parent_key = self.collections[col]["fields"][key]["parent_key"]
+                        value = query_contents[key]
+                        del query_contents[key]
                         if field_parent_col == parent_col:
-                            value = query_contents[key]
-                            del query_contents[key]
                             query_contents[field_parent_key] = value
+                        else:
+                            query_contents["%s.%s" % (col, key)] = value
 
     # If we want to embed queries accessing collection B to queries accessing collection A
     # We just remove all the queries that
@@ -131,6 +133,7 @@ class WorkloadCombiner:
                 for op in operations:
                     if op["collection"] == col:
                         self.__replace_query_key__(op["query_content"], col, parent_col)
+                        self.__replace_query_key__(op["predicates"], col, parent_col)
             operations_in_use = operations[:]
             cursor = len(operations)  - 1
             combinedQueries = []
@@ -160,6 +163,7 @@ class WorkloadCombiner:
             for op in sess['operations']:
                 if op['collection'] == col:
                     op['collection'] = parent_col
+                    op['orig_collection'] = col
                 ## IF
             ## FOR
 
