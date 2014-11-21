@@ -111,13 +111,13 @@ class CostModel(object):
     def overallCost(self, design):
         # TODO: We should reset any cache entries for only those collections
         #       that were changed in this new design from the last design
-
         self.new_design = design
         
         combiner = WorkloadCombiner(self.col_names, self.workload, self.collections)
         combinedWorkload = combiner.process(design)
         if combinedWorkload:
             self.state.updateWorkload(combinedWorkload)
+            self.skewComponent.splitWorkload()
 
         num_nodes = self.state.calcNumNodes(design, self.maxCardinality)
 
@@ -153,6 +153,7 @@ class CostModel(object):
         self.finish()
         if combinedWorkload:
             self.state.restoreOriginalWorkload()
+            self.skewComponent.splitWorkload()
 
         return self.last_cost
     ## DEF

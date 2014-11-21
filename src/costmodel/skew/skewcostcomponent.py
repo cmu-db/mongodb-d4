@@ -104,13 +104,13 @@ class SkewCostComponent(AbstractCostComponent):
                 col_info = self.state.collections[op['collection']]
                 cache = self.state.getCacheHandle(col_info)
                 op_count = 1
-                if "weight" in op:
-                    op_count = op["weight"]
+                # if "weight" in op:
+                #     op_count = op["weight"]
 
                 if not op["collection"] in self.collectionCounts:
-                    self.collectionCounts[op["collection"]] = 1
+                    self.collectionCounts[op["collection"]] = op_count
                 else:
-                    self.collectionCounts[op["collection"]] += 1
+                    self.collectionCounts[op["collection"]] += op_count
 
                 #  This just returns an estimate of which nodes  we expect
                 #  the op to touch. We don't know exactly which ones they will
