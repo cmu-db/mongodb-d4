@@ -15,6 +15,8 @@ LOG = logging.getLogger(__name__)
 @todo: Handle nested queries?
 '''
 
+DEFAULT_TABLE_ALIAS = "__default_alias__"
+
 class Sql2Mongo (object) :
 
     query_id = 0
@@ -33,16 +35,21 @@ class Sql2Mongo (object) :
     Take a tuple specifying the attribute, operator, and value and add to the structure
     defining the Where clause
     '''
-    def add_where_comparison(self, table_alias, tuple) :
-        #tbl_name = self.table_aliases[table_alias]
-        tbl_name = ""
-        for tbl in self.schema:
-            if tuple[0] in self.schema[tbl]:
-                tbl_name = tbl
-                columns = list(self.where_cols[tbl_name])
-                if tuple[0] not in columns :
-                    self.where_cols[tbl_name][tuple[0]] = []
-                self.where_cols[tbl_name][tuple[0]].append((tuple[1], tuple[2]))
+    def add_where_comparison(self, table_alias, tuple):
+        tbl_name = self.table_aliases[table_alias]
+        assert tbl_name in self.schema
+        if table_alias != DEFAULT_TABLE_ALIAS:
+            assert tuple[0] in self.schema[tbl_name]
+        else:
+            if not tuple[0] in self.schema[tbl_name]:
+                for tbl in self.schema:
+                    if tuple[0] in self.schema[tbl]:
+                        tbl_name = tbl
+                assert tuple[0] in self.schema[tbl_name]
+        columns = list(self.where_cols[tbl_name])
+        if tuple[0] not in columns :
+            self.where_cols[tbl_name][tuple[0]] = []
+        self.where_cols[tbl_name][tuple[0]].append((tuple[1], tuple[2]))
 
 
     ## End add_where_comparison()
@@ -155,7 +162,7 @@ class Sql2Mongo (object) :
         parts = token.to_unicode().split('.')
         order = None
         if len(parts) == 1 :
-            index = 'main'
+            index = DEFAULT_TABLE_ALIAS
             sub_parts = re.split('\s+', parts[0])
             data = sub_parts[0]
             if len(sub_parts) > 1:
@@ -201,7 +208,7 @@ class Sql2Mongo (object) :
         if cls == 'Identifier' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
             self.tables.append(tbl_name)
-            self.table_aliases['main'] = tbl_name
+            self.table_aliases[DEFAULT_TABLE_ALIAS] = tbl_name
         
         ''' PROCESS WHERE clause '''
         if where_loc <> None :
@@ -303,11 +310,11 @@ class Sql2Mongo (object) :
         ## ENDFOR
         
         self.tables.append(tbl_name)
-        self.table_aliases['main'] = tbl_name
+        self.table_aliases[DEFAULT_TABLE_ALIAS] = tbl_name
         
         i = 0
         for col in column_values :
-            self.add_where_comparison('main', (cols[i], ':', col))
+            self.add_where_comparison(DEFAULT_TABLE_ALIAS, (cols[i], ':', col))
             i += 1
     ## End process_query_insert()
 
@@ -381,7 +388,7 @@ class Sql2Mongo (object) :
                 for v in vals :
                     parts = v.to_unicode().split(' ')
                     if len(parts) == 1 :
-                        index = 'main'
+                        index = DEFAULT_TABLE_ALIAS
                     elif len(parts) == 2 :
                         index = parts[1]
                     else :
@@ -391,7 +398,7 @@ class Sql2Mongo (object) :
             elif cls == 'Identifier' : 
                 parts = self.stmt.tokens[i].to_unicode().split(' ')
                 if len(parts) == 1 :
-                    index = 'main'
+                    index = DEFAULT_TABLE_ALIAS
                 elif len(parts) == 2 :
                     index = parts[1]
                 else :
@@ -406,7 +413,7 @@ class Sql2Mongo (object) :
                     i += 1
                     if i >= end :
                         self.tables.append(table)
-                        self.table_aliases['main'] = table
+                        self.table_aliases[DEFAULT_TABLE_ALIAS] = table
                         break
                     next = self.stmt.tokens[i]
                     if next.ttype == sqlparse.tokens.Token.Text.Whitespace :
@@ -454,13 +461,13 @@ class Sql2Mongo (object) :
                     parts = args.split('.')
                     if len(parts) == 1 :
                         # TOFIX: when joining two tables with alias and the attribute is unique, the main is empty
-                        self.project_cols[self.table_aliases['main']].append(parts[0])
+                        self.project_cols[self.table_aliases[DEFAULT_TABLE_ALIAS]].append(parts[0])
                     else :
                         self.project_cols[self.table_aliases[parts[0]]].append(parts[1])
             else :
                 parts = self.stmt.tokens[i].to_unicode().split('.')
                 if len(parts) == 1 :
-                    self.project_cols[self.table_aliases['main']].append(parts[0])
+                    self.project_cols[self.table_aliases[DEFAULT_TABLE_ALIAS]].append(parts[0])
                 else :
                     self.project_cols[self.table_aliases[parts[0]]].append(parts[1])
         
@@ -576,11 +583,11 @@ class Sql2Mongo (object) :
         if cls == 'Identifier' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
             self.tables.append(tbl_name)
-            self.table_aliases['main'] = tbl_name
+            self.table_aliases[DEFAULT_TABLE_ALIAS] = tbl_name
         elif cls == 'Token' :
             tbl_name = self.stmt.tokens[tbl_token_loc].to_unicode()
             self.tables.append(tbl_name)
-            self.table_aliases['main'] = tbl_name
+            self.table_aliases[DEFAULT_TABLE_ALIAS] = tbl_name
         
         ''' PROCESS SET clause '''
         if set_loc <> None :
@@ -706,7 +713,7 @@ class Sql2Mongo (object) :
     '''
     Convert SQL comparison operators to MongoDB comparison operators
     '''
-    def process_where_comparison_operator(self, op) :
+    def process_where_comparison_operator(self, op):
         cls = op.__class__.__name__
         if cls == 'Token' :
             if op.to_unicode() == '=' or op.to_unicode() == 'IS':
@@ -748,8 +755,10 @@ class Sql2Mongo (object) :
         cls = value.__class__.__name__
         if cls == 'Identifier' :
             #print value,str(value.to_unicode())
-            return "'" + str(value.to_unicode()).strip('"\'') + "'"
-        elif value.ttype == sqlparse.tokens.String :
+            return "".join([self.process_where_comparison_value(token) for token in value.tokens])
+        elif cls == 'Token' and value.ttype == sqlparse.tokens.Name:
+            return value.to_unicode()
+        elif value.ttype == sqlparse.tokens.String or value.ttype == sqlparse.tokens.String.Symbol:
             return "'" + str(value.to_unicode()).strip('"\'') + "'"
         else :
             return value.to_unicode()
@@ -987,9 +996,11 @@ class Sql2Mongo (object) :
             output.append(set_dict)
         return output
     ## End render_trace_update()
-    
-    def render_trace_value(self, val) :
-        if val.lower() == 'null' :
+
+    def render_trace_value(self, val, replace=False) :
+        if val[0] in ['"', "'"] :
+            val = val.strip('"\'')
+        elif val.lower() == 'null' :
             val = 'null'
         elif '+' in val:
             val = val.strip('"\'').split('+')
@@ -1003,8 +1014,6 @@ class Sql2Mongo (object) :
         elif '/' in val:
             val = val.strip('"\'').split('/')
             val.append('/')
-        elif val[0] in ['"', "'"] :
-            val = val.strip('"\'')
         elif val[0] == '(':
             val = val[1:-1] # Remove the parentheses
             val = val.split(',')
@@ -1016,10 +1025,35 @@ class Sql2Mongo (object) :
             try:
                 val = float(val)
             except ValueError:
-                val = ''.join(['$$', val])
+                replaced_val = self.render_value_replace(val)
+                if replace and replaced_val is not None:
+                    val = replaced_val
+                else:
+                    val = None
         return val
     ## End render_trace_value()
-    
+
+    def render_value_replace(self, val):
+        table = None
+        field = val
+        if "." in val:
+            splits = val.split(".")
+            if len(splits) == 2 and (splits[0] in self.table_aliases):
+                table = self.table_aliases[splits[0]]
+                field = splits[1]
+        else:
+            for tbl_item in self.schema:
+                if val in self.schema[tbl_item]:
+                    table = tbl_item
+                    break
+        if (table is not None
+            and (table in self.where_cols)
+            and (field in self.where_cols[table]
+            and (len(self.where_cols[table][field]) == 1)
+            and (self.where_cols[table][field][0][0] == ":"))):
+            return self.render_trace_value(self.where_cols[table][field][0][1])
+        return None
+
     def render_trace_where_clause(self, tbl_name) :
         output = {}
         if (self.use_or == True) :
@@ -1028,16 +1062,23 @@ class Sql2Mongo (object) :
                 part = {}
                 if len(ops) == 1 :
                     if ops[0][0] == ':' :
-                        part[col] = self.render_trace_value(ops[0][1])
+                        val = self.render_trace_value(ops[0][1])
+                        if val is not None:
+                            part[col] = val
                     else :
-                        dict = {}
-                        dict[ops[0][0]] = self.render_trace_value(ops[0][1])
-                        part[col] = dict
+                        val = self.render_trace_value(ops[0][1])
+                        if val is not None:
+                            dict = {}
+                            dict[ops[0][0]] = val
+                            part[col] = dict
                 else :
                     inner_parts = {}
                     for tups in ops :
-                        inner_parts[tups[0]] = self.render_trace_value(tups[1])
-                    part[col] = inner_parts
+                        val = self.render_trace_value(tups[1])
+                        if val is not None:
+                            inner_parts[tups[0]] = val
+                    if len(inner_parts) > 0:
+                        part[col] = inner_parts
                 clauses.append(part)
             return {constants.EPLACE_KEY_DOLLAR_PREFIX + 'or' : clauses }
         else :
@@ -1045,16 +1086,23 @@ class Sql2Mongo (object) :
                 for col, ops in self.where_cols[tbl_name].iteritems() :
                     if len(ops) == 1 :
                         if ops[0][0] == ':' :
-                            output[col] = self.render_trace_value(ops[0][1])
+                            val = self.render_trace_value(ops[0][1], True)
+                            if val is not None:
+                                output[col] = val
                         else :
-                            dict = {}
-                            dict[ops[0][0]] = self.render_trace_value(ops[0][1])
-                            output[col] = dict
+                            val = self.render_trace_value(ops[0][1])
+                            if val is not None:
+                                dict = {}
+                                dict[ops[0][0]] = val
+                                output[col] = dict
                     else :
                         inner_parts = {}
                         for tups in self.where_cols[tbl_name][col] :
-                            inner_parts[tups[0]] = self.render_trace_value(tups[1])
-                        output[col] = inner_parts
+                            val = self.render_trace_value(tups[1])
+                            if val is not None:
+                                inner_parts[tups[0]] = val
+                        if len(inner_parts) > 0:
+                            output[col] = inner_parts
                 return output
             elif len(self.project_cols[tbl_name]) > 0 :
                 return {}

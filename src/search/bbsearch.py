@@ -335,7 +335,7 @@ class ShardKeyIterator:
         self.currentSize = len(self.keys)
 
     def next(self):
-        if self.currentSize < 0:
+        if self.currentSize <= 0:
             raise StopIteration
         result = None
         if self.currentSize == 0:
@@ -468,8 +468,9 @@ class BBNode():
         # it's OK so long there are not too many consecutive infeasible nodes,
         # then it could hit the max recursion limit...
         if not self.__isFeasible__(denorm, shardKey):
-            LOG.warn("FAIL")
             return self.getNextChild()
+        if denorm is not None:
+            shardKey = ()
             
         ### --- end of CONSTRAINTS ---
         # make the child
@@ -513,10 +514,7 @@ class BBNode():
         if not denorm is None and len(denorm) == 0:
             LOG.warn("Invalid denormalization candidate '%s' for collection %s", denorm, self.currentCol)
             feasible = False
-            
-        # embedded collections should not have a sharding key
-        if feasible and not denorm is None and len(shardKey) != 0:
-            feasible = False
+
         
         return feasible
     
