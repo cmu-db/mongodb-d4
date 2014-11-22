@@ -290,7 +290,7 @@ class ReplayWorker(AbstractWorker):
                 raise Exception("Unexpected query type: %s" % op['type'])
             end = time.time()
 
-            latencies.append(((end - start) * 1000, sess["session_id"], i, op["type"], op["collection"]))
+            latencies.append(((end - start) * 1000, sess["session_id"], i, op["type"], op["collection"], op['predicates']))
 
             if not 'ori_number' in op:
                 op_counter += 1

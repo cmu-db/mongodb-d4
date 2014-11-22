@@ -26,6 +26,7 @@
 import logging
 import time
 import math
+import json
 from operator import itemgetter
 
 from util.histogram import Histogram
@@ -151,7 +152,7 @@ class Results:
                 Results.show_table("Latency Report", latency_headers, latency_table, line_width)
             if self.config is not None and self.config["default"]["slow_ops_num"] > 0:
                 num_ops = self.config["default"]["slow_ops_num"]
-                slowest_ops_headers = ["#", "Latency(ms)", "Session Id", "Operation Id", "Type", "Collection"]
+                slowest_ops_headers = ["#", "Latency(ms)", "Session Id", "Operation Id", "Type", "Collection", "Predicates"]
                 for i in range(num_ops):
                     if i < len(latencies):
                         slowest_ops.append([
@@ -160,7 +161,8 @@ class Results:
                             str(latencies[len(latencies) - i - 1][1]),
                             str(latencies[len(latencies) - i - 1][2]),
                             latencies[len(latencies) - i - 1][3],
-                            latencies[len(latencies) - i - 1][4]
+                            latencies[len(latencies) - i - 1][4],
+                            json.dumps(latencies[len(latencies) - i - 1][5])
                         ])
                 slowest_ops_output, line_width = \
                     Results.show_table("Top %d Slowest Operations" % num_ops, slowest_ops_headers, slowest_ops, line_width)
