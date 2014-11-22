@@ -29,6 +29,7 @@ import string
 import re
 import logging
 import traceback
+import time
 
 import pymongo
 
@@ -166,12 +167,14 @@ class ReplayWorker(AbstractWorker):
         # have an operation that doesn't touch a collection that we don't already
         # know about.
         op_counter = 0
-        for op in sess['operations']:
+        latencies = []
+        for i in range(len(sess['operations'])):
+            op = sess["operations"][i]
             coll = op['collection']
             if not coll in self.collections:
                 msg = "Invalid operation on unexpected collection '%s'" % coll
                 if coll.find("$cmd"): # MONGODB system error collection
-                    return op_counter
+                    return op_counter, latencies
                 ## IF
                 
             if self.debug:
@@ -229,7 +232,7 @@ class ReplayWorker(AbstractWorker):
                 else:
                     # We have to iterate through the result so that we know that
                     # the cursor has copied all the bytes
-                    result = [r for r in resultCursor]
+                    result = list(resultCursor)
                 # IF
                 
                 # TODO: For queries that were originally joins, we need a way
@@ -242,7 +245,6 @@ class ReplayWorker(AbstractWorker):
                 whereClause = op['query_content'][0]
                 assert whereClause, "Missing WHERE clause for %s" % op['type']
 
-                print op
                 whereClause = ReplayWorker.getWhereClause(whereClause, op['predicates'])
 
                 # The second element has what we're trying to update
@@ -287,7 +289,9 @@ class ReplayWorker(AbstractWorker):
             else:
                 raise Exception("Unexpected query type: %s" % op['type'])
             end = time.time()
-            
+
+            latencies.append(((end - start) * 1000, sess["session_id"], i, op["type"], op["collection"]))
+
             if not 'ori_number' in op:
                 op_counter += 1
             else:
@@ -296,6 +300,6 @@ class ReplayWorker(AbstractWorker):
                 LOG.debug("%s Result: %s" % (op['type'], pformat(result)))
         ## FOR
 
-        return op_counter
+        return op_counter, latencies
     ## DEF
 ## CLASS

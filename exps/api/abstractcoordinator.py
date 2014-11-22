@@ -274,7 +274,7 @@ class AbstractCoordinator:
 
         # Each channel will return back a Result object
         # We will append each one to our global results
-        self.total_results = Results()
+        self.total_results = Results(config)
         try:
             for ch in channels:
                 msg = getMessage(ch.receive())

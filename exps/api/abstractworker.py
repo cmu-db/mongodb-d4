@@ -175,7 +175,7 @@ class AbstractWorker:
         self.lastChannel = channel
         config['default']['execute'] = True
         config['default']['reset'] = False
-        r = Results()
+        r = Results(config)
         assert r
         LOG.info("Executing benchmark for %d seconds" % config['default']['duration'])
         debug = LOG.isEnabledFor(logging.DEBUG)
@@ -197,9 +197,9 @@ class AbstractWorker:
             txn_id = r.startTransaction(txn)
             if debug: LOG.debug("Executing '%s' transaction" % txn)
             try:
-                opCount = self.executeImpl(config, txn, params)
+                opCount, latencies = self.executeImpl(config, txn, params)
                 assert not opCount is None
-                r.stopTransaction(txn_id, opCount)
+                r.stopTransaction(txn_id, opCount, latencies)
             except KeyboardInterrupt:
                 return -1
             except (Exception, AssertionError), ex:

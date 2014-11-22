@@ -436,7 +436,7 @@ class BlogWorker(AbstractWorker):
             LOG.warn("Unexpected error when executing %s" % op)
             raise
         
-        return result # number of operations
+        return result, [] # number of operations
     ## DEF
     
     def readArticleById(self,config, articleId):

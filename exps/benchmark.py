@@ -90,6 +90,7 @@ class Benchmark:
         ("mongostat", "Enable mongostat data collection", False),
         ("mongostat_dir", "The directory to store the mongostat state output in.", "mongostat"),
         ("mongostat_sleep", "The number of seconds to sleep before collecting new info using mongostat", 10),
+        ("slow_ops_num", "The number of slow operation to show", 0)
     ]
     
     '''main class'''

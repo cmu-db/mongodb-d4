@@ -25,6 +25,8 @@
 
 import logging
 import time
+import math
+from operator import itemgetter
 
 from util.histogram import Histogram
 
@@ -32,7 +34,7 @@ LOG = logging.getLogger(__name__)
 
 class Results:
     
-    def __init__(self):
+    def __init__(self, config=None):
         self.start = None
         self.stop = None
         self.txn_id = 0
@@ -41,6 +43,7 @@ class Results:
         self.txn_counters = Histogram()
         self.txn_times = { }
         self.running = { }
+        self.config = config
         
     def startBenchmark(self):
         """Mark the benchmark as having been started"""
@@ -68,7 +71,7 @@ class Results:
         txn_name, txn_start = self.running[id]
         del self.running[id]
         
-    def stopTransaction(self, id, opCount):
+    def stopTransaction(self, id, opCount, latencies=[]):
         """Record that the benchmark completed an invocation of the given transaction"""
         assert id in self.running
         
@@ -76,7 +79,7 @@ class Results:
         
         txn_name, txn_start = self.running[id]
         del self.running[id]
-        self.completed.append((txn_name, timestamp))
+        self.completed.append((txn_name, timestamp, latencies))
         
         duration = timestamp - txn_start
         total_time = self.txn_times.get(txn_name, 0)
@@ -96,7 +99,74 @@ class Results:
         if LOG.isEnabledFor(logging.DEBUG):
             LOG.debug("Completed %s in %f sec" % (txn_name, duration))
     ## DEF
-        
+
+    @staticmethod
+    def show_table(title, headers, table, line_width):
+        cols_width = [len(header) for header in headers]
+        for row in table:
+            row_width = 0
+            for i in range(len(headers)):
+                if len(row[i]) > cols_width[i]:
+                    cols_width[i] = len(row[i])
+                row_width += cols_width[i]
+            row_width += 4 * (len(headers) - 1)
+            if row_width > line_width:
+                line_width = row_width
+        output = ("%s\n" % ("=" * line_width))
+        output += ("%s\n" % title)
+        output += ("%s\n" % ("-" * line_width))
+        for i in range(len(headers)):
+            header = headers[i]
+            output += ("%s%s" % (header, " " * (cols_width[i] - len(header))))
+            if i != len(headers) - 1:
+                output += " " * 4
+        output += "\n"
+        for row in table:
+            for i in range(len(headers)):
+                cell = row[i]
+                output += ("%s%s" % (cell, " " * (cols_width[i] - len(cell))))
+                if i != len(headers) - 1:
+                    output += " " * 4
+            output += "\n"
+        output += ("%s\n" % ("-" * line_width))
+        return output, line_width
+
+    def show_latencies(self, line_width):
+        latencies = []
+        output = ""
+        for txn_stats in self.completed:
+            latencies.extend(txn_stats[2])
+        if len(latencies) > 0:
+            latencies = sorted(latencies, key=itemgetter(0))
+            percents = [0.1, 0.2, 0.5, 0.8, 0.9, 0.999]
+            latency_table = []
+            slowest_ops = []
+            for percent in percents:
+                index = int(math.floor(percent * len(latencies)))
+                percent_str = "%0.1f%%" % (percent * 100)
+                millis_sec_str = "%0.4f" % (latencies[index][0])
+                latency_table.append((percent_str, millis_sec_str))
+            latency_headers = ["Queries(%)", "Latency(ms)"]
+            output, line_width = \
+                Results.show_table("Latency Report", latency_headers, latency_table, line_width)
+            if self.config is not None and self.config["default"]["slow_ops_num"] > 0:
+                num_ops = self.config["default"]["slow_ops_num"]
+                slowest_ops_headers = ["#", "Latency(ms)", "Session Id", "Operation Id", "Type", "Collection"]
+                for i in range(num_ops):
+                    if i < len(latencies):
+                        slowest_ops.append([
+                            "%d" % i,
+                            "%0.4f" % (latencies[len(latencies) - i - 1][0]),
+                            str(latencies[len(latencies) - i - 1][1]),
+                            str(latencies[len(latencies) - i - 1][2]),
+                            latencies[len(latencies) - i - 1][3],
+                            latencies[len(latencies) - i - 1][4]
+                        ])
+                slowest_ops_output, line_width = \
+                    Results.show_table("Top %d Slowest Operations" % num_ops, slowest_ops_headers, slowest_ops, line_width)
+                output += ("\n%s" % slowest_ops_output)
+        return output
+
     def append(self, r):  
         self.opCount += r.opCount
         for txn_name in r.txn_counters.keys():
@@ -171,5 +241,5 @@ class Results:
         #total_rate = str(rate)
         ret += f % ("TOTAL", str(total_cnt), str(total_time*1000), total_rate)
 
-        return (ret.encode('utf-8'))
+        return ("%s\n%s" % (ret, self.show_latencies(total_width))).encode('utf-8')
 ## CLASS

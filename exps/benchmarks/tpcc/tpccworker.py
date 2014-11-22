@@ -118,6 +118,6 @@ class TpccWorker(AbstractWorker):
     def executeImpl(self, config, txn, params):
         assert self.driver != None
         assert self.executor != None
-        return self.driver.executeTransaction(txn, params)
+        return self.driver.executeTransaction(txn, params), []
     ## DEF    
 ## CLASS
