@@ -140,9 +140,8 @@ class BlogWorker(AbstractWorker):
         
         if self.getWorkerId() == 0:
             if config['default']["reset"]:
-               if not config[self.name]["experiment"] == constants.EXP_SHARDING:
-                   LOG.info("Resetting database '%s'" % config['default']["dbname"])
-                   self.conn.drop_database(config['default']["dbname"])
+               LOG.info("Resetting database '%s'" % config['default']["dbname"])
+               self.conn.drop_database(config['default']["dbname"])
             
             ## SHARDING
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
