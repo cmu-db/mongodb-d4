@@ -268,6 +268,8 @@ class BlogWorker(AbstractWorker):
                 trial = int(config[self.name]["indexes"])
                 if trial == 1:    
                     self.db[constants.ARTICLE_COLL].ensure_index([("id", pymongo.ASCENDING)])
+                    self.db[constants.COMMENT_COLL].ensure_index([("article", pymongo.ASCENDING)])
+                    self.db[constants.COMMENT_COLL].ensure_index([("id", pymongo.ASCENDING)])
                 pass                
             
             else:
