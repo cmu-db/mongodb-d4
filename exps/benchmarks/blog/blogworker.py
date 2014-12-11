@@ -146,8 +146,7 @@ class BlogWorker(AbstractWorker):
             
             ## SHARDING
             if config[self.name]["experiment"] == constants.EXP_SHARDING:
-                #self.enableSharding(config)
-                pass
+                self.enableSharding(config)
         ## IF
             
         ## The next operation that we need to execute	
