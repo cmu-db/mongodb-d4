@@ -42,7 +42,7 @@ class BlogCoordinator(AbstractCoordinator):
         ("commentsperarticle","Number of comments per article", 100),
         ("firstArticle","The first article id to insert into the database", 0),
         ("experiment", "What type of experiment to execute. Valid values = %s" % constants.EXP_ALL, constants.EXP_DENORMALIZATION),
-        ("sharding", "Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_SINGLE),
+        ("sharding", "Sharding experiment configuration type. Valid values = %s" % constants.SHARDEXP_ALL, constants.SHARDEXP_RANGE),
         ("indexes", "Indexing experiment configuration type. Valid values = %s" % constants.INDEXEXP_ALL, constants.INDEXEXP_9010),
         ("denormalize", "If set to true, then the COMMENTS are denormalized into ARTICLES", False),
         ("skew","if the value is e.g 0.9 then 90 percent of the time the 10 percent of articles will be accessed and the rest 10 percent of times the 90 percent of articles will be accessed",0.9),

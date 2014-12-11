@@ -172,13 +172,13 @@ class BlogWorker(AbstractWorker):
         # Generate sharding key patterns
         # CollectionName -> Pattern
         # http://www.mongodb.org/display/DOCS/Configuring+Sharding#ConfiguringSharding-ShardingaCollection
-        shardingPattern = { }
+        shardingPattern = {}
         col =  self.db[constants.ARTICLE_COLL]
-        if config[self.name]["sharding"] == constants.SHARDEXP_SINGLE:
+        if config[self.name]["sharding"] == constants.SHARDEXP_RANGE:
             shardingPattern = {"id" : 1}
         
-        elif config[self.name]["sharding"] == constants.SHARDEXP_COMPOUND:
-            shardingPattern = {"id" : 1, "hashid" : 1}
+        elif config[self.name]["sharding"] == constants.SHARDEXP_HASH:
+            shardingPattern = {"id" : "hashed"}
         
         else:
             raise Exception("Unexpected sharding configuration type '%d'" % config["sharding"])
